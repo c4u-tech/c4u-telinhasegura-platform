@@ -31,7 +31,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   AppleIdTokens apple() => AppleIdTokens(
-    servicesId: 'br.com.coding4u.telinha-segura.web',
+    servicesId: 'tech.coding4u.telinhasegura.web',
     redirectUri: Uri.parse('https://api.test/v1/oauth/apple/callback'),
   );
 
@@ -60,7 +60,7 @@ void main() {
       return s;
     });
     final tokens = AppleIdTokens(
-      servicesId: 'br.com.coding4u.telinha-segura.web',
+      servicesId: 'tech.coding4u.telinhasegura.web',
       redirectUri: Uri.parse('https://app.test'),
       prepare: () async => order.add('prepare'),
     );

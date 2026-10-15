@@ -73,19 +73,19 @@ func (a *apple) client(k *ecdsa.PrivateKey) *appleid.Client {
 func TestRevokeExchangesThenRevokes(t *testing.T) {
 	k, _ := newKey(t)
 	a := newApple(t)
-	if err := a.client(k).Revoke(context.Background(), "br.com.coding4u.telinhaSegura", "the-code"); err != nil {
+	if err := a.client(k).Revoke(context.Background(), "tech.coding4u.telinhasegura", "the-code"); err != nil {
 		t.Fatal(err)
 	}
 	tok := a.forms["/auth/token"][0]
-	if tok["grant_type"] != "authorization_code" || tok["code"] != "the-code" || tok["client_id"] != "br.com.coding4u.telinhaSegura" {
+	if tok["grant_type"] != "authorization_code" || tok["code"] != "the-code" || tok["client_id"] != "tech.coding4u.telinhasegura" {
 		t.Fatalf("token form %v", tok)
 	}
 	rev := a.forms["/auth/revoke"][0]
-	if rev["token"] != "rt" || rev["token_type_hint"] != "refresh_token" || rev["client_id"] != "br.com.coding4u.telinhaSegura" {
+	if rev["token"] != "rt" || rev["token_type_hint"] != "refresh_token" || rev["client_id"] != "tech.coding4u.telinhasegura" {
 		t.Fatalf("revoke form %v", rev)
 	}
-	verifySecret(t, &k.PublicKey, tok["client_secret"], "br.com.coding4u.telinhaSegura")
-	verifySecret(t, &k.PublicKey, rev["client_secret"], "br.com.coding4u.telinhaSegura")
+	verifySecret(t, &k.PublicKey, tok["client_secret"], "tech.coding4u.telinhasegura")
+	verifySecret(t, &k.PublicKey, rev["client_secret"], "tech.coding4u.telinhasegura")
 }
 
 // verifySecret checks the ES256 JWT Apple expects (Client secret).

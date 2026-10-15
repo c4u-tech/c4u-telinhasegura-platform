@@ -82,7 +82,7 @@ func (ks *keyServer) sign(kid string, claims map[string]any) string {
 
 func newVerifier(ks *keyServer, appleIDs ...string) *idtoken.OIDC {
 	if appleIDs == nil {
-		appleIDs = []string{"br.com.coding4u.telinhaSegura", "br.com.coding4u.telinhaSegura.web"}
+		appleIDs = []string{"tech.coding4u.telinhasegura", "tech.coding4u.telinhasegura.web"}
 	}
 	return idtoken.NewOIDC(ks.srv.Client(), func() time.Time { return now }, map[idtoken.Provider]idtoken.ProviderConfig{
 		idtoken.Google: {Issuer: "https://accounts.google.com", JWKSURL: ks.srv.URL, ClientIDs: []string{"web-client"}},
@@ -100,7 +100,7 @@ func googleClaims() map[string]any {
 
 func appleClaims() map[string]any {
 	return map[string]any{
-		"iss": "https://appleid.apple.com", "aud": "br.com.coding4u.telinhaSegura", "sub": "a-123",
+		"iss": "https://appleid.apple.com", "aud": "tech.coding4u.telinhasegura", "sub": "a-123",
 		"email": "x1y2@privaterelay.appleid.com", "email_verified": "true", "is_private_email": "true",
 		"iat": now.Add(-time.Minute).Unix(), "exp": now.Add(time.Hour).Unix(),
 	}
@@ -236,12 +236,12 @@ func TestProviderWithoutClientIDsIsDisabled(t *testing.T) {
 func TestVerifyReportsTheMatchingAudience(t *testing.T) {
 	ks := newKeyServer(t)
 	v := newVerifier(ks)
-	raw := ks.sign("k1", with(appleClaims(), "aud", []string{"other", "br.com.coding4u.telinhaSegura"}))
+	raw := ks.sign("k1", with(appleClaims(), "aud", []string{"other", "tech.coding4u.telinhasegura"}))
 	c, err := v.Verify(context.Background(), idtoken.Apple, raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Audience != "br.com.coding4u.telinhaSegura" {
-		t.Fatalf("got Audience %q, want %q", c.Audience, "br.com.coding4u.telinhaSegura")
+	if c.Audience != "tech.coding4u.telinhasegura" {
+		t.Fatalf("got Audience %q, want %q", c.Audience, "tech.coding4u.telinhasegura")
 	}
 }

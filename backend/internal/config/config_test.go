@@ -102,22 +102,22 @@ func TestLoadReadsProviderClientIDs(t *testing.T) {
 	c, err := config.Load(env(map[string]string{
 		"DATABASE_URL": "x", "APP_BASE_URL": "y",
 		"GOOGLE_CLIENT_IDS":   "web.apps.googleusercontent.com, ios.apps.googleusercontent.com",
-		"APPLE_CLIENT_IDS":    "br.com.coding4u.telinhaSegura,br.com.coding4u.telinhaSegura.web",
-		"APP_ANDROID_PACKAGE": "br.com.coding4u.telinha_segura",
+		"APPLE_CLIENT_IDS":    "tech.coding4u.telinhasegura,tech.coding4u.telinhasegura.web",
+		"APP_ANDROID_PACKAGE": "tech.coding4u.telinhasegura",
 		"APPLE_TEAM_ID":       "TEAM123456", "APPLE_KEY_ID": "KEY1234567", "APPLE_PRIVATE_KEY": appleKeyPEM(t),
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(c.GoogleClientIDs, []string{"web.apps.googleusercontent.com", "ios.apps.googleusercontent.com"}) ||
-		!reflect.DeepEqual(c.AppleClientIDs, []string{"br.com.coding4u.telinhaSegura", "br.com.coding4u.telinhaSegura.web"}) ||
-		c.AndroidPackage != "br.com.coding4u.telinha_segura" {
+		!reflect.DeepEqual(c.AppleClientIDs, []string{"tech.coding4u.telinhasegura", "tech.coding4u.telinhasegura.web"}) ||
+		c.AndroidPackage != "tech.coding4u.telinhasegura" {
 		t.Fatalf("got %+v", c)
 	}
 }
 
 func TestLoadRequiresTheAndroidPackageWithApple(t *testing.T) {
-	_, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "APPLE_CLIENT_IDS": "br.com.coding4u.telinhaSegura"}))
+	_, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "APPLE_CLIENT_IDS": "tech.coding4u.telinhasegura"}))
 	if err == nil {
 		t.Fatal("Apple without APP_ANDROID_PACKAGE accepted")
 	}

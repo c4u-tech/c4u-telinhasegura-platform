@@ -65,7 +65,7 @@ key (`key.properties` or the four env vars); debug runs do not.
   `adb shell input tap <x> <y>` and `adb shell input text '<text>'`
   (`%s` for a space); the iOS simulator has no equivalent built in, so
   iOS flows are walked by hand.
-- **Fresh state:** `adb shell pm clear br.com.coding4u.telinha_segura`;
+- **Fresh state:** `adb shell pm clear tech.coding4u.telinhasegura`;
   on iOS, delete the app from the simulator's home screen.
 
 ## 5. Emulator, simulator and web differ in
@@ -103,7 +103,7 @@ it on a device without scanning:
 
 ```sh
 adb shell am start -W -a android.intent.action.VIEW \
-  -d "telinhasegura://vincular?codigo=ABC123" br.com.coding4u.telinha_segura
+  -d "telinhasegura://vincular?codigo=ABC123" tech.coding4u.telinhasegura
 xcrun simctl openurl booted "telinhasegura://vincular?codigo=ABC123"
 ```
 

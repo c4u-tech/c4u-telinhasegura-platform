@@ -43,7 +43,7 @@ func (f *fixture) appleAccount2(email string) string {
 }
 
 func (f *fixture) appleCred(subject string) *privacy.AppleCredential {
-	tok := f.ids.Issue(idtoken.Apple, idtoken.Claims{Subject: subject, Audience: "br.com.coding4u.telinhaSegura"})
+	tok := f.ids.Issue(idtoken.Apple, idtoken.Claims{Subject: subject, Audience: "tech.coding4u.telinhasegura"})
 	return &privacy.AppleCredential{IdentityToken: tok, AuthorizationCode: "code-1"}
 }
 
@@ -87,7 +87,7 @@ func TestDeleteAppleRevokesThenErases(t *testing.T) {
 	if !f.gone(ana) {
 		t.Fatal("account kept")
 	}
-	if want := [][2]string{{"br.com.coding4u.telinhaSegura", "code-1"}}; !slices.Equal(f.apple.calls, want) {
+	if want := [][2]string{{"tech.coding4u.telinhasegura", "code-1"}}; !slices.Equal(f.apple.calls, want) {
 		t.Fatalf("calls %v", f.apple.calls)
 	}
 	if f.audit.Has(ana, audit.AppleRevocationFailed) {

@@ -35,7 +35,7 @@ exists to protect children, not to restrict the code.
 A public fork that ships to users must:
 
 - replace the name, the marks and the app icons with its own;
-- change the application identifiers (`br.com.coding4u.*`) and the API
+- change the application identifiers (`tech.coding4u.*`) and the API
   hosts, so that it never presents itself as this service;
 - state that it is not affiliated with or endorsed by Coding For You Tecnologia Ltda.
 
