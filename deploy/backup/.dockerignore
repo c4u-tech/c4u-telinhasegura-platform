@@ -1,0 +1,2 @@
+# Not inputs of the backup image; scripts/image-digest.sh reads this list too.
+.DS_Store

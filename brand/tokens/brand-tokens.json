@@ -1,0 +1,164 @@
+{
+  "brand": {
+    "color": {
+      "ink": {
+        "$type": "color",
+        "$value": "#1E5B66",
+        "$extensions": {
+          "oklch": "oklch(0.437 0.063 211.8)"
+        },
+        "$description": "Verde-petróleo de tinta: a telinha, o wordmark, todo texto de marca no claro."
+      },
+      "sun": {
+        "$type": "color",
+        "$value": "#F2B23A",
+        "$extensions": {
+          "oklch": "oklch(0.804 0.148 78.8)"
+        },
+        "$description": "Amarelo-sol: só a cabeça e as mãos. Nunca texto; no claro, sempre com contorno ink."
+      },
+      "cream": {
+        "$type": "color",
+        "$value": "#FBF6EC",
+        "$extensions": {
+          "oklch": "oklch(0.974 0.014 84.6)"
+        },
+        "$description": "Fundo da marca."
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#0F2A30",
+        "$extensions": {
+          "oklch": "oklch(0.267 0.034 214.3)"
+        },
+        "$description": "Fundo escuro da marca."
+      }
+    },
+    "font": {
+      "family": {
+        "$type": "fontFamily",
+        "$value": [
+          "Bricolage Grotesque",
+          "sans-serif"
+        ],
+        "$description": "OFL. Display e wordmark; optical size 24 no wordmark, 12–14 em texto pequeno."
+      },
+      "wordmark-weight": {
+        "$type": "fontWeight",
+        "$value": 700
+      }
+    },
+    "mark": {
+      "clear-space": {
+        "$type": "number",
+        "$value": 0.219,
+        "$description": "Raio da cabeça (14/64 da altura da marca) livre em volta de marca e lockup."
+      },
+      "min-size": {
+        "mark": {
+          "$type": "dimension",
+          "$value": {
+            "value": 48,
+            "unit": "px"
+          },
+          "$description": "Marca primária, com mãos."
+        },
+        "simplified": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          }
+        },
+        "monogram": {
+          "$type": "dimension",
+          "$value": {
+            "value": 16,
+            "unit": "px"
+          }
+        },
+        "lockup-height": {
+          "$type": "dimension",
+          "$value": {
+            "value": 24,
+            "unit": "px"
+          }
+        },
+        "lockup-endorsed-height": {
+          "$type": "dimension",
+          "$value": {
+            "value": 56,
+            "unit": "px"
+          }
+        }
+      }
+    }
+  },
+  "$extensions": {
+    "contrast": [
+      {
+        "fg": "ink",
+        "bg": "cream",
+        "kind": "text",
+        "ratio": 7.11,
+        "pass": true
+      },
+      {
+        "fg": "ink",
+        "bg": "white",
+        "kind": "text",
+        "ratio": 7.65,
+        "pass": true
+      },
+      {
+        "fg": "cream",
+        "bg": "ink",
+        "kind": "text",
+        "ratio": 7.11,
+        "pass": true
+      },
+      {
+        "fg": "cream",
+        "bg": "dark",
+        "kind": "text",
+        "ratio": 13.98,
+        "pass": true
+      },
+      {
+        "fg": "dark",
+        "bg": "sun",
+        "kind": "text",
+        "ratio": 8.04,
+        "pass": true
+      },
+      {
+        "fg": "ink",
+        "bg": "sun",
+        "kind": "non-text",
+        "ratio": 4.08,
+        "pass": true
+      },
+      {
+        "fg": "sun",
+        "bg": "dark",
+        "kind": "non-text",
+        "ratio": 8.04,
+        "pass": true
+      },
+      {
+        "fg": "sun",
+        "bg": "cream",
+        "kind": "non-text",
+        "ratio": 1.74,
+        "pass": false
+      },
+      {
+        "fg": "sun",
+        "bg": "white",
+        "kind": "non-text",
+        "ratio": 1.87,
+        "pass": false
+      }
+    ]
+  }
+}

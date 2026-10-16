@@ -1,0 +1,3 @@
+# One maintainer owns the whole tree. Owner review is not required by the
+# rulesets: with a single maintainer it would block every merge. This file only routes review requests.
+* @patricksferraz

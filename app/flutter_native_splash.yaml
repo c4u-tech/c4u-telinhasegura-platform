@@ -1,0 +1,9 @@
+# Native splash from the brand. Regenerate with
+# dart run flutter_native_splash:create; the outputs are committed.
+flutter_native_splash:
+  color: "#FBF6EC"
+  image: "../brand/app-icon/splash-mark.png"
+  android_12:
+    color: "#FBF6EC"
+    image: "../brand/app-icon/splash-android12.png"
+  web: false

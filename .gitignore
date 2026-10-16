@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Git worktrees for branch work, kept inside the project.
+.worktrees/
+
+# env
+.env
+.env.local
+
+# Dart / Flutter
+.dart_tool/
+build/
+.flutter-plugins-dependencies
+
+# Go
+/bin/
+*.test
+# `go build ./...` in a module with a single main package writes its binary.
+/tools/dco/dco
+coverage.out
+backend/tmp/

@@ -1,0 +1,4 @@
+tmp/
+**/*_test.go
+**/*.md
+.DS_Store

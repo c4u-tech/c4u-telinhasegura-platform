@@ -1,0 +1,8 @@
+# Not inputs of the web image; scripts/image-digest.sh reads this list too.
+android
+ios
+test
+config
+.dart_tool
+README.md
+.DS_Store

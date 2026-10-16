@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/c4u-tech/c4u-telinhasegura-platform/security/advisories/new
+    about: Privately, never in a public issue. Child-safety bypasses count (SECURITY.md).
+  - name: Ajuda com o app (famílias)
+    url: https://telinhasegura.coding4u.tech/suporte
+    about: Dúvidas sobre o app, a conta ou a exclusão de dados. Sem dados da sua família nem imagens de crianças.

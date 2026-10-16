@@ -1,0 +1,2 @@
+# The daily backup, in the image's time zone.
+0 3 * * * /usr/local/bin/backup run-once

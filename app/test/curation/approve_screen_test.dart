@@ -1,0 +1,274 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:telinha_segura/access/copy.dart';
+import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/curation/approve_screen.dart';
+import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
+
+import '../access/harness.dart';
+import '../family/fixtures.dart';
+import 'fixtures.dart';
+
+const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
+const allThemes = [...themes, 'Natureza'];
+const bands = ['Até 4 anos', '5 a 8 anos', '9 a 12 anos'];
+
+Future<Harness> approving(
+  WidgetTester tester, {
+  FutureOr<http.Response> Function(http.Request)? review,
+  String initial = '/curadoria/v1/aprovar',
+}) async {
+  final h = Harness(signedIn: true, api: curatorApi(review: review))
+    ..family = ownerFamily
+    ..roles = ['curator'];
+  await h.pump(tester, initial: initial);
+  return h;
+}
+
+Finder row(String label) => find.widgetWithText(SelectableRow, label);
+
+bool chosen(WidgetTester tester, String label) =>
+    tester.widget<SelectableRow>(row(label)).selected;
+
+PrimaryButton primary(WidgetTester tester) =>
+    tester.widget<PrimaryButton>(find.byType(PrimaryButton));
+
+Future<void> choose(WidgetTester tester, String label) async {
+  await tester.ensureVisible(row(label));
+  await tester.pumpAndSettle();
+  await tester.tap(row(label));
+  await tester.pumpAndSettle();
+}
+
+/// Chooses "Música" and "5 a 8 anos" and sends; with [settle] false it
+/// leaves the request running.
+Future<void> approve(WidgetTester tester, {bool settle = true}) async {
+  await choose(tester, 'Música');
+  await choose(tester, '5 a 8 anos');
+  await tapPrimary(tester, settle: settle);
+}
+
+Future<void> tapPrimary(WidgetTester tester, {bool settle = true}) async {
+  await tester.ensureVisible(find.byType(PrimaryButton));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byType(PrimaryButton));
+  await (settle ? tester.pumpAndSettle() : tester.pump());
+}
+
+List<String> posts(Harness h) =>
+    h.actions.where((c) => c.startsWith('POST ')).toList();
+
+int videoReads(Harness h) =>
+    h.actions.where((a) => a.startsWith('GET /v1/curation/videos/')).length;
+
+/// The video named under the display title as the review names it: its
+/// title in title-medium, then "Canal · 4 min" muted, both above [below].
+void expectNamed(WidgetTester tester, Finder below) {
+  final title = find.text('Baby Shark');
+  final meta = find.text(nb('Canal Baby Shark · 4 min'));
+  expect(title, findsOneWidget);
+  expect(meta, findsOneWidget);
+  final context = tester.element(title);
+  expect(
+    tester.widget<Text>(title).style?.fontSize,
+    Theme.of(context).textTheme.titleMedium?.fontSize,
+  );
+  final tops = [
+    for (final f in [title, meta, below]) tester.getTopLeft(f).dy,
+  ];
+  expect(tops, [...tops]..sort());
+}
+
+void main() {
+  testWidgets('names the video it approves under the title, as the review '
+      'does, through to the done state', (tester) async {
+    await approving(tester);
+
+    expectNamed(tester, find.text('Tema'));
+    await approve(tester);
+    expectNamed(tester, find.text(approved));
+  });
+
+  testWidgets('opened from the review, it names the video without reading '
+      'it again', (tester) async {
+    final h = await approving(tester, initial: '/curadoria/v1');
+
+    await tester.ensureVisible(find.text('Escolher tema e idade'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Escolher tema e idade'));
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), '/curadoria/v1/aprovar');
+    expectNamed(tester, find.text('Tema'));
+    expect(videoReads(h), 1);
+  });
+
+  testWidgets('offers the six themes and the three bands, none chosen; '
+      'the primary waits with its hint', (tester) async {
+    await approving(tester);
+
+    expect(find.text('Tema'), findsOneWidget);
+    expect(find.text('A partir de'), findsOneWidget);
+    for (final label in [...allThemes, ...bands]) {
+      expect(row(label), findsOneWidget, reason: label);
+      expect(chosen(tester, label), isFalse, reason: label);
+    }
+    expect(primary(tester).label, 'Aprovar');
+    expect(primary(tester).onPressed, isNull);
+    expect(find.text(approveHint), findsOneWidget);
+  });
+
+  testWidgets('the primary waits until both are chosen, one of each', (
+    tester,
+  ) async {
+    await approving(tester);
+
+    await choose(tester, 'Bichos');
+    await choose(tester, 'Música');
+    expect(chosen(tester, 'Bichos'), isFalse);
+    expect(chosen(tester, 'Música'), isTrue);
+    expect(primary(tester).onPressed, isNull);
+
+    await choose(tester, '9 a 12 anos');
+    expect(primary(tester).onPressed, isNotNull);
+    final hint = tester.widget<Visibility>(
+      find.ancestor(
+        of: find.text(approveHint),
+        matching: find.byType(Visibility),
+      ),
+    );
+    expect(hint.visible, isFalse);
+  });
+
+  testWidgets('every choice is a radio', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await approving(tester);
+
+    expect(
+      tester.getSemantics(row('Natureza')),
+      isSemantics(
+        label: 'Natureza',
+        isInMutuallyExclusiveGroup: true,
+        hasCheckedState: true,
+        isChecked: false,
+      ),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('sends the approval once and shows the done state, back to '
+      'the queue', (tester) async {
+    final answer = Completer<http.Response>();
+    final h = await approving(tester, review: (_) => answer.future);
+
+    await approve(tester, settle: false);
+    await tester.tap(find.byType(PrimaryButton), warnIfMissed: false);
+    await tester.pump();
+    answer.complete(json(201, {'video_state': 'pending'}));
+    await tester.pumpAndSettle();
+
+    expect(posts(h), hasLength(1));
+    expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
+      'decision': 'approve',
+      'theme': 'musica',
+      'min_age_band': '5-8',
+    });
+    expect(posts(h).single, startsWith('POST /v1/curation/videos/v1/reviews'));
+    expect(find.widgetWithText(Notice, approved), findsOneWidget);
+    expect(row('Música'), findsNothing, reason: 'the form is gone');
+
+    await tester.tap(find.text('Voltar para a fila'));
+    await tester.pumpAndSettle();
+    expect(h.location(tester), '/curadoria');
+  });
+
+  testWidgets('a network failure keeps the choices, and the primary tries '
+      'again', (tester) async {
+    var fail = true;
+    final h = await approving(
+      tester,
+      review: (_) => fail
+          ? problem(503, 'unavailable')
+          : json(201, {'video_state': 'approved'}),
+    );
+
+    await approve(tester);
+
+    expect(find.widgetWithText(ErrorNote, Copy.genericRetry), findsOneWidget);
+    expect(chosen(tester, 'Música'), isTrue);
+    expect(chosen(tester, '5 a 8 anos'), isTrue);
+    fail = false;
+    await tapPrimary(tester);
+    expect(posts(h), hasLength(2));
+    expect(find.text(approved), findsOneWidget);
+  });
+
+  testWidgets('validation marks the choices, cleared to choose again', (
+    tester,
+  ) async {
+    await approving(tester, review: (_) => problem(422, 'validation'));
+
+    await approve(tester);
+
+    expect(find.text(approvalRefused), findsOneWidget);
+    expect(find.byType(ErrorNote), findsNothing);
+    expect(chosen(tester, 'Música'), isFalse);
+    expect(chosen(tester, '5 a 8 anos'), isFalse);
+    expect(primary(tester).onPressed, isNull);
+
+    await choose(tester, 'Bichos');
+    expect(find.text(approvalRefused), findsNothing);
+  });
+
+  for (final (code, status, notice) in [
+    ('already_reviewed', 409, 'Esse vídeo já saiu da fila.'),
+    ('not_reviewable', 409, 'Esse vídeo já saiu da fila.'),
+    (
+      'own_suggestion',
+      403,
+      'Você sugeriu esse vídeo, então a revisão dele fica com outros '
+          'curadores.',
+    ),
+    ('not_found', 404, 'Esse vídeo não está mais na curadoria.'),
+  ]) {
+    testWidgets('$code goes back to the queue, read again, with a notice', (
+      tester,
+    ) async {
+      final h = await approving(tester, review: (_) => problem(status, code));
+
+      await approve(tester);
+
+      expect(h.location(tester), '/curadoria');
+      expect(find.text(notice), findsOneWidget);
+      expect(
+        h.actions.where((c) => c.startsWith('GET /v1/curation/queue')),
+        hasLength(1),
+      );
+    });
+  }
+
+  testWidgets('not_curator goes home with a notice', (tester) async {
+    final h = await approving(
+      tester,
+      review: (_) => problem(403, 'not_curator'),
+    );
+
+    await approve(tester);
+
+    expect(h.location(tester), '/');
+    expect(find.text('Você não faz mais parte da curadoria.'), findsOneWidget);
+  });
+
+  testWidgets('back returns to the review', (tester) async {
+    final h = await approving(tester);
+
+    await tester.tap(find.byTooltip('Voltar').last);
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), '/curadoria/v1');
+  });
+}

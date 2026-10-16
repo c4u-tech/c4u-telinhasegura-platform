@@ -1,0 +1,4 @@
+// The Apple Developer team that signs the app.
+// Not a secret: the operator sets the Team ID from developer.apple.com,
+// Membership details.
+DEVELOPMENT_TEAM = 

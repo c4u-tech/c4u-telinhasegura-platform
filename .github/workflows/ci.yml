@@ -1,0 +1,168 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, stg, prd]
+  pull_request:
+    branches: [dev, stg, prd]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push to stg or prd must never cancel a running deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # CI is a thin mirror of the check command: it runs exactly what a
+  # developer runs, so "green here" and "green there" mean the same thing.
+  check:
+    runs-on: ubuntu-latest
+    # Postgres for the backend's integration tests (dbtest).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+      - run: make check
+
+  # One image per component. Pull requests build and smoke-test them; pushes
+  # to stg and prd also publish them to GHCR, reusing an image whose build
+  # inputs are unchanged. Pushes to dev skip it: the PR already ran it. It
+  # waits for check so a red commit's images never reach GHCR, at the cost
+  # of PR wall time.
+  images:
+    needs: [check]
+    if: github.event_name == 'pull_request' || github.ref_name == 'stg' || github.ref_name == 'prd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [api, web, site, backup]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PUSH: ${{ github.event_name == 'push' && (github.ref_name == 'stg' || github.ref_name == 'prd') }}
+      COMPONENT: ${{ matrix.component }}
+      REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        if: env.PUSH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: reuse
+        name: Reuse an image with the same build inputs
+        if: env.PUSH == 'true'
+        run: |
+          result="$(sh scripts/publish-image.sh reuse "$COMPONENT" "$REVISION")"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        if: matrix.component == 'web' && steps.reuse.outputs.result != 'reused'
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+      - name: Build
+        if: steps.reuse.outputs.result != 'reused'
+        run: sh scripts/publish-image.sh build "$COMPONENT" "$REVISION"
+      - name: Smoke test
+        if: steps.reuse.outputs.result != 'reused'
+        env:
+          DATABASE_URL: postgres://postgres:postgres@host.docker.internal:5432/postgres?sslmode=disable
+        run: sh scripts/smoke.sh "$COMPONENT" "telinhasegura-$COMPONENT:smoke" "$REVISION"
+      - name: Push
+        if: env.PUSH == 'true' && steps.reuse.outputs.result != 'reused'
+        run: sh scripts/publish-image.sh push "$COMPONENT" "$REVISION"
+
+  # With squash-merge the PR title becomes the commit message, so the title
+  # is what gets linted.
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Developer Certificate of Origin: every commit a PR brings that is on
+  # none of the environment branches must be signed off by its author.
+  # Promotions and back-merges bring nothing new, so they pass.
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27"
+      - working-directory: tools/dco
+        run: go run . --head ${{ github.event.pull_request.head.sha }} origin/dev origin/stg origin/prd
+
+  # The one required check for branch protection. It aggregates every job so
+  # a skipped job cannot pass as a success.
+  ci-ok:
+    needs: [check, pr-title, dco, images]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on any failed or cancelled dependency
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | grep -Eq '"result": "(failure|cancelled)"' && exit 1 || exit 0
+
+  # After the gate, a push to stg or prd deploys its images. The merge into
+  # prd is production's only gate: the Free plan's private repositories have
+  # no environment reviewers.
+  # The explicit result check replaces the implicit success(): pr-title and
+  # dco are skipped on every push, and success() treats a skipped job up the
+  # needs chain as blocking (actions/runner#491), so the deploy would never run.
+  deploy:
+    needs: [ci-ok]
+    if: ${{ !cancelled() && needs.ci-ok.result == 'success' && github.event_name == 'push' && (github.ref_name == 'stg' || github.ref_name == 'prd') }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ github.ref_name }}
+      ref: ${{ github.sha }}
+      # Staging never auto-deploys the backup app.
+      components: ${{ github.ref_name == 'prd' && 'api web site backup' || 'api web site' }}
+    secrets: inherit

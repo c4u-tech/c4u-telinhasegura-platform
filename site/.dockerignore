@@ -1,0 +1,3 @@
+# Not inputs of the site image; scripts/image-digest.sh reads this list too.
+README.md
+.DS_Store

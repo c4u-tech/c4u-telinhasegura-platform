@@ -1,0 +1,133 @@
+name: deploy
+
+# Deploys published images to one environment's CapRover apps. ci.yml
+# calls it after ci-ok on a push to stg or prd; run it by hand to roll back to any published commit SHA
+# or input digest. It never builds. An environment deploys only while its
+# variable (DEPLOY_STG, DEPLOY_PRD) is "true".
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      ref:
+        type: string
+        required: true
+      components:
+        type: string
+        default: api web site backup
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [stg, prd]
+        required: true
+      ref:
+        description: A commit SHA or an input digest tag (in-...)
+        type: string
+        required: true
+      components:
+        description: Any of api web site backup, space-separated
+        type: string
+        default: api web site backup
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      ENABLED: ${{ (inputs.environment == 'stg' && vars.DEPLOY_STG == 'true') || (inputs.environment == 'prd' && vars.DEPLOY_PRD == 'true') }}
+      TARGET: ${{ inputs.environment }}
+      REF: ${{ inputs.ref }}
+      COMPONENTS: ${{ inputs.components }}
+    steps:
+      - name: Skip while the environment is off
+        if: env.ENABLED != 'true'
+        run: |
+          msg="Deploys to $TARGET are off: its DEPLOY_ variable is not true. The images are published; nothing was deployed."
+          echo "::notice::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: env.ENABLED == 'true'
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        if: env.ENABLED == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: images
+        name: Resolve every image before deploying any
+        if: env.ENABLED == 'true'
+        # COMPONENTS is a word list, split on purpose; resolve-images.sh
+        # rejects anything that is not api, web, site or backup.
+        run: sh scripts/resolve-images.sh "$REF" $COMPONENTS >> "$GITHUB_OUTPUT"
+      - name: Require every secret this deploy uses
+        if: env.ENABLED == 'true'
+        # The per-app token expressions below fall back to the other
+        # environment's token when the secret is empty, so check here, by
+        # name. Secrets reach the script only through env.
+        env:
+          CAPROVER_URL: ${{ secrets.CAPROVER_URL }}
+          PRD_CAPROVER_API_TOKEN: ${{ secrets.PRD_CAPROVER_API_TOKEN }}
+          STG_CAPROVER_API_TOKEN: ${{ secrets.STG_CAPROVER_API_TOKEN }}
+          PRD_CAPROVER_WEB_TOKEN: ${{ secrets.PRD_CAPROVER_WEB_TOKEN }}
+          STG_CAPROVER_WEB_TOKEN: ${{ secrets.STG_CAPROVER_WEB_TOKEN }}
+          PRD_CAPROVER_SITE_TOKEN: ${{ secrets.PRD_CAPROVER_SITE_TOKEN }}
+          STG_CAPROVER_SITE_TOKEN: ${{ secrets.STG_CAPROVER_SITE_TOKEN }}
+          PRD_CAPROVER_BACKUP_TOKEN: ${{ secrets.PRD_CAPROVER_BACKUP_TOKEN }}
+          STG_CAPROVER_BACKUP_TOKEN: ${{ secrets.STG_CAPROVER_BACKUP_TOKEN }}
+        run: |
+          prefix="$(echo "$TARGET" | tr '[:lower:]' '[:upper:]')"
+          missing=""
+          [ -n "$CAPROVER_URL" ] || missing="$missing CAPROVER_URL"
+          for c in $COMPONENTS; do
+            name="${prefix}_CAPROVER_$(echo "$c" | tr '[:lower:]' '[:upper:]')_TOKEN"
+            eval "value=\${$name:-}"
+            [ -n "$value" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+      - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
+        if: env.ENABLED == 'true' && steps.images.outputs.api != ''
+        with:
+          server: ${{ secrets.CAPROVER_URL }}
+          app: telinhasegura-api-${{ inputs.environment }}
+          token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_API_TOKEN || secrets.STG_CAPROVER_API_TOKEN }}
+          image: ${{ steps.images.outputs.api }}
+      - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
+        if: env.ENABLED == 'true' && steps.images.outputs.web != ''
+        with:
+          server: ${{ secrets.CAPROVER_URL }}
+          app: telinhasegura-web-${{ inputs.environment }}
+          token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_WEB_TOKEN || secrets.STG_CAPROVER_WEB_TOKEN }}
+          image: ${{ steps.images.outputs.web }}
+      - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
+        if: env.ENABLED == 'true' && steps.images.outputs.site != ''
+        with:
+          server: ${{ secrets.CAPROVER_URL }}
+          app: telinhasegura-site-${{ inputs.environment }}
+          token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_SITE_TOKEN || secrets.STG_CAPROVER_SITE_TOKEN }}
+          image: ${{ steps.images.outputs.site }}
+      - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
+        if: env.ENABLED == 'true' && steps.images.outputs.backup != ''
+        with:
+          server: ${{ secrets.CAPROVER_URL }}
+          app: telinhasegura-backup-${{ inputs.environment }}
+          token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_BACKUP_TOKEN || secrets.STG_CAPROVER_BACKUP_TOKEN }}
+          image: ${{ steps.images.outputs.backup }}
+      - name: Verify what was deployed
+        if: env.ENABLED == 'true'
+        env:
+          API_REVISION: ${{ steps.images.outputs.api_revision }}
+        # COMPONENTS is a validated word list (resolve-images.sh ran first).
+        run: sh scripts/deploy-verify.sh "$TARGET" "$API_REVISION" $COMPONENTS

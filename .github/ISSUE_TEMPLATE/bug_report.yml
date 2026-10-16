@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in the app or the API does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security issues, including any way around kid mode or the guardian PIN, go to a private report, not here (SECURITY.md).
+        Do not post screenshots that show a child's face or a family's data.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options: [Android app, iOS app, Web app, API, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App version or commit SHA.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. …\n2. …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected and what happened
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Device and anything else
