@@ -13,12 +13,12 @@ import (
 )
 
 type fakeRevoker struct {
-	calls [][2]string // clientID, code
+	calls [][3]string // clientID, code, redirectURI
 	err   error
 }
 
-func (r *fakeRevoker) Revoke(_ context.Context, clientID, code string) error {
-	r.calls = append(r.calls, [2]string{clientID, code})
+func (r *fakeRevoker) Revoke(_ context.Context, clientID, code, redirectURI string) error {
+	r.calls = append(r.calls, [3]string{clientID, code, redirectURI})
 	return r.err
 }
 
@@ -87,11 +87,28 @@ func TestDeleteAppleRevokesThenErases(t *testing.T) {
 	if !f.gone(ana) {
 		t.Fatal("account kept")
 	}
-	if want := [][2]string{{"tech.coding4u.telinhasegura", "code-1"}}; !slices.Equal(f.apple.calls, want) {
+	if want := [][3]string{{"tech.coding4u.telinhasegura", "code-1", ""}}; !slices.Equal(f.apple.calls, want) {
 		t.Fatalf("calls %v", f.apple.calls)
 	}
 	if f.audit.Has(ana, audit.AppleRevocationFailed) {
 		t.Fatal("recorded a failure")
+	}
+}
+
+// A web or Android deletion carries a code from Apple's web flow, issued to
+// the Services ID and a redirect URI that differs between the two: its
+// exchange takes the one the client says it used.
+func TestDeleteAppleSendsTheClientsRedirectURI(t *testing.T) {
+	f := newFixture(t)
+	ana := f.appleAccount("ana@example.com")
+	tok := f.ids.Issue(idtoken.Apple, idtoken.Claims{Subject: appleSubject, Audience: "tech.coding4u.telinhasegura.web"})
+	cred := &privacy.AppleCredential{IdentityToken: tok, AuthorizationCode: "code-web", RedirectURI: "https://app.example.test"}
+	if err := f.svc.DeleteAccount(ctx, ana, cred); err != nil {
+		t.Fatal(err)
+	}
+	want := [][3]string{{"tech.coding4u.telinhasegura.web", "code-web", "https://app.example.test"}}
+	if !f.gone(ana) || !slices.Equal(f.apple.calls, want) {
+		t.Fatalf("gone %v, calls %v", f.gone(ana), f.apple.calls)
 	}
 }
 

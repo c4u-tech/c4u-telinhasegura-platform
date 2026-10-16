@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 /// A fresh Sign in with Apple answer: the identity token and its single-use
@@ -10,10 +11,15 @@ class AppleCredential {
   const AppleCredential({
     required this.identityToken,
     required this.authorizationCode,
+    this.redirectUri,
   });
 
   final String identityToken;
   final String authorizationCode;
+
+  /// The redirect URI Apple's web flow issued the code to, which the
+  /// exchange must repeat; null for a native code.
+  final Uri? redirectUri;
 }
 
 /// Sign in with Apple: native on iOS, Apple JS on the web, and Apple's
@@ -59,12 +65,20 @@ class AppleIdTokens {
       return AppleCredential(
         identityToken: identityToken,
         authorizationCode: credential.authorizationCode,
+        redirectUri: _native ? null : redirectUri,
       );
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) return null;
       rethrow;
     }
   }
+
+  /// Apple and the plugin sign in natively on Apple's own platforms; every
+  /// other one goes through the web flow.
+  static bool get _native =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   static String _newState() {
     final random = Random.secure();

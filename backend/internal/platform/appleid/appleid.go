@@ -92,8 +92,10 @@ type Client struct {
 
 // Revoke exchanges code for its refresh token under clientID (the
 // identity token's audience: the bundle ID or the Services ID), then
-// revokes that token.
-func (c *Client) Revoke(ctx context.Context, clientID, code string) error {
+// revokes that token. redirectURI is the one the code was issued to by
+// Apple's web flow, which Apple requires again in the exchange; empty for
+// a native code.
+func (c *Client) Revoke(ctx context.Context, clientID, code, redirectURI string) error {
 	secret, err := c.clientSecret(clientID)
 	if err != nil {
 		return err
@@ -102,10 +104,14 @@ func (c *Client) Revoke(ctx context.Context, clientID, code string) error {
 		RefreshToken string `json:"refresh_token"`
 		Error        string `json:"error"`
 	}
-	status, err := c.post(ctx, "/auth/token", url.Values{
+	form := url.Values{
 		"client_id": {clientID}, "client_secret": {secret},
 		"code": {code}, "grant_type": {"authorization_code"},
-	}, &tok)
+	}
+	if redirectURI != "" {
+		form.Set("redirect_uri", redirectURI)
+	}
+	status, err := c.post(ctx, "/auth/token", form, &tok)
 	if err != nil {
 		return err
 	}
