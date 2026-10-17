@@ -1,6 +1,5 @@
-// Package sitecheck holds the tests that pin the public site's pages and
-// the generator of its Pix QR. The site is static HTML in site/public;
-// these helpers only read it.
+// Package sitecheck holds the tests that pin the public site's pages. The
+// site is static HTML in site/public; these helpers only read it.
 package sitecheck
 
 import (
@@ -17,6 +16,8 @@ const (
 	RepoURL      = "https://github.com/c4u-tech/c4u-telinhasegura-platform"
 	SupportEmail = "suporte@telinhasegura.coding4u.tech"
 	PrivacyEmail = "privacidade@telinhasegura.coding4u.tech"
+	// CurationEmail receives the applications to join the curation team.
+	CurationEmail = "curadoria@telinhasegura.coding4u.tech"
 )
 
 // Root is the repository root, two levels above this package.

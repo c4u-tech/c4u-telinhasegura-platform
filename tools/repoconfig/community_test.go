@@ -133,26 +133,21 @@ func TestSiteLinksNameBuiltPages(t *testing.T) {
 	}
 }
 
-// Donations go only to the site's page.
-func TestFundingPointsOnlyToTheDonationPage(t *testing.T) {
-	cfg := mustYAML(t, ".github/FUNDING.yml")
-	if len(cfg) != 1 {
-		t.Errorf("FUNDING.yml has %d platforms, want only custom", len(cfg))
-	}
-	custom := cfg["custom"]
-	if list, ok := custom.([]any); ok && len(list) == 1 {
-		custom = list[0]
-	}
-	if custom != "https://telinhasegura.coding4u.tech/apoie" {
-		t.Errorf("FUNDING.yml custom = %v, want the site's /apoie", custom)
+// The project takes no donations: no GitHub Sponsor button.
+func TestNoFundingFile(t *testing.T) {
+	if _, err := os.Stat(filepath.Join(Root(), ".github", "FUNDING.yml")); err == nil {
+		t.Error(".github/FUNDING.yml exists; the project takes no donations")
 	}
 }
 
 func TestReadmeAndSupportPointToTheSite(t *testing.T) {
 	readme := read(t, "README.md")
-	if !regexp.MustCompile(`(?m)^## Apoie o projeto$`).MatchString(readme) ||
-		!strings.Contains(readme, "https://telinhasegura.coding4u.tech/apoie") {
-		t.Error(`README.md lacks an "Apoie o projeto" section linking /apoie`)
+	if !regexp.MustCompile(`(?m)^## Participe$`).MatchString(readme) ||
+		!strings.Contains(readme, "https://telinhasegura.coding4u.tech/participe") {
+		t.Error(`README.md lacks a "Participe" section linking /participe`)
+	}
+	if m := regexp.MustCompile(`(?i)\bpix\b|donation|doa(ç|c)(ão|ões)`).FindString(readme); m != "" {
+		t.Errorf("README.md still mentions donations: %q", m)
 	}
 	support := read(t, "SUPPORT.md")
 	for _, want := range []string{"suporte@telinhasegura.coding4u.tech", "https://telinhasegura.coding4u.tech/suporte"} {
