@@ -34,7 +34,7 @@ Pre-release. Brazil and pt-BR first. The app is not yet in the stores.
 
 On top of these: no tracking, analytics or third-party SDKs in kid mode.
 
-Business model: free on both stores, no ads, no in-app purchases. Voluntary donations happen only outside the app (on the site and GitHub), and the app never links to or prompts them.
+Business model: free on both stores, no ads, no in-app purchases, and it asks nobody for money.
 
 ## Architecture
 
@@ -77,9 +77,9 @@ Preparing a machine and running the app on an emulator are covered in [docs/deve
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: every commit needs a DCO sign-off. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md), and find help in [SUPPORT.md](SUPPORT.md).
 
-## Apoie o projeto
+## Participe
 
-A Telinha Segura é gratuita e sem anúncios, e nada no app pede dinheiro. Se quiser ajudar a mantê-la, há uma contribuição voluntária por Pix em [telinhasegura.coding4u.tech/apoie](https://telinhasegura.coding4u.tech/apoie). It is voluntary, buys nothing and goes to Coding For You Tecnologia Ltda, which is not a nonprofit.
+Cada vídeo da Telinha Segura passa pela curadoria de pessoas que cuidam de crianças. Para fazer parte dela, ou conhecer outras formas de participar, veja [telinhasegura.coding4u.tech/participe](https://telinhasegura.coding4u.tech/participe). Code contributions are welcome as described above.
 
 ## License
 

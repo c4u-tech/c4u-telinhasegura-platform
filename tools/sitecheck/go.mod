@@ -2,7 +2,4 @@ module github.com/c4u-tech/c4u-telinhasegura-platform/tools/sitecheck
 
 go 1.27
 
-require (
-	golang.org/x/net v0.61.0
-	rsc.io/qr v0.2.0
-)
+require golang.org/x/net v0.61.0

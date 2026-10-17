@@ -84,12 +84,12 @@ case "$kind" in
   site)
     start
     # Every page answers; its files carry their types.
-    for page in / /privacidade /termos /suporte /excluir-conta /apoie; do
+    for page in / /privacidade /termos /suporte /excluir-conta /participe; do
       [ "$(status "$page")" = 200 ] || fail "$page did not answer 200"
     done
     has_header /fonts/bricolage-grotesque.woff2 'content-type: font/woff2'
-    has_header /pix-qr.svg 'content-type: image/svg+xml'
-    has_header /copy.js 'content-type: .*javascript'
+    [ "$(status /apoie)" = 301 ] || fail "/apoie did not redirect"
+    has_header /apoie 'location: .*/participe'
     has_header /site.css 'content-type: text/css'
     [ "$(status /nao-existe)" = 404 ] || fail "an unknown path did not answer 404"
     curl -sS "http://127.0.0.1:$port/nao-existe" | grep -q 'Página não encontrada' ||

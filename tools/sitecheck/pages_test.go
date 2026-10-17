@@ -10,7 +10,7 @@ import (
 )
 
 // The pages the site serves, by URL path.
-var pagePaths = []string{"/", "/privacidade", "/termos", "/suporte", "/excluir-conta", "/apoie"}
+var pagePaths = []string{"/", "/privacidade", "/termos", "/suporte", "/excluir-conta", "/participe"}
 
 func mustPages(t *testing.T) map[string]*Page {
 	t.Helper()
@@ -100,7 +100,7 @@ func TestPagesLoadOnlyTheirOwnFiles(t *testing.T) {
 
 func TestLinksResolveAndLeaveOnlyForKnownPlaces(t *testing.T) {
 	pages := mustPages(t)
-	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail}
+	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail, "mailto:" + CurationEmail}
 	for path, p := range pages {
 		for _, href := range p.Hrefs {
 			u, err := url.Parse(href)
@@ -226,18 +226,36 @@ func TestHelpPagesGiveTheirSteps(t *testing.T) {
 	}
 }
 
-func TestDonationPageTellsTheTruth(t *testing.T) {
-	p := mustPages(t)["/apoie"]
+// The service asks nobody for money: people take part by curating, telling
+// other families, reporting and contributing to the open code.
+func TestJoinPageInvitesCurators(t *testing.T) {
+	p := mustPages(t)["/participe"]
 	for _, want := range []string{
-		"voluntári", "não é uma compra", "não dá direito", "Coding For You Tecnologia Ltda",
-		"sem fins lucrativos", "dedu", "41.894.811/0001-60",
+		"curador", CurationEmail, "voluntári", "não é remunerad", "código aberto",
 	} {
 		if !strings.Contains(p.Text, want) {
-			t.Errorf("/apoie does not say %q", want)
+			t.Errorf("/participe does not say %q", want)
 		}
 	}
-	if !contains(p.Loads, "/"+strings.TrimPrefix(PixQRPath, "site/public/")) {
-		t.Error("/apoie does not show the Pix QR")
+	if !contains(p.Hrefs, "mailto:"+CurationEmail) {
+		t.Error("/participe does not link the curation mailbox")
+	}
+	if !contains(p.Hrefs, RepoURL) {
+		t.Error("/participe does not link the code")
+	}
+}
+
+func TestNoPageAsksForMoney(t *testing.T) {
+	money := regexp.MustCompile(`(?i)\bpix\b|doa(ç|c)(ão|ões)|\bdoar\b|contribui(ç|c)(ão|ões) (voluntária|financeira)|apoie o projeto`)
+	for path, p := range mustPages(t) {
+		if m := money.FindString(p.Text); m != "" {
+			t.Errorf("%s asks for money: %q", path, m)
+		}
+		for _, h := range p.Hrefs {
+			if h == "/apoie" {
+				t.Errorf("%s still links /apoie", path)
+			}
+		}
 	}
 }
 
