@@ -126,6 +126,7 @@ func (s *Server) routes() []route {
 		guardian("POST /v1/family/leave", s.leaveFamily),
 		suspendedOK(reauthed("POST /v1/family/owner", s.transferOwnership)),
 		guardian("POST /v1/family/minors", s.createMinor),
+		guardian("POST /v1/family/minors/{id}/consent", s.grantConsent),
 		guardian("PATCH /v1/family/minors/{id}", s.updateMinor),
 		reauthed("DELETE /v1/family/minors/{id}", s.deleteMinor),
 		suspendedOK(reauthed("DELETE /v1/family", s.deleteFamily)),
