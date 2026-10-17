@@ -1,7 +1,7 @@
 {
   "API_BASE_URL": "https://api.telinhasegura.coding4u.tech",
-  "GOOGLE_CLIENT_ID": "",
-  "GOOGLE_SERVER_CLIENT_ID": "",
-  "APPLE_SERVICES_ID": "",
-  "APPLE_REDIRECT_URI": ""
+  "GOOGLE_CLIENT_ID": "39181574602-16v76drq1p6793t76niii1htu1jdu2ro.apps.googleusercontent.com",
+  "GOOGLE_SERVER_CLIENT_ID": "39181574602-kufkt8jgjhofhg3hg671vovcijitoqod.apps.googleusercontent.com",
+  "APPLE_SERVICES_ID": "tech.coding4u.telinhasegura.web",
+  "APPLE_REDIRECT_URI": "https://api.telinhasegura.coding4u.tech/v1/oauth/apple/callback"
 }
