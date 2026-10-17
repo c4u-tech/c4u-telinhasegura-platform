@@ -2,4 +2,4 @@
 #include "Team.xcconfig"
 // The iOS OAuth client ID reversed (com.googleusercontent.apps.<id>).
 // Override per environment; this placeholder keeps builds working.
-GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.unset
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.39181574602-16v76drq1p6793t76niii1htu1jdu2ro
