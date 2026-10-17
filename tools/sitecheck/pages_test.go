@@ -197,6 +197,19 @@ func TestPrivacyPolicyCoversTheLawsList(t *testing.T) {
 	}
 }
 
+// LGPD art. 33: the policy names who hosts the server and the database,
+// and in which country, not only where the backups live.
+func TestPrivacyPolicyNamesTheHostAndItsCountry(t *testing.T) {
+	p := mustPages(t)["/privacidade"]
+	want := "Hospeda o servidor onde o Telinha Segura roda, com o banco de dados"
+	if !strings.Contains(p.Text, want) {
+		t.Errorf("/privacidade does not name the host of the server and the database")
+	}
+	if strings.Contains(p.Text, "provedor de hospedagem contratado") {
+		t.Errorf("/privacidade still hides the hosting provider")
+	}
+}
+
 func TestHelpPagesGiveTheirSteps(t *testing.T) {
 	pages := mustPages(t)
 	del := pages["/excluir-conta"]
