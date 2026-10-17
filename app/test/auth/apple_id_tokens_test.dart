@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/auth/apple_id_tokens.dart';
@@ -31,7 +32,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   AppleIdTokens apple() => AppleIdTokens(
-    servicesId: 'br.com.coding4u.telinha-segura.web',
+    servicesId: 'tech.coding4u.telinhasegura.web',
     redirectUri: Uri.parse('https://api.test/v1/oauth/apple/callback'),
   );
 
@@ -60,7 +61,7 @@ void main() {
       return s;
     });
     final tokens = AppleIdTokens(
-      servicesId: 'br.com.coding4u.telinha-segura.web',
+      servicesId: 'tech.coding4u.telinhasegura.web',
       redirectUri: Uri.parse('https://app.test'),
       prepare: () async => order.add('prepare'),
     );
@@ -73,5 +74,25 @@ void main() {
   test('an answer without a state is accepted', () async {
     _fakeApple((_) => null);
     expect(await apple().obtain(), 'id-tok');
+  });
+
+  test('a web-flow code carries the redirect URI it was issued to', () async {
+    _fakeApple((s) => s);
+    final credential = await apple().obtainCredential();
+    expect(
+      credential!.redirectUri,
+      Uri.parse('https://api.test/v1/oauth/apple/callback'),
+    );
+  });
+
+  test('a native iOS code carries no redirect URI', () async {
+    _fakeApple((s) => s);
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final credential = await apple().obtainCredential();
+      expect(credential!.redirectUri, isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }

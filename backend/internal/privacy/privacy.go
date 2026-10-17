@@ -37,16 +37,20 @@ var (
 
 // AppleCredential is a fresh Sign in with Apple answer: its identity
 // token, which names the Apple ID and the client, and its single-use
-// authorization code.
+// authorization code. RedirectURI is the one Apple's web flow (the web,
+// and Android through the relay) issued the code to, which the exchange
+// repeats; empty for a native code. Apple checks it against the code, so
+// a wrong one only gets the code refused.
 type AppleCredential struct {
 	IdentityToken     string
 	AuthorizationCode string
+	RedirectURI       string
 }
 
 // AppleRevoker exchanges an authorization code and revokes its token
 // (appleid.Client).
 type AppleRevoker interface {
-	Revoke(ctx context.Context, clientID, code string) error
+	Revoke(ctx context.Context, clientID, code, redirectURI string) error
 }
 
 // ThrottledError refuses an export over its rate limit.

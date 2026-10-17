@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 
@@ -179,5 +180,37 @@ func TestDeleteAppleAccountOverHTTP(t *testing.T) {
 	}
 	if n := a.count(`SELECT count(*) FROM accounts WHERE id = $1::uuid`, id); n != 0 {
 		t.Fatalf("the account remains (%d)", n)
+	}
+}
+
+// A web-flow code carries the redirect URI it was issued to; the API passes
+// an https one on to Apple and refuses anything else.
+func TestDeleteAppleAccountSendsTheRedirectURI(t *testing.T) {
+	a := newAPI(t)
+	signUp := a.tokens.Issue(idtoken.Apple, idtoken.Claims{Subject: "a-ana", Email: "ana@icloud.com", EmailVerified: true, EmailAuthoritative: true})
+	b := decodeConfirm(t, a.do(http.MethodPost, "/v1/sessions/provider", map[string]string{"provider": "apple", "id_token": signUp, "client": "mobile"}), "signup_required")
+	tok := decodeTokens(t, a.do(http.MethodPost, "/v1/sessions/provider/signup",
+		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "client": "mobile"}))
+	del := func(redirect string) resp {
+		return a.do(http.MethodDelete, "/v1/account", map[string]any{"apple": map[string]string{
+			"identity_token":     a.tokens.Issue(idtoken.Apple, idtoken.Claims{Subject: "a-ana", Audience: "br.example.app.web"}),
+			"authorization_code": "c",
+			"redirect_uri":       redirect,
+		}}, bearer(tok)...)
+	}
+
+	for _, bad := range []string{"http://api.example.test/v1/oauth/apple/callback", "app.example.test", "https://"} {
+		if r := del(bad); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
+			t.Fatalf("%q: %d %q", bad, r.Code, r.problemCode())
+		}
+	}
+	if len(a.apple.Redirects) != 0 {
+		t.Fatalf("revoked with a refused redirect: %v", a.apple.Redirects)
+	}
+	if r := del("https://api.example.test/v1/oauth/apple/callback"); r.Code != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", r.Code, r.Body)
+	}
+	if want := []string{"https://api.example.test/v1/oauth/apple/callback"}; !slices.Equal(a.apple.Redirects, want) {
+		t.Fatalf("redirects %v", a.apple.Redirects)
 	}
 }

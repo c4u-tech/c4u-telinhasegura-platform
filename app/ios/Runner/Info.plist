@@ -78,7 +78,7 @@
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>br.com.coding4u.telinhaSegura.vincular</string>
+			<string>tech.coding4u.telinhasegura.vincular</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>telinhasegura</string>

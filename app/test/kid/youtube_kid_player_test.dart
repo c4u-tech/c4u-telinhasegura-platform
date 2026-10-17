@@ -5,7 +5,7 @@ void main() {
   group('the embed parameters', () {
     test('no YouTube controls, same-channel suggestions, no fullscreen, no '
         'keyboard, no annotations, inline, privacy-enhanced', () {
-      final params = kidPlayerParams(origin: 'https://br.com.coding4u.app');
+      final params = kidPlayerParams(origin: 'https://tech.coding4u.app');
       final vars = params.toMap();
 
       expect(params.host, 'https://www.youtube-nocookie.com');
@@ -18,17 +18,16 @@ void main() {
     });
 
     test('the app identifies itself as the embed\'s origin and referrer', () {
-      final vars = kidPlayerParams(origin: 'https://br.com.coding4u.app')
-          .toMap();
-      expect(vars['origin'], 'https://br.com.coding4u.app');
-      expect(vars['widget_referrer'], 'https://br.com.coding4u.app');
+      final vars = kidPlayerParams(origin: 'https://tech.coding4u.app').toMap();
+      expect(vars['origin'], 'https://tech.coding4u.app');
+      expect(vars['widget_referrer'], 'https://tech.coding4u.app');
     });
   });
 
   group('the guardian side\'s embed parameters', () {
     test('YouTube\'s own controls, fullscreen and keyboard, same-channel '
         'suggestions, no annotations, inline, privacy-enhanced', () {
-      final params = adultPlayerParams(origin: 'https://br.com.coding4u.app');
+      final params = adultPlayerParams(origin: 'https://tech.coding4u.app');
       final vars = params.toMap();
 
       expect(params.host, 'https://www.youtube-nocookie.com');
@@ -42,8 +41,8 @@ void main() {
       expect(vars['cc_load_policy'], 0);
       expect(vars['cc_lang_pref'], 'pt');
       expect(vars['hl'], 'pt');
-      expect(vars['origin'], 'https://br.com.coding4u.app');
-      expect(vars['widget_referrer'], 'https://br.com.coding4u.app');
+      expect(vars['origin'], 'https://tech.coding4u.app');
+      expect(vars['widget_referrer'], 'https://tech.coding4u.app');
     });
 
     test('kid mode\'s parameters are not the adult ones', () {
@@ -55,14 +54,14 @@ void main() {
   });
 
   group('what the player may load', () {
-    final base = Uri.parse('https://br.com.coding4u.telinha_segura');
+    final base = Uri.parse('https://tech.coding4u.telinhasegura');
     KidNavigation decide(String url, {bool mainFrame = true}) =>
         decideNavigation(Uri.parse(url), mainFrame: mainFrame, base: base);
 
     test('its own page and the embed load', () {
       expect(decide('about:blank'), KidNavigation.allow);
       expect(
-        decide('https://br.com.coding4u.telinha_segura/'),
+        decide('https://tech.coding4u.telinhasegura/'),
         KidNavigation.allow,
       );
       expect(
@@ -103,7 +102,7 @@ void main() {
     test('a page on our own host other than the player\'s is not the '
         'player', () {
       expect(
-        decide('https://br.com.coding4u.telinha_segura/other'),
+        decide('https://tech.coding4u.telinhasegura/other'),
         KidNavigation.leave,
       );
     });

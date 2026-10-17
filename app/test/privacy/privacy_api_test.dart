@@ -108,6 +108,28 @@ void main() {
     });
   });
 
+  test('a web-flow credential sends its redirect URI', () async {
+    http.Request? sent;
+    final t = build(ClientKind.mobile, (req) {
+      sent = req;
+      return http.Response('', 204);
+    });
+    await PrivacyApi(t.client).deleteAccount(
+      apple: AppleCredential(
+        identityToken: 'id-token',
+        authorizationCode: 'code',
+        redirectUri: Uri.parse('https://api.test/v1/oauth/apple/callback'),
+      ),
+    );
+    expect(jsonDecode(sent!.body), {
+      'apple': {
+        'identity_token': 'id-token',
+        'authorization_code': 'code',
+        'redirect_uri': 'https://api.test/v1/oauth/apple/callback',
+      },
+    });
+  });
+
   test('a deletion without a credential sends no body', () async {
     http.Request? sent;
     final t = build(ClientKind.mobile, (req) {

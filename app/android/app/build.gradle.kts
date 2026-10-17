@@ -36,7 +36,7 @@ if (releaseRequested && missingSigning.isNotEmpty()) {
 }
 
 android {
-    namespace = "br.com.coding4u.telinha_segura"
+    namespace = "tech.coding4u.telinhasegura"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -47,7 +47,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "br.com.coding4u.telinha_segura"
+        applicationId = "tech.coding4u.telinhasegura"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

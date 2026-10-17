@@ -1,4 +1,4 @@
-package br.com.coding4u.telinha_segura
+package tech.coding4u.telinhasegura
 
 import io.flutter.embedding.android.FlutterActivity
 

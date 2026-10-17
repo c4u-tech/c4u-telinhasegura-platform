@@ -58,12 +58,17 @@ type api struct {
 	onAuditKind audit.Event
 }
 
-// appleFake stands for Apple's token endpoints: Revoke answers Err.
+// appleFake stands for Apple's token endpoints: Revoke records the
+// redirect URI it was given and answers Err.
 type appleFake struct {
-	Err error
+	Err       error
+	Redirects []string
 }
 
-func (f *appleFake) Revoke(context.Context, string, string) error { return f.Err }
+func (f *appleFake) Revoke(_ context.Context, _, _, redirectURI string) error {
+	f.Redirects = append(f.Redirects, redirectURI)
+	return f.Err
+}
 
 // hookedAudit records events and runs the api's one-shot audit hook.
 type hookedAudit struct {

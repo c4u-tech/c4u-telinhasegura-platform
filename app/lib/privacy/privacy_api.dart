@@ -33,6 +33,8 @@ class PrivacyApi {
               'apple': {
                 'identity_token': apple.identityToken,
                 'authorization_code': apple.authorizationCode,
+                if (apple.redirectUri case final redirect?)
+                  'redirect_uri': redirect.toString(),
               },
             },
     );

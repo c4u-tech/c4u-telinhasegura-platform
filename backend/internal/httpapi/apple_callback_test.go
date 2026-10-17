@@ -9,7 +9,7 @@ import (
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/httpapi"
 )
 
-func withApple(s *httpapi.Server) { s.AppleAndroidPackage = "br.com.coding4u.telinha_segura" }
+func withApple(s *httpapi.Server) { s.AppleAndroidPackage = "tech.coding4u.telinhasegura" }
 
 func (a *api) postForm(path, form string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form))
@@ -22,7 +22,7 @@ func (a *api) postForm(path, form string) *httptest.ResponseRecorder {
 func TestAppleCallbackRelaysTheFormToTheAndroidApp(t *testing.T) {
 	a := newAPI(t, withApple)
 	r := a.postForm("/v1/oauth/apple/callback", `state=s1&code=c1&id_token=t1&user=%7B%22name%22%3A1%7D`)
-	want := `intent://callback?code=c1&id_token=t1&state=s1&user=%7B%22name%22%3A1%7D#Intent;package=br.com.coding4u.telinha_segura;scheme=signinwithapple;end`
+	want := `intent://callback?code=c1&id_token=t1&state=s1&user=%7B%22name%22%3A1%7D#Intent;package=tech.coding4u.telinhasegura;scheme=signinwithapple;end`
 	if r.Code != http.StatusSeeOther || r.Header().Get("Location") != want {
 		t.Fatalf("%d %q", r.Code, r.Header().Get("Location"))
 	}
@@ -31,7 +31,7 @@ func TestAppleCallbackRelaysTheFormToTheAndroidApp(t *testing.T) {
 func TestAppleCallbackRelaysAnEmptyForm(t *testing.T) {
 	a := newAPI(t, withApple)
 	r := a.postForm("/v1/oauth/apple/callback", "")
-	if r.Code != http.StatusSeeOther || r.Header().Get("Location") != "intent://callback?#Intent;package=br.com.coding4u.telinha_segura;scheme=signinwithapple;end" {
+	if r.Code != http.StatusSeeOther || r.Header().Get("Location") != "intent://callback?#Intent;package=tech.coding4u.telinhasegura;scheme=signinwithapple;end" {
 		t.Fatalf("%d %q", r.Code, r.Header().Get("Location"))
 	}
 }
@@ -39,12 +39,12 @@ func TestAppleCallbackRelaysAnEmptyForm(t *testing.T) {
 func TestAppleCallbackCannotInjectIntentSyntax(t *testing.T) {
 	a := newAPI(t, withApple)
 	r := a.postForm("/v1/oauth/apple/callback", `code=x%23Intent%3Bpackage%3Devil%3Bend&state=%3B`)
-	want := `intent://callback?code=x%23Intent%3Bpackage%3Devil%3Bend&state=%3B#Intent;package=br.com.coding4u.telinha_segura;scheme=signinwithapple;end`
+	want := `intent://callback?code=x%23Intent%3Bpackage%3Devil%3Bend&state=%3B#Intent;package=tech.coding4u.telinhasegura;scheme=signinwithapple;end`
 	loc := r.Header().Get("Location")
 	if r.Code != http.StatusSeeOther || loc != want {
 		t.Fatalf("%d %q", r.Code, loc)
 	}
-	if _, frag, _ := strings.Cut(loc, "#"); frag != "Intent;package=br.com.coding4u.telinha_segura;scheme=signinwithapple;end" {
+	if _, frag, _ := strings.Cut(loc, "#"); frag != "Intent;package=tech.coding4u.telinhasegura;scheme=signinwithapple;end" {
 		t.Fatalf("intent fragment %q", frag)
 	}
 }

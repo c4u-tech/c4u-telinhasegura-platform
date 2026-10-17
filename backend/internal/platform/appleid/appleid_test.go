@@ -73,19 +73,22 @@ func (a *apple) client(k *ecdsa.PrivateKey) *appleid.Client {
 func TestRevokeExchangesThenRevokes(t *testing.T) {
 	k, _ := newKey(t)
 	a := newApple(t)
-	if err := a.client(k).Revoke(context.Background(), "br.com.coding4u.telinhaSegura", "the-code"); err != nil {
+	if err := a.client(k).Revoke(context.Background(), "tech.coding4u.telinhasegura", "the-code", ""); err != nil {
 		t.Fatal(err)
 	}
 	tok := a.forms["/auth/token"][0]
-	if tok["grant_type"] != "authorization_code" || tok["code"] != "the-code" || tok["client_id"] != "br.com.coding4u.telinhaSegura" {
+	if tok["grant_type"] != "authorization_code" || tok["code"] != "the-code" || tok["client_id"] != "tech.coding4u.telinhasegura" {
 		t.Fatalf("token form %v", tok)
 	}
 	rev := a.forms["/auth/revoke"][0]
-	if rev["token"] != "rt" || rev["token_type_hint"] != "refresh_token" || rev["client_id"] != "br.com.coding4u.telinhaSegura" {
+	if rev["token"] != "rt" || rev["token_type_hint"] != "refresh_token" || rev["client_id"] != "tech.coding4u.telinhasegura" {
 		t.Fatalf("revoke form %v", rev)
 	}
-	verifySecret(t, &k.PublicKey, tok["client_secret"], "br.com.coding4u.telinhaSegura")
-	verifySecret(t, &k.PublicKey, rev["client_secret"], "br.com.coding4u.telinhaSegura")
+	if _, ok := tok["redirect_uri"]; ok {
+		t.Fatalf("a native code was exchanged with a redirect_uri: %v", tok)
+	}
+	verifySecret(t, &k.PublicKey, tok["client_secret"], "tech.coding4u.telinhasegura")
+	verifySecret(t, &k.PublicKey, rev["client_secret"], "tech.coding4u.telinhasegura")
 }
 
 // verifySecret checks the ES256 JWT Apple expects (Client secret).
@@ -130,7 +133,7 @@ func TestRevokeInvalidGrant(t *testing.T) {
 	k, _ := newKey(t)
 	a := newApple(t)
 	a.tokenCode, a.tokenBody = 400, `{"error":"invalid_grant"}`
-	err := a.client(k).Revoke(context.Background(), "c", "stale")
+	err := a.client(k).Revoke(context.Background(), "c", "stale", "")
 	if !errors.Is(err, appleid.ErrInvalidGrant) {
 		t.Fatalf("err = %v", err)
 	}
@@ -143,21 +146,21 @@ func TestRevokeClassifiesFailures(t *testing.T) {
 	k, _ := newKey(t)
 	a := newApple(t)
 	a.tokenCode, a.tokenBody = 503, `oops`
-	err := a.client(k).Revoke(context.Background(), "c", "code")
+	err := a.client(k).Revoke(context.Background(), "c", "code", "")
 	if err == nil || errors.Is(err, appleid.ErrInvalidGrant) || appleid.Class(err) != "apple 5xx" {
 		t.Fatalf("err = %v, class %q", err, appleid.Class(err))
 	}
 	a.tokenCode, a.tokenBody, a.revokeCode = 200, `{"refresh_token":"rt"}`, 400
-	err = a.client(k).Revoke(context.Background(), "c", "code")
+	err = a.client(k).Revoke(context.Background(), "c", "code", "")
 	if err == nil || appleid.Class(err) != "apple 4xx" {
 		t.Fatalf("revoke failure: %v, class %q", err, appleid.Class(err))
 	}
 	a.tokenCode, a.tokenBody = 400, `{"error":"invalid_client"}`
-	if err := a.client(k).Revoke(context.Background(), "c", "code"); errors.Is(err, appleid.ErrInvalidGrant) || appleid.Class(err) != "apple 4xx" {
+	if err := a.client(k).Revoke(context.Background(), "c", "code", ""); errors.Is(err, appleid.ErrInvalidGrant) || appleid.Class(err) != "apple 4xx" {
 		t.Fatalf("invalid_client: %v", err)
 	}
 	a.srv.Close()
-	if err := a.client(k).Revoke(context.Background(), "c", "code"); appleid.Class(err) != "network" {
+	if err := a.client(k).Revoke(context.Background(), "c", "code", ""); appleid.Class(err) != "network" {
 		t.Fatalf("closed server: %v, class %q", err, appleid.Class(err))
 	}
 }
@@ -166,7 +169,7 @@ func TestErrorsNeverCarryTheBody(t *testing.T) { // Security
 	k, _ := newKey(t)
 	a := newApple(t)
 	a.tokenCode, a.tokenBody = 400, `{"error":"invalid_grant","secret":"the-code"}`
-	err := a.client(k).Revoke(context.Background(), "c", "the-code")
+	err := a.client(k).Revoke(context.Background(), "c", "the-code", "")
 	if strings.Contains(err.Error(), "the-code") {
 		t.Fatalf("error leaks: %v", err)
 	}
@@ -200,5 +203,23 @@ func TestParseKeyErrorNeverEchoesTheKey(t *testing.T) {
 	_, err := appleid.ParseKey("-----BEGIN PRIVATE KEY-----\nc2VjcmV0\n-----END PRIVATE KEY-----")
 	if err == nil || strings.Contains(err.Error(), "c2VjcmV0") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// A code from Apple's web flow (the Services ID, on the web and through the
+// Android relay) is exchanged with the redirect_uri it was issued to; the
+// revocation itself takes none.
+func TestRevokeSendsTheRedirectURIOfAWebCode(t *testing.T) {
+	k, _ := newKey(t)
+	a := newApple(t)
+	const redirect = "https://api.example.test/v1/oauth/apple/callback"
+	if err := a.client(k).Revoke(context.Background(), "tech.coding4u.telinhasegura.web", "the-code", redirect); err != nil {
+		t.Fatal(err)
+	}
+	if tok := a.forms["/auth/token"][0]; tok["redirect_uri"] != redirect || tok["client_id"] != "tech.coding4u.telinhasegura.web" {
+		t.Fatalf("token form %v", tok)
+	}
+	if _, ok := a.forms["/auth/revoke"][0]["redirect_uri"]; ok {
+		t.Fatalf("revoke form %v", a.forms["/auth/revoke"][0])
 	}
 }

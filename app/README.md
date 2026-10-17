@@ -16,7 +16,7 @@ constants):
 
 | Define | Value |
 | ------ | ----- |
-| `GOOGLE_CLIENT_ID` | iOS: the iOS client ID; web: the web client ID; Android: empty |
+| `GOOGLE_CLIENT_ID` | iOS: the iOS client ID; web: the web client ID; Android ignores it (one file serves both mobile builds) |
 | `GOOGLE_SERVER_CLIENT_ID` | the web client ID (Android and iOS tokens use it as `aud`) |
 | `APPLE_SERVICES_ID` | the Services ID of Apple's web flow |
 | `APPLE_REDIRECT_URI` | Android: `<API>/v1/oauth/apple/callback`; web: the app origin registered with Apple |

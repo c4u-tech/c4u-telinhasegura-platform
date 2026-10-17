@@ -33,7 +33,7 @@ do not.
 
 3. Back up the `.jks` and both passwords in the password manager, never in
    the repository.
-4. Create the app in Play Console with package `br.com.coding4u.telinha_segura`
+4. Create the app in Play Console with package `tech.coding4u.telinhasegura`
    and enrol in Play App Signing (Google-generated app key).
 5. Build and upload the first bundle: `make build-android ENV=prd`.
 
@@ -46,6 +46,6 @@ Lost upload key: Play Console, "Request upload key reset".
    profiles.
 3. The App ID needs the Sign in with Apple capability.
 4. Create the Sign in with Apple key (Keys, +, "Sign in with Apple", primary
-   App ID `br.com.coding4u.telinhaSegura`) and set `APPLE_TEAM_ID`,
+   App ID `tech.coding4u.telinhasegura`) and set `APPLE_TEAM_ID`,
    `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY` on the API before
    `APPLE_CLIENT_IDS`.

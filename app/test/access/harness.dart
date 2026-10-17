@@ -75,7 +75,7 @@ class FakeGoogleWeb implements GoogleWebSignIn {
 const allProviders = ProviderSettings(
   googleClientId: 'g.apps.googleusercontent.com',
   googleServerClientId: 'g.apps.googleusercontent.com',
-  appleServicesId: 'br.com.coding4u.telinha-segura.web',
+  appleServicesId: 'tech.coding4u.telinhasegura.web',
   appleRedirectUri: 'https://app.test',
 );
 
