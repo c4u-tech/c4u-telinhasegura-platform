@@ -45,16 +45,10 @@ YoutubePlayerParams adultPlayerParams({String? origin}) => YoutubePlayerParams(
   origin: origin,
 );
 
-/// The app's own identity as a URL, per platform, for the embed's Referer
-/// (Android's application id, iOS's bundle id). Null on the web, where the
-/// page's own origin is sent.
-String? appOrigin() {
-  if (kIsWeb) return null;
-  return switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => 'https://br.com.coding4u.telinhaSegura',
-    _ => 'https://br.com.coding4u.telinha_segura',
-  };
-}
+/// The app's own identity as a URL, for the embed's Referer: Android's
+/// application id and iOS's bundle id are the same. Null on the web, where
+/// the page's own origin is sent.
+String? appOrigin() => kIsWeb ? null : 'https://tech.coding4u.telinhasegura';
 
 /// What the player's WebView may load.
 enum KidNavigation {

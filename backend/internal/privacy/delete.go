@@ -86,7 +86,7 @@ func (s *Service) revokeApple(ctx context.Context, accountID string, apple *Appl
 	if err != nil || c.Subject != subject {
 		return false, ErrAppleIdentityMismatch
 	}
-	err = s.d.Apple.Revoke(ctx, c.Audience, apple.AuthorizationCode)
+	err = s.d.Apple.Revoke(ctx, c.Audience, apple.AuthorizationCode, apple.RedirectURI)
 	switch {
 	case err == nil:
 		return false, nil

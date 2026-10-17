@@ -29,7 +29,7 @@ void main() {
     const s = ProviderSettings(
       googleClientId: '',
       googleServerClientId: 'web.apps.googleusercontent.com',
-      appleServicesId: 'br.com.coding4u.telinhaSegura.web',
+      appleServicesId: 'tech.coding4u.telinhasegura.web',
       appleRedirectUri: '',
     );
 
