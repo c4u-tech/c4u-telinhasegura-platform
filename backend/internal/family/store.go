@@ -106,12 +106,14 @@ func loadFamily(ctx context.Context, q querier, familyID string, role Role, now 
 	}); err != nil {
 		return Family{}, err
 	}
-	rows, err = q.Query(ctx, `SELECT id::text, nickname, avatar, age_band, created_at, updated_at
-		FROM minors WHERE family_id = $1::uuid ORDER BY created_at, id`, familyID)
+	rows, err = q.Query(ctx, `SELECT id::text, nickname, avatar, age_band, created_at, updated_at,
+		EXISTS (SELECT 1 FROM minor_consents c WHERE c.minor_id = minors.id
+			AND c.policy_version = $2 AND c.withdrawn_at IS NULL)
+		FROM minors WHERE family_id = $1::uuid ORDER BY created_at, id`, familyID, ConsentPolicyVersion)
 	if err != nil {
 		return Family{}, err
 	}
-	if f.Minors, err = pgx.CollectRows(rows, scanMinor); err != nil {
+	if f.Minors, err = pgx.CollectRows(rows, scanMinorWithConsent); err != nil {
 		return Family{}, err
 	}
 	rows, err = q.Query(ctx, `SELECT id::text, email, expires_at FROM family_invitations
@@ -134,9 +136,9 @@ func loadFamily(ctx context.Context, q querier, familyID string, role Role, now 
 	return f, nil
 }
 
-func scanMinor(r pgx.CollectableRow) (Minor, error) {
+func scanMinorWithConsent(r pgx.CollectableRow) (Minor, error) {
 	var m Minor
-	return m, r.Scan(&m.ID, &m.Nickname, &m.Avatar, &m.AgeBand, &m.CreatedAt, &m.UpdatedAt)
+	return m, r.Scan(&m.ID, &m.Nickname, &m.Avatar, &m.AgeBand, &m.CreatedAt, &m.UpdatedAt, &m.ConsentCurrent)
 }
 
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)

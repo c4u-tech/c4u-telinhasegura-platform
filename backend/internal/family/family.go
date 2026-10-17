@@ -33,7 +33,7 @@ const (
 
 // ConsentPolicyVersion names the consent text the app shows before a
 // minor is created. The Dart constant kConsentPolicyVersion must equal it.
-const ConsentPolicyVersion = "2026-10-03"
+const ConsentPolicyVersion = "2026-10-17"
 
 // Avatars are the preset avatar keys; the app maps each key to its art.
 var Avatars = []string{"fox", "owl", "cat", "dog", "rabbit", "bear", "turtle", "whale", "lion", "panda", "frog", "penguin"}
@@ -81,6 +81,9 @@ type Minor struct {
 	AgeBand   AgeBand
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// ConsentCurrent is true when a guardian has authorized the profile
+	// under the current consent text.
+	ConsentCurrent bool
 }
 
 type Invitation struct {

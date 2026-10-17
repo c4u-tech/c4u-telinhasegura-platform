@@ -32,7 +32,7 @@ func (s *Service) CreateMinor(ctx context.Context, accountID string, in MinorInp
 		if policyVersion != ConsentPolicyVersion {
 			return ErrPolicyOutdated
 		}
-		m = Minor{Nickname: in.Nickname, Avatar: in.Avatar, AgeBand: in.AgeBand, CreatedAt: now, UpdatedAt: now}
+		m = Minor{Nickname: in.Nickname, Avatar: in.Avatar, AgeBand: in.AgeBand, CreatedAt: now, UpdatedAt: now, ConsentCurrent: true}
 		var n int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM minors WHERE family_id = $1::uuid`, st.FamilyID).Scan(&n); err != nil {
 			return err
@@ -80,12 +80,14 @@ func (s *Service) UpdateMinor(ctx context.Context, accountID, minorID string, p 
 		rows, err := tx.Query(ctx, `UPDATE minors
 			SET nickname = coalesce($3, nickname), avatar = coalesce($4, avatar), age_band = coalesce($5, age_band), updated_at = $6
 			WHERE id = $1::uuid AND family_id = $2::uuid
-			RETURNING id::text, nickname, avatar, age_band, created_at, updated_at`,
-			minorID, st.FamilyID, p.Nickname, p.Avatar, band, now)
+			RETURNING id::text, nickname, avatar, age_band, created_at, updated_at,
+				EXISTS (SELECT 1 FROM minor_consents c WHERE c.minor_id = minors.id
+					AND c.policy_version = $7 AND c.withdrawn_at IS NULL)`,
+			minorID, st.FamilyID, p.Nickname, p.Avatar, band, now, ConsentPolicyVersion)
 		if err != nil {
 			return err
 		}
-		m, err = pgx.CollectExactlyOneRow(rows, scanMinor) // no row: unknown or foreign minor
+		m, err = pgx.CollectExactlyOneRow(rows, scanMinorWithConsent) // no row: unknown or foreign minor
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -117,7 +119,7 @@ func (s *Service) DeleteMinor(ctx context.Context, accountID, minorID string) er
 		if tag.RowsAffected() == 0 {
 			return ErrNotFound
 		}
-		_, err = tx.Exec(ctx, `UPDATE minor_consents SET withdrawn_at = $2, withdrawn_by = $3::uuid WHERE minor_id = $1::uuid`,
+		_, err = tx.Exec(ctx, `UPDATE minor_consents SET withdrawn_at = $2, withdrawn_by = $3::uuid WHERE minor_id = $1::uuid AND withdrawn_at IS NULL`,
 			minorID, now, accountID)
 		return err
 	})
@@ -127,3 +129,61 @@ func (s *Service) DeleteMinor(ctx context.Context, accountID, minorID string) er
 	s.d.Audit.Record(ctx, accountID, audit.MinorDeleted)
 	return nil
 }
+
+// GrantConsent records a guardian's authorization of a child's profile under
+// the current consent text, for a profile created under an older one.
+// Authorizing again under the same text changes nothing.
+func (s *Service) GrantConsent(ctx context.Context, accountID, minorID, policyVersion string) error {
+	now := s.now()
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if _, err := requireVerified(ctx, tx, accountID); err != nil {
+			return err
+		}
+		st, err := lockStanding(ctx, tx, accountID)
+		if err != nil {
+			return err
+		}
+		if !validID(minorID) {
+			return ErrNotFound
+		}
+		if policyVersion == "" {
+			return ErrValidation
+		}
+		if policyVersion != ConsentPolicyVersion {
+			return ErrPolicyOutdated
+		}
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM minors WHERE id = $1::uuid AND family_id = $2::uuid)`,
+			minorID, st.FamilyID).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return ErrNotFound
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO minor_consents (minor_id, family_id, granted_by, policy_version, granted_at)
+			SELECT $1::uuid, $2::uuid, $3::uuid, $4, $5
+			WHERE NOT EXISTS (SELECT 1 FROM minor_consents WHERE minor_id = $1::uuid
+				AND policy_version = $4 AND withdrawn_at IS NULL)`,
+			minorID, st.FamilyID, accountID, policyVersion, now)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	s.d.Audit.Record(ctx, accountID, audit.MinorConsentGranted)
+	return nil
+}
+
+// ConsentCurrent reports whether a child's profile is authorized under the
+// current consent text.
+func (s *Service) ConsentCurrent(ctx context.Context, minorID string) (bool, error) {
+	if !validID(minorID) {
+		return false, nil
+	}
+	var ok bool
+	err := s.d.Pool.QueryRow(ctx, consentCurrentSQL, minorID, ConsentPolicyVersion).Scan(&ok)
+	return ok, err
+}
+
+const consentCurrentSQL = `SELECT EXISTS (SELECT 1 FROM minor_consents
+	WHERE minor_id = $1::uuid AND policy_version = $2 AND withdrawn_at IS NULL)`

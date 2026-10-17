@@ -255,3 +255,131 @@ func TestReturnedTimesMatchStoredTimes(t *testing.T) {
 		t.Fatalf("invitation: posted %v, read %+v", inv.ExpiresAt, fam.Invitations)
 	}
 }
+
+// outdate forces every consent row of a profile back to an older text.
+func (f *fixture) outdate(minorID string) {
+	f.t.Helper()
+	if _, err := f.pool.Exec(ctx, `UPDATE minor_consents SET policy_version = '2026-10-03' WHERE minor_id = $1::uuid`, minorID); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func TestGrantConsentRecordsANewAuthorization(t *testing.T) {
+	f := newFixture(t)
+	ana := f.owner("ana@example.com")
+	m, err := f.svc.CreateMinor(ctx, ana, lia, family.ConsentPolicyVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.outdate(m.ID)
+	if ok, err := f.svc.ConsentCurrent(ctx, m.ID); err != nil || ok {
+		t.Fatalf("before: %v %v", ok, err)
+	}
+	if err := f.svc.GrantConsent(ctx, ana, m.ID, family.ConsentPolicyVersion); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := f.svc.ConsentCurrent(ctx, m.ID); err != nil || !ok {
+		t.Fatalf("after: %v %v", ok, err)
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents WHERE minor_id = $1::uuid`, m.ID); n != 2 {
+		t.Fatalf("rows: %d", n)
+	}
+	if !f.audit.Has(ana, audit.MinorConsentGranted) {
+		t.Fatal("no minor_consent_granted audit")
+	}
+}
+
+func TestGrantConsentTwiceKeepsOneCurrentRow(t *testing.T) {
+	f := newFixture(t)
+	ana := f.owner("ana@example.com")
+	m, err := f.svc.CreateMinor(ctx, ana, lia, family.ConsentPolicyVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.outdate(m.ID)
+	for i := 0; i < 2; i++ {
+		if err := f.svc.GrantConsent(ctx, ana, m.ID, family.ConsentPolicyVersion); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents WHERE minor_id = $1::uuid AND policy_version = $2`,
+		m.ID, family.ConsentPolicyVersion); n != 1 {
+		t.Fatalf("current rows: %d", n)
+	}
+}
+
+func TestGrantConsentRefusesAnOldVersionAndForeignMinors(t *testing.T) {
+	f := newFixture(t)
+	ana := f.owner("ana@example.com")
+	m, err := f.svc.CreateMinor(ctx, ana, lia, family.ConsentPolicyVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.GrantConsent(ctx, ana, m.ID, ""); !errors.Is(err, family.ErrValidation) {
+		t.Fatalf("missing: %v", err)
+	}
+	if err := f.svc.GrantConsent(ctx, ana, m.ID, "2026-10-03"); !errors.Is(err, family.ErrPolicyOutdated) {
+		t.Fatalf("outdated: %v", err)
+	}
+	cat := f.owner("cat@example.com")
+	if err := f.svc.GrantConsent(ctx, cat, m.ID, family.ConsentPolicyVersion); !errors.Is(err, family.ErrNotFound) {
+		t.Fatalf("foreign: %v", err)
+	}
+	if err := f.svc.GrantConsent(ctx, ana, "not-a-uuid", family.ConsentPolicyVersion); !errors.Is(err, family.ErrNotFound) {
+		t.Fatalf("malformed: %v", err)
+	}
+	dan := f.account("dan@example.com", false)
+	if err := f.svc.GrantConsent(ctx, dan, m.ID, family.ConsentPolicyVersion); !errors.Is(err, family.ErrEmailUnverified) {
+		t.Fatalf("unverified: %v", err)
+	}
+}
+
+func TestDeleteMinorWithdrawsEveryOpenConsent(t *testing.T) {
+	f := newFixture(t)
+	ana := f.owner("ana@example.com")
+	m, err := f.svc.CreateMinor(ctx, ana, lia, family.ConsentPolicyVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.outdate(m.ID)
+	if err := f.svc.GrantConsent(ctx, ana, m.ID, family.ConsentPolicyVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.DeleteMinor(ctx, ana, m.ID); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents WHERE minor_id = $1::uuid AND withdrawn_at IS NULL`, m.ID); n != 0 {
+		t.Fatalf("open rows: %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents WHERE minor_id = $1::uuid`, m.ID); n != 2 {
+		t.Fatalf("ledger rows: %d", n)
+	}
+}
+
+func TestFamilyReadsConsentCurrent(t *testing.T) {
+	f := newFixture(t)
+	ana := f.owner("ana@example.com")
+	fresh, err := f.svc.CreateMinor(ctx, ana, lia, family.ConsentPolicyVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fresh.ConsentCurrent {
+		t.Fatal("a new profile is not current")
+	}
+	old, err := f.svc.CreateMinor(ctx, ana, family.MinorInput{Nickname: "Leo", Avatar: "fox", AgeBand: family.Age5To8}, family.ConsentPolicyVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.outdate(old.ID)
+	fam, err := f.svc.Get(ctx, ana)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, m := range fam.Minors {
+		got[m.ID] = m.ConsentCurrent
+	}
+	if len(got) != 2 || !got[fresh.ID] || got[old.ID] {
+		t.Fatalf("consent flags: %+v", got)
+	}
+}
