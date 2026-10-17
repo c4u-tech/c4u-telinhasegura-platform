@@ -37,6 +37,7 @@ type route struct {
 	reauth   bool // guardian, admin, moderator, staff: needs a re-authentication within 5 minutes
 	elevated bool // staff: needs the session's privileged elevation
 	bare     bool // public: outside the per-IP budget (health checks)
+	consent  bool // child: refused while the child's consent is not current
 }
 
 // Routes lists every registered route with its kind.
@@ -59,6 +60,11 @@ func (s *Server) routes() []route {
 	}
 	kid := func(p string, h http.HandlerFunc) route {
 		return route{Route: Route{Pattern: p, Kind: ChildRoute}, h: h}
+	}
+	// kidConsented is a child route a paused child cannot reach; the
+	// unlock and the profile picker stay open so the device can leave it.
+	kidConsented := func(p string, h http.HandlerFunc) route {
+		return route{Route: Route{Pattern: p, Kind: ChildRoute}, h: h, consent: true}
 	}
 	reauthed := func(p string, h http.HandlerFunc) route {
 		return route{Route: Route{Pattern: p, Kind: GuardianRoute}, h: h, reauth: true}
@@ -163,16 +169,16 @@ func (s *Server) routes() []route {
 		guardian("POST /v1/screentime/minors/{id}/extend", s.guardianExtend),
 		guardian("GET /v1/screentime/minors/{id}/usage", s.screenTimeUsage),
 		public("POST /v1/devices/redeem", s.redeem),
-		kid("GET /v1/child/profile", s.childProfile),
+		kidConsented("GET /v1/child/profile", s.childProfile),
 		kid("POST /v1/child/unlock", s.unlock),
 		kid("POST /v1/child/profiles", s.childProfiles),
 		kid("PUT /v1/child/profile", s.switchProfile),
-		kid("GET /v1/child/catalog", s.childCatalog),
-		kid("GET /v1/child/thumbs/{video}", s.childThumb),
-		kid("POST /v1/child/plays", s.play),
-		kid("POST /v1/child/plays/{id}/beat", s.beat),
-		kid("POST /v1/child/time/extend", s.childExtend),
-		kid("POST /v1/child/videos/{id}/unavailable", s.unavailable),
+		kidConsented("GET /v1/child/catalog", s.childCatalog),
+		kidConsented("GET /v1/child/thumbs/{video}", s.childThumb),
+		kidConsented("POST /v1/child/plays", s.play),
+		kidConsented("POST /v1/child/plays/{id}/beat", s.beat),
+		kidConsented("POST /v1/child/time/extend", s.childExtend),
+		kidConsented("POST /v1/child/videos/{id}/unavailable", s.unavailable),
 		curator("GET /v1/curation/themes", s.themes),
 		curator("GET /v1/curation/queue", s.queue),
 		curator("GET /v1/curation/videos", s.approvedVideos),
@@ -254,6 +260,9 @@ func (s *Server) wrap(r route) http.HandlerFunc {
 	case SessionRoute:
 		return s.sessioned(r.SuspendedOK, r.h)
 	case ChildRoute:
+		if r.consent {
+			return s.childAuthed(s.requireConsent(r.h))
+		}
 		return s.childAuthed(r.h)
 	default:
 		if r.bare {

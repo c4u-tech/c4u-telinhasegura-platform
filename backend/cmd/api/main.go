@@ -150,14 +150,15 @@ func serve(log *slog.Logger) error {
 		Log:           log,
 	})
 	par := parental.NewService(parental.Deps{
-		Pool:        pool,
-		Mail:        outbox,
-		Audit:       auditStore,
-		Now:         now,
-		Hash:        identity.DefaultHashParams,
-		AppBaseURL:  cfg.AppBaseURL,
-		CodeLimiter: ratelimit.New(20, time.Hour, now),
-		Log:         log,
+		Pool:           pool,
+		Mail:           outbox,
+		Audit:          auditStore,
+		Now:            now,
+		Hash:           identity.DefaultHashParams,
+		AppBaseURL:     cfg.AppBaseURL,
+		CodeLimiter:    ratelimit.New(20, time.Hour, now),
+		Log:            log,
+		ConsentVersion: family.ConsentPolicyVersion,
 	})
 	var videos curation.VideoSource // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
 	if cfg.YouTubeAPIKey != "" {
