@@ -100,7 +100,8 @@ func TestPagesLoadOnlyTheirOwnFiles(t *testing.T) {
 
 func TestLinksResolveAndLeaveOnlyForKnownPlaces(t *testing.T) {
 	pages := mustPages(t)
-	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail, "mailto:" + CurationEmail}
+	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail, "mailto:" + CurationEmail,
+		"mailto:" + ReportEmail, GooglePrivacyURL, YouTubeTermsURL, RepoURL + "/blob/"}
 	for path, p := range pages {
 		for _, href := range p.Hrefs {
 			u, err := url.Parse(href)
@@ -207,6 +208,48 @@ func TestPrivacyPolicyNamesTheHostAndItsCountry(t *testing.T) {
 	}
 	if strings.Contains(p.Text, "provedor de hospedagem contratado") {
 		t.Errorf("/privacidade still hides the hosting provider")
+	}
+}
+
+// What the law, YouTube's API policies and the stores ask the public pages
+// to say, and what they say must match how the service works.
+func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
+	pages := mustPages(t)
+	says := map[string][]string{
+		"/privacidade": {"Serviços de API do YouTube", "anúncios do próprio YouTube", "37 dias",
+			"15 dias", "não é obrigado a autorizar", "em nosso nome"},
+		"/termos": {"pelo menos duas pessoas", "15 dias", "30 dias de antecedência",
+			"Termos de Serviço do YouTube", "abuso"},
+		"/suporte":       {ReportEmail, "mesmo sem conta", "anônim", "Disque 100", "190"},
+		"/excluir-conta": {"37 dias", "15 dias"},
+		"/":              {"pelo menos duas pessoas"},
+	}
+	for path, wants := range says {
+		for _, want := range wants {
+			if !strings.Contains(pages[path].Text, want) {
+				t.Errorf("%s does not say %q", path, want)
+			}
+		}
+	}
+	links := map[string][]string{
+		"/privacidade": {GooglePrivacyURL},
+		"/termos":      {YouTubeTermsURL},
+		"/suporte":     {"mailto:" + ReportEmail},
+	}
+	for path, hrefs := range links {
+		for _, h := range hrefs {
+			if !contains(pages[path].Hrefs, h) {
+				t.Errorf("%s does not link %s", path, h)
+			}
+		}
+	}
+	// A report hides a video from the reporting family at once; it leaves
+	// everyone's screen only when several families report it.
+	stale := regexp.MustCompile(`volta para (a comunidade )?revis|em até 29 dias|O modo criança não tem anúncios`)
+	for path, p := range pages {
+		if m := stale.FindString(p.Text); m != "" {
+			t.Errorf("%s still says %q, which no longer matches the service", path, m)
+		}
 	}
 }
 

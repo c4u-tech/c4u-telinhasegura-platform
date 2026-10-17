@@ -18,6 +18,12 @@ const (
 	PrivacyEmail = "privacidade@telinhasegura.coding4u.tech"
 	// CurationEmail receives the applications to join the curation team.
 	CurationEmail = "curadoria@telinhasegura.coding4u.tech"
+	// ReportEmail is the public channel for reports of content that
+	// violates children's rights, open to anyone, with or without an account.
+	ReportEmail = "denuncia@telinhasegura.coding4u.tech"
+	// The policies the YouTube API Services terms ask the pages to link.
+	GooglePrivacyURL = "https://www.google.com/policies/privacy"
+	YouTubeTermsURL  = "https://www.youtube.com/t/terms"
 )
 
 // Root is the repository root, two levels above this package.
