@@ -10,6 +10,7 @@ import 'package:telinha_segura/account/account_screen.dart';
 import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/legal/legal_links.dart';
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -80,16 +81,21 @@ Finder lineOf(String title, String line) =>
     find.descendant(of: door(title), matching: find.text(line));
 
 void main() {
-  testWidgets('shows the four doors with their lines, in order', (
-    tester,
-  ) async {
+  testWidgets('shows the doors with their lines, in order', (tester) async {
     final semantics = tester.ensureSemantics();
     await accountScreen(tester);
 
     expect(find.text('Sua conta'), findsOneWidget);
     expect(
       tester.widgetList<DoorRow>(find.byType(DoorRow)).map((d) => d.title),
-      ['E-⁠mail', 'Senha', 'Aparelhos conectados', 'Seus dados'],
+      [
+        'E-⁠mail',
+        'Senha',
+        'Aparelhos conectados',
+        'Seus dados',
+        'Termos de uso',
+        'Política de privacidade',
+      ],
     );
     expect(lineOf('E-⁠mail', addressBreaks('ana@example.com')), findsOne);
     expect(lineOf('Senha', 'Trocar ou criar uma senha'), findsOne);
@@ -153,6 +159,21 @@ void main() {
     });
   }
 
+  testWidgets('the terms of use and the privacy policy open the site', (
+    tester,
+  ) async {
+    final h = await accountScreen(tester);
+
+    for (final title in ['Termos de uso', 'Política de privacidade']) {
+      await tester.ensureVisible(door(title));
+      await tester.tap(door(title));
+      await tester.pumpAndSettle();
+    }
+
+    expect(h.links.opened, [kTermsUrl, kPrivacyUrl]);
+    expect(h.location(tester), '/conta');
+  });
+
   testWidgets('the foot holds a quiet clay Excluir conta that opens '
       '/conta/excluir', (tester) async {
     final h = await accountScreen(tester);
@@ -213,7 +234,7 @@ void main() {
   testWidgets('without a family, the index is the same', (tester) async {
     await accountScreen(tester, family: null);
 
-    expect(find.byType(DoorRow), findsNWidgets(4));
+    expect(find.byType(DoorRow), findsNWidgets(6));
     expect(find.text('Excluir conta'), findsOneWidget);
   });
 
@@ -229,7 +250,7 @@ void main() {
         tester.getBottomLeft(find.text('Reenviar e-⁠mail')).dy,
         lessThan(tester.getTopLeft(door('E-⁠mail')).dy),
       );
-      expect(find.byType(DoorRow), findsNWidgets(4));
+      expect(find.byType(DoorRow), findsNWidgets(6));
       await tester.tap(door('Senha'));
       await tester.pumpAndSettle();
       expect(h.location(tester), '/conta/senha');

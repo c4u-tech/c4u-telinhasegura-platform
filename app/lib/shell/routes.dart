@@ -17,6 +17,10 @@ abstract final class Routes {
   static const providerSignup = '/concluir-cadastro';
   static const linkAccount = '/vincular-conta';
 
+  /// Where a guardian who has not accepted the current terms and privacy
+  /// policy waits until they do or sign out.
+  static const terms = '/termos';
+
   static const children = '/familia/criancas';
   static const newChild = '/familia/criancas/nova';
   static const adults = '/familia/responsaveis';
@@ -246,11 +250,12 @@ abstract final class Routes {
     redeem,
   };
 
-  /// The home and everything under `/familia`, `/modo-crianca`, `/conta`
-  /// and the curation and moderation screens. `/convite` is not here: a
+  /// The home, the terms screen and everything under `/familia`,
+  /// `/modo-crianca`, `/conta` and the curation and moderation screens. `/convite` is not here: a
   /// signed-out visitor keeps the token through sign-in.
   static bool signedInOnly(String path) =>
       path == home ||
+      path == terms ||
       isFamilyScreen(path) ||
       isKidModeScreen(path) ||
       isAccountScreen(path) ||

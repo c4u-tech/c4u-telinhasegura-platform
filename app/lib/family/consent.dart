@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../access/widgets.dart';
 import '../design/tokens.dart';
+import '../legal/legal_links.dart' as legal;
 import '../shell/services.dart';
 
 /// The consent text the guardian reads before a child's profile is
@@ -48,11 +49,9 @@ abstract final class ConsentText {
       'perfil com estas informações.';
 
   /// The policy the last paragraph names, opened outside the app.
-  static const privacyLabel = 'Política de privacidade';
+  static const privacyLabel = legal.privacyLabel;
 
-  static final privacyUrl = Uri.parse(
-    'https://telinhasegura.coding4u.tech/privacidade',
-  );
+  static final privacyUrl = legal.kPrivacyUrl;
 }
 
 /// The consent text under [title], paragraph by paragraph, then the

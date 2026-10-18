@@ -199,6 +199,9 @@ class Harness {
   /// The account's standing in the account read (`active`, `suspended`).
   String status = 'active';
 
+  /// Whether the account accepted the current terms, in the account read.
+  bool termsAccepted = true;
+
   /// The session's kid-mode lock (`{'minor_id': ...}`); null when unlocked.
   Map<String, Object?>? kidMode;
 
@@ -217,6 +220,7 @@ class Harness {
         'email': email,
         'email_verified': !unverified,
         'status': status,
+        'terms_accepted': termsAccepted,
       },
       'kid_mode': ?kidMode,
       'roles': roles,

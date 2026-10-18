@@ -109,7 +109,8 @@ void main() {
 
     expect(t.calls, [
       'POST /v1/sessions/provider/signup {"ticket":"tk",'
-          '"adult_declaration":true,"client":"web","device_label":""}',
+          '"adult_declaration":true,"terms_version":"2026-10-17",'
+          '"client":"web","device_label":""}',
       'DELETE /v1/session',
     ]);
   });

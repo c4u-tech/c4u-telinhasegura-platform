@@ -78,6 +78,7 @@ import '../auth/provider_sign_in.dart';
 import '../design/band_transition.dart';
 import '../family/family.dart';
 import '../family/family_model.dart';
+import '../legal/terms_update_screen.dart';
 import '../parental/app_mode.dart';
 import '../staff/account_search_screen.dart';
 import '../staff/account_sheet_screen.dart';
@@ -132,6 +133,13 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         // modes keep their own gates.
         AuthStatus.signedIn when family.suspended && mode.mode is Guardian =>
           _suspendedRedirect(family.state, path),
+        // Then the account waits on the current terms, wherever it was
+        // headed; the terms screen itself offers signing out. Suspension
+        // comes first, so its data and erasure never wait on an agreement.
+        AuthStatus.signedIn
+            when !family.termsAccepted && mode.mode is Guardian =>
+          path == Routes.terms ? null : Routes.terms,
+        AuthStatus.signedIn when path == Routes.terms => Routes.home,
         AuthStatus.signedIn when Routes.signedOutOnly.contains(path) =>
           switch (services.heldInvitation) {
             final token? => Routes.invitation(token),
@@ -578,6 +586,7 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           step: services.pending.value as SignupRequired,
         ),
       ),
+      GoRoute(path: Routes.terms, builder: (_, _) => const TermsUpdateScreen()),
       GoRoute(
         path: Routes.linkAccount,
         builder: (_, _) =>

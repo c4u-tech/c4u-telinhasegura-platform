@@ -5,6 +5,7 @@ import '../auth/provider_sign_in.dart';
 import '../design/address.dart';
 import '../design/field_layout.dart';
 import '../design/tokens.dart';
+import '../legal/legal_links.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'provider_flow.dart';
@@ -81,6 +82,8 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
                   value: _adult,
                   onChanged: (v) => setState(() => _adult = v),
                 ),
+                const SizedBox(height: Space.md),
+                const SignupAgreement(),
                 const SizedBox(height: Space.xl),
                 if (_submission.message case final message?) ...[
                   ErrorNote(message),

@@ -144,6 +144,8 @@ abstract final class Copy {
     'profile_gone':
         'O perfil desta criança não existe mais. Um adulto pode sair do modo '
         'criança com o PIN.',
+    // An app older than the terms the server holds.
+    'terms_outdated': 'Os termos mudaram. Atualize o app para continuar.',
     // A child's profile waiting for a guardian to authorize it again.
     'consent_required':
         'Este perfil precisa de uma nova autorização de um adulto.',

@@ -14,6 +14,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
+import '../legal/legal_links.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/mfa.dart';
@@ -167,6 +168,13 @@ class _AccountScreenState extends State<AccountScreen> {
               _door('Seus dados', 'Baixar uma cópia', Routes.accountData),
             ],
           ),
+          const SizedBox(height: Space.xl),
+          Doors(
+            children: [
+              _site(termsLabel, kTermsUrl),
+              _site(privacyLabel, kPrivacyUrl),
+            ],
+          ),
           const SizedBox(height: Space.xxl),
           QuietAction(
             label: 'Excluir conta',
@@ -199,6 +207,11 @@ class _AccountScreenState extends State<AccountScreen> {
       },
     );
   }
+
+  /// A door named by [title] that opens [url] on the site, outside the
+  /// app.
+  DoorRow _site(String title, Uri url) =>
+      DoorRow(title: title, onTap: () => AppScope.of(context).links.open(url));
 
   /// The family home's verify prompt, as a line: every door still opens,
   /// since fixing a typo'd email is part of the point.
