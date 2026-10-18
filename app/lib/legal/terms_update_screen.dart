@@ -18,7 +18,8 @@ const termsUpdateText =
 
 /// `/termos`: an account that has not accepted the current terms and
 /// privacy policy waits here, from any of its routes, until it agrees or
-/// signs out. There is no way back: everything else waits on the answer.
+/// signs out. There is no way back: everything but the account's data and
+/// its erasure waits on the answer.
 class TermsUpdateScreen extends StatefulWidget {
   const TermsUpdateScreen({super.key});
 
@@ -82,6 +83,16 @@ class _TermsUpdateScreenState extends State<TermsUpdateScreen> {
           onPressed: _accept.blocked || _signOut.busy ? null : _agree,
         ),
         const SizedBox(height: Space.xl),
+        // Seeing and erasing one's data never waits on an agreement.
+        QuietAction(
+          label: 'Baixar seus dados',
+          onPressed: () => context.go(Routes.accountData),
+        ),
+        QuietAction(
+          label: 'Excluir conta',
+          destructive: true,
+          onPressed: () => context.go(Routes.accountDelete),
+        ),
         QuietAction(
           label: 'Sair da conta',
           busy: _signOut.busy,

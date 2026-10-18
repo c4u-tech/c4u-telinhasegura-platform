@@ -210,8 +210,11 @@ class _AccountScreenState extends State<AccountScreen> {
 
   /// A door named by [title] that opens [url] on the site, outside the
   /// app.
-  DoorRow _site(String title, Uri url) =>
-      DoorRow(title: title, onTap: () => AppScope.of(context).links.open(url));
+  DoorRow _site(String title, Uri url) => DoorRow(
+    title: title,
+    link: true,
+    onTap: () => AppScope.of(context).links.open(url),
+  );
 
   /// The family home's verify prompt, as a line: every door still opens,
   /// since fixing a typo'd email is part of the point.

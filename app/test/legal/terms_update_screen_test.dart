@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/entry_screen.dart';
+import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/legal/legal_links.dart';
 import 'package:telinha_segura/legal/terms_update_screen.dart';
@@ -12,11 +13,14 @@ import '../family/fixtures.dart';
 /// Ana, signed in with a family, who has not accepted the current terms.
 /// `POST /v1/account/terms` answers [accept] (204 by default) and, on a
 /// 204, the account reads as accepted from then on.
+final guardianFamily = <String, Object?>{...ownerFamily, 'role': 'guardian'};
+
 Future<Harness> outdated(
   WidgetTester tester, {
   String initial = '/',
   http.Response Function()? accept,
   String status = 'active',
+  Map<String, Object?>? family = ownerFamily,
 }) async {
   late final Harness h;
   h =
@@ -31,7 +35,7 @@ Future<Harness> outdated(
             return http.Response('', 204);
           },
         )
-        ..family = ownerFamily
+        ..family = family
         ..status = status
         ..termsAccepted = false;
   await h.pump(tester, initial: initial);
@@ -56,7 +60,7 @@ void main() {
 
   for (final path in [
     '/conta',
-    '/conta/dados',
+    '/conta/email',
     '/familia/criancas',
     '/familia/tempo',
     '/modo-crianca',
@@ -68,6 +72,74 @@ void main() {
       expect(h.location(tester), '/termos');
     });
   }
+
+  // Seeing and erasing one's own data never waits on an agreement.
+  for (final path in ['/conta/dados', '/conta/excluir']) {
+    for (final (name, family) in [
+      ('owner', ownerFamily),
+      ('guardian', guardianFamily),
+      ('no family', null),
+    ]) {
+      testWidgets('$path stays reachable while terms are pending ($name)', (
+        tester,
+      ) async {
+        final h = await outdated(tester, initial: path, family: family);
+
+        expect(h.location(tester), path);
+        expect(find.byType(TermsUpdateScreen), findsNothing);
+      });
+    }
+  }
+
+  // What an owner's erasure asks first: handing the family on, or
+  // deleting it.
+  for (final path in ['/familia/responsaveis', '/familia/excluir']) {
+    testWidgets('$path stays reachable for the owner', (tester) async {
+      final h = await outdated(tester, initial: path);
+
+      expect(h.location(tester), path);
+    });
+
+    testWidgets('$path waits behind the terms for a guardian', (tester) async {
+      final h = await outdated(tester, initial: path, family: guardianFamily);
+
+      expect(h.location(tester), '/termos');
+    });
+  }
+
+  for (final (label, path) in [
+    ('Baixar seus dados', '/conta/dados'),
+    ('Excluir conta', '/conta/excluir'),
+  ]) {
+    testWidgets('$label opens $path', (tester) async {
+      final h = await outdated(tester);
+
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), path);
+      expect(h.actions, isEmpty);
+    });
+  }
+
+  testWidgets('Excluir conta is a quiet destructive action', (tester) async {
+    await outdated(tester);
+
+    final action = tester.widget<QuietAction>(
+      find.widgetWithText(QuietAction, 'Excluir conta'),
+    );
+    expect(action.destructive, isTrue);
+  });
+
+  testWidgets('back from the data, the terms wait again', (tester) async {
+    final h = await outdated(tester, initial: '/conta/dados');
+
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), '/termos');
+  });
 
   testWidgets('the links open the site pages', (tester) async {
     final h = await outdated(tester);

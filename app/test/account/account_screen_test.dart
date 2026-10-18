@@ -174,6 +174,22 @@ void main() {
     expect(h.location(tester), '/conta');
   });
 
+  testWidgets('the site rows read as links', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await accountScreen(tester);
+
+    for (final title in ['Termos de uso', 'Política de privacidade']) {
+      expect(
+        find.semantics.byPredicate(
+          (n) => n.label == title && n.flagsCollection.isLink,
+        ),
+        findsOne,
+        reason: title,
+      );
+    }
+    semantics.dispose();
+  });
+
   testWidgets('the foot holds a quiet clay Excluir conta that opens '
       '/conta/excluir', (tester) async {
     final h = await accountScreen(tester);

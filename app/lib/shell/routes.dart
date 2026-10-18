@@ -321,4 +321,11 @@ abstract final class Routes {
   /// steps the erasure asks of them. Anything else goes home.
   static const suspendedMay = {home, accountData, accountDelete};
   static const suspendedOwnerMay = {adults, deleteFamily};
+
+  /// Where an account that has not accepted the current terms may go
+  /// besides the terms screen: its data and its erasure, and, for the
+  /// family's owner, the two steps the erasure asks of them. Seeing and
+  /// erasing one's own data never waits on an agreement.
+  static const termsMay = {terms, accountData, accountDelete};
+  static const termsOwnerMay = suspendedOwnerMay;
 }
