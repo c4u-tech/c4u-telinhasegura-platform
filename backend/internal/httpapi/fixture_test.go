@@ -242,7 +242,7 @@ func (a *api) lastToken(addr string) string {
 }
 
 func signUpBody(email string) map[string]any {
-	return map[string]any{"email": email, "password": goodPassword, "adult_declaration": true}
+	return map[string]any{"email": email, "password": goodPassword, "adult_declaration": true, "terms_version": "2026-10-17"}
 }
 
 type mobileTokens struct {
@@ -333,7 +333,7 @@ func (a *api) providerSignUpMobile(sub, email string) mobileTokens {
 	r := a.do(http.MethodPost, "/v1/sessions/provider", map[string]string{"provider": "google", "id_token": a.googleToken(sub, email), "client": "mobile"})
 	b := decodeConfirm(a.t, r, "signup_required")
 	return decodeTokens(a.t, a.do(http.MethodPost, "/v1/sessions/provider/signup",
-		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "client": "mobile"}))
+		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile"}))
 }
 
 // accountID reads the signed-in account's ID.

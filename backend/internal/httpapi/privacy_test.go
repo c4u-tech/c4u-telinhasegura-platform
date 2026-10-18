@@ -151,7 +151,7 @@ func TestDeleteAppleAccountOverHTTP(t *testing.T) {
 	signUp := a.tokens.Issue(idtoken.Apple, idtoken.Claims{Subject: "a-ana", Email: "ana@icloud.com", EmailVerified: true, EmailAuthoritative: true})
 	b := decodeConfirm(t, a.do(http.MethodPost, "/v1/sessions/provider", map[string]string{"provider": "apple", "id_token": signUp, "client": "mobile"}), "signup_required")
 	tok := decodeTokens(t, a.do(http.MethodPost, "/v1/sessions/provider/signup",
-		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "client": "mobile"}))
+		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile"}))
 	id := a.accountID(tok)
 	del := func(body any) resp { return a.do(http.MethodDelete, "/v1/account", body, bearer(tok)...) }
 	cred := func(sub string) map[string]any {
@@ -190,7 +190,7 @@ func TestDeleteAppleAccountSendsTheRedirectURI(t *testing.T) {
 	signUp := a.tokens.Issue(idtoken.Apple, idtoken.Claims{Subject: "a-ana", Email: "ana@icloud.com", EmailVerified: true, EmailAuthoritative: true})
 	b := decodeConfirm(t, a.do(http.MethodPost, "/v1/sessions/provider", map[string]string{"provider": "apple", "id_token": signUp, "client": "mobile"}), "signup_required")
 	tok := decodeTokens(t, a.do(http.MethodPost, "/v1/sessions/provider/signup",
-		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "client": "mobile"}))
+		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile"}))
 	del := func(redirect string) resp {
 		return a.do(http.MethodDelete, "/v1/account", map[string]any{"apple": map[string]string{
 			"identity_token":     a.tokens.Issue(idtoken.Apple, idtoken.Claims{Subject: "a-ana", Audience: "br.example.app.web"}),

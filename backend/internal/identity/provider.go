@@ -107,7 +107,7 @@ func (s *Service) confirmationRequired(ctx context.Context, t providerTicket) er
 // ProviderSignUp spends a signup ticket once the guardian declares they
 // are an adult. The account has a verified email and no
 // password.
-func (s *Service) ProviderSignUp(ctx context.Context, ticket string, adultDeclaration bool) (string, error) {
+func (s *Service) ProviderSignUp(ctx context.Context, ticket string, adultDeclaration bool, termsVersion string) (string, error) {
 	now := s.d.Now()
 	hash := secret.Hash(ticket)
 	t, err := s.d.Store.ticket(ctx, hash, ticketSignup, now)
@@ -117,10 +117,13 @@ func (s *Service) ProviderSignUp(ctx context.Context, ticket string, adultDeclar
 	if !adultDeclaration {
 		return "", ErrValidation
 	}
+	if err := checkTerms(termsVersion); err != nil {
+		return "", err
+	}
 	if err := s.d.Store.consumeTicket(ctx, hash, now); err != nil {
 		return "", err
 	}
-	id, err := s.d.Store.createProviderAccount(ctx, t.Email, t.Provider, t.Subject, now)
+	id, err := s.d.Store.createProviderAccount(ctx, t.Email, t.Provider, t.Subject, termsVersion, now)
 	switch {
 	case errors.Is(err, ErrEmailTaken):
 		acc, err := s.d.Store.accountByEmail(ctx, t.Email)
