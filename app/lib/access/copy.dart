@@ -144,6 +144,9 @@ abstract final class Copy {
     'profile_gone':
         'O perfil desta criança não existe mais. Um adulto pode sair do modo '
         'criança com o PIN.',
+    // A child's profile waiting for a guardian to authorize it again.
+    'consent_required':
+        'Este perfil precisa de uma nova autorização de um adulto.',
     // Screen-time codes. The child never reads
     // time_up: the child home shows the sleeping telinha instead.
     'over_cap': 'Hoje já chega a 4 horas, o máximo.',

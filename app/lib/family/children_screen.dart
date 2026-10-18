@@ -14,6 +14,7 @@ import 'avatars.dart';
 import 'family.dart';
 import 'family_model.dart';
 import 'labels.dart';
+import 'reconsent_screen.dart' show needsConsent;
 import 'widgets.dart';
 
 const _whatAProfileHolds =
@@ -78,14 +79,32 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
             for (final minor in minors)
               DoorRow(
                 title: minor.nickname,
-                semanticsLabel: '${minor.nickname}, ${minor.ageBand.label}',
+                semanticsLabel: [
+                  minor.nickname,
+                  minor.ageBand.label,
+                  if (!minor.consentCurrent) needsConsent,
+                ].join(', '),
                 leading: AvatarDisc(
                   minor.avatar,
                   size: 56,
                   excludeSemantics: true,
                 ),
-                onTap: () => context.go(Routes.child(minor.id)),
-                child: Text(minor.ageBand.label, style: muted),
+                // A paused child opens straight on its new authorization.
+                onTap: () => context.go(
+                  minor.consentCurrent
+                      ? Routes.child(minor.id)
+                      : Routes.reconsent(minor.id),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(minor.ageBand.label, style: muted),
+                    if (!minor.consentCurrent) ...[
+                      const SizedBox(height: Space.xs),
+                      Text(needsConsent, style: text.bodyMedium),
+                    ],
+                  ],
+                ),
               ),
           ],
         ),

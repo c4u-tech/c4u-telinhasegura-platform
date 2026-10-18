@@ -12,6 +12,7 @@ import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
+import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/kid/profile_picker_screen.dart';
 import 'package:telinha_segura/kid_mode/hand_over_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
@@ -295,5 +296,70 @@ void main() {
       TextAlign.center,
     );
     expectCentredBack(tester, 390);
+  });
+
+  group('a paused profile', () {
+    final pausedTeo = {...teo, 'consent_current': false};
+
+    testWidgets('shows disabled, with the line saying why', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final h = await linkedExit(
+        tester,
+        profiles: (_) => json(200, {
+          'profiles': [
+            {...lia, 'consent_current': true},
+            pausedTeo,
+          ],
+        }),
+      );
+      await toPicker(tester);
+
+      expect(
+        tester.getSemantics(choice('Téo')),
+        isSemantics(
+          label: 'Téo',
+          isInMutuallyExclusiveGroup: true,
+          hasCheckedState: true,
+          isChecked: false,
+          hasEnabledState: true,
+          isEnabled: false,
+        ),
+      );
+      expect(find.textContaining(PausedProfile.line), findsOneWidget);
+      expect(find.textContaining('Téo'), findsWidgets);
+
+      await tester.tap(find.text('Téo'));
+      await tester.pumpAndSettle();
+
+      expect(h.actions.where((c) => c.startsWith('PUT ')), isEmpty);
+      expect(h.location(tester), '/crianca/quem');
+      semantics.dispose();
+    });
+
+    testWidgets('an older answer without the flag keeps every profile '
+        'open', (tester) async {
+      await linkedExit(tester);
+      await toPicker(tester);
+
+      expect(find.textContaining(PausedProfile.line), findsNothing);
+    });
+
+    testWidgets('a switch the server refuses as consent_required says an '
+        'adult must authorize it', (tester) async {
+      final h = await linkedExit(
+        tester,
+        rebind: (_) => problem(403, 'consent_required'),
+      );
+      await toPicker(tester);
+
+      await tester.tap(find.text('Téo'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Este perfil precisa de uma nova autorização de um adulto.'),
+        findsOneWidget,
+      );
+      expect(h.location(tester), '/crianca/quem');
+    });
   });
 }

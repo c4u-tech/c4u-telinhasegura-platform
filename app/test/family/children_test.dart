@@ -4,6 +4,7 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family.dart';
+import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/family/widgets.dart';
 
 import '../access/harness.dart';
@@ -112,5 +113,46 @@ void main() {
     expect(button.onPressed, isNull);
     expect(find.text(Copy.childrenFull), findsOneWidget);
     expect(find.text('10 de 10 crianças'), findsOneWidget);
+  });
+
+  testWidgets('a paused child says it needs a new authorization, read with '
+      'the row', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await children(
+      tester,
+      family: familyWith([
+        pausedMinorJson('m1', 'Lia'),
+        minorJson('m2', 'Téo'),
+      ]),
+    );
+
+    expect(find.text(needsConsent), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.widgetWithText(DoorRow, 'Lia'),
+        matching: find.text(needsConsent),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Lia, 5 a 8 anos, $needsConsent'),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Téo, 5 a 8 anos'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('a paused child\'s row opens the new authorization', (
+    tester,
+  ) async {
+    final h = await children(
+      tester,
+      family: familyWith([pausedMinorJson('m1', 'Lia')]),
+    );
+
+    await tester.tap(find.widgetWithText(DoorRow, 'Lia'));
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), '/familia/criancas/m1/autorizar');
   });
 }

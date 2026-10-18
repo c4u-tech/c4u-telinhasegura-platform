@@ -106,6 +106,14 @@ class FamilyApi {
     ),
   );
 
+  /// Authorizes an existing child's profile again under
+  /// [kConsentPolicyVersion], the text the screen shows.
+  Future<void> grantConsent(String minorId) => _client.send(
+    'POST',
+    '/v1/family/minors/${Uri.encodeComponent(minorId)}/consent',
+    body: {'policy_version': kConsentPolicyVersion},
+  );
+
   /// Needs a re-authentication within the last 5 minutes.
   Future<void> deleteMinor(String id) =>
       _client.send('DELETE', '/v1/family/minors/${Uri.encodeComponent(id)}');

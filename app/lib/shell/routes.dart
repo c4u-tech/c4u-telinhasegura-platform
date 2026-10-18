@@ -139,6 +139,19 @@ abstract final class Routes {
 
   static String child(String id) => '$children/${Uri.encodeComponent(id)}';
 
+  /// A child's new authorization, returning on completion to [then] when
+  /// [reconsentReturn] accepts it, and to [children] otherwise.
+  static String reconsent(String id, {String? then}) => Uri(
+    path: '${child(id)}/autorizar',
+    queryParameters: then == null ? null : {'depois': then},
+  ).toString();
+
+  /// [raw] when it is a screen a new authorization may return to (the
+  /// hand-over that asked for it); null for anything else, so `depois`
+  /// never leads elsewhere.
+  static String? reconsentReturn(String? raw) =>
+      raw == handOver ? handOver : null;
+
   static String childTime(String id) =>
       '$screenTime/${Uri.encodeComponent(id)}';
 

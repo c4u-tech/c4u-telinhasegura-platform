@@ -16,6 +16,7 @@ import 'family.dart';
 import 'family_model.dart';
 import 'family_write.dart';
 import 'profile_fields.dart';
+import 'reconsent_screen.dart' show needsConsent;
 import 'widgets.dart';
 
 /// Under "Salvar" while nothing differs from the stored profile.
@@ -173,6 +174,21 @@ class _ChildScreenState extends State<ChildScreen> {
         ageBand: stored.ageBand,
       ),
       const SizedBox(height: Space.xl),
+      if (!stored.consentCurrent) ...[
+        // Kid mode is paused for this child until a guardian authorizes
+        // the profile again.
+        Doors(
+          children: [
+            DoorRow(
+              title: needsConsent,
+              onTap: idle
+                  ? () => context.go(Routes.reconsent(widget.id))
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.xl),
+      ],
       NicknameField(controller: _nickname, enabled: idle),
       const SizedBox(height: Space.xl),
       Text('Avatar', style: title),

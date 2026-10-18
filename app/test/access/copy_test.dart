@@ -162,6 +162,13 @@ void main() {
     expect(timeUp, isNot(contains('min')));
   });
 
+  test('a paused profile asks for an adult\'s new authorization', () {
+    expect(
+      Copy.forError(err('consent_required')),
+      'Este perfil precisa de uma nova autorização de um adulto.',
+    );
+  });
+
   test('the kid-mode screens word their own codes', () {
     for (final text in [Copy.pinRule, Copy.linkCodeGone, Copy.devicesFull]) {
       expect(banned.hasMatch(text), isFalse, reason: text);
@@ -208,6 +215,8 @@ void main() {
       ConsentText.title,
       ...ConsentText.paragraphs,
       ConsentText.declaration,
+      ConsentText.reconsentTitle,
+      ConsentText.reconsentDeclaration,
     ];
     for (final text in words) {
       expect(banned.hasMatch(text), isFalse, reason: text);
