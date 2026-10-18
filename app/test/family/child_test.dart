@@ -253,6 +253,9 @@ void main() {
           .join(' ');
       expect(words, contains('Lia'));
       expect(words, contains('apagado'));
+      // Everything the profile holds goes, what the child watched too.
+      expect(confirmation.body.first, contains('o que a criança assistiu'));
+      expect(confirmation.body.first, contains('tempo de tela'));
       expect(words, contains('consentimento'));
       expect(words, contains('retirado'));
       expect(h.actions, isEmpty);

@@ -122,8 +122,9 @@ class _ChildScreenState extends State<ChildScreen> {
       context,
       title: 'Excluir perfil',
       body: [
-        'O perfil de $nickname será apagado na hora: o apelido, o avatar e '
-            'a faixa de idade.',
+        'O perfil de $nickname será apagado na hora: o apelido, o avatar, '
+            'a faixa de idade e o que a criança assistiu, os vídeos e os '
+            'totais de tempo de tela.',
         'O consentimento que você deu para o cadastro é retirado. Guardamos '
             'apenas o registro de que você consentiu e quando, sem nenhum '
             'dado da criança.',

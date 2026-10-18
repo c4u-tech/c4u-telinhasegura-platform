@@ -84,8 +84,8 @@ void main() {
     expect(h.location(tester), '/');
   });
 
-  testWidgets('with no children, it says what a profile holds and nothing '
-      'more', (tester) async {
+  testWidgets('with no children, it says what a profile holds, what the '
+      'child watches included, and for how long', (tester) async {
     await children(tester, family: familyWith([]));
 
     expect(find.byType(DoorRow), findsNothing);
@@ -94,7 +94,12 @@ void main() {
     final text = tester.widget<Text>(teaching).data!;
     expect(text, contains('avatar'));
     expect(text, contains('faixa de idade'));
-    expect(text, contains('Nada mais'));
+    expect(text, contains('o que a criança assiste'));
+    expect(text, contains('30 dias'));
+    expect(text, contains('tempo de tela'));
+    expect(text, contains('90'));
+    expect(text, isNot(contains('Nada mais')));
+    expect(text, isNot(contains('três coisas')));
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(button.onPressed, isNotNull);
   });

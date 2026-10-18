@@ -18,8 +18,9 @@ import 'reconsent_screen.dart' show needsConsent;
 import 'widgets.dart';
 
 const _whatAProfileHolds =
-    'Ainda não há crianças cadastradas. Cada perfil guarda só três coisas: '
-    'um apelido, um avatar e a faixa de idade. Nada mais.';
+    'Ainda não há crianças cadastradas. Cada perfil guarda um apelido, um '
+    'avatar e a faixa de idade, e o que a criança assiste: cada vídeo '
+    'assistido some em 30 dias, e os totais de tempo de tela por dia, em 90.';
 
 /// `/familia/criancas`: each child by avatar, nickname and age band, and
 /// "Cadastrar criança" while the family has room.
