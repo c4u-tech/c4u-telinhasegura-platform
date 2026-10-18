@@ -25,6 +25,8 @@ type Account struct {
 	Email            string            `json:"email"`
 	EmailVerifiedAt  *time.Time        `json:"email_verified_at"`
 	AdultDeclaredAt  time.Time         `json:"adult_declared_at"`
+	TermsVersion     *string           `json:"terms_version"`
+	TermsAcceptedAt  *time.Time        `json:"terms_accepted_at"`
 	CreatedAt        time.Time         `json:"created_at"`
 	HasPassword      bool              `json:"has_password"`
 	MFAEnrolledAt    *time.Time        `json:"mfa_enrolled_at"` // a confirmed staff factor, never its secret or codes
@@ -247,13 +249,15 @@ func (s *Service) Export(ctx context.Context, accountID string) (Export, error) 
 func readAccount(ctx context.Context, tx pgx.Tx, id string) (Account, error) {
 	a := Account{ID: id}
 	err := tx.QueryRow(ctx, `SELECT email, email_verified_at, adult_declared_at, created_at, password_hash IS NOT NULL,
+			terms_version, terms_accepted_at,
 			(SELECT confirmed_at FROM staff_mfa WHERE account_id = accounts.id)
-		FROM accounts WHERE id = $1::uuid`, id).Scan(&a.Email, &a.EmailVerifiedAt, &a.AdultDeclaredAt, &a.CreatedAt, &a.HasPassword, &a.MFAEnrolledAt)
+		FROM accounts WHERE id = $1::uuid`, id).Scan(&a.Email, &a.EmailVerifiedAt, &a.AdultDeclaredAt, &a.CreatedAt, &a.HasPassword, &a.TermsVersion, &a.TermsAcceptedAt, &a.MFAEnrolledAt)
 	if err != nil {
 		return Account{}, err
 	}
 	a.EmailVerifiedAt, a.AdultDeclaredAt, a.CreatedAt = utcp(a.EmailVerifiedAt), a.AdultDeclaredAt.UTC(), a.CreatedAt.UTC()
 	a.MFAEnrolledAt = utcp(a.MFAEnrolledAt)
+	a.TermsAcceptedAt = utcp(a.TermsAcceptedAt)
 
 	rows, err := tx.Query(ctx, `SELECT provider, created_at FROM external_identities
 		WHERE account_id = $1::uuid ORDER BY created_at, provider`, id)

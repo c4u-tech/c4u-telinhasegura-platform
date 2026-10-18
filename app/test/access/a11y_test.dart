@@ -137,6 +137,10 @@ final homes = <String, void Function(Harness)>{
     ..family = ownerFamily
     ..status = 'suspended'
     ..email = longEmail,
+  // The home waits behind the updated terms.
+  'terms not accepted': (h) => h
+    ..family = ownerFamily
+    ..termsAccepted = false,
 };
 
 /// `GET /v1/invitations` answering one invitation from each of

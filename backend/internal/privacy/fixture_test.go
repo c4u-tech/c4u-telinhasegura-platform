@@ -99,8 +99,8 @@ func (f *fixture) secret(name string) []byte {
 // account inserts a verified guardian with a password, as identity would.
 func (f *fixture) account(email string) string {
 	f.t.Helper()
-	return f.id(`INSERT INTO accounts (email, password_hash, email_verified_at, adult_declared_at, created_at)
-		VALUES ($1, $2, $3, $3, $3) RETURNING id::text`, email, passwordHash, f.now)
+	return f.id(`INSERT INTO accounts (email, password_hash, email_verified_at, adult_declared_at, created_at, terms_version, terms_accepted_at)
+		VALUES ($1, $2, $3, $3, $3, '2026-10-17', $3) RETURNING id::text`, email, passwordHash, f.now)
 }
 
 // bareAccount inserts an unverified account without a password, as a

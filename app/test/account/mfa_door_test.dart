@@ -32,7 +32,15 @@ void main() {
 
     expect(
       tester.widgetList<DoorRow>(find.byType(DoorRow)).map((d) => d.title),
-      ['E-⁠mail', 'Senha', doorTitle, 'Aparelhos conectados', 'Seus dados'],
+      [
+        'E-⁠mail',
+        'Senha',
+        doorTitle,
+        'Aparelhos conectados',
+        'Seus dados',
+        'Termos de uso',
+        'Política de privacidade',
+      ],
     );
     expect(lineOf(doorTitle, 'Ativada desde 7 de outubro'), findsOne);
     expect(
@@ -97,7 +105,7 @@ void main() {
     final h = await accountWithRoles(tester, roles: const []);
 
     expect(door(doorTitle), findsNothing);
-    expect(find.byType(DoorRow), findsNWidgets(4));
+    expect(find.byType(DoorRow), findsNWidgets(6));
     expect(h.calls.where((c) => c.contains('/v1/staff/mfa')), isEmpty);
   });
 }

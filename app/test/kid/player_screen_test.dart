@@ -9,6 +9,7 @@ import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
+import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/kid/player_screen.dart';
@@ -221,6 +222,41 @@ void main() {
     expect(find.byType(PausedProfile), findsOneWidget);
     expect(find.text(PausedProfile.line), findsOneWidget);
     expect(find.byType(VideoTile), findsNothing);
+  });
+
+  testWidgets('the paused line leaves the shelves once the adult authorizes '
+      'again', (tester) async {
+    var paused = false;
+    final h = Harness(
+      signedIn: true,
+      api: (req) {
+        final path = req.url.path;
+        if (path == '/v1/child/catalog') {
+          return paused
+              ? problem(403, 'consent_required')
+              : json(200, twoShelves);
+        }
+        if (path.startsWith('/v1/child/thumbs/')) {
+          return http.Response.bytes(pixel, 200);
+        }
+        if (path == '/v1/child/plays') {
+          paused = true;
+          return problem(403, 'consent_required');
+        }
+        return json(200, profileJson);
+      },
+    )..kidMode = {'minor_id': 'm1'};
+    await h.pump(tester, initial: '/crianca');
+    await tester.tap(firstTile);
+    await tester.pumpAndSettle();
+    expect(find.text(PausedProfile.line), findsOneWidget);
+
+    paused = false;
+    await tester.pump(KidHomeScreen.wake);
+    await tester.pumpAndSettle();
+
+    expect(find.text(PausedProfile.line), findsNothing);
+    expect(find.byType(VideoTile), findsWidgets);
   });
 
   testWidgets('the controls sit outside the player, nothing is drawn over '

@@ -34,6 +34,7 @@ func TestExportAccount(t *testing.T) {
 	a := e.Account
 	if a.ID != ana || a.Email != "ana@example.com" || !a.HasPassword ||
 		a.EmailVerifiedAt == nil || !a.EmailVerifiedAt.Equal(f.now) ||
+		a.TermsVersion == nil || *a.TermsVersion != "2026-10-17" || a.TermsAcceptedAt == nil || !a.TermsAcceptedAt.Equal(f.now) ||
 		!a.AdultDeclaredAt.Equal(f.now) || !a.CreatedAt.Equal(f.now) || a.CreatedAt.Location() != time.UTC {
 		t.Fatalf("account: %+v", a)
 	}

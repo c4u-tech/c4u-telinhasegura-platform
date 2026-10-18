@@ -246,7 +246,7 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 		names = append(names, string(role))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"account":  map[string]any{"id": acc.ID, "email": acc.Email, "email_verified": acc.EmailVerified, "status": string(acc.Status)},
+		"account":  map[string]any{"id": acc.ID, "email": acc.Email, "email_verified": acc.EmailVerified, "status": string(acc.Status), "terms_accepted": acc.TermsAccepted},
 		"session":  sessionOut{ID: sess.ID, Client: string(sess.Client), CSRF: sess.CSRFToken},
 		"kid_mode": kidMode,
 		"roles":    names,

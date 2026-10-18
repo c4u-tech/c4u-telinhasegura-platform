@@ -17,6 +17,10 @@ abstract final class Routes {
   static const providerSignup = '/concluir-cadastro';
   static const linkAccount = '/vincular-conta';
 
+  /// Where a guardian who has not accepted the current terms and privacy
+  /// policy waits until they do or sign out.
+  static const terms = '/termos';
+
   static const children = '/familia/criancas';
   static const newChild = '/familia/criancas/nova';
   static const adults = '/familia/responsaveis';
@@ -246,11 +250,12 @@ abstract final class Routes {
     redeem,
   };
 
-  /// The home and everything under `/familia`, `/modo-crianca`, `/conta`
-  /// and the curation and moderation screens. `/convite` is not here: a
+  /// The home, the terms screen and everything under `/familia`,
+  /// `/modo-crianca`, `/conta` and the curation and moderation screens. `/convite` is not here: a
   /// signed-out visitor keeps the token through sign-in.
   static bool signedInOnly(String path) =>
       path == home ||
+      path == terms ||
       isFamilyScreen(path) ||
       isKidModeScreen(path) ||
       isAccountScreen(path) ||
@@ -316,4 +321,11 @@ abstract final class Routes {
   /// steps the erasure asks of them. Anything else goes home.
   static const suspendedMay = {home, accountData, accountDelete};
   static const suspendedOwnerMay = {adults, deleteFamily};
+
+  /// Where an account that has not accepted the current terms may go
+  /// besides the terms screen: its data and its erasure, and, for the
+  /// family's owner, the two steps the erasure asks of them. Seeing and
+  /// erasing one's own data never waits on an agreement.
+  static const termsMay = {terms, accountData, accountDelete};
+  static const termsOwnerMay = suspendedOwnerMay;
 }

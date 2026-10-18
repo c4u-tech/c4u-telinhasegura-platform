@@ -169,6 +169,13 @@ void main() {
     );
   });
 
+  test('outdated terms ask for a newer app', () {
+    expect(
+      Copy.forError(err('terms_outdated')),
+      'Os termos mudaram. Atualize o app para continuar.',
+    );
+  });
+
   test('the kid-mode screens word their own codes', () {
     for (final text in [Copy.pinRule, Copy.linkCodeGone, Copy.devicesFull]) {
       expect(banned.hasMatch(text), isFalse, reason: text);

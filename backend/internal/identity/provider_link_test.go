@@ -69,7 +69,7 @@ func TestClearPasswordEvictsTheSquatter(t *testing.T) {
 	ctx := context.Background()
 	// A squatter signs up with the victim's address and picks the password;
 	// the victim then confirms the squatter's verification mail.
-	if err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true); err != nil {
+	if err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.svc.ConfirmEmail(ctx, f.lastToken("ana@gmail.com")); err != nil {
@@ -128,7 +128,7 @@ func TestClearPasswordNeedsAnAuthoritativeEmail(t *testing.T) {
 func TestClearPasswordVerifiesAnUnverifiedAccount(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	if err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true); err != nil { // never verified
+	if err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true, identity.TermsVersion); err != nil { // never verified
 		t.Fatal(err)
 	}
 	f.clear(f.linkTicket(gmail("g-1", "ana@gmail.com")), f.accountID("ana@gmail.com"))
@@ -174,11 +174,11 @@ func TestOneIdentityPerProviderPerAccount(t *testing.T) {
 func TestReauthenticateWithALinkedProvider(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	ana, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-ana", "ana@gmail.com"), true)
+	ana, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-ana", "ana@gmail.com"), true, identity.TermsVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-bia", "bia@gmail.com"), true); err != nil {
+	if _, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-bia", "bia@gmail.com"), true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	issue := func(sub string) string { return f.tokens.Issue(idtoken.Google, gmail(sub, sub+"@gmail.com")) }

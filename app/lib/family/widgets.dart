@@ -76,9 +76,14 @@ class DoorRow extends StatefulWidget {
     this.busy = false,
     this.errorText,
     this.titleMaxLines,
+    this.link = false,
   });
 
   final String title;
+
+  /// Whether [onTap] opens a page outside the app: the row then reads as
+  /// a link rather than a button.
+  final bool link;
   final int? titleMaxLines;
   final VoidCallback? onTap;
   final String? semanticsLabel;
@@ -176,7 +181,8 @@ class _DoorRowState extends State<DoorRow> {
     }
     return Semantics(
       container: true,
-      button: true,
+      button: !widget.link,
+      link: widget.link,
       enabled: !widget.busy,
       liveRegion: error != null,
       label: label,

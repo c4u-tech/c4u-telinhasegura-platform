@@ -60,12 +60,14 @@ void main() {
     await t.api.requestEmailChange('n@b.co');
     await t.api.requestPasswordReset('a@b.co');
     await t.api.confirmPasswordReset(token: 'tok', newPassword: 'q');
+    await t.api.acceptTerms();
     await t.api.revokeSessions(
       includeCurrent: true,
     ); // last: forgets the CSRF token
 
     expect(t.calls, [
-      'POST /v1/accounts {"email":"a@b.co","password":"p","adult_declaration":true}',
+      'POST /v1/accounts {"email":"a@b.co","password":"p",'
+          '"adult_declaration":true,"terms_version":"2026-10-17"}',
       'POST /v1/email-verifications {"email":"a@b.co"}',
       'POST /v1/email-verifications/confirm {"token":"tok"}',
       'POST /v1/session/reauth {"password":"p"}',
@@ -75,6 +77,7 @@ void main() {
       'POST /v1/account/email {"new_email":"n@b.co"}',
       'POST /v1/password-resets {"email":"a@b.co"}',
       'POST /v1/password-resets/confirm {"token":"tok","new_password":"q"}',
+      'POST /v1/account/terms {"terms_version":"2026-10-17"}',
       'DELETE /v1/sessions?scope=all',
     ]);
   });

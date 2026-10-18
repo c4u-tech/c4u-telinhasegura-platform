@@ -175,6 +175,8 @@ class _KidHomeScreenState extends State<KidHomeScreen>
           _catalog = catalog;
           _failed = false;
           _paused = false;
+          // The paused line is true no longer once the shelves open.
+          if (_notice == PausedProfile.line) _notice = null;
         });
         // The profile read was refused while paused: read it now.
         if (_profileRefused && minorId != null) unawaited(_read(minorId));

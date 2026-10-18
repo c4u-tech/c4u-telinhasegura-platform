@@ -117,6 +117,7 @@ func (s *Server) routes() []route {
 		{Route: Route{Pattern: "GET /v1/session", Kind: SessionRoute, SuspendedOK: true}, h: s.getSession},
 		suspendedOK(guardian("DELETE /v1/session", s.signOut)),
 		suspendedOK(guardian("POST /v1/session/reauth", s.reauth)),
+		suspendedOK(guardian("POST /v1/account/terms", s.acceptTerms)),
 		guardian("GET /v1/sessions", s.listSessions),
 		guardian("DELETE /v1/sessions/{id}", s.revokeSession),
 		guardian("DELETE /v1/sessions", s.revokeSessions),

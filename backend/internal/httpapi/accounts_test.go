@@ -30,10 +30,12 @@ func TestSignUpProblems(t *testing.T) {
 		status int
 		code   string
 	}{
-		{"no adult declaration", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": false}, 422, "validation"},
-		{"short password", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true}, 422, "weak_password"},
+		{"no adult declaration", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": false, "terms_version": "2026-10-17"}, 422, "validation"},
+		{"no terms version", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": true}, 422, "validation"},
+		{"outdated terms version", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": true, "terms_version": "2020-01-01"}, 409, "terms_outdated"},
+		{"short password", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true, "terms_version": "2026-10-17"}, 422, "weak_password"},
 		{"malformed JSON", `{"email":`, 422, "validation"},
-		{"unknown field", `{"email":"a@b.co","password":"uma senha longa o bastante","adult_declaration":true,"role":"admin"}`, 422, "validation"},
+		{"unknown field", `{"email":"a@b.co","password":"uma senha longa o bastante","adult_declaration":true,"terms_version":"2026-10-17","role":"admin"}`, 422, "validation"},
 		{"oversized body", `{"email":"` + strings.Repeat("a", 1<<20) + `"}`, 422, "validation"},
 	}
 	for _, c := range cases {
@@ -51,7 +53,7 @@ func TestSignUpProblems(t *testing.T) {
 
 func TestWeakPasswordProblemCarriesReasons(t *testing.T) {
 	a := newAPI(t)
-	r := a.do(http.MethodPost, "/v1/accounts", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true})
+	r := a.do(http.MethodPost, "/v1/accounts", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true, "terms_version": "2026-10-17"})
 	if !strings.Contains(r.Body.String(), `"reasons":["too_short"]`) {
 		t.Fatalf("body %s", r.Body)
 	}

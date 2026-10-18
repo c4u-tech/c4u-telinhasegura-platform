@@ -173,17 +173,3 @@ func (s *Service) GrantConsent(ctx context.Context, accountID, minorID, policyVe
 	s.d.Audit.Record(ctx, accountID, audit.MinorConsentGranted)
 	return nil
 }
-
-// ConsentCurrent reports whether a child's profile is authorized under the
-// current consent text.
-func (s *Service) ConsentCurrent(ctx context.Context, minorID string) (bool, error) {
-	if !validID(minorID) {
-		return false, nil
-	}
-	var ok bool
-	err := s.d.Pool.QueryRow(ctx, consentCurrentSQL, minorID, ConsentPolicyVersion).Scan(&ok)
-	return ok, err
-}
-
-const consentCurrentSQL = `SELECT EXISTS (SELECT 1 FROM minor_consents
-	WHERE minor_id = $1::uuid AND policy_version = $2 AND withdrawn_at IS NULL)`

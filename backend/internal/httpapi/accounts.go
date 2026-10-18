@@ -16,12 +16,13 @@ func (s *Server) signUp(w http.ResponseWriter, r *http.Request) {
 		Email            string `json:"email"`
 		Password         string `json:"password"`
 		AdultDeclaration bool   `json:"adult_declaration"`
+		TermsVersion     string `json:"terms_version"`
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
 		return
 	}
-	if err := s.Identity.SignUp(r.Context(), in.Email, in.Password, in.AdultDeclaration); err != nil {
+	if err := s.Identity.SignUp(r.Context(), in.Email, in.Password, in.AdultDeclaration, in.TermsVersion); err != nil {
 		s.fail(w, err)
 		return
 	}
@@ -82,4 +83,19 @@ func writeRateLimited(w http.ResponseWriter, d time.Duration) {
 		p.RetryAfter = 1
 	}
 	writeProblem(w, p)
+}
+
+func (s *Server) acceptTerms(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		TermsVersion string `json:"terms_version"`
+	}
+	if err := decode(w, r, &in); err != nil {
+		s.fail(w, err)
+		return
+	}
+	if err := s.Identity.AcceptTerms(r.Context(), current(r).AccountID, in.TermsVersion); err != nil {
+		s.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -86,6 +86,7 @@ Future<Harness> deleteScreen(
   FutureOr<http.Response> Function(http.Request)? answer,
   bool reauth = false,
   bool unverified = false,
+  bool termsAccepted = true,
   ProviderSettings settings = noProviders,
 }) async {
   var confirmed = !reauth;
@@ -111,7 +112,8 @@ Future<Harness> deleteScreen(
           },
         )
         ..family = family
-        ..unverified = unverified;
+        ..unverified = unverified
+        ..termsAccepted = termsAccepted;
   await h.pump(tester, initial: '/conta/excluir');
   return h;
 }
@@ -356,6 +358,16 @@ void main() {
       lessThan(tester.getTopLeft(deleteFamilyDoor).dy),
     );
     expect(deleteButton, findsNothing);
+  });
+
+  testWidgets('an owner alone with the terms pending is offered no invitation, '
+      'only the family\'s deletion', (tester) async {
+    await deleteScreen(tester, family: ownerAloneFamily, termsAccepted: false);
+
+    expect(inviteDoor, findsNothing);
+    expect(transferDoor, findsNothing);
+    expect(deleteFamilyDoor, findsOneWidget);
+    expect(words(tester), isNot(contains('convide')));
   });
 
   testWidgets('Convidar outro adulto opens the invitations', (tester) async {

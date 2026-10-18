@@ -78,6 +78,7 @@ import '../auth/provider_sign_in.dart';
 import '../design/band_transition.dart';
 import '../family/family.dart';
 import '../family/family_model.dart';
+import '../legal/terms_update_screen.dart';
 import '../parental/app_mode.dart';
 import '../staff/account_search_screen.dart';
 import '../staff/account_sheet_screen.dart';
@@ -132,6 +133,13 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         // modes keep their own gates.
         AuthStatus.signedIn when family.suspended && mode.mode is Guardian =>
           _suspendedRedirect(family.state, path),
+        // Then the account waits on the current terms, except for its data
+        // and its erasure; the terms screen itself offers signing out.
+        // Suspension comes first: its own routes already hold those.
+        AuthStatus.signedIn
+            when !family.termsAccepted && mode.mode is Guardian =>
+          _termsRedirect(family.state, path),
+        AuthStatus.signedIn when path == Routes.terms => Routes.home,
         AuthStatus.signedIn when Routes.signedOutOnly.contains(path) =>
           switch (services.heldInvitation) {
             final token? => Routes.invitation(token),
@@ -578,6 +586,7 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           step: services.pending.value as SignupRequired,
         ),
       ),
+      GoRoute(path: Routes.terms, builder: (_, _) => const TermsUpdateScreen()),
       GoRoute(
         path: Routes.linkAccount,
         builder: (_, _) =>
@@ -616,12 +625,24 @@ String _hold(AppServices services, String? token) {
 String? _suspendedRedirect(FamilyState state, String path) {
   if (Routes.suspendedMay.contains(path)) return null;
   if (!Routes.suspendedOwnerMay.contains(path)) return Routes.home;
-  return switch (state) {
-    FamilyReady(:final family) when family.role == FamilyRole.owner => null,
-    FamilyLoading() || FamilyFailed() => null,
-    _ => Routes.home,
-  };
+  return _ownerStep(state) ? null : Routes.home;
 }
+
+/// Before the current terms are accepted: the terms screen, the data and
+/// the erasure for anyone; the erasure's owner steps as while suspended.
+String? _termsRedirect(FamilyState state, String path) {
+  if (Routes.termsMay.contains(path)) return null;
+  if (Routes.termsOwnerMay.contains(path) && _ownerStep(state)) return null;
+  return Routes.terms;
+}
+
+/// Whether an owner's step may show: for the family's owner, or while the
+/// family is still being read (the screen waits, as for any family screen).
+bool _ownerStep(FamilyState state) => switch (state) {
+  FamilyReady(:final family) when family.role == FamilyRole.owner => true,
+  FamilyLoading() || FamilyFailed() => true,
+  _ => false,
+};
 
 String? _familyRedirect(FamilyState state, String path) => switch (state) {
   NoFamily() || EmailUnverified() => Routes.home,

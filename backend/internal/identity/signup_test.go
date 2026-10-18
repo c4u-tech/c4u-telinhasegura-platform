@@ -13,7 +13,7 @@ import (
 
 func TestSignUpCreatesAnUnverifiedAccountAndSendsAVerificationLink(t *testing.T) {
 	f := newFixture(t)
-	if err := f.svc.SignUp(context.Background(), "ana@example.com", goodPassword, true); err != nil {
+	if err := f.svc.SignUp(context.Background(), "ana@example.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if f.verified("ana@example.com") {
@@ -33,7 +33,7 @@ func TestSignUpWithAVerifiedEmailNotifiesTheOwnerAndChangesNothing(t *testing.T)
 	var before string
 	_ = f.pool.QueryRow(context.Background(), `SELECT password_hash FROM accounts`).Scan(&before)
 
-	if err := f.svc.SignUp(context.Background(), "ana@example.com", otherPassword, true); err != nil {
+	if err := f.svc.SignUp(context.Background(), "ana@example.com", otherPassword, true, identity.TermsVersion); err != nil {
 		t.Fatalf("existing email answered differently: %v", err)
 	}
 	var after string
@@ -52,10 +52,10 @@ func TestSignUpWithAVerifiedEmailNotifiesTheOwnerAndChangesNothing(t *testing.T)
 func TestSignUpWithAnUnverifiedEmailSendsAPasswordResetLink(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	_ = f.svc.SignUp(ctx, "ana@example.com", otherPassword, true) // the attacker's
+	_ = f.svc.SignUp(ctx, "ana@example.com", otherPassword, true, identity.TermsVersion) // the attacker's
 	id := f.accountID("ana@example.com")
 
-	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true); err != nil {
+	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(f.lastMail("ana@example.com").Body, "https://app.test/redefinir-senha?token=") {
@@ -75,11 +75,11 @@ func TestSignUpWithAnUnverifiedEmailSendsAPasswordResetLink(t *testing.T) {
 func TestSignUpValidatesDeclarationAndEmail(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, false); !errors.Is(err, identity.ErrValidation) {
+	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, false, identity.TermsVersion); !errors.Is(err, identity.ErrValidation) {
 		t.Fatalf("no adult declaration: %v", err)
 	}
 	for _, bad := range []string{"", "ana", "Ana <ana@example.com>", strings.Repeat("a", 250) + "@x.com"} {
-		if err := f.svc.SignUp(ctx, bad, goodPassword, true); !errors.Is(err, identity.ErrValidation) {
+		if err := f.svc.SignUp(ctx, bad, goodPassword, true, identity.TermsVersion); !errors.Is(err, identity.ErrValidation) {
 			t.Errorf("%q: %v", bad, err)
 		}
 	}
@@ -90,7 +90,7 @@ func TestSignUpValidatesDeclarationAndEmail(t *testing.T) {
 
 func TestSignUpNormalizesTheEmail(t *testing.T) {
 	f := newFixture(t)
-	if err := f.svc.SignUp(context.Background(), "  Ana@Example.COM ", goodPassword, true); err != nil {
+	if err := f.svc.SignUp(context.Background(), "  Ana@Example.COM ", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.mail.To("ana@example.com")) != 1 {
@@ -100,7 +100,7 @@ func TestSignUpNormalizesTheEmail(t *testing.T) {
 
 func TestSignUpRejectsAWeakPasswordBeforeCreatingAnything(t *testing.T) {
 	f := newFixture(t)
-	err := f.svc.SignUp(context.Background(), "ana@example.com", "curta", true)
+	err := f.svc.SignUp(context.Background(), "ana@example.com", "curta", true, identity.TermsVersion)
 	var weak *identity.WeakPasswordError
 	if !errors.As(err, &weak) {
 		t.Fatalf("got %v", err)
@@ -115,7 +115,7 @@ func TestSignUpRejectsAWeakPasswordBeforeCreatingAnything(t *testing.T) {
 func TestConfirmEmailIsSingleUseAndExpires(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	_ = f.svc.SignUp(ctx, "ana@example.com", goodPassword, true)
+	_ = f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.TermsVersion)
 	tok := f.lastToken("ana@example.com")
 
 	if err := f.svc.ConfirmEmail(ctx, tok); err != nil {
@@ -134,7 +134,7 @@ func TestConfirmEmailIsSingleUseAndExpires(t *testing.T) {
 		t.Fatalf("unknown token: %v", err)
 	}
 
-	_ = f.svc.SignUp(ctx, "bia@example.com", goodPassword, true)
+	_ = f.svc.SignUp(ctx, "bia@example.com", goodPassword, true, identity.TermsVersion)
 	late := f.lastToken("bia@example.com")
 	f.now = f.now.Add(24*time.Hour + time.Second)
 	if err := f.svc.ConfirmEmail(ctx, late); !errors.Is(err, identity.ErrInvalidToken) {
@@ -145,7 +145,7 @@ func TestConfirmEmailIsSingleUseAndExpires(t *testing.T) {
 func TestResendInvalidatesEarlierTokensAndIsSilentForUnknownEmails(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	_ = f.svc.SignUp(ctx, "ana@example.com", goodPassword, true)
+	_ = f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.TermsVersion)
 	old := f.lastToken("ana@example.com")
 
 	if err := f.svc.ResendVerification(ctx, "ana@example.com"); err != nil {
