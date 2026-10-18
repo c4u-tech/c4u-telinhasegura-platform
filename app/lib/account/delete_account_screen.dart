@@ -278,6 +278,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       (list(family, addressBreaks)[i], read),
   ];
 
+  /// Suspension and pending terms both leave the invitations out of reach.
+  bool get _cannotInvite => _model.suspended || !_model.termsAccepted;
+
   /// The owner's state: no deletion, the two ways to hand the family on
   /// (a transfer, or an invitation when no other adult is there yet).
   List<Widget> _owner(Family family) {
@@ -289,8 +292,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             ? 'Você é titular da família, e ela precisa de alguém titular. '
                   'Para excluir sua conta, torne antes outro adulto titular, '
                   'ou exclua a família.'
-            // A suspended account cannot invite.
-            : _model.suspended
+            // A suspended account, or one waiting on the terms, cannot invite.
+            : _cannotInvite
             ? 'Você é titular da família, e só você cuida dela. Para '
                   'excluir sua conta, exclua antes a família.'
             : 'Você é titular da família, e só você cuida dela. Para '
@@ -302,9 +305,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       Text('Depois, volte aqui para excluir sua conta.', style: body),
       const SizedBox(height: Space.xl),
       // The way the copy names: hand the family to another adult, or
-      // first invite one. A suspended account cannot invite, so alone it
-      // is offered only the family's deletion.
-      if (others || !_model.suspended) ...[
+      // first invite one. An account that cannot invite is, alone,
+      // offered only the family's deletion.
+      if (others || !_cannotInvite) ...[
         Doors(
           children: [
             others
