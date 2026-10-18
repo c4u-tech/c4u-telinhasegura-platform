@@ -26,6 +26,7 @@ import '../family/delete_family_screen.dart';
 import '../family/family_home_screen.dart';
 import '../family/invitations_screen.dart';
 import '../family/new_child_screen.dart';
+import '../family/reconsent_screen.dart';
 import '../kid/kid_exit_screen.dart';
 import '../kid/kid_home_screen.dart';
 import '../kid/pack_player_screen.dart';
@@ -176,6 +177,17 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           GoRoute(
             path: ':id',
             builder: (_, state) => ChildScreen(id: state.pathParameters['id']!),
+            routes: [
+              GoRoute(
+                path: 'autorizar',
+                builder: (_, state) => ReconsentScreen(
+                  id: state.pathParameters['id']!,
+                  then: Routes.reconsentReturn(
+                    state.uri.queryParameters['depois'],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

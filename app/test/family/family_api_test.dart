@@ -42,6 +42,7 @@ http.Response contract(http.Request req) {
       'invitations': [receivedInvitation],
     });
   }
+  if (p.endsWith('/consent')) return http.Response('', 204);
   if (p.startsWith('/v1/family/minors')) return json(201, minorJson);
   return json(200, ownerFamily);
 }
@@ -69,6 +70,7 @@ void main() {
     await api.updateMinor('m1', avatar: Avatar.owl);
     await api.updateMinor('m1', nickname: 'Liazinha', ageBand: AgeBand.upTo4);
     await api.deleteMinor('m1');
+    await api.grantConsent('m 1');
     await api.delete();
 
     expect(t.calls, [
@@ -88,6 +90,8 @@ void main() {
       'PATCH /v1/family/minors/m1 {"avatar":"owl"}',
       'PATCH /v1/family/minors/m1 {"nickname":"Liazinha","age_band":"ate-4"}',
       'DELETE /v1/family/minors/m1',
+      'POST /v1/family/minors/m%201/consent '
+          '{"policy_version":"$kConsentPolicyVersion"}',
       'DELETE /v1/family',
     ]);
   });

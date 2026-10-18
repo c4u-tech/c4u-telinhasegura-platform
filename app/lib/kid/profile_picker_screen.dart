@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../access/copy.dart';
 import '../access/submission.dart';
 import '../access/widgets.dart';
+import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../kid_mode/hand_over_screen.dart' show ChildChoice;
 import '../parental/app_mode.dart';
@@ -13,11 +14,14 @@ import '../parental/parental.dart' show Profile;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'kid_layout.dart';
+import 'paused_profile.dart';
 
 /// `/crianca/quem`: the linked device's profile picker, on ink, behind the
 /// PIN the exit gate checked. The family's children
 /// at 96 dp, each read by nickname, the device's own child chosen;
-/// choosing one re-binds the device and lands on that child's home. The
+/// choosing one re-binds the device and lands on that child's home. A
+/// child whose profile waits for a guardian's new authorization stays in
+/// the row, disabled, and a line under the row says why. The
 /// PIN lives in `AppServices.profilePick` only while this screen does:
 /// leaving drops it, whichever way.
 class ProfilePickerScreen extends StatefulWidget {
@@ -110,13 +114,24 @@ class _ProfilePickerScreenState extends State<ProfilePickerScreen> {
                           nickname: child.nickname,
                           avatar: child.avatar,
                           selected: child.id == current,
-                          onTap: _switch.blocked ? null : () => _choose(child),
+                          onTap: _switch.blocked || !child.consentCurrent
+                              ? null
+                              : () => _choose(child),
                         ),
                     ],
                   ),
                 ),
               ),
             ),
+            for (final child in profiles.where((p) => !p.consentCurrent)) ...[
+              const SizedBox(height: Space.lg),
+              Text(
+                '${child.nickname}: ${PausedProfile.line}',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge
+                    ?.copyWith(color: context.palette.muted),
+              ),
+            ],
             if (_switch.message case final message?) ...[
               const SizedBox(height: Space.lg),
               ErrorNote(message),

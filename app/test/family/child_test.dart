@@ -12,6 +12,7 @@ import 'package:telinha_segura/family/confirm.dart';
 import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/labels.dart';
 import 'package:telinha_segura/family/profile_fields.dart';
+import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/family/widgets.dart';
 
 import '../access/harness.dart';
@@ -72,6 +73,24 @@ Map<String, dynamic> bodyOf(String call) =>
     jsonDecode(call.substring(call.indexOf('{'))) as Map<String, dynamic>;
 
 void main() {
+  group('consent', () {
+    testWidgets('a paused child says it needs a new authorization, a door '
+        'to it', (tester) async {
+      final h = await child(tester, minor: pausedMinorJson('m1', 'Lia'));
+
+      expect(find.widgetWithText(DoorRow, needsConsent), findsOneWidget);
+      await tapOn(tester, find.widgetWithText(DoorRow, needsConsent));
+
+      expect(h.location(tester), '/familia/criancas/m1/autorizar');
+    });
+
+    testWidgets('a current child says nothing of it', (tester) async {
+      await child(tester);
+
+      expect(find.text(needsConsent), findsNothing);
+    });
+  });
+
   group('editing', () {
     testWidgets('prefills the three fields; Salvar waits for a change', (
       tester,
@@ -234,6 +253,9 @@ void main() {
           .join(' ');
       expect(words, contains('Lia'));
       expect(words, contains('apagado'));
+      // Everything the profile holds goes, what the child watched too.
+      expect(confirmation.body.first, contains('o que a criança assistiu'));
+      expect(confirmation.body.first, contains('tempo de tela'));
       expect(words, contains('consentimento'));
       expect(words, contains('retirado'));
       expect(h.actions, isEmpty);

@@ -1,7 +1,7 @@
 /// The consent text version the app shows before a minor is created. It
 /// must equal the backend's `family.ConsentPolicyVersion` (a test pins
 /// both).
-const kConsentPolicyVersion = '2026-10-03';
+const kConsentPolicyVersion = '2026-10-17';
 
 /// The family's limits, as the backend enforces them (`maxMinors` and
 /// `maxSeats` in backend/internal/family): children, and adults counting
@@ -92,6 +92,7 @@ class Minor {
     required this.ageBand,
     required this.createdAt,
     required this.updatedAt,
+    this.consentCurrent = true,
   });
 
   factory Minor.fromJson(Map<String, dynamic> j) => Minor(
@@ -101,6 +102,9 @@ class Minor {
     ageBand: AgeBand.parse(j['age_band']),
     createdAt: DateTime.parse(j['created_at'] as String),
     updatedAt: DateTime.parse(j['updated_at'] as String),
+    // An answer without the flag counts as current: an older API never
+    // pauses a child by mistake.
+    consentCurrent: j['consent_current'] as bool? ?? true,
   );
 
   final String id;
@@ -109,6 +113,10 @@ class Minor {
   final AgeBand ageBand;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// The guardian authorized the profile under the current consent text;
+  /// until then, kid mode is paused for this child.
+  final bool consentCurrent;
 }
 
 class PendingInvitation {

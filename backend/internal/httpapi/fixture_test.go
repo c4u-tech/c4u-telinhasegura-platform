@@ -126,14 +126,15 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		Log:           log,
 	})
 	a.par = parental.NewService(parental.Deps{
-		Pool:        pool,
-		Mail:        a.mail,
-		Audit:       auditRec,
-		Now:         clock,
-		Hash:        identity.HashParams{Memory: 64, Time: 1, Threads: 1},
-		AppBaseURL:  "https://app.test",
-		CodeLimiter: ratelimit.New(20, time.Hour, clock),
-		Log:         log,
+		Pool:           pool,
+		Mail:           a.mail,
+		Audit:          auditRec,
+		Now:            clock,
+		Hash:           identity.HashParams{Memory: 64, Time: 1, Threads: 1},
+		AppBaseURL:     "https://app.test",
+		CodeLimiter:    ratelimit.New(20, time.Hour, clock),
+		Log:            log,
+		ConsentVersion: family.ConsentPolicyVersion,
 	})
 	a.videos = &curationtest.Fake{}
 	a.thumbs = &curationtest.Thumbs{}

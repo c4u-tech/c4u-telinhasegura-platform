@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -425,5 +426,44 @@ func TestDeleteMinorNeedsCSRFOnTheWeb(t *testing.T) {
 	json.Unmarshal(r.Body.Bytes(), &m)
 	if r := a.do(http.MethodDelete, "/v1/family/minors/"+m.ID, nil, "Cookie", cookie); r.Code != http.StatusForbidden || r.problemCode() != "csrf_failed" {
 		t.Fatalf("delete without token: %d %q", r.Code, r.problemCode())
+	}
+}
+
+func TestGuardianReauthorizesProfileOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	ana := a.familyOwner("ana@example.com")
+	carla := a.familyOwner("carla@example.com")
+	var m struct{ ID string }
+	json.Unmarshal(a.do(http.MethodPost, "/v1/family/minors", minorReq(family.ConsentPolicyVersion), bearer(ana)...).Body.Bytes(), &m)
+	if _, err := a.pool.Exec(context.Background(), `UPDATE minor_consents SET policy_version = '2026-10-03' WHERE minor_id = $1::uuid`, m.ID); err != nil {
+		t.Fatal(err)
+	}
+	current := func() bool {
+		var f struct {
+			Minors []struct {
+				ConsentCurrent bool `json:"consent_current"`
+			} `json:"minors"`
+		}
+		json.Unmarshal(a.do(http.MethodGet, "/v1/family", nil, bearer(ana)...).Body.Bytes(), &f)
+		if len(f.Minors) != 1 {
+			t.Fatalf("minors: %+v", f)
+		}
+		return f.Minors[0].ConsentCurrent
+	}
+	path := "/v1/family/minors/" + m.ID + "/consent"
+	if current() {
+		t.Fatal("old consent reported as current")
+	}
+	if r := a.do(http.MethodPost, path, map[string]string{"policy_version": "2026-10-03"}, bearer(ana)...); r.Code != http.StatusConflict || r.problemCode() != "policy_outdated" {
+		t.Fatalf("outdated: %d %s", r.Code, r.Body)
+	}
+	if r := a.do(http.MethodPost, path, map[string]string{"policy_version": family.ConsentPolicyVersion}, bearer(carla)...); r.Code != http.StatusNotFound {
+		t.Fatalf("foreign: %d %s", r.Code, r.Body)
+	}
+	if r := a.do(http.MethodPost, path, map[string]string{"policy_version": family.ConsentPolicyVersion}, bearer(ana)...); r.Code != http.StatusNoContent {
+		t.Fatalf("grant: %d %s", r.Code, r.Body)
+	}
+	if !current() {
+		t.Fatal("consent not current after grant")
 	}
 }

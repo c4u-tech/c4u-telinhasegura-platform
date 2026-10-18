@@ -7,6 +7,7 @@ class Profile {
     required this.nickname,
     required this.avatar,
     required this.ageBand,
+    this.consentCurrent = true,
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -14,12 +15,18 @@ class Profile {
     nickname: j['nickname'] as String,
     avatar: Avatar.parse(j['avatar']),
     ageBand: AgeBand.parse(j['age_band']),
+    // Absent counts as current, as for the family's children.
+    consentCurrent: j['consent_current'] as bool? ?? true,
   );
 
   final String id;
   final String nickname;
   final Avatar avatar;
   final AgeBand ageBand;
+
+  /// False while the profile waits for a guardian to authorize it again:
+  /// the device cannot switch to it.
+  final bool consentCurrent;
 }
 
 /// A 10-minute, single-use code that links a child's device, shown

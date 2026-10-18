@@ -167,6 +167,17 @@ void main() {
       expect(pressOf(tester, 'Cadastrar'), isNotNull);
     });
 
+    testWidgets('the privacy policy the text names opens outside the app', (
+      tester,
+    ) async {
+      final h = await newChild(tester);
+      await toConsent(tester);
+
+      await tapOn(tester, find.text(ConsentText.privacyLabel));
+
+      expect(h.links.opened, [ConsentText.privacyUrl]);
+    });
+
     testWidgets('names the child it is about', (tester) async {
       await newChild(tester);
       await toConsent(tester);

@@ -84,6 +84,7 @@ var parentalProblems = []struct {
 	{parental.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{parental.ErrUnauthenticated, http.StatusUnauthorized, "unauthenticated"},
 	{parental.ErrNotChild, http.StatusForbidden, "not_child"},
+	{parental.ErrConsentRequired, http.StatusForbidden, "consent_required"},
 }
 
 // staffProblems maps the staff module's sentinels to their codes (Codes).

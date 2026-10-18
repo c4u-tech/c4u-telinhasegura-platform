@@ -7,6 +7,7 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/design/band_transition.dart';
 import 'package:telinha_segura/family/avatars.dart';
+import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/kid_mode/hand_over_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
@@ -248,6 +249,24 @@ void main() {
     expect(h.location(tester), '/modo-crianca');
     final step = tester.widget<StepMarks>(find.byType(StepMarks));
     expect((step.step, step.of), (1, 2));
+    expect(h.services.appMode.mode, const Guardian());
+  });
+
+  testWidgets('consent_required takes the adult to that child\'s new '
+      'authorization, then back here', (tester) async {
+    // A paused child in a family without a PIN answers this first.
+    final h = await handOver(
+      tester,
+      answer: (_) => problem(403, 'consent_required'),
+    );
+    await tapOn(tester, find.text('Lia'));
+
+    await tapOn(tester, find.text('Entregar para Lia'));
+
+    final at = Uri.parse(h.location(tester));
+    expect(at.path, '/familia/criancas/m1/autorizar');
+    expect(at.queryParameters['depois'], '/modo-crianca/entregar');
+    expect(find.byType(ReconsentScreen), findsOneWidget);
     expect(h.services.appMode.mode, const Guardian());
   });
 

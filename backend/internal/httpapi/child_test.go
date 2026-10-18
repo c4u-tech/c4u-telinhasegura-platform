@@ -30,8 +30,8 @@ func TestRedeemOverHTTP(t *testing.T) {
 	}
 	r = redeem(lc.Code, "Tablet")
 	var out struct {
-		Token   string            `json:"token"`
-		Profile map[string]string `json:"profile"`
+		Token   string         `json:"token"`
+		Profile map[string]any `json:"profile"`
 	}
 	if err := json.Unmarshal(r.Body.Bytes(), &out); r.Code != http.StatusCreated || err != nil || out.Token == "" ||
 		out.Profile["id"] != minor || out.Profile["avatar"] == "" || out.Profile["age_band"] == "" || out.Profile["nickname"] == "" {
@@ -70,13 +70,13 @@ func TestDeviceChildRoutes(t *testing.T) {
 	}
 	r := a.do(http.MethodPost, "/v1/child/profiles", map[string]string{"pin": "2580"}, dev...)
 	var list struct {
-		Profiles []map[string]string `json:"profiles"`
+		Profiles []map[string]any `json:"profiles"`
 	}
 	if err := json.Unmarshal(r.Body.Bytes(), &list); r.Code != http.StatusOK || err != nil || len(list.Profiles) != 2 {
 		t.Fatalf("profiles: %d %s", r.Code, r.Body)
 	}
 	r = a.do(http.MethodPut, "/v1/child/profile", map[string]string{"pin": "2580", "minor_id": teo}, dev...)
-	var p map[string]string
+	var p map[string]any
 	if err := json.Unmarshal(r.Body.Bytes(), &p); r.Code != http.StatusOK || err != nil || p["id"] != teo {
 		t.Fatalf("switch: %d %s", r.Code, r.Body)
 	}

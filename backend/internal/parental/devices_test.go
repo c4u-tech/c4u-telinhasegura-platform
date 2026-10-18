@@ -195,3 +195,56 @@ func TestDeviceCascades(t *testing.T) {
 		}
 	}
 }
+
+func TestProfilesReportConsent(t *testing.T) {
+	f := newFixture(t)
+	owner := f.owner("ana@example.com")
+	lia := f.minor(owner, "Lia")
+	teo := f.minor(owner, "Teo")
+	f.withPIN(owner)
+	dev, err := f.svc.AuthenticateDevice(ctx, f.linked(owner, lia).Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.pause(teo)
+
+	list, err := f.svc.Profiles(ctx, dev, goodPIN)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("profiles %+v %v", list, err)
+	}
+	if list[0].ID != lia || !list[0].ConsentCurrent || list[1].ID != teo || list[1].ConsentCurrent {
+		t.Fatalf("consent per profile %+v", list)
+	}
+}
+
+// Switching to a paused child is refused after the PIN, and the device
+// stays on the child it was on.
+func TestSwitchToAPausedChild(t *testing.T) {
+	f := newFixture(t)
+	owner := f.owner("ana@example.com")
+	lia := f.minor(owner, "Lia")
+	teo := f.minor(owner, "Teo")
+	f.withPIN(owner)
+	dev, err := f.svc.AuthenticateDevice(ctx, f.linked(owner, lia).Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.pause(teo)
+
+	if _, err := f.svc.SwitchProfile(ctx, dev, "1357", teo); !errors.Is(err, parental.ErrInvalidPIN) {
+		t.Fatalf("wrong PIN first: %v", err)
+	}
+	if _, err := f.svc.SwitchProfile(ctx, dev, goodPIN, teo); !errors.Is(err, parental.ErrConsentRequired) {
+		t.Fatalf("paused child: %v", err)
+	}
+	if n := f.count(`SELECT count(*) FROM devices WHERE id = $1::uuid AND minor_id = $2::uuid`, dev.DeviceID, lia); n != 1 {
+		t.Fatal("the device left its previous child")
+	}
+	if f.audit.Has("", audit.DeviceProfileChanged) {
+		t.Fatal("a refused switch was audited")
+	}
+	p, err := f.svc.SwitchProfile(ctx, dev, goodPIN, lia)
+	if err != nil || p.ID != lia || !p.ConsentCurrent {
+		t.Fatalf("switch to an authorized child %+v %v", p, err)
+	}
+}

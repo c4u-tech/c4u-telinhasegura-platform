@@ -61,20 +61,24 @@ func (s *Service) Profiles(ctx context.Context, p Principal, pin string) ([]Prof
 	if err := s.checkPIN(ctx, p.FamilyID, "", pin); err != nil {
 		return nil, err
 	}
-	rows, err := s.d.Pool.Query(ctx, `SELECT id::text, nickname, avatar, age_band FROM minors
-		WHERE family_id = $1::uuid ORDER BY created_at, id`, p.FamilyID)
+	rows, err := s.d.Pool.Query(ctx, `SELECT m.id::text, m.nickname, m.avatar, m.age_band,
+		EXISTS (SELECT 1 FROM minor_consents c
+			WHERE c.minor_id = m.id AND c.policy_version = $2 AND c.withdrawn_at IS NULL)
+		FROM minors m WHERE m.family_id = $1::uuid ORDER BY m.created_at, m.id`, p.FamilyID, s.d.ConsentVersion)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (Profile, error) {
 		var pr Profile
-		return pr, r.Scan(&pr.ID, &pr.Nickname, &pr.Avatar, &pr.AgeBand)
+		return pr, r.Scan(&pr.ID, &pr.Nickname, &pr.Avatar, &pr.AgeBand, &pr.ConsentCurrent)
 	})
 }
 
 // SwitchProfile re-binds a linked device to another child of its family,
 // behind the PIN. The PIN is checked first, so a wrong PIN counts
 // whatever the minor; a foreign minor after the right PIN counts nothing.
+// A child whose consent is not current is ErrConsentRequired, and the
+// device stays on its previous child.
 func (s *Service) SwitchProfile(ctx context.Context, p Principal, pin, minorID string) (Profile, error) {
 	if p.DeviceID == "" {
 		return Profile{}, ErrNotFound
@@ -82,10 +86,17 @@ func (s *Service) SwitchProfile(ctx context.Context, p Principal, pin, minorID s
 	if err := s.checkPIN(ctx, p.FamilyID, "", pin); err != nil {
 		return Profile{}, err
 	}
-	if !validID(minorID) {
-		return Profile{}, ErrNotFound
+	// A foreign minor is not_found whatever its consent; a paused child of
+	// the family is refused before the device leaves its current child.
+	if err := minorOfFamily(ctx, s.d.Pool, p.FamilyID, minorID); err != nil {
+		return Profile{}, err
 	}
-	var pr Profile
+	if ok, err := s.consentCurrent(ctx, s.d.Pool, minorID); err != nil {
+		return Profile{}, err
+	} else if !ok {
+		return Profile{}, ErrConsentRequired
+	}
+	pr := Profile{ConsentCurrent: true}
 	err := s.d.Pool.QueryRow(ctx, `UPDATE devices d SET minor_id = m.id FROM minors m
 		WHERE d.id = $1::uuid AND m.id = $2::uuid AND m.family_id = d.family_id
 		RETURNING m.id::text, m.nickname, m.avatar, m.age_band`, p.DeviceID, minorID).Scan(&pr.ID, &pr.Nickname, &pr.Avatar, &pr.AgeBand)

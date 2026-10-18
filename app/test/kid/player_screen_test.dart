@@ -5,10 +5,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show ErrorNote;
+import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
+import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/kid/player_screen.dart';
 import 'package:telinha_segura/kid/shelves.dart';
 
@@ -178,6 +180,48 @@ void main() {
       );
     });
   }
+
+  test(
+    'a paused profile\'s refusal says so, and the shelves are read again',
+    () {
+      const paused = ApiError(status: 403, code: 'consent_required');
+      expect(refusalNote(paused), PausedProfile.line);
+      expect(refetchAfter(refusalNote(paused)), isTrue);
+    },
+  );
+
+  testWidgets('a play refused as consent_required leaves the shelves for the '
+      'paused profile', (tester) async {
+    var paused = false;
+    final h = Harness(
+      signedIn: true,
+      api: (req) {
+        final path = req.url.path;
+        if (path == '/v1/child/catalog') {
+          return paused
+              ? problem(403, 'consent_required')
+              : json(200, twoShelves);
+        }
+        if (path.startsWith('/v1/child/thumbs/')) {
+          return http.Response.bytes(pixel, 200);
+        }
+        if (path == '/v1/child/plays') {
+          paused = true;
+          return problem(403, 'consent_required');
+        }
+        return json(200, profileJson);
+      },
+    )..kidMode = {'minor_id': 'm1'};
+    await h.pump(tester, initial: '/crianca');
+
+    await tester.tap(firstTile);
+    await tester.pumpAndSettle();
+
+    expect(h.player.opened, isEmpty);
+    expect(find.byType(PausedProfile), findsOneWidget);
+    expect(find.text(PausedProfile.line), findsOneWidget);
+    expect(find.byType(VideoTile), findsNothing);
+  });
 
   testWidgets('the controls sit outside the player, nothing is drawn over '
       'it, and no YouTube logo sits beside it', (tester) async {

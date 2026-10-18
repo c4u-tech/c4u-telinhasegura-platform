@@ -228,8 +228,8 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
   }
 
   /// Plays the first video from [from] the server lets play: a refusal is
-  /// passed over with no note; a day without time ends the pacotinho and
-  /// the home sleeps; none left, the goodbye.
+  /// passed over with no note; a day without time or a paused profile
+  /// ends the pacotinho, and the home says which; none left, the goodbye.
   Future<void> _advance(int from) async {
     final services = AppScope.of(context);
     for (var i = from; i < _pack.videos.length; i++) {
@@ -243,7 +243,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
         return;
       } on Object catch (e) {
         if (!mounted || _leaving) return;
-        if (refusalNote(e) == null) {
+        if (refusesEvery(e)) {
           _leave();
           return;
         }

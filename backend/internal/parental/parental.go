@@ -39,6 +39,7 @@ var (
 	ErrProfileGone     = errors.New("parental: the child's profile was deleted")
 	ErrUnauthenticated = errors.New("parental: unknown or expired device")
 	ErrNotChild        = errors.New("parental: not a child principal")
+	ErrConsentRequired = errors.New("parental: the child's consent is not current")
 )
 
 // ThrottledError refuses a PIN check during a cooldown, or a request over
@@ -47,12 +48,16 @@ type ThrottledError struct{ RetryAfter time.Duration }
 
 func (e *ThrottledError) Error() string { return "parental: rate limited" }
 
-// Profile is a child as kid mode shows it: no dates, no consent.
+// Profile is a child as kid mode shows it: no dates, and of the consent
+// only whether it is current. A child whose consent is not current is
+// paused: kid mode refuses to show them anything until a guardian
+// authorizes them again.
 type Profile struct {
-	ID       string
-	Nickname string
-	Avatar   string
-	AgeBand  string
+	ID             string
+	Nickname       string
+	Avatar         string
+	AgeBand        string
+	ConsentCurrent bool
 }
 
 // Device is a linked child device as the guardian area lists it; the
@@ -97,6 +102,9 @@ type Deps struct {
 	CodeLimiter *ratelimit.Limiter // keyed by account
 	Rand        io.Reader          // link codes; nil is crypto/rand
 	Log         *slog.Logger       // post-commit notice failures
+	// ConsentVersion is the policy version a child's consent must carry
+	// for kid mode to run.
+	ConsentVersion string
 }
 
 type Service struct{ d Deps }
@@ -122,4 +130,35 @@ func (s *Service) notify(ctx context.Context, e audit.Event, msgs ...mail.Messag
 			s.d.Log.Error("parental: notice not sent", "event", string(e), "err", err)
 		}
 	}
+}
+
+// consentSQL is true when the minor $1 holds a consent, not withdrawn,
+// under the policy version $2: the same rule the family module applies.
+const consentSQL = `EXISTS (SELECT 1 FROM minor_consents
+	WHERE minor_id = $1::uuid AND policy_version = $2 AND withdrawn_at IS NULL)`
+
+// consentCurrent reports whether the minor's consent is current. It reads
+// minor_consents itself so this package needs no dependency on the
+// family package.
+func (s *Service) consentCurrent(ctx context.Context, q querier, minorID string) (bool, error) {
+	var ok bool
+	err := q.QueryRow(ctx, `SELECT `+consentSQL, minorID, s.d.ConsentVersion).Scan(&ok)
+	return ok, err
+}
+
+// RequireConsent refuses a child principal whose profile is paused. A
+// principal with no child left passes, so the route answers that the
+// profile is gone.
+func (s *Service) RequireConsent(ctx context.Context, p Principal) error {
+	if p.MinorID == "" {
+		return nil
+	}
+	ok, err := s.consentCurrent(ctx, s.d.Pool, p.MinorID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrConsentRequired
+	}
+	return nil
 }
