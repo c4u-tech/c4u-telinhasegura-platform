@@ -1,3 +1,4 @@
+import '../legal/legal_links.dart' show kTermsVersion;
 import 'api_client.dart';
 import 'api_error.dart';
 import 'provider_sign_in.dart';
@@ -42,6 +43,7 @@ class CurrentSession {
     this.kidMode,
     this.roles = const {},
     this.status = AccountStatus.active,
+    this.termsAccepted = true,
   });
 
   final String accountId;
@@ -58,6 +60,10 @@ class CurrentSession {
 
   /// The account's standing; `suspended` until an admin reinstates it.
   final AccountStatus status;
+
+  /// Whether the account accepted the terms and the privacy policy the
+  /// app shows. A server that does not say reads as accepted.
+  final bool termsAccepted;
 }
 
 class SessionSummary {
@@ -96,6 +102,7 @@ class AuthApi {
       'email': email,
       'password': password,
       'adult_declaration': adultDeclaration,
+      'terms_version': kTermsVersion,
     },
   );
 
@@ -142,6 +149,7 @@ class AuthApi {
   }) => _providerSession('/v1/sessions/provider/signup', {
     'ticket': ticket,
     'adult_declaration': adultDeclaration,
+    'terms_version': kTermsVersion,
   }, deviceLabel);
 
   /// Starts a session, turning a 409 confirmation into a result.
@@ -239,8 +247,17 @@ class AuthApi {
       kidMode: kid == null ? null : (minorId: kid['minor_id'] as String?),
       roles: PlatformRole.parseAll(body['roles']),
       status: AccountStatus.parse(account['status']),
+      termsAccepted: account['terms_accepted'] as bool? ?? true,
     );
   }
+
+  /// Records that the account accepted the terms and the privacy policy
+  /// at [kTermsVersion]; an older app is refused (`409 terms_outdated`).
+  Future<void> acceptTerms() => _client.send(
+    'POST',
+    '/v1/account/terms',
+    body: {'terms_version': kTermsVersion},
+  );
 
   /// Forgets the local session even if the server cannot be reached.
   /// Ends the session, and forgets it even when the server fails or is

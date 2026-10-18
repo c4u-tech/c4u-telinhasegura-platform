@@ -84,6 +84,7 @@ var parentalProblems = []struct {
 	{parental.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{parental.ErrUnauthenticated, http.StatusUnauthorized, "unauthenticated"},
 	{parental.ErrNotChild, http.StatusForbidden, "not_child"},
+	{parental.ErrConsentRequired, http.StatusForbidden, "consent_required"},
 }
 
 // staffProblems maps the staff module's sentinels to their codes (Codes).
@@ -274,6 +275,8 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 		writeProblem(w, p)
 	case errors.Is(err, identity.ErrProviderEmailUnverified):
 		writeProblem(w, newProblem(http.StatusUnprocessableEntity, "provider_email_unverified"))
+	case errors.Is(err, identity.ErrTermsOutdated):
+		writeProblem(w, newProblem(http.StatusConflict, "terms_outdated"))
 	case errors.Is(err, identity.ErrIdentityConflict):
 		writeProblem(w, newProblem(http.StatusConflict, "identity_conflict"))
 	case errors.Is(err, errUnsupportedMedia):

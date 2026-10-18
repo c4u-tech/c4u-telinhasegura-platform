@@ -37,6 +37,7 @@ func (a *api) markSuspended(accountID string) {
 var allowList = []string{
 	"GET /v1/session",
 	"POST /v1/session/reauth",
+	"POST /v1/account/terms",
 	"GET /v1/account/export",
 	"GET /v1/family",
 	"POST /v1/family/owner",

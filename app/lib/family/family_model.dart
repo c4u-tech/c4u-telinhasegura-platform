@@ -67,6 +67,7 @@ class FamilyModel extends ChangeNotifier {
   String? _accountId;
   Set<PlatformRole>? _roles;
   AccountStatus _status = AccountStatus.active;
+  bool _termsAccepted = true;
   bool _verified = false;
   Future<void>? _reading;
   bool _read = false;
@@ -93,6 +94,20 @@ class FamilyModel extends ChangeNotifier {
   /// (suspension screens): the home becomes the suspended
   /// home and the router keeps to its routes. False until read.
   bool get suspended => _status == AccountStatus.suspended;
+
+  /// Whether the account accepted the current terms and privacy policy,
+  /// as its session was last read: the router holds a guardian on the
+  /// terms screen until it has. True until read.
+  bool get termsAccepted => _termsAccepted;
+
+  /// The server recorded the acceptance: the router lets go of the terms
+  /// screen at once, and the session is read again.
+  Future<void> termsAcceptedNow() async {
+    _termsAccepted = true;
+    notifyListeners();
+    await _reading;
+    await refresh();
+  }
 
   /// A call answered `403 account_suspended`: the account is
   /// taken as suspended at once, so the router goes home, and the session
@@ -139,6 +154,7 @@ class FamilyModel extends ChangeNotifier {
       _accountId = session.accountId;
       _roles = session.roles;
       _status = session.status;
+      _termsAccepted = session.termsAccepted;
       _verified = session.emailVerified;
       if (!_verified) return _set(EmailUnverified(session.email));
       final family = await _api.load();
@@ -272,6 +288,7 @@ class FamilyModel extends ChangeNotifier {
       if (account != _account) return;
       _roles = session.roles;
       _status = session.status;
+      _termsAccepted = session.termsAccepted;
       notifyListeners();
     } on Object {
       // The role stays dropped: the server already said so.
@@ -310,6 +327,7 @@ class FamilyModel extends ChangeNotifier {
     _accountId = null;
     _roles = null;
     _status = AccountStatus.active;
+    _termsAccepted = true;
     _verified = false;
     _read = false;
     _notice = null;

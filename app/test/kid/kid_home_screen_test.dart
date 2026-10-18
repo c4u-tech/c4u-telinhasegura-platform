@@ -11,7 +11,9 @@ import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
+import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
+import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 
 import '../access/harness.dart';
@@ -340,6 +342,82 @@ void main() {
       },
       reason: 'a cream screen, the eyes in dark',
     );
+  });
+
+  group('a paused profile', () {
+    /// `/crianca` for a child whose consent is not current: the child
+    /// routes answer `consent_required`.
+    Future<Harness> pausedHome(WidgetTester tester, {Size? size}) async {
+      final h = Harness(
+        signedIn: true,
+        api: (req) => req.url.path.startsWith('/v1/child/')
+            ? problem(403, 'consent_required')
+            : http.Response('', 204),
+      )..kidMode = {'minor_id': 'm1'};
+      await h.pump(
+        tester,
+        initial: '/crianca',
+        size: size ?? const Size(390, 844),
+      );
+      return h;
+    }
+
+    testWidgets('it says so in the shelf\'s place, calmly, for the adult '
+        'nearby', (tester) async {
+      await pausedHome(tester);
+
+      expect(find.byType(PausedProfile), findsOneWidget);
+      expect(
+        PausedProfile.line,
+        'Este perfil está pausado. Peça a um adulto para abrir o app e '
+        'autorizar de novo.',
+      );
+      expect(find.text(PausedProfile.line), findsOneWidget);
+      expect(find.byType(EmptyShelf), findsNothing);
+      expect(find.byType(KidErrorNote), findsNothing);
+      expect(find.text('Tentar de novo'), findsNothing);
+      // The neutral avatar: the profile read is paused too.
+      expect(tester.widget<AvatarDisc>(avatar).avatar, Avatar.unknown);
+    });
+
+    testWidgets('nothing leaves kid mode but the exit behind the PIN', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final h = await pausedHome(tester);
+
+      expect(actionable(tester).map((n) => n.label), [HoldToExit.label]);
+      expect(find.byType(ButtonStyleButton), findsNothing);
+      expect(h.services.appMode.mode, isNot(const Guardian()));
+      semantics.dispose();
+    });
+
+    testWidgets('it asks again on the wake beat, and wakes once the adult '
+        'authorizes', (tester) async {
+      var paused = true;
+      final h = Harness(
+        signedIn: true,
+        api: (req) => switch (req.url.path) {
+          _ when paused && req.url.path.startsWith('/v1/child/') => problem(
+            403,
+            'consent_required',
+          ),
+          '/v1/child/profile' => json(200, profileJson),
+          '/v1/child/catalog' => json(200, {'themes': []}),
+          _ => http.Response('', 204),
+        },
+      )..kidMode = {'minor_id': 'm1'};
+      await h.pump(tester, initial: '/crianca');
+      expect(find.byType(PausedProfile), findsOneWidget);
+
+      paused = false;
+      await tester.pump(KidHomeScreen.wake);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PausedProfile), findsNothing);
+      expect(find.byType(EmptyShelf), findsOneWidget);
+      expect(find.text('Lia'), findsOneWidget);
+    });
   });
 }
 

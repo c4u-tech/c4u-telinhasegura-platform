@@ -35,7 +35,7 @@ func TestAuthenticateWithCorrectAndWrongPasswords(t *testing.T) {
 
 func TestUnverifiedAccountsCanSignIn(t *testing.T) {
 	f := newFixture(t)
-	_ = f.svc.SignUp(context.Background(), "ana@example.com", goodPassword, true)
+	_ = f.svc.SignUp(context.Background(), "ana@example.com", goodPassword, true, identity.TermsVersion)
 	signedIn, err := f.svc.Authenticate(context.Background(), "ana@example.com", goodPassword)
 	if err != nil {
 		t.Fatal(err)

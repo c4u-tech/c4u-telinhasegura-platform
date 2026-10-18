@@ -64,16 +64,19 @@ func ValidEmail(e string) bool {
 
 // SignUp answers the same whether or not the email exists;
 // the difference reaches only the mailbox.
-func (s *Service) SignUp(ctx context.Context, email, password string, adultDeclaration bool) error {
+func (s *Service) SignUp(ctx context.Context, email, password string, adultDeclaration bool, termsVersion string) error {
 	email = NormalizeEmail(email)
 	if !adultDeclaration || !ValidEmail(email) {
 		return ErrValidation
+	}
+	if err := checkTerms(termsVersion); err != nil {
+		return err
 	}
 	password = NormalizePassword(password)
 	if err := s.d.Policy.Check(ctx, password); err != nil {
 		return err
 	}
-	id, err := s.d.Store.createAccount(ctx, email, HashPassword(password, s.d.Hash), s.d.Now())
+	id, err := s.d.Store.createAccount(ctx, email, HashPassword(password, s.d.Hash), termsVersion, s.d.Now())
 	if errors.Is(err, ErrEmailTaken) {
 		return s.signUpExisting(ctx, email)
 	}
@@ -167,6 +170,7 @@ type AccountView struct {
 	Email         string
 	EmailVerified bool
 	Status        Status // GET /v1/session carries it
+	TermsAccepted bool   // the account accepted the current terms
 }
 
 func (s *Service) Account(ctx context.Context, id string) (AccountView, error) {
@@ -174,7 +178,7 @@ func (s *Service) Account(ctx context.Context, id string) (AccountView, error) {
 	if err != nil {
 		return AccountView{}, err
 	}
-	return AccountView{ID: a.ID, Email: a.Email, EmailVerified: a.EmailVerified, Status: a.Status}, nil
+	return AccountView{ID: a.ID, Email: a.Email, EmailVerified: a.EmailVerified, Status: a.Status, TermsAccepted: a.TermsAccepted}, nil
 }
 
 // Authenticated is a password sign-in and the credential version its

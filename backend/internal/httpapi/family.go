@@ -16,12 +16,13 @@ type memberOut struct {
 }
 
 type minorOut struct {
-	ID        string    `json:"id"`
-	Nickname  string    `json:"nickname"`
-	Avatar    string    `json:"avatar"`
-	AgeBand   string    `json:"age_band"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Nickname       string    `json:"nickname"`
+	Avatar         string    `json:"avatar"`
+	AgeBand        string    `json:"age_band"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	ConsentCurrent bool      `json:"consent_current"`
 }
 
 type invitationOut struct {
@@ -42,7 +43,7 @@ type familyOut struct {
 }
 
 func minorBody(m family.Minor) minorOut {
-	return minorOut{m.ID, m.Nickname, m.Avatar, string(m.AgeBand), m.CreatedAt.UTC(), m.UpdatedAt.UTC()}
+	return minorOut{m.ID, m.Nickname, m.Avatar, string(m.AgeBand), m.CreatedAt.UTC(), m.UpdatedAt.UTC(), m.ConsentCurrent}
 }
 
 func invitationBody(i family.Invitation) invitationOut {
@@ -235,6 +236,23 @@ func (s *Server) createMinor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, minorBody(m))
+}
+
+// grantConsent records the guardian's consent for an existing profile
+// under the policy version the app showed.
+func (s *Server) grantConsent(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		PolicyVersion string `json:"policy_version"`
+	}
+	if err := decode(w, r, &in); err != nil {
+		s.fail(w, err)
+		return
+	}
+	if err := s.Family.GrantConsent(r.Context(), current(r).AccountID, r.PathValue("id"), in.PolicyVersion); err != nil {
+		s.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) updateMinor(w http.ResponseWriter, r *http.Request) {

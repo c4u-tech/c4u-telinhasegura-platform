@@ -24,10 +24,10 @@ func TestProviderSignUpThenSignInOnMobile(t *testing.T) {
 	if b.Email != "ana@gmail.com" {
 		t.Fatalf("email %q", b.Email)
 	}
-	if r := a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": false, "client": "mobile"}); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
+	if r := a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": false, "terms_version": "2026-10-17", "client": "mobile"}); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
 		t.Fatalf("no declaration: %d %s", r.Code, r.Body)
 	}
-	tok := decodeTokens(t, a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": true, "client": "mobile", "device_label": "Pixel 9"}))
+	tok := decodeTokens(t, a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile", "device_label": "Pixel 9"}))
 	if tok.AccessToken == "" || tok.RefreshToken == "" {
 		t.Fatalf("tokens %+v", tok)
 	}

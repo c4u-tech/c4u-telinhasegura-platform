@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../legal/legal_links.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'new_password.dart';
@@ -89,6 +90,8 @@ class _SignupScreenState extends State<SignupScreen> {
           value: _adult,
           onChanged: (v) => setState(() => _adult = v),
         ),
+        const SizedBox(height: Space.md),
+        const SignupAgreement(),
         const SizedBox(height: Space.xl),
         if (_submission.message case final message?) ...[
           ErrorNote(message),

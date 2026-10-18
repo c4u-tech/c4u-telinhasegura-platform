@@ -112,7 +112,7 @@ func (s *Service) Redeem(ctx context.Context, code, label string) (Redeemed, err
 			return err
 		}
 		out.Token = token
-		out.Profile, err = profileOf(ctx, tx, familyID, minorID)
+		out.Profile, err = s.profileOf(ctx, tx, familyID, minorID)
 		return err
 	})
 	if err != nil {

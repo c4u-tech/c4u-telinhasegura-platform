@@ -31,6 +31,8 @@ type Account struct {
 	// Status is read with the account; a suspended account still signs
 	// in.
 	Status Status
+	// TermsAccepted is whether the account accepted the current terms.
+	TermsAccepted bool
 }
 
 type tokenPurpose string
@@ -49,16 +51,18 @@ type emailToken struct {
 }
 
 const accountCols = `id::text, email, coalesce(password_hash, ''), email_verified_at IS NOT NULL,
-	failed_sign_ins, coalesce(sign_in_blocked_until, 'epoch'::timestamptz), credential_version, status`
+	failed_sign_ins, coalesce(sign_in_blocked_until, 'epoch'::timestamptz), credential_version, status, terms_version`
 
 func scanAccount(row pgx.Row) (Account, error) {
 	var a Account
 	var status string
-	err := row.Scan(&a.ID, &a.Email, &a.PasswordHash, &a.EmailVerified, &a.FailedSignIns, &a.BlockedUntil, &a.CredentialVersion, &status)
+	var terms *string
+	err := row.Scan(&a.ID, &a.Email, &a.PasswordHash, &a.EmailVerified, &a.FailedSignIns, &a.BlockedUntil, &a.CredentialVersion, &status, &terms)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrNotFound
 	}
 	a.Status = Status(status)
+	a.TermsAccepted = terms != nil && *terms == TermsVersion
 	return a, err
 }
 
@@ -67,10 +71,10 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pg) && pg.Code == "23505"
 }
 
-func (s Store) createAccount(ctx context.Context, email, hash string, now time.Time) (string, error) {
+func (s Store) createAccount(ctx context.Context, email, hash, termsVersion string, now time.Time) (string, error) {
 	var id string
-	err := s.Pool.QueryRow(ctx, `INSERT INTO accounts (email, password_hash, adult_declared_at, created_at)
-		VALUES ($1, $2, $3, $3) RETURNING id::text`, email, hash, now).Scan(&id)
+	err := s.Pool.QueryRow(ctx, `INSERT INTO accounts (email, password_hash, adult_declared_at, created_at, terms_version, terms_accepted_at)
+		VALUES ($1, $2, $3, $3, $4, $3) RETURNING id::text`, email, hash, now, termsVersion).Scan(&id)
 	if isUniqueViolation(err) {
 		return "", ErrEmailTaken
 	}
@@ -262,4 +266,9 @@ func (s Store) spendEmailToken(ctx context.Context, hash []byte, now time.Time) 
 		}
 	}
 	return t, tx.Commit(ctx)
+}
+
+func (s Store) acceptTerms(ctx context.Context, id, termsVersion string, now time.Time) error {
+	_, err := s.Pool.Exec(ctx, `UPDATE accounts SET terms_version = $2, terms_accepted_at = $3 WHERE id = $1::uuid`, id, termsVersion, now)
+	return err
 }
