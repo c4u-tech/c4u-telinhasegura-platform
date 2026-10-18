@@ -264,6 +264,9 @@ func (f *fixture) outdate(minorID string) {
 	}
 }
 
+const currentConsents = `SELECT count(*) FROM minor_consents
+	WHERE minor_id = $1::uuid AND policy_version = $2 AND withdrawn_at IS NULL`
+
 func TestGrantConsentRecordsANewAuthorization(t *testing.T) {
 	f := newFixture(t)
 	ana := f.owner("ana@example.com")
@@ -272,14 +275,14 @@ func TestGrantConsentRecordsANewAuthorization(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.outdate(m.ID)
-	if ok, err := f.svc.ConsentCurrent(ctx, m.ID); err != nil || ok {
-		t.Fatalf("before: %v %v", ok, err)
+	if n := f.count(currentConsents, m.ID, family.ConsentPolicyVersion); n != 0 {
+		t.Fatalf("before: %d current rows", n)
 	}
 	if err := f.svc.GrantConsent(ctx, ana, m.ID, family.ConsentPolicyVersion); err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := f.svc.ConsentCurrent(ctx, m.ID); err != nil || !ok {
-		t.Fatalf("after: %v %v", ok, err)
+	if n := f.count(currentConsents, m.ID, family.ConsentPolicyVersion); n != 1 {
+		t.Fatalf("after: %d current rows", n)
 	}
 	if n := f.count(`SELECT count(*) FROM minor_consents WHERE minor_id = $1::uuid`, m.ID); n != 2 {
 		t.Fatalf("rows: %d", n)
