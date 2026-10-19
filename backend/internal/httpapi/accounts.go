@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/accesslog"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/clientip"
 )
 
@@ -22,9 +23,13 @@ func (s *Server) signUp(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	if _, err := s.Identity.SignUp(r.Context(), in.Email, in.Password, in.AdultDeclaration, in.TermsVersion); err != nil {
+	id, err := s.Identity.SignUp(r.Context(), in.Email, in.Password, in.AdultDeclaration, in.TermsVersion)
+	if err != nil {
 		s.fail(w, err)
 		return
+	}
+	if id != "" { // "" for an address already taken: no account was used
+		s.recordAccess(r, accesslog.Entry{AccountID: id})
 	}
 	writeJSON(w, http.StatusAccepted, accepted)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/httpapi"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/parental"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/accesslog"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit/audittest"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/db/dbtest"
@@ -165,6 +166,7 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 	srv := &httpapi.Server{
 		Pool:       pool,
 		Log:        log,
+		Access:     accesslog.Store{Pool: pool, Now: clock},
 		Identity:   ids,
 		Sessions:   sessions,
 		Family:     fam,
