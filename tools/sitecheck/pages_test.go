@@ -190,7 +190,7 @@ func TestPrivacyPolicyCoversTheLawsList(t *testing.T) {
 	for _, want := range []string{
 		"e-⁠mail", "apelido", "faixa de idade", "PIN", "aparelho", "consentimento",
 		"30 dias", "90 dias", "29 dias", "Mailgun", "Estados Unidos", "Google Cloud",
-		"art. 14", "art. 18", "encarregad", PrivacyEmail, "youtube-nocookie.com",
+		"art. 14", "art. 18", "Nosso canal para assuntos de dados pessoais", PrivacyEmail, "youtube-nocookie.com",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/privacidade does not mention %q", want)
@@ -217,9 +217,14 @@ func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
 	pages := mustPages(t)
 	says := map[string][]string{
 		"/privacidade": {"Serviços de API do YouTube", "anúncios do próprio YouTube", "37 dias",
-			"15 dias", "não é obrigado a autorizar", "em nosso nome"},
+			"15 dias", "não é obrigado a autorizar", "em nosso nome",
+			"Registro de acesso", "6 meses", "Marco Civil da Internet, art. 15", "ordem judicial",
+			"5 anos depois da exclusão do perfil", "Mantido por 5 anos",
+			"apagado 90 dias depois de vencer ou ser encerrada", "(2 a 4, 5 a 8, ou 9 a 12 anos)",
+			"registro de acesso dos aparelhos vinculados"},
 		"/termos": {"pelo menos duas pessoas", "15 dias", "30 dias de antecedência",
-			"Termos de Serviço do YouTube", "abuso"},
+			"Termos de Serviço do YouTube", "abuso", "classificação indicativa Livre", Address,
+			"escolhe e supervisiona quem faz a curadoria"},
 		"/suporte":       {ReportEmail, "mesmo sem conta", "anônim", "Disque 100", "190"},
 		"/excluir-conta": {"37 dias", "15 dias"},
 		"/":              {"pelo menos duas pessoas"},
@@ -233,7 +238,7 @@ func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
 	}
 	links := map[string][]string{
 		"/privacidade": {GooglePrivacyURL},
-		"/termos":      {YouTubeTermsURL},
+		"/termos":      {YouTubeTermsURL, "/curadoria"},
 		"/suporte":     {"mailto:" + ReportEmail},
 	}
 	for path, hrefs := range links {
@@ -245,7 +250,7 @@ func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
 	}
 	// A report hides a video from the reporting family at once; it leaves
 	// everyone's screen only when several families report it.
-	stale := regexp.MustCompile(`volta para (a comunidade )?revis|em até 29 dias|O modo criança não tem anúncios`)
+	stale := regexp.MustCompile(`volta para (a comunidade )?revis|em até 29 dias|O modo criança não tem anúncios|encarregad|[Aa]té 4 anos|\(até 4,|IP não fica gravado`)
 	for path, p := range pages {
 		if m := stale.FindString(p.Text); m != "" {
 			t.Errorf("%s still says %q, which no longer matches the service", path, m)
