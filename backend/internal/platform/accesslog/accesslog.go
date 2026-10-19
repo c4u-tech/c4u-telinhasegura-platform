@@ -24,6 +24,10 @@ const retentionMonths = 6
 // service was used, not every request.
 const dedupWindow = time.Hour
 
+// recordTimeout bounds a write, so a stalled database cannot hold up the
+// request that triggered it.
+var recordTimeout = 2 * time.Second
+
 // ErrInvalid is an entry without a parseable address, or naming neither
 // an account nor a device. Its message never carries the address.
 var ErrInvalid = errors.New("accesslog: an entry needs an address and an account or a device")
@@ -76,7 +80,8 @@ func (s Store) Record(ctx context.Context, e Entry) error {
 	now := s.Now()
 	since := now.Add(-dedupWindow)
 	// The row is written even if the client hangs up: the use happened.
-	ctx = context.WithoutCancel(ctx)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordTimeout)
+	defer cancel()
 	var seen bool
 	if err := s.Pool.QueryRow(ctx, seenSQL, key, ip, since).Scan(&seen); err != nil || seen {
 		return err

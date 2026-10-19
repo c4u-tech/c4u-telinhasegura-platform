@@ -150,3 +150,29 @@ func TestSweepKeepsSixMonths(t *testing.T) {
 		t.Fatalf("after the sweep: %d rows, want the newer one only", n)
 	}
 }
+
+// A stalled database must not hold the request up: the write gives up.
+func TestRecordGivesUpWhenItCannotFinishInTime(t *testing.T) {
+	f := newFixture(t)
+	defer accesslog.SetRecordTimeout(200 * time.Millisecond)()
+	tx, err := f.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "access_log/"+sess+"/203.0.113.7"); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	err = f.store.Record(ctx, accesslog.Entry{AccountID: account, SessionID: sess, IP: "203.0.113.7"})
+	if err == nil {
+		t.Fatal("Record returned nil while the lock was held")
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Fatalf("Record took %s, want it bounded", d)
+	}
+	_ = tx.Rollback(ctx)
+	if n := f.count(`SELECT count(*) FROM access_log`); n != 0 {
+		t.Fatalf("%d rows written", n)
+	}
+}
