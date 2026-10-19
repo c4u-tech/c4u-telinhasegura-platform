@@ -10,7 +10,7 @@ import (
 )
 
 // The pages the site serves, by URL path.
-var pagePaths = []string{"/", "/privacidade", "/termos", "/suporte", "/excluir-conta", "/participe"}
+var pagePaths = []string{"/", "/privacidade", "/termos", "/suporte", "/excluir-conta", "/participe", "/curadoria"}
 
 func mustPages(t *testing.T) map[string]*Page {
 	t.Helper()
@@ -362,4 +362,34 @@ func mustRead(t *testing.T, rel string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// The company's full address, as consumer law asks of a business online.
+const Address = "Alameda Salvador, 1057, Salvador Shopping Business, Torre América, salas 911 e 912, Caminho das Árvores, Salvador, BA, CEP 41820-790"
+
+func TestEveryFooterGivesTheFullAddress(t *testing.T) {
+	for path, p := range mustPages(t) {
+		if !strings.Contains(p.FooterText, Address) {
+			t.Errorf("%s: footer lacks the full address", path)
+		}
+	}
+}
+
+// The criteria the curation follows are public, so families can check them.
+func TestCurationPagePublishesTheCriteria(t *testing.T) {
+	pages := mustPages(t)
+	p := pages["/curadoria"]
+	for _, want := range []string{
+		"Classificação Indicativa", "Livre", "2 a 4", "5 a 8", "9 a 12 anos",
+		"pelo menos duas pessoas", "Quem sugere um vídeo não pode aprová-lo",
+		"A Coding4u, que faz o Telinha Segura, escolhe quem faz parte da curadoria",
+		"Não recusamos", "menos de 2 anos", "Denunciar este vídeo",
+	} {
+		if !strings.Contains(p.Text, want) {
+			t.Errorf("/curadoria does not say %q", want)
+		}
+	}
+	if !contains(pages["/participe"].Hrefs, "/curadoria") {
+		t.Error("/participe does not link /curadoria")
+	}
 }
