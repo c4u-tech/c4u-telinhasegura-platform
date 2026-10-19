@@ -73,6 +73,17 @@ Future<void> toConsent(WidgetTester tester) async {
 
 void main() {
   group('step 1', () {
+    testWidgets('choosing "2 a 4 anos" shows the advice about children '
+        'under 2, and Continuar still goes on', (tester) async {
+      await newChild(tester);
+      expect(find.text(underTwoAdvice), findsNothing);
+
+      await fillProfile(tester, band: AgeBand.upTo4);
+
+      expect(find.text(underTwoAdvice), findsOneWidget);
+      expect(pressOf(tester, 'Continuar'), isNotNull);
+    });
+
     testWidgets('asks for the nickname, the avatar and the age band, none '
         'chosen, Continuar waiting', (tester) async {
       await newChild(tester);

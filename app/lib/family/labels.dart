@@ -4,7 +4,7 @@ import 'family.dart';
 /// (lib/access/copy.dart).
 extension AgeBandLabel on AgeBand {
   String get label => switch (this) {
-    AgeBand.upTo4 => 'Até 4 anos',
+    AgeBand.upTo4 => '2 a 4 anos',
     AgeBand.from5To8 => '5 a 8 anos',
     AgeBand.from9To12 => '9 a 12 anos',
     AgeBand.unknown => 'Faixa não informada',

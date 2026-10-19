@@ -74,6 +74,13 @@ Map<String, dynamic> bodyOf(String call) =>
 
 void main() {
   group('consent', () {
+    testWidgets('a child of "2 a 4 anos" shows the advice about children '
+        'under 2 under the bands', (tester) async {
+      await child(tester, minor: minorJson('m1', 'Lia', ageBand: 'ate-4'));
+
+      expect(find.text(underTwoAdvice), findsOneWidget);
+    });
+
     testWidgets('a paused child says it needs a new authorization, a door '
         'to it', (tester) async {
       final h = await child(tester, minor: pausedMinorJson('m1', 'Lia'));

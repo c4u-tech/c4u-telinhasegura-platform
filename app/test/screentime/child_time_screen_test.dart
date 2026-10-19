@@ -132,7 +132,7 @@ void main() {
       rules: () => json(200, rulesJson(isDefault: true)),
     );
 
-    expect(find.text('Padrão da faixa até 4 anos'), findsOneWidget);
+    expect(find.text('Padrão da faixa 2 a 4 anos'), findsOneWidget);
   });
 
   testWidgets('seven rows, today first, in words, none a target', (

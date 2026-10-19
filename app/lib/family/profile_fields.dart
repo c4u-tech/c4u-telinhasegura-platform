@@ -136,6 +136,10 @@ class _AvatarTile extends StatelessWidget {
   }
 }
 
+/// Under "2 a 4 anos" on a child's profile: what paediatricians advise,
+/// said once, never a gate.
+const underTwoAdvice = 'Pediatras recomendam nenhuma tela antes dos 2 anos.';
+
 /// The three age bands as full-width rows, a choice of one. An
 /// unknown stored band shows none chosen.
 class AgeBandChoice extends StatelessWidget {
@@ -143,10 +147,15 @@ class AgeBandChoice extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.adviseUnderTwo = false,
   });
 
   final AgeBand? value;
   final ValueChanged<AgeBand>? onChanged;
+
+  /// On a child's profile, "2 a 4 anos" chosen shows [underTwoAdvice]
+  /// under the rows. A curator choosing a video's band sees none.
+  final bool adviseUnderTwo;
 
   @override
   Widget build(BuildContext context) {
@@ -163,6 +172,16 @@ class AgeBandChoice extends StatelessWidget {
               onTap: onChanged == null ? null : () => onChanged(band),
             ),
           ],
+        if (adviseUnderTwo && value == AgeBand.upTo4) ...[
+          const SizedBox(height: Space.sm),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              underTwoAdvice,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
       ],
     );
   }

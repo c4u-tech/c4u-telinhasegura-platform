@@ -7,7 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
-import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
+import 'package:telinha_segura/family/profile_fields.dart'
+    show SelectableRow, underTwoAdvice;
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -15,7 +16,7 @@ import 'fixtures.dart';
 
 const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
 const allThemes = [...themes, 'Natureza'];
-const bands = ['Até 4 anos', '5 a 8 anos', '9 a 12 anos'];
+const bands = ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos'];
 
 Future<Harness> approving(
   WidgetTester tester, {
@@ -84,6 +85,14 @@ void expectNamed(WidgetTester tester, Finder below) {
 }
 
 void main() {
+  testWidgets('a curator choosing "2 a 4 anos" sees no advice meant for '
+      'guardians', (tester) async {
+    await approving(tester);
+    await choose(tester, '2 a 4 anos');
+
+    expect(find.text(underTwoAdvice), findsNothing);
+  });
+
   testWidgets('names the video it approves under the title, as the review '
       'does, through to the done state', (tester) async {
     await approving(tester);
