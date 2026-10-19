@@ -41,6 +41,7 @@ func TestDeleteAccountErasesTheGuardian(t *testing.T) {
 		($3, 'signup', 'apple', 's3', 'dani@example.com', true, NULL, $5)`,
 		f.secret("t1"), f.secret("t2"), f.secret("t3"), bia, f.now.Add(time.Hour))
 	f.exec(`INSERT INTO audit_events (account_id, event, occurred_at) VALUES ($1::uuid, 'signed_up', $2)`, bia, f.now)
+	f.exec(`INSERT INTO access_log (account_id, ip, occurred_at) VALUES ($1::uuid, '203.0.113.7', $2)`, bia, f.now)
 
 	if err := f.svc.DeleteAccount(ctx, bia, nil); err != nil {
 		t.Fatal(err)
@@ -78,6 +79,7 @@ func TestDeleteAccountErasesTheGuardian(t *testing.T) {
 	}
 	for _, q := range []string{ // the opaque survivors
 		`SELECT count(*) FROM audit_events WHERE account_id = $1::uuid`,
+		`SELECT count(*) FROM access_log WHERE account_id = $1::uuid`,
 		`SELECT count(*) FROM minor_consents WHERE granted_by = $1::uuid`,
 		`SELECT count(*) FROM family_invitations WHERE invited_by = $1::uuid`,
 		`SELECT count(*) FROM link_codes WHERE created_by = $1::uuid`,
