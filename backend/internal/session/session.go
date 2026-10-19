@@ -337,3 +337,26 @@ func isUUID(v string) bool {
 	}
 	return true
 }
+
+// keepEnded is how long a session's row stays after it was revoked or
+// expired, so the account's owner still sees recent sign-ins in an
+// export and a support case can be answered; then it goes.
+const keepEnded = 90 * day
+
+// Sweep deletes the sessions revoked, or expired, more than 90 days ago.
+// A session expires at the earlier of its idle and its absolute limit,
+// which differ between web and mobile. It is idempotent, so every replica
+// may run it.
+func (s *Service) Sweep(ctx context.Context) error {
+	cutoff := s.Now().Add(-keepEnded)
+	if _, err := s.Pool.Exec(ctx, `DELETE FROM sessions WHERE revoked_at < $1`, cutoff); err != nil {
+		return err
+	}
+	for c, lt := range lifetimes {
+		if _, err := s.Pool.Exec(ctx, `DELETE FROM sessions WHERE client = $1 AND (last_seen_at < $2 OR created_at < $3)`,
+			string(c), cutoff.Add(-lt.idle), cutoff.Add(-lt.absolute)); err != nil {
+			return err
+		}
+	}
+	return nil
+}

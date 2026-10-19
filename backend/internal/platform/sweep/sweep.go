@@ -1,6 +1,6 @@
 // Package sweep runs the API's periodic jobs inside its process: the
-// screen-time retention and the YouTube data refresh. Jobs are idempotent, so every replica may run
-// them.
+// retention sweeps and the YouTube data refresh. Jobs are idempotent, so
+// every replica may run them.
 package sweep
 
 import (
