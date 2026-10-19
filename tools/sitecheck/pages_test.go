@@ -224,7 +224,7 @@ func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
 			"5 anos depois da exclusão do perfil", "Mantido por 5 anos",
 			"apagado 90 dias depois de vencer ou ser encerrada", "(2 a 4, 5 a 8, ou 9 a 12 anos)",
 			"registro de acesso dos aparelhos vinculados",
-			"a porta quando disponível", "6 meses, inclusive depois da exclusão da conta, por obrigação legal",
+			"quando disponível, a porta", "6 meses, inclusive depois da exclusão da conta, por obrigação legal",
 			"ligado à conta excluída e em sigilo", "o registro de acesso da sua conta"},
 		"/termos": {"pelo menos duas pessoas", "15 dias", "30 dias de antecedência",
 			"Termos de Serviço do YouTube", "abuso", "classificação indicativa Livre", Address,
