@@ -56,6 +56,35 @@ func TestExportAccount(t *testing.T) {
 	}
 }
 
+func TestExportListsTheAccountsAccessLog(t *testing.T) {
+	f := newFixture(t)
+	ana := f.account("ana@example.com")
+	bia := f.account("bia@example.com")
+	ended := f.session(ana, "Tablet antigo")
+	f.exec(`UPDATE sessions SET revoked_at = $2 WHERE id = $1::uuid`, ended, f.now)
+	f.exec(`INSERT INTO access_log (account_id, session_id, ip, port, occurred_at) VALUES
+		($1::uuid, $2::uuid, '203.0.113.7', 51234, $3),
+		($1::uuid, NULL, '2001:db8::1', NULL, $4),
+		($5::uuid, NULL, '198.51.100.9', 443, $4)`, ana, ended, f.now.Add(-2*time.Hour), f.now.Add(-time.Hour), bia)
+	f.exec(`INSERT INTO access_log (device_id, ip, occurred_at) VALUES (gen_random_uuid(), '192.0.2.50', $1)`, f.now)
+
+	e, err := f.svc.Export(ctx, ana)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := e.Account.AccessLog
+	if len(got) != 2 {
+		t.Fatalf("access log: %+v", got)
+	}
+	if !got[0].OccurredAt.Equal(f.now.Add(-2*time.Hour)) || got[0].OccurredAt.Location() != time.UTC ||
+		got[0].IP != "203.0.113.7" || got[0].Port == nil || *got[0].Port != 51234 {
+		t.Fatalf("the ended session's row: %+v", got[0])
+	}
+	if got[1].IP != "2001:db8::1" || got[1].Port != nil {
+		t.Fatalf("the row without a port: %+v", got[1])
+	}
+}
+
 func TestExportShapeOfABareAccount(t *testing.T) {
 	f := newFixture(t)
 	id := f.bareAccount("ana@example.com")
@@ -63,7 +92,7 @@ func TestExportShapeOfABareAccount(t *testing.T) {
 	for _, want := range []string{
 		`"format":"telinhasegura.export/1"`, `"generated_at":"2026-10-04T12:00:00Z"`,
 		`"email_verified_at":null`, `"has_password":false`,
-		`"linked_providers":[]`, `"sessions":[]`, `"events":[]`, `"family":null`,
+		`"linked_providers":[]`, `"sessions":[]`, `"access_log":[]`, `"events":[]`, `"family":null`,
 		`"platform_roles":[]`, `"suggestions":[]`, `"reviews":[]`,
 	} {
 		if !strings.Contains(js, want) {

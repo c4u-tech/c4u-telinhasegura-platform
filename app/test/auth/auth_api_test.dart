@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/auth/token_store.dart';
+import 'package:telinha_segura/legal/legal_links.dart';
 
 import 'fakes.dart';
 
@@ -67,7 +68,7 @@ void main() {
 
     expect(t.calls, [
       'POST /v1/accounts {"email":"a@b.co","password":"p",'
-          '"adult_declaration":true,"terms_version":"2026-10-17"}',
+          '"adult_declaration":true,"terms_version":"$kTermsVersion"}',
       'POST /v1/email-verifications {"email":"a@b.co"}',
       'POST /v1/email-verifications/confirm {"token":"tok"}',
       'POST /v1/session/reauth {"password":"p"}',
@@ -77,7 +78,7 @@ void main() {
       'POST /v1/account/email {"new_email":"n@b.co"}',
       'POST /v1/password-resets {"email":"a@b.co"}',
       'POST /v1/password-resets/confirm {"token":"tok","new_password":"q"}',
-      'POST /v1/account/terms {"terms_version":"2026-10-17"}',
+      'POST /v1/account/terms {"terms_version":"$kTermsVersion"}',
       'DELETE /v1/sessions?scope=all',
     ]);
   });

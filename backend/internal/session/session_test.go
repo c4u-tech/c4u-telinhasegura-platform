@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"testing"
 	"time"
@@ -360,5 +361,58 @@ func TestRevokeAllTxEndsTheSessionsWithItsTransaction(t *testing.T) {
 	}
 	if _, err := session.RevokeAllTx(ctx, nil, "abc", f.now); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("a malformed id: %v", err)
+	}
+}
+
+// seed inserts a session of the fixture's account with the given times;
+// revoked is nil or a time.Time.
+func (f *fixture) seed(t *testing.T, c session.Client, created, lastSeen time.Time, revoked any) string {
+	t.Helper()
+	var id string
+	if err := f.pool.QueryRow(context.Background(), `INSERT INTO sessions
+		(account_id, client, secret_hash, created_at, last_seen_at, revoked_at)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6) RETURNING id::text`,
+		f.acct, string(c), []byte(rand.Text()), created, lastSeen, revoked).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestSweepDeletesSessionsEndedNinetyDaysAgo(t *testing.T) {
+	f := newFixture(t)
+	now, m := f.now, time.Minute
+	gone := map[string]string{
+		"revoked 90 days ago":                   f.seed(t, session.Web, now.Add(-100*day), now.Add(-95*day), now.Add(-90*day-m)),
+		"web idle, expired 90 days ago":         f.seed(t, session.Web, now.Add(-121*day), now.Add(-120*day-m), nil),
+		"web past its 90 days, 90 days ago":     f.seed(t, session.Web, now.Add(-180*day-m), now, nil),
+		"mobile idle, expired 90 days ago":      f.seed(t, session.Mobile, now.Add(-151*day), now.Add(-150*day-m), nil),
+		"mobile past its 180 days, 90 days ago": f.seed(t, session.Mobile, now.Add(-270*day-m), now, nil),
+	}
+	keep := map[string]string{
+		"revoked 89 days ago":           f.seed(t, session.Web, now.Add(-100*day), now.Add(-95*day), now.Add(-89*day)),
+		"web idle, expired 89 days ago": f.seed(t, session.Web, now.Add(-119*day), now.Add(-119*day), nil),
+		// Idle 149 days: a web session would be gone, a mobile one is not.
+		"mobile idle 149 days":    f.seed(t, session.Mobile, now.Add(-149*day), now.Add(-149*day), nil),
+		"mobile live at 179 days": f.seed(t, session.Mobile, now.Add(-179*day), now, nil),
+	}
+	if err := f.svc.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	exists := func(id string) bool {
+		var ok bool
+		if err := f.pool.QueryRow(context.Background(), `SELECT EXISTS (SELECT 1 FROM sessions WHERE id = $1::uuid)`, id).Scan(&ok); err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+	for name, id := range gone {
+		if exists(id) {
+			t.Errorf("%s: kept", name)
+		}
+	}
+	for name, id := range keep {
+		if !exists(id) {
+			t.Errorf("%s: deleted", name)
+		}
 	}
 }

@@ -32,7 +32,7 @@ func (f *fixture) terms(email string) (version string, accepted bool) {
 
 func TestSignUpRecordsTheTermsVersionAndWhen(t *testing.T) {
 	f := newFixture(t)
-	if err := f.svc.SignUp(context.Background(), "ana@example.com", goodPassword, true, identity.TermsVersion); err != nil {
+	if _, err := f.svc.SignUp(context.Background(), "ana@example.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if v, ok := f.terms("ana@example.com"); v != identity.TermsVersion || !ok {
@@ -43,10 +43,10 @@ func TestSignUpRecordsTheTermsVersionAndWhen(t *testing.T) {
 func TestSignUpRefusesMissingOrOutdatedTermsAndCreatesNoAccount(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, ""); !errors.Is(err, identity.ErrValidation) {
+	if _, err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, ""); !errors.Is(err, identity.ErrValidation) {
 		t.Fatalf("empty: %v", err)
 	}
-	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, "2020-01-01"); !errors.Is(err, identity.ErrTermsOutdated) {
+	if _, err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, "2020-01-01"); !errors.Is(err, identity.ErrTermsOutdated) {
 		t.Fatalf("old: %v", err)
 	}
 	if n := f.accounts(); n != 0 {

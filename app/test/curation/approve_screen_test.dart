@@ -7,7 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
-import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
+import 'package:telinha_segura/legal/legal_links.dart';
+import 'package:telinha_segura/family/profile_fields.dart'
+    show SelectableRow, underTwoAdvice;
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -15,7 +17,7 @@ import 'fixtures.dart';
 
 const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
 const allThemes = [...themes, 'Natureza'];
-const bands = ['Até 4 anos', '5 a 8 anos', '9 a 12 anos'];
+const bands = ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos'];
 
 Future<Harness> approving(
   WidgetTester tester, {
@@ -84,6 +86,43 @@ void expectNamed(WidgetTester tester, Finder below) {
 }
 
 void main() {
+  testWidgets('says every video must be Livre and opens the criteria of '
+      'each band on the site', (tester) async {
+    final h = await approving(tester);
+
+    expect(find.text(curationRule), findsOneWidget);
+    await tester.ensureVisible(find.text(curationCriteriaLink));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(curationCriteriaLink));
+    await tester.pumpAndSettle();
+
+    expect(h.links.opened, [kCurationUrl]);
+    expect(h.location(tester), '/curadoria/v1/aprovar');
+  });
+
+  testWidgets('the criteria line reads as a link', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await approving(tester);
+    await tester.ensureVisible(find.text(curationCriteriaLink));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.semantics.byPredicate(
+        (n) => n.label == curationCriteriaLink && n.flagsCollection.isLink,
+      ),
+      findsOne,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('a curator choosing "2 a 4 anos" sees no advice meant for '
+      'guardians', (tester) async {
+    await approving(tester);
+    await choose(tester, '2 a 4 anos');
+
+    expect(find.text(underTwoAdvice), findsNothing);
+  });
+
   testWidgets('names the video it approves under the title, as the review '
       'does, through to the done state', (tester) async {
     await approving(tester);

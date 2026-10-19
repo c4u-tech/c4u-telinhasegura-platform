@@ -62,29 +62,30 @@ func ValidEmail(e string) bool {
 	return err == nil && a.Name == "" && a.Address == e
 }
 
-// SignUp answers the same whether or not the email exists;
-// the difference reaches only the mailbox.
-func (s *Service) SignUp(ctx context.Context, email, password string, adultDeclaration bool, termsVersion string) error {
+// SignUp creates an unverified account and answers its ID. For an
+// address already taken it mails the owner instead and answers "" with no
+// error, so the response never tells whether the address exists.
+func (s *Service) SignUp(ctx context.Context, email, password string, adultDeclaration bool, termsVersion string) (string, error) {
 	email = NormalizeEmail(email)
 	if !adultDeclaration || !ValidEmail(email) {
-		return ErrValidation
+		return "", ErrValidation
 	}
 	if err := checkTerms(termsVersion); err != nil {
-		return err
+		return "", err
 	}
 	password = NormalizePassword(password)
 	if err := s.d.Policy.Check(ctx, password); err != nil {
-		return err
+		return "", err
 	}
 	id, err := s.d.Store.createAccount(ctx, email, HashPassword(password, s.d.Hash), termsVersion, s.d.Now())
 	if errors.Is(err, ErrEmailTaken) {
-		return s.signUpExisting(ctx, email)
+		return "", s.signUpExisting(ctx, email)
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	s.d.Audit.Record(ctx, id, audit.SignedUp)
-	return s.sendVerification(ctx, id, email)
+	return id, s.sendVerification(ctx, id, email)
 }
 
 func (s *Service) signUpExisting(ctx context.Context, email string) error {

@@ -18,6 +18,7 @@ import (
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/httpapi"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/parental"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/accesslog"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit/audittest"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/db/dbtest"
@@ -165,6 +166,7 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 	srv := &httpapi.Server{
 		Pool:       pool,
 		Log:        log,
+		Access:     accesslog.Store{Pool: pool, Now: clock},
 		Identity:   ids,
 		Sessions:   sessions,
 		Family:     fam,
@@ -242,7 +244,7 @@ func (a *api) lastToken(addr string) string {
 }
 
 func signUpBody(email string) map[string]any {
-	return map[string]any{"email": email, "password": goodPassword, "adult_declaration": true, "terms_version": "2026-10-17"}
+	return map[string]any{"email": email, "password": goodPassword, "adult_declaration": true, "terms_version": identity.TermsVersion}
 }
 
 type mobileTokens struct {
@@ -333,7 +335,7 @@ func (a *api) providerSignUpMobile(sub, email string) mobileTokens {
 	r := a.do(http.MethodPost, "/v1/sessions/provider", map[string]string{"provider": "google", "id_token": a.googleToken(sub, email), "client": "mobile"})
 	b := decodeConfirm(a.t, r, "signup_required")
 	return decodeTokens(a.t, a.do(http.MethodPost, "/v1/sessions/provider/signup",
-		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile"}))
+		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": identity.TermsVersion, "client": "mobile"}))
 }
 
 // accountID reads the signed-in account's ID.

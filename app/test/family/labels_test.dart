@@ -4,7 +4,7 @@ import 'package:telinha_segura/family/labels.dart';
 
 void main() {
   test('each age band has its PT-BR label, unknown a neutral one', () {
-    expect(AgeBand.upTo4.label, 'Até 4 anos');
+    expect(AgeBand.upTo4.label, '2 a 4 anos');
     expect(AgeBand.from5To8.label, '5 a 8 anos');
     expect(AgeBand.from9To12.label, '9 a 12 anos');
     expect(AgeBand.unknown.label, 'Faixa não informada');

@@ -32,6 +32,7 @@ type Account struct {
 	MFAEnrolledAt    *time.Time        `json:"mfa_enrolled_at"` // a confirmed staff factor, never its secret or codes
 	LinkedProviders  []LinkedProvider  `json:"linked_providers"`
 	Sessions         []Session         `json:"sessions"`
+	AccessLog        []AccessEntry     `json:"access_log"`
 	Events           []Event           `json:"events"`
 	SubjectActions   []Event           `json:"subject_actions"` // staff actions about the account
 	PlatformRoles    []PlatformRole    `json:"platform_roles"`
@@ -53,6 +54,14 @@ type Session struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	LastSeenAt  time.Time  `json:"last_seen_at"`
 	RevokedAt   *time.Time `json:"revoked_at"`
+}
+
+// AccessEntry is one row of the account's access record: when, and from
+// which address and port. Rows of sessions already ended are included.
+type AccessEntry struct {
+	OccurredAt time.Time `json:"occurred_at"`
+	IP         string    `json:"ip"`
+	Port       *int      `json:"port"` // null when the port was not known
 }
 
 type Event struct {
@@ -282,6 +291,20 @@ func readAccount(ctx context.Context, tx pgx.Tx, id string) (Account, error) {
 		var x Session
 		err := r.Scan(&x.Client, &x.DeviceLabel, &x.CreatedAt, &x.LastSeenAt, &x.RevokedAt)
 		x.CreatedAt, x.LastSeenAt, x.RevokedAt = x.CreatedAt.UTC(), x.LastSeenAt.UTC(), utcp(x.RevokedAt)
+		return x, err
+	}); err != nil {
+		return Account{}, err
+	}
+
+	rows, err = tx.Query(ctx, `SELECT occurred_at, host(ip), port FROM access_log
+		WHERE account_id = $1::uuid ORDER BY occurred_at, id`, id)
+	if err != nil {
+		return Account{}, err
+	}
+	if a.AccessLog, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (AccessEntry, error) {
+		var x AccessEntry
+		err := r.Scan(&x.OccurredAt, &x.IP, &x.Port)
+		x.OccurredAt = x.OccurredAt.UTC()
 		return x, err
 	}); err != nil {
 		return Account{}, err

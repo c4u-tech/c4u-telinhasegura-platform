@@ -29,7 +29,8 @@ type Server struct {
 	Identity       *identity.Service
 	IPLimiter      *ratelimit.Limiter
 	RedeemLimiter  *ratelimit.Limiter // per IP
-	TrustedProxies []netip.Prefix     // whose X-Forwarded-For the IP limiters believe
+	TrustedProxies []netip.Prefix     // whose X-Forwarded-For and X-Real-Port the API believes
+	Access         AccessRecorder     // the access record the law asks for; nil records nothing
 	Sessions       *session.Service
 	Family         *family.Service
 	Parental       *parental.Service

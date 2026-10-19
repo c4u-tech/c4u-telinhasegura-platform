@@ -86,6 +86,19 @@ void main() {
       }
     });
 
+    test('a suggested video on the end screen is handed over behind the '
+        'PIN, never loaded in the player', () {
+      for (final url in [
+        'https://www.youtube.com/watch?v=other&feature=emb_rel_end',
+        'https://m.youtube.com/watch?v=other',
+        'https://youtu.be/other?feature=emb_rel_end',
+        'https://www.youtube-nocookie.com/watch?v=other',
+      ]) {
+        expect(decide(url), KidNavigation.leave, reason: url);
+        expect(decide(url, mainFrame: false), KidNavigation.block, reason: url);
+      }
+    });
+
     test('anything else inside the player is dropped', () {
       expect(
         decide('https://ads.example.com/frame', mainFrame: false),

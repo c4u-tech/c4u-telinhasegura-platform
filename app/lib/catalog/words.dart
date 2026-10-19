@@ -120,9 +120,9 @@ abstract final class CatalogWords {
       'Para esconder um vídeo ou mostrá${_nbhy}lo de novo, abra${_nbhy}o no '
       'catálogo de $nickname.';
 
-  /// The band as a phrase: "até 4 anos", "5 a 8 anos"; null when unknown.
+  /// The band as a phrase: "2 a 4 anos", "5 a 8 anos"; null when unknown.
   static String? _band(AgeBand band) => switch (band) {
-    AgeBand.upTo4 => 'até 4 anos',
+    AgeBand.upTo4 => '2 a 4 anos',
     AgeBand.from5To8 => '5 a 8 anos',
     AgeBand.from9To12 => '9 a 12 anos',
     AgeBand.unknown => null,

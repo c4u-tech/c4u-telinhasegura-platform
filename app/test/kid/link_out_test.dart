@@ -55,13 +55,14 @@ FutureOr<http.Response> Function(http.Request) childApi(
 Future<Harness> leavingShared(
   WidgetTester tester, {
   FutureOr<http.Response> Function(http.Request)? pin,
+  Uri? to,
 }) async {
   late final Harness h;
   h = Harness(signedIn: true, api: childApi(() => h, pin: pin))
     ..kidMode = {'minor_id': 'm1'}
     ..family = ownerFamily;
   await h.pump(tester, initial: '/crianca');
-  return _leave(tester, h);
+  return _leave(tester, h, to: to);
 }
 
 /// A linked device playing v1 whose player asked to leave for [logo].
@@ -76,15 +77,27 @@ Future<Harness> leavingLinked(WidgetTester tester) async {
   return _leave(tester, h);
 }
 
-Future<Harness> _leave(WidgetTester tester, Harness h) async {
+Future<Harness> _leave(WidgetTester tester, Harness h, {Uri? to}) async {
   await tester.tap(find.byType(VideoTile).first);
   await tester.pumpAndSettle();
-  h.player.current!.emit(PlayerLeaving(logo));
+  h.player.current!.emit(PlayerLeaving(to ?? logo));
   await tester.pumpAndSettle();
   return h;
 }
 
 void main() {
+  testWidgets('a suggested video on the end screen opens the PIN gate, '
+      'never the video', (tester) async {
+    final h = await leavingShared(
+      tester,
+      to: Uri.parse('https://m.youtube.com/watch?v=other&feature=emb_rel_end'),
+    );
+
+    expect(h.player.current!.calls, contains('pause'));
+    expect(find.byType(KidExitScreen), findsOneWidget);
+    expect(h.links.opened, isEmpty);
+  });
+
   testWidgets('a link out pauses the video and opens the PIN gate, the link '
       'held in memory only', (tester) async {
     final h = await leavingShared(tester);

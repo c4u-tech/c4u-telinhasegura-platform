@@ -1,5 +1,6 @@
-// Package clientip finds the address a request came from when it reaches
-// the API through trusted proxies. The result is only an in-memory limiter key: never log it.
+// Package clientip finds the address, and the source port, a request came
+// from when it reaches the API through trusted proxies. The address keys
+// the in-memory limiters and the access record: never log it.
 package clientip
 
 import (
@@ -7,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -65,6 +67,26 @@ func Resolve(remoteAddr string, xff []string, trusted []netip.Prefix) string {
 		}
 	}
 	return host
+}
+
+// Port returns the client's source port that the front proxy forwarded
+// in header (X-Real-Port), or 0. As with Resolve, the header is believed
+// only when the immediate peer is a trusted proxy: anyone else could
+// write any number in it. A value outside 1-65535 is ignored.
+func Port(remoteAddr, header string, trusted []netip.Prefix) int {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	peer, err := netip.ParseAddr(host)
+	if err != nil || !contains(trusted, peer.Unmap()) {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(header))
+	if err != nil || n < 1 || n > 65535 {
+		return 0
+	}
+	return n
 }
 
 func contains(trusted []netip.Prefix, a netip.Addr) bool {
