@@ -142,7 +142,7 @@ const underTwoAdvice = 'Pediatras recomendam nenhuma tela antes dos 2 anos.';
 
 /// The three age bands as full-width rows, a choice of one. An
 /// unknown stored band shows none chosen.
-class AgeBandChoice extends StatelessWidget {
+class AgeBandChoice extends StatefulWidget {
   const AgeBandChoice({
     super.key,
     required this.value,
@@ -158,8 +158,24 @@ class AgeBandChoice extends StatelessWidget {
   final bool adviseUnderTwo;
 
   @override
+  State<AgeBandChoice> createState() => _AgeBandChoiceState();
+}
+
+class _AgeBandChoiceState extends State<AgeBandChoice> {
+  // The advice is announced only when the choice changes during the visit;
+  // a profile opened already on "2 a 4 anos" shows it without a spoken alert.
+  bool _changed = false;
+
+  @override
+  void didUpdateWidget(AgeBandChoice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) _changed = true;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final onChanged = this.onChanged;
+    final onChanged = widget.onChanged;
+    final value = widget.value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -172,10 +188,10 @@ class AgeBandChoice extends StatelessWidget {
               onTap: onChanged == null ? null : () => onChanged(band),
             ),
           ],
-        if (adviseUnderTwo && value == AgeBand.upTo4) ...[
+        if (widget.adviseUnderTwo && value == AgeBand.upTo4) ...[
           const SizedBox(height: Space.sm),
           Semantics(
-            liveRegion: true,
+            liveRegion: _changed,
             child: Text(
               underTwoAdvice,
               style: Theme.of(context).textTheme.bodySmall,

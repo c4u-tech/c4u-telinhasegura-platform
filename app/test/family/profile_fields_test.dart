@@ -226,6 +226,34 @@ void main() {
       expect(find.text(underTwoAdvice), findsNothing);
     });
 
+    testWidgets('the advice is a live region only once the choice changes', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      AgeBand? chosen = AgeBand.upTo4;
+      await pumpIn(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => AgeBandChoice(
+            value: chosen,
+            adviseUnderTwo: true,
+            onChanged: (b) => setState(() => chosen = b),
+          ),
+        ),
+      );
+      bool live() => tester
+          .getSemantics(find.text(underTwoAdvice))
+          .hasFlag(SemanticsFlag.isLiveRegion);
+      expect(live(), isFalse);
+
+      await tester.tap(find.text('5 a 8 anos'));
+      await tester.pump();
+      await tester.tap(find.text('2 a 4 anos'));
+      await tester.pump();
+      expect(live(), isTrue);
+      semantics.dispose();
+    });
+
     testWidgets('without the advice asked for, "2 a 4 anos" shows none', (
       tester,
     ) async {
