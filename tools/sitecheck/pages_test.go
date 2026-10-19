@@ -1,10 +1,12 @@
 package sitecheck
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -398,5 +400,23 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 	}
 	if !contains(pages["/participe"].Hrefs, "/curadoria") {
 		t.Error("/participe does not link /curadoria")
+	}
+}
+
+// The pages show the version that every account is asked to accept.
+func TestLegalPagesShowTheTermsVersion(t *testing.T) {
+	m := regexp.MustCompile(`TermsVersion = "(\d{4})-(\d{2})-(\d{2})"`).FindStringSubmatch(mustRead(t, "backend/internal/identity/terms.go"))
+	if m == nil {
+		t.Fatal("no TermsVersion in backend/internal/identity/terms.go")
+	}
+	months := []string{"janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"}
+	month, _ := strconv.Atoi(m[2])
+	day, _ := strconv.Atoi(m[3])
+	want := fmt.Sprintf("Versão de %d de %s de %s", day, months[month-1], m[1])
+	pages := mustPages(t)
+	for _, path := range []string{"/privacidade", "/termos"} {
+		if !strings.Contains(pages[path].Text, want) {
+			t.Errorf("%s does not show %q", path, want)
+		}
 	}
 }
