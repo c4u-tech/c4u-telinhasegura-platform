@@ -69,7 +69,7 @@ func TestClearPasswordEvictsTheSquatter(t *testing.T) {
 	ctx := context.Background()
 	// A squatter signs up with the victim's address and picks the password;
 	// the victim then confirms the squatter's verification mail.
-	if err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true, identity.TermsVersion); err != nil {
+	if _, err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.svc.ConfirmEmail(ctx, f.lastToken("ana@gmail.com")); err != nil {
@@ -128,7 +128,7 @@ func TestClearPasswordNeedsAnAuthoritativeEmail(t *testing.T) {
 func TestClearPasswordVerifiesAnUnverifiedAccount(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	if err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true, identity.TermsVersion); err != nil { // never verified
+	if _, err := f.svc.SignUp(ctx, "ana@gmail.com", goodPassword, true, identity.TermsVersion); err != nil { // never verified
 		t.Fatal(err)
 	}
 	f.clear(f.linkTicket(gmail("g-1", "ana@gmail.com")), f.accountID("ana@gmail.com"))

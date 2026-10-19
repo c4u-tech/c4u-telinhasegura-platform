@@ -22,7 +22,7 @@ func (s *Server) signUp(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	if err := s.Identity.SignUp(r.Context(), in.Email, in.Password, in.AdultDeclaration, in.TermsVersion); err != nil {
+	if _, err := s.Identity.SignUp(r.Context(), in.Email, in.Password, in.AdultDeclaration, in.TermsVersion); err != nil {
 		s.fail(w, err)
 		return
 	}
