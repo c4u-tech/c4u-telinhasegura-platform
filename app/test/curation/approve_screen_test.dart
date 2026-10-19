@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
+import 'package:telinha_segura/legal/legal_links.dart';
 import 'package:telinha_segura/family/profile_fields.dart'
     show SelectableRow, underTwoAdvice;
 
@@ -85,6 +86,35 @@ void expectNamed(WidgetTester tester, Finder below) {
 }
 
 void main() {
+  testWidgets('says every video must be Livre and opens the criteria of '
+      'each band on the site', (tester) async {
+    final h = await approving(tester);
+
+    expect(find.text(curationRule), findsOneWidget);
+    await tester.ensureVisible(find.text(curationCriteriaLink));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(curationCriteriaLink));
+    await tester.pumpAndSettle();
+
+    expect(h.links.opened, [kCurationUrl]);
+    expect(h.location(tester), '/curadoria/v1/aprovar');
+  });
+
+  testWidgets('the criteria line reads as a link', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await approving(tester);
+    await tester.ensureVisible(find.text(curationCriteriaLink));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.semantics.byPredicate(
+        (n) => n.label == curationCriteriaLink && n.flagsCollection.isLink,
+      ),
+      findsOne,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('a curator choosing "2 a 4 anos" sees no advice meant for '
       'guardians', (tester) async {
     await approving(tester);

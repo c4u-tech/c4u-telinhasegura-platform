@@ -15,6 +15,9 @@ final kPrivacyUrl = Uri.parse(
   'https://telinhasegura.coding4u.tech/privacidade',
 );
 
+/// The site page of the criteria the curation follows for each age band.
+final kCurationUrl = Uri.parse('https://telinhasegura.coding4u.tech/curadoria');
+
 const termsLabel = 'Termos de uso';
 const privacyLabel = 'Política de privacidade';
 
