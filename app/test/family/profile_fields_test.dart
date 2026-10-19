@@ -243,7 +243,8 @@ void main() {
       );
       bool live() => tester
           .getSemantics(find.text(underTwoAdvice))
-          .hasFlag(SemanticsFlag.isLiveRegion);
+          .flagsCollection
+          .isLiveRegion;
       expect(live(), isFalse);
 
       await tester.tap(find.text('5 a 8 anos'));
