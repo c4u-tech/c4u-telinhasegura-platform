@@ -131,6 +131,17 @@ func (s Store) Record(ctx context.Context, accountID string, e Event) {
 	}
 }
 
+// retentionYears is how long a security event is kept: long enough to
+// answer for an incident or a dispute about an account, and no longer.
+const retentionYears = 5
+
+// Sweep deletes the events older than five years. It is idempotent, so
+// every replica may run it.
+func (s Store) Sweep(ctx context.Context) error {
+	_, err := s.Pool.Exec(ctx, `DELETE FROM audit_events WHERE occurred_at < $1`, s.Now().AddDate(-retentionYears, 0, 0))
+	return err
+}
+
 // insertAction is the statement of RecordAction and RecordActionTx. An
 // empty field is stored as NULL.
 const insertAction = `INSERT INTO audit_events

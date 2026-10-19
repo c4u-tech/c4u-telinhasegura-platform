@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/accesslog"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/idtoken"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/session"
 )
@@ -53,6 +54,7 @@ func (s *Server) sessioned(suspendedOK bool, h http.HandlerFunc) http.HandlerFun
 			s.fail(w, err)
 			return
 		}
+		s.recordAccess(r, accesslog.Entry{AccountID: sess.AccountID, SessionID: sess.ID})
 		h(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, sess)))
 	}
 }
@@ -170,6 +172,7 @@ func (s *Server) signIn(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	s.recordAccess(r, accesslog.Entry{AccountID: signedIn.AccountID, SessionID: is.Session.ID})
 	writeSession(w, in.Client, is)
 }
 
@@ -183,6 +186,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, accountID 
 		s.fail(w, err)
 		return
 	}
+	s.recordAccess(r, accesslog.Entry{AccountID: accountID, SessionID: is.Session.ID})
 	writeSession(w, c, is)
 }
 
@@ -208,6 +212,7 @@ func (s *Server) refresh(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	s.recordAccess(r, accesslog.Entry{AccountID: is.Session.AccountID, SessionID: is.Session.ID})
 	writeJSON(w, http.StatusOK, tokensBody(is))
 }
 

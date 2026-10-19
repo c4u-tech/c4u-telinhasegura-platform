@@ -94,3 +94,26 @@ func TestResolveUnmapsIPv4InIPv6(t *testing.T) {
 		t.Fatalf("v6 client: %q, want 2600::7", got)
 	}
 }
+
+func TestPortIsBelievedOnlyFromATrustedPeer(t *testing.T) {
+	for _, c := range []struct {
+		name, remote, header string
+		want                 int
+	}{
+		{"trusted proxy", "10.0.0.2:4000", "51234", 51234},
+		{"untrusted peer", "203.0.113.7:4000", "51234", 0},
+		{"no header", "10.0.0.2:4000", "", 0},
+		{"zero", "10.0.0.2:4000", "0", 0},
+		{"too large", "10.0.0.2:4000", "65536", 0},
+		{"two values", "10.0.0.2:4000", "80, 81", 0},
+		{"padded highest", "10.0.0.2:4000", " 65535 ", 65535},
+		{"peer without a port", "10.0.0.2", "443", 443},
+	} {
+		if got := clientip.Port(c.remote, c.header, proxy); got != c.want {
+			t.Errorf("%s: %d, want %d", c.name, got, c.want)
+		}
+	}
+	if got := clientip.Port("10.0.0.2:4000", "51234", nil); got != 0 {
+		t.Errorf("no trusted proxies: %d, want 0", got)
+	}
+}

@@ -19,6 +19,7 @@ import (
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/httpapi"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/parental"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/accesslog"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/appleid"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/db"
@@ -123,6 +124,7 @@ func serve(log *slog.Logger) error {
 		idtoken.Apple:  idtoken.AppleConfig(cfg.AppleClientIDs),
 	})
 	auditStore := audit.Store{Pool: pool, Now: now, Log: log}
+	access := accesslog.Store{Pool: pool, Now: now}
 	var breaches identity.BreachChecker
 	if cfg.HIBPEnabled {
 		breaches = identity.HIBP{Client: &http.Client{Timeout: 3 * time.Second}, BaseURL: identity.HIBPBaseURL}
@@ -219,6 +221,7 @@ func serve(log *slog.Logger) error {
 		Sessions:       sessions,
 		Family:         fam,
 		Parental:       par,
+		Access:         access,
 		Privacy: privacy.NewService(privacy.Deps{
 			Pool:          pool,
 			Mail:          outbox,
@@ -246,6 +249,10 @@ func serve(log *slog.Logger) error {
 	defer ticker.Stop()
 	go sweep.Run(ctx, ticker.C, log,
 		sweep.Job{Name: "screentime_retention", Run: st.Sweep},
+		sweep.Job{Name: "access_log_retention", Run: access.Sweep},
+		sweep.Job{Name: "audit_retention", Run: auditStore.Sweep},
+		sweep.Job{Name: "consent_retention", Run: fam.SweepConsents},
+		sweep.Job{Name: "session_retention", Run: sessions.Sweep},
 		sweep.Job{Name: "youtube_refresh", Run: cur.RefreshSources},
 		sweep.Job{Name: "thumbnail_expiry", Run: cur.ExpireThumbnails},
 		sweep.Job{Name: "mail_cleanup", Run: outbox.Cleanup},

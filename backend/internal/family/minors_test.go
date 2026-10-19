@@ -386,3 +386,27 @@ func TestFamilyReadsConsentCurrent(t *testing.T) {
 		t.Fatalf("consent flags: %+v", got)
 	}
 }
+
+func TestSweepConsentsKeepsWithdrawalsFiveYearsAndOpenOnesForever(t *testing.T) {
+	f := newFixture(t)
+	cutoff := f.now.AddDate(-5, 0, 0)
+	for _, withdrawn := range []any{cutoff.Add(-time.Minute), cutoff.Add(time.Minute), nil} {
+		if _, err := f.pool.Exec(ctx, `INSERT INTO minor_consents (minor_id, family_id, granted_by, policy_version, granted_at, withdrawn_at)
+			VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), '2026-10-03', $1, $2)`,
+			cutoff.AddDate(-1, 0, 0), withdrawn); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.svc.SweepConsents(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents`); n != 2 {
+		t.Fatalf("%d consents left, want 2", n)
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents WHERE withdrawn_at IS NULL`); n != 1 {
+		t.Fatal("an open consent was deleted")
+	}
+	if n := f.count(`SELECT count(*) FROM minor_consents WHERE withdrawn_at < $1`, cutoff); n != 0 {
+		t.Fatal("a withdrawal past five years was kept")
+	}
+}
