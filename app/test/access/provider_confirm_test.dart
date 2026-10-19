@@ -6,6 +6,7 @@ import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/access/link_account_screen.dart';
 import 'package:telinha_segura/auth/provider_sign_in.dart';
 import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/legal/legal_links.dart';
 
 import 'harness.dart';
 import '../design/pump.dart' show findAddress;
@@ -61,8 +62,33 @@ void main() {
         ),
       );
       expect(h.actions.single, contains('"device_label":"$testDeviceLabel"'));
+      expect(h.actions.single, contains('"terms_version":"2026-10-17"'));
       expect(find.byType(FamilyHomeScreen), findsOneWidget);
       expect(h.services.pending.value, isNull);
+    });
+
+    testWidgets('under the declaration, the agreement names the terms and '
+        'the privacy policy, each opening its page', (tester) async {
+      final h = await open(
+        tester,
+        signupStep,
+        '/concluir-cadastro',
+        api: (_) => json(200, {'csrf_token': 'c2'}),
+      );
+
+      expect(find.text(signupAgreement), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(signupAgreement)).dy,
+        greaterThan(tester.getBottomLeft(find.byType(Checkbox)).dy),
+      );
+      await tester.ensureVisible(find.text('Termos de uso'));
+      await tester.tap(find.text('Termos de uso'));
+      await tester.ensureVisible(find.text('Política de privacidade'));
+      await tester.tap(find.text('Política de privacidade'));
+      await tester.pump();
+
+      expect(h.links.opened, [kTermsUrl, kPrivacyUrl]);
+      expect(h.actions, isEmpty);
     });
 
     testWidgets('a link_required answer moves to the link confirmation', (

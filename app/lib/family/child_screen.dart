@@ -16,6 +16,7 @@ import 'family.dart';
 import 'family_model.dart';
 import 'family_write.dart';
 import 'profile_fields.dart';
+import 'reconsent_screen.dart' show needsConsent;
 import 'widgets.dart';
 
 /// Under "Salvar" while nothing differs from the stored profile.
@@ -121,8 +122,9 @@ class _ChildScreenState extends State<ChildScreen> {
       context,
       title: 'Excluir perfil',
       body: [
-        'O perfil de $nickname será apagado na hora: o apelido, o avatar e '
-            'a faixa de idade.',
+        'O perfil de $nickname será apagado na hora: o apelido, o avatar, '
+            'a faixa de idade e o que a criança assistiu, os vídeos e os '
+            'totais de tempo de tela.',
         'O consentimento que você deu para o cadastro é retirado. Guardamos '
             'apenas o registro de que você consentiu e quando, sem nenhum '
             'dado da criança.',
@@ -173,6 +175,21 @@ class _ChildScreenState extends State<ChildScreen> {
         ageBand: stored.ageBand,
       ),
       const SizedBox(height: Space.xl),
+      if (!stored.consentCurrent) ...[
+        // Kid mode is paused for this child until a guardian authorizes
+        // the profile again.
+        Doors(
+          children: [
+            DoorRow(
+              title: needsConsent,
+              onTap: idle
+                  ? () => context.go(Routes.reconsent(widget.id))
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.xl),
+      ],
       NicknameField(controller: _nickname, enabled: idle),
       const SizedBox(height: Space.xl),
       Text('Avatar', style: title),

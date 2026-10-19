@@ -192,3 +192,66 @@ func TestDoubleUnlockAuditsOnce(t *testing.T) {
 		t.Fatalf("kid_mode_exited recorded %d times", n)
 	}
 }
+
+// A child whose consent is on an older policy version is paused: the
+// guardian cannot hand the session over until they authorize again.
+func TestEnterKidModeRefusesAPausedChild(t *testing.T) {
+	f := newFixture(t)
+	owner := f.owner("ana@example.com")
+	lia := f.minor(owner, "Lia")
+	f.withPIN(owner)
+	f.pause(lia)
+	sess := f.session(owner)
+
+	if err := f.svc.EnterKidMode(ctx, owner, sess, lia); !errors.Is(err, parental.ErrConsentRequired) {
+		t.Fatalf("paused child: %v", err)
+	}
+	if n := f.count(`SELECT count(*) FROM session_kid_locks`); n != 0 {
+		t.Fatalf("%d locks", n)
+	}
+	if f.audited(owner, audit.KidModeEntered) != 0 {
+		t.Fatal("a refused hand-over was audited")
+	}
+}
+
+// A withdrawn consent pauses the child as an outdated one does.
+func TestEnterKidModeRefusesAWithdrawnConsent(t *testing.T) {
+	f := newFixture(t)
+	owner := f.owner("ana@example.com")
+	lia := f.minor(owner, "Lia")
+	f.withPIN(owner)
+	if _, err := f.pool.Exec(ctx, `UPDATE minor_consents SET withdrawn_at = $2, withdrawn_by = granted_by WHERE minor_id = $1::uuid`,
+		lia, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.EnterKidMode(ctx, owner, f.session(owner), lia); !errors.Is(err, parental.ErrConsentRequired) {
+		t.Fatalf("withdrawn consent: %v", err)
+	}
+}
+
+func TestRequireConsent(t *testing.T) {
+	f := newFixture(t)
+	owner := f.owner("ana@example.com")
+	lia := f.minor(owner, "Lia")
+	f.withPIN(owner)
+	sess := f.session(owner)
+	if err := f.svc.EnterKidMode(ctx, owner, sess, lia); err != nil {
+		t.Fatal(err)
+	}
+	p, err := f.svc.SessionPrincipal(ctx, sess, owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.RequireConsent(ctx, p); err != nil {
+		t.Fatalf("current consent: %v", err)
+	}
+	f.pause(lia)
+	if err := f.svc.RequireConsent(ctx, p); !errors.Is(err, parental.ErrConsentRequired) {
+		t.Fatalf("paused child: %v", err)
+	}
+	// A lock whose child was deleted has no consent to check; the route
+	// answers profile_gone instead.
+	if err := f.svc.RequireConsent(ctx, parental.Principal{SessionID: sess, AccountID: owner, FamilyID: p.FamilyID}); err != nil {
+		t.Fatalf("no child: %v", err)
+	}
+}

@@ -66,15 +66,29 @@ func (s *Server) childPrincipal(r *http.Request) (parental.Principal, error) {
 	return s.Parental.SessionPrincipal(ctx, sess.ID, sess.AccountID)
 }
 
+// requireConsent runs after childAuthed: it refuses a child whose consent
+// is not current, so a paused profile shows nothing until a guardian
+// authorizes it again.
+func (s *Server) requireConsent(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := s.Parental.RequireConsent(r.Context(), child(r)); err != nil {
+			s.fail(w, err)
+			return
+		}
+		h(w, r)
+	}
+}
+
 type profileOut struct {
-	ID       string `json:"id"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	AgeBand  string `json:"age_band"`
+	ID             string `json:"id"`
+	Nickname       string `json:"nickname"`
+	Avatar         string `json:"avatar"`
+	AgeBand        string `json:"age_band"`
+	ConsentCurrent bool   `json:"consent_current"`
 }
 
 func profileBody(p parental.Profile) profileOut {
-	return profileOut{p.ID, p.Nickname, p.Avatar, p.AgeBand}
+	return profileOut{p.ID, p.Nickname, p.Avatar, p.AgeBand, p.ConsentCurrent}
 }
 
 type pinIn struct {

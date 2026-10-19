@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../auth/api_error.dart';
 import '../curation/kid_catalog.dart';
 import '../design/tokens.dart';
 import '../family/avatars.dart';
@@ -18,6 +19,7 @@ import 'hold_to_exit.dart';
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
 import 'pack_player_screen.dart' show PackStart;
+import 'paused_profile.dart';
 import 'player_screen.dart';
 import 'shelves.dart';
 import 'sleeping_telinha.dart';
@@ -31,7 +33,9 @@ import 'sleeping_telinha.dart';
 /// failed) the neutral avatar stands alone and the exit still works.
 /// A day without time (used up, or outside the hours) sleeps:
 /// the same composition with the sleeping telinha in the shelf's place,
-/// whatever the shelves hold.
+/// whatever the shelves hold. A profile waiting for a guardian to
+/// authorize it again is paused the same way, saying so; only the exit
+/// behind the PIN leaves it.
 class KidHomeScreen extends StatefulWidget {
   const KidHomeScreen({super.key});
 
@@ -57,6 +61,14 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   KidCatalog? _catalog;
   bool _failed = false;
 
+  /// The server answered `consent_required`: the profile is paused until
+  /// a guardian authorizes it again.
+  bool _paused = false;
+
+  /// The profile read answered `consent_required`; it is read again once
+  /// the shelves open.
+  bool _profileRefused = false;
+
   /// Each thumbnail read once per visit, however often a tile rebuilds.
   final _thumbs = <String, Future<Uint8List>>{};
 
@@ -67,11 +79,15 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// back.
   String? _notice;
 
-  /// Asleep, the catalogue is read again on this beat.
+  /// Asleep or paused, the catalogue is read again on this beat.
   Timer? _wake;
 
   bool get _asleep =>
       !_failed && (_catalog?.time.state ?? KidTimeState.ok) != KidTimeState.ok;
+
+  /// Waiting for something outside the child's hands: time again, or an
+  /// adult's new authorization.
+  bool get _waiting => _asleep || _paused;
 
   @override
   void initState() {
@@ -132,10 +148,10 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     unawaited(_load());
   }
 
-  /// Back in the foreground, a sleeping home asks again.
+  /// Back in the foreground, a sleeping or paused home asks again.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _asleep) {
+    if (state == AppLifecycleState.resumed && _waiting) {
       unawaited(_load(quiet: true));
     }
   }
@@ -149,6 +165,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
       setState(() {
         _catalog = null;
         _failed = false;
+        _paused = false;
       });
     }
     try {
@@ -157,20 +174,34 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         setState(() {
           _catalog = catalog;
           _failed = false;
+          _paused = false;
+          // The paused line is true no longer once the shelves open.
+          if (_notice == PausedProfile.line) _notice = null;
         });
+        // The profile read was refused while paused: read it now.
+        if (_profileRefused && minorId != null) unawaited(_read(minorId));
       }
-    } on Object {
-      if (!quiet && mounted && minorId == _minorId) {
-        setState(() => _failed = true);
+    } on Object catch (e) {
+      if (mounted && minorId == _minorId) {
+        if (e is ApiError && e.code == 'consent_required') {
+          // Said even on a quiet read: the shelves no longer open.
+          setState(() {
+            _catalog = null;
+            _failed = false;
+            _paused = true;
+          });
+        } else if (!quiet) {
+          setState(() => _failed = true);
+        }
       }
     }
     if (mounted) _beat();
   }
 
-  /// Asleep, the catalogue is read every [KidHomeScreen.wake]; awake, not
-  /// at all.
+  /// Asleep or paused, the catalogue is read every [KidHomeScreen.wake];
+  /// otherwise, not at all.
   void _beat() {
-    if (!_asleep) {
+    if (!_waiting) {
       _wake?.cancel();
       _wake = null;
     } else {
@@ -208,7 +239,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
 
   /// Opens a pacotinho on its first video the server lets play:
   /// a video refused is passed over for the next; a day without time
-  /// sleeps; with none left, the shelves say why the last one did not
+  /// sleeps, and a paused profile says so; with none left, the shelves say why the last one did not
   /// open.
   Future<void> _openPack(KidPack pack) async {
     if (_pending) return;
@@ -232,7 +263,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
           return;
         } on Object catch (e) {
           refused = e;
-          if (refusalNote(e) == null) break;
+          if (refusesEvery(e)) break;
         }
       }
       if (!mounted || refused == null) return;
@@ -253,11 +284,16 @@ class _KidHomeScreenState extends State<KidHomeScreen>
       _thumbs[id] ??= AppScope.of(context).child.thumbnail(id);
 
   Future<void> _read(String minorId) async {
+    _profileRefused = false;
     try {
       final profile = await _mode.profile();
       if (mounted && minorId == _minorId) setState(() => _profile = profile);
-    } on Object {
-      // The neutral avatar stays; the exit still works.
+    } on Object catch (e) {
+      // The neutral avatar stays; the exit still works. Paused, it is read
+      // again once the shelves open.
+      if (minorId == _minorId) {
+        _profileRefused = e is ApiError && e.code == 'consent_required';
+      }
     }
   }
 
@@ -274,8 +310,10 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         context.go(Routes.kidExit);
       },
     );
+    final paused = _paused;
     if (!_failed &&
         !asleep &&
+        !paused &&
         (catalog == null ||
             catalog.shelves.isNotEmpty ||
             catalog.packs.isNotEmpty)) {
@@ -345,12 +383,17 @@ class _KidHomeScreenState extends State<KidHomeScreen>
               ),
             ),
             const SizedBox(height: Space.xxxl),
-            if (_notice case final notice? when !asleep) ...[
+            // Paused, the line below already says why nothing opens.
+            if (_notice case final notice? when !asleep && !paused) ...[
               KidErrorNote(notice),
               const SizedBox(height: Space.xl),
             ],
             if (_failed)
               ShelvesFailed(onRetry: () => unawaited(_load()))
+            else if (paused)
+              Center(
+                child: PausedProfile(scale: avatarSize / KidSizes.avatarLarge),
+              )
             else if (asleep)
               Center(
                 child: SleepingTelinha(

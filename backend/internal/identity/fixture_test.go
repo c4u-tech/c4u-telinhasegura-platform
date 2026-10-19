@@ -120,7 +120,7 @@ func (f *fixture) lastMail(addr string) mail.Message {
 func (f *fixture) signUpVerified(email, password string) string {
 	f.t.Helper()
 	ctx := context.Background()
-	if err := f.svc.SignUp(ctx, email, password, true); err != nil {
+	if err := f.svc.SignUp(ctx, email, password, true, identity.TermsVersion); err != nil {
 		f.t.Fatal(err)
 	}
 	if err := f.svc.ConfirmEmail(ctx, f.lastToken(email)); err != nil {

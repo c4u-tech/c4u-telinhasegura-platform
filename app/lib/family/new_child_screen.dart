@@ -121,7 +121,6 @@ class _NewChildScreenState extends State<NewChildScreen> {
   }
 
   Widget _consent(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final nickname = nicknameOf(_nickname.text)!;
     return FieldLayout(
       key: const ValueKey('consent'),
@@ -133,17 +132,8 @@ class _NewChildScreenState extends State<NewChildScreen> {
         // The child the consent is about.
         ChildSummary(nickname: nickname, avatar: _avatar!, ageBand: _band!),
         const SizedBox(height: Space.xl),
-        // The Appendix heading, word for word, opens the text.
-        Semantics(
-          header: true,
-          child: Text(ConsentText.title, style: text.titleMedium),
-        ),
+        const ConsentTextBlock(title: ConsentText.title),
         const SizedBox(height: Space.md),
-        for (final paragraph in ConsentText.paragraphs) ...[
-          Text(paragraph, style: text.bodyLarge),
-          const SizedBox(height: Space.md),
-        ],
-        const SizedBox(height: Space.xs),
         DeclarationRow(
           text: ConsentText.declaration,
           value: _agreed,

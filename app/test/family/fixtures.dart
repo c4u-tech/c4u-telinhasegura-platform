@@ -41,6 +41,7 @@ Map<String, Object?> minorJson(
   String nickname, {
   String avatar = 'fox',
   String ageBand = '5-8',
+  bool? consentCurrent,
 }) => {
   'id': id,
   'nickname': nickname,
@@ -48,7 +49,13 @@ Map<String, Object?> minorJson(
   'age_band': ageBand,
   'created_at': '2026-10-03T12:30:00Z',
   'updated_at': '2026-10-03T12:30:00Z',
+  'consent_current': ?consentCurrent,
 };
+
+/// A child whose consent predates the current text: paused until a
+/// guardian authorizes the profile again.
+Map<String, Object?> pausedMinorJson(String id, String nickname) =>
+    minorJson(id, nickname, consentCurrent: false);
 
 /// The owner's family holding [minors] instead.
 Map<String, Object?> familyWith(List<Map<String, Object?>> minors) => {

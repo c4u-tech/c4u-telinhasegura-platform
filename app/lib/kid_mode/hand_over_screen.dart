@@ -62,6 +62,13 @@ class _HandOverScreenState extends State<HandOverScreen> {
       overrides: const {'not_found': Copy.childGone},
       handle: (e) {
         switch (e.code) {
+          case 'consent_required':
+            // The child's profile waits for a new authorization: the
+            // adult gives it, then comes back here.
+            if (mounted) {
+              context.go(Routes.reconsent(minor.id, then: Routes.handOver));
+            }
+            return true;
           case 'pin_not_set':
             // The PIN went meanwhile: back to the guide's first step.
             if (mounted) context.go(Routes.kidMode);

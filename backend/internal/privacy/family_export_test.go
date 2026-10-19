@@ -128,3 +128,26 @@ func TestExportCarriesNoSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestExportFamilyListsEveryConsentOfAReauthorizedProfile(t *testing.T) {
+	f := newFixture(t)
+	ana := f.account("ana@example.com")
+	bia := f.account("bia@example.com")
+	fam := f.family(ana)
+	f.join(fam, bia)
+	lia := f.minor(fam, ana, "Lia")
+	f.exec(`INSERT INTO minor_consents (minor_id, family_id, granted_by, policy_version, granted_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, '2026-10-17', $4)`, lia, fam, bia, f.now.Add(24*time.Hour))
+
+	e, err := f.svc.Export(ctx, ana)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := e.Family.Consents
+	if len(c) != 2 || c[0].MinorID != lia || c[1].MinorID != lia ||
+		c[0].PolicyVersion != "2026-10-03" || c[1].PolicyVersion != "2026-10-17" ||
+		!c[0].GrantedByMe || c[1].GrantedByMe ||
+		!c[1].GrantedAt.After(c[0].GrantedAt) {
+		t.Fatalf("consents: %+v", c)
+	}
+}

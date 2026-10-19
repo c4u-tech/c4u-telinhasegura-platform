@@ -47,14 +47,15 @@ func newFixture(t *testing.T) *fixture {
 	clock := func() time.Time { return f.now }
 	log := slog.New(slog.DiscardHandler)
 	f.deps = parental.Deps{
-		Pool:        f.pool,
-		Mail:        f.mail,
-		Audit:       f.audit,
-		Now:         clock,
-		Hash:        identity.HashParams{Memory: 64, Time: 1, Threads: 1},
-		AppBaseURL:  "https://app.test",
-		CodeLimiter: ratelimit.New(20, time.Hour, clock),
-		Log:         log,
+		Pool:           f.pool,
+		Mail:           f.mail,
+		Audit:          f.audit,
+		Now:            clock,
+		Hash:           identity.HashParams{Memory: 64, Time: 1, Threads: 1},
+		AppBaseURL:     "https://app.test",
+		CodeLimiter:    ratelimit.New(20, time.Hour, clock),
+		Log:            log,
+		ConsentVersion: family.ConsentPolicyVersion,
 	}
 	f.svc = parental.NewService(f.deps)
 	f.fam = family.NewService(family.Deps{
@@ -132,6 +133,15 @@ func (f *fixture) minor(accountID, nickname string) string {
 	}
 	f.now = f.now.Add(time.Second)
 	return m.ID
+}
+
+// pause leaves minorID's consent on an older policy version, as a child
+// authorized before the current terms is.
+func (f *fixture) pause(minorID string) {
+	f.t.Helper()
+	if _, err := f.pool.Exec(ctx, `UPDATE minor_consents SET policy_version = '2026-10-03' WHERE minor_id = $1::uuid`, minorID); err != nil {
+		f.t.Fatal(err)
+	}
 }
 
 func (f *fixture) withPIN(accountID string) {

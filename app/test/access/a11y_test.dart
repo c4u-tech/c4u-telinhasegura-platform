@@ -137,6 +137,10 @@ final homes = <String, void Function(Harness)>{
     ..family = ownerFamily
     ..status = 'suspended'
     ..email = longEmail,
+  // The home waits behind the updated terms.
+  'terms not accepted': (h) => h
+    ..family = ownerFamily
+    ..termsAccepted = false,
 };
 
 /// `GET /v1/invitations` answering one invitation from each of
@@ -685,6 +689,21 @@ final childScreens =
     >{
       'children': ('/familia/criancas', [minorJson('m1', 'Lia')], null),
       'children, none': ('/familia/criancas', [], null),
+      'children, paused': (
+        '/familia/criancas',
+        [pausedMinorJson('m1', 'Lia'), minorJson('m2', 'Téo')],
+        null,
+      ),
+      'child, paused': (
+        '/familia/criancas/m1',
+        [pausedMinorJson('m1', 'Lia')],
+        null,
+      ),
+      'reconsent': (
+        '/familia/criancas/m1/autorizar',
+        [pausedMinorJson('m1', 'Lia')],
+        null,
+      ),
       'children, full': (
         '/familia/criancas',
         [for (var i = 0; i < 10; i++) minorJson('m$i', 'Criança $i')],
@@ -1085,6 +1104,17 @@ final handOverScreens =
       // Kid mode: the shelves, a failed catalogue, the player and its
       // error state.
       'child home, shelves': (kidWithShelves, '/crianca', true, null),
+      'child home, paused': (
+        () => Harness(
+          signedIn: true,
+          api: (req) => req.url.path.startsWith('/v1/child/')
+              ? problem(403, 'consent_required')
+              : http.Response('', 204),
+        )..kidMode = {'minor_id': 'm1'},
+        '/crianca',
+        true,
+        null,
+      ),
       'child home, catalogue failed': (
         () => Harness(
           signedIn: true,
@@ -1237,6 +1267,32 @@ final handOverScreens =
         null,
       ),
       'redeem, refused': (redeemDevice, '/vincular-aparelho', false, redeemNow),
+      'profile picker, paused': (
+        () => Harness(
+          kind: ClientKind.mobile,
+          devices: MemoryDeviceCredentialStore('dev'),
+          api: (req) => req.url.path == '/v1/child/profiles'
+              ? json(200, {
+                  'profiles': [
+                    profileJson,
+                    for (var i = 2; i < 5; i++)
+                      {
+                        ...profileJson,
+                        'id': 'm$i',
+                        'nickname': 'Criança $i',
+                        'consent_current': false,
+                      },
+                  ],
+                })
+              : json(200, profileJson),
+        ),
+        '/crianca/sair',
+        true,
+        (tester) async {
+          await wrongPin(tester);
+          expect(find.text('Quem vai assistir?'), findsOneWidget);
+        },
+      ),
       'profile picker': (
         () => Harness(
           kind: ClientKind.mobile,

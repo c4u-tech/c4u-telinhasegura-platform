@@ -14,11 +14,13 @@ import 'avatars.dart';
 import 'family.dart';
 import 'family_model.dart';
 import 'labels.dart';
+import 'reconsent_screen.dart' show needsConsent;
 import 'widgets.dart';
 
 const _whatAProfileHolds =
-    'Ainda não há crianças cadastradas. Cada perfil guarda só três coisas: '
-    'um apelido, um avatar e a faixa de idade. Nada mais.';
+    'Ainda não há crianças cadastradas. Cada perfil guarda um apelido, um '
+    'avatar e a faixa de idade, e o que a criança assiste: cada vídeo '
+    'assistido some em 30 dias, e os totais de tempo de tela por dia, em 90.';
 
 /// `/familia/criancas`: each child by avatar, nickname and age band, and
 /// "Cadastrar criança" while the family has room.
@@ -78,14 +80,32 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
             for (final minor in minors)
               DoorRow(
                 title: minor.nickname,
-                semanticsLabel: '${minor.nickname}, ${minor.ageBand.label}',
+                semanticsLabel: [
+                  minor.nickname,
+                  minor.ageBand.label,
+                  if (!minor.consentCurrent) needsConsent,
+                ].join(', '),
                 leading: AvatarDisc(
                   minor.avatar,
                   size: 56,
                   excludeSemantics: true,
                 ),
-                onTap: () => context.go(Routes.child(minor.id)),
-                child: Text(minor.ageBand.label, style: muted),
+                // A paused child opens straight on its new authorization.
+                onTap: () => context.go(
+                  minor.consentCurrent
+                      ? Routes.child(minor.id)
+                      : Routes.reconsent(minor.id),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(minor.ageBand.label, style: muted),
+                    if (!minor.consentCurrent) ...[
+                      const SizedBox(height: Space.xs),
+                      Text(needsConsent, style: text.bodyMedium),
+                    ],
+                  ],
+                ),
               ),
           ],
         ),

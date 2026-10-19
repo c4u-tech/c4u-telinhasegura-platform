@@ -10,7 +10,7 @@ import (
 )
 
 // The pages the site serves, by URL path.
-var pagePaths = []string{"/", "/privacidade", "/termos", "/suporte", "/excluir-conta", "/apoie"}
+var pagePaths = []string{"/", "/privacidade", "/termos", "/suporte", "/excluir-conta", "/participe"}
 
 func mustPages(t *testing.T) map[string]*Page {
 	t.Helper()
@@ -100,7 +100,8 @@ func TestPagesLoadOnlyTheirOwnFiles(t *testing.T) {
 
 func TestLinksResolveAndLeaveOnlyForKnownPlaces(t *testing.T) {
 	pages := mustPages(t)
-	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail}
+	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail, "mailto:" + CurationEmail,
+		"mailto:" + ReportEmail, GooglePrivacyURL, YouTubeTermsURL, RepoURL + "/blob/"}
 	for path, p := range pages {
 		for _, href := range p.Hrefs {
 			u, err := url.Parse(href)
@@ -197,6 +198,61 @@ func TestPrivacyPolicyCoversTheLawsList(t *testing.T) {
 	}
 }
 
+// LGPD art. 33: the policy names who hosts the server and the database,
+// and in which country, not only where the backups live.
+func TestPrivacyPolicyNamesTheHostAndItsCountry(t *testing.T) {
+	p := mustPages(t)["/privacidade"]
+	want := "Hospeda o servidor onde o Telinha Segura roda, com o banco de dados"
+	if !strings.Contains(p.Text, want) {
+		t.Errorf("/privacidade does not name the host of the server and the database")
+	}
+	if strings.Contains(p.Text, "provedor de hospedagem contratado") {
+		t.Errorf("/privacidade still hides the hosting provider")
+	}
+}
+
+// What the law, YouTube's API policies and the stores ask the public pages
+// to say, and what they say must match how the service works.
+func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
+	pages := mustPages(t)
+	says := map[string][]string{
+		"/privacidade": {"Serviços de API do YouTube", "anúncios do próprio YouTube", "37 dias",
+			"15 dias", "não é obrigado a autorizar", "em nosso nome"},
+		"/termos": {"pelo menos duas pessoas", "15 dias", "30 dias de antecedência",
+			"Termos de Serviço do YouTube", "abuso"},
+		"/suporte":       {ReportEmail, "mesmo sem conta", "anônim", "Disque 100", "190"},
+		"/excluir-conta": {"37 dias", "15 dias"},
+		"/":              {"pelo menos duas pessoas"},
+	}
+	for path, wants := range says {
+		for _, want := range wants {
+			if !strings.Contains(pages[path].Text, want) {
+				t.Errorf("%s does not say %q", path, want)
+			}
+		}
+	}
+	links := map[string][]string{
+		"/privacidade": {GooglePrivacyURL},
+		"/termos":      {YouTubeTermsURL},
+		"/suporte":     {"mailto:" + ReportEmail},
+	}
+	for path, hrefs := range links {
+		for _, h := range hrefs {
+			if !contains(pages[path].Hrefs, h) {
+				t.Errorf("%s does not link %s", path, h)
+			}
+		}
+	}
+	// A report hides a video from the reporting family at once; it leaves
+	// everyone's screen only when several families report it.
+	stale := regexp.MustCompile(`volta para (a comunidade )?revis|em até 29 dias|O modo criança não tem anúncios`)
+	for path, p := range pages {
+		if m := stale.FindString(p.Text); m != "" {
+			t.Errorf("%s still says %q, which no longer matches the service", path, m)
+		}
+	}
+}
+
 func TestHelpPagesGiveTheirSteps(t *testing.T) {
 	pages := mustPages(t)
 	del := pages["/excluir-conta"]
@@ -213,18 +269,36 @@ func TestHelpPagesGiveTheirSteps(t *testing.T) {
 	}
 }
 
-func TestDonationPageTellsTheTruth(t *testing.T) {
-	p := mustPages(t)["/apoie"]
+// The service asks nobody for money: people take part by curating, telling
+// other families, reporting and contributing to the open code.
+func TestJoinPageInvitesCurators(t *testing.T) {
+	p := mustPages(t)["/participe"]
 	for _, want := range []string{
-		"voluntári", "não é uma compra", "não dá direito", "Coding For You Tecnologia Ltda",
-		"sem fins lucrativos", "dedu", "41.894.811/0001-60",
+		"curador", CurationEmail, "voluntári", "não é remunerad", "código aberto",
 	} {
 		if !strings.Contains(p.Text, want) {
-			t.Errorf("/apoie does not say %q", want)
+			t.Errorf("/participe does not say %q", want)
 		}
 	}
-	if !contains(p.Loads, "/"+strings.TrimPrefix(PixQRPath, "site/public/")) {
-		t.Error("/apoie does not show the Pix QR")
+	if !contains(p.Hrefs, "mailto:"+CurationEmail) {
+		t.Error("/participe does not link the curation mailbox")
+	}
+	if !contains(p.Hrefs, RepoURL) {
+		t.Error("/participe does not link the code")
+	}
+}
+
+func TestNoPageAsksForMoney(t *testing.T) {
+	money := regexp.MustCompile(`(?i)\bpix\b|doa(ç|c)(ão|ões)|\bdoar\b|contribui(ç|c)(ão|ões) (voluntária|financeira)|apoie o projeto`)
+	for path, p := range mustPages(t) {
+		if m := money.FindString(p.Text); m != "" {
+			t.Errorf("%s asks for money: %q", path, m)
+		}
+		for _, h := range p.Hrefs {
+			if h == "/apoie" {
+				t.Errorf("%s still links /apoie", path)
+			}
+		}
 	}
 }
 

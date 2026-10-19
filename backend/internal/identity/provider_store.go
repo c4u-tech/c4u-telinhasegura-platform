@@ -109,15 +109,15 @@ func (s Store) consumeTicket(ctx context.Context, hash []byte, now time.Time) er
 
 // createProviderAccount creates a verified account without a password and
 // its identity in one transaction.
-func (s Store) createProviderAccount(ctx context.Context, email string, p idtoken.Provider, subject string, now time.Time) (string, error) {
+func (s Store) createProviderAccount(ctx context.Context, email string, p idtoken.Provider, subject, termsVersion string, now time.Time) (string, error) {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var id string
-	err = tx.QueryRow(ctx, `INSERT INTO accounts (email, email_verified_at, adult_declared_at, created_at)
-		VALUES ($1, $2, $2, $2) RETURNING id::text`, email, now).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO accounts (email, email_verified_at, adult_declared_at, created_at, terms_version, terms_accepted_at)
+		VALUES ($1, $2, $2, $2, $3, $2) RETURNING id::text`, email, now, termsVersion).Scan(&id)
 	if isUniqueViolation(err) {
 		return "", ErrEmailTaken
 	}

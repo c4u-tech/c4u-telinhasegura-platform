@@ -37,6 +37,7 @@ const (
 	GuardianLeft                Event = "guardian_left"
 	OwnershipTransferred        Event = "ownership_transferred"
 	MinorCreated                Event = "minor_created"
+	MinorConsentGranted         Event = "minor_consent_granted"
 	MinorUpdated                Event = "minor_updated"
 	MinorDeleted                Event = "minor_deleted"
 	FamilyDeleted               Event = "family_deleted"

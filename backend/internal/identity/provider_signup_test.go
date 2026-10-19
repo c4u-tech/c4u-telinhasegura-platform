@@ -21,7 +21,7 @@ func (f *fixture) signupTicket(sub, email string) string {
 func TestProviderSignUpCreatesAVerifiedPasswordlessAccount(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	id, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-1", "ana@gmail.com"), true)
+	id, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-1", "ana@gmail.com"), true, identity.TermsVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,10 +47,10 @@ func TestProviderSignUpCreatesAVerifiedPasswordlessAccount(t *testing.T) {
 func TestProviderSignUpNeedsTheAdultDeclarationAndKeepsTheTicket(t *testing.T) {
 	f := newFixture(t)
 	ticket := f.signupTicket("g-1", "ana@gmail.com")
-	if _, err := f.svc.ProviderSignUp(context.Background(), ticket, false); !errors.Is(err, identity.ErrValidation) {
+	if _, err := f.svc.ProviderSignUp(context.Background(), ticket, false, identity.TermsVersion); !errors.Is(err, identity.ErrValidation) {
 		t.Fatalf("got %v", err)
 	}
-	if _, err := f.svc.ProviderSignUp(context.Background(), ticket, true); err != nil {
+	if _, err := f.svc.ProviderSignUp(context.Background(), ticket, true, identity.TermsVersion); err != nil {
 		t.Fatalf("ticket lost: %v", err)
 	}
 }
@@ -59,18 +59,18 @@ func TestSignupTicketsAreSingleUseAndExpire(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 	ticket := f.signupTicket("g-1", "ana@gmail.com")
-	if _, err := f.svc.ProviderSignUp(ctx, ticket, true); err != nil {
+	if _, err := f.svc.ProviderSignUp(ctx, ticket, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.svc.ProviderSignUp(ctx, ticket, true); !errors.Is(err, identity.ErrInvalidToken) {
+	if _, err := f.svc.ProviderSignUp(ctx, ticket, true, identity.TermsVersion); !errors.Is(err, identity.ErrInvalidToken) {
 		t.Fatalf("second use: %v", err)
 	}
 	late := f.signupTicket("g-2", "bia@gmail.com")
 	f.now = f.now.Add(10*time.Minute + time.Second)
-	if _, err := f.svc.ProviderSignUp(ctx, late, true); !errors.Is(err, identity.ErrInvalidToken) {
+	if _, err := f.svc.ProviderSignUp(ctx, late, true, identity.TermsVersion); !errors.Is(err, identity.ErrInvalidToken) {
 		t.Fatalf("expired: %v", err)
 	}
-	if _, err := f.svc.ProviderSignUp(ctx, "made-up", true); !errors.Is(err, identity.ErrInvalidToken) {
+	if _, err := f.svc.ProviderSignUp(ctx, "made-up", true, identity.TermsVersion); !errors.Is(err, identity.ErrInvalidToken) {
 		t.Fatalf("unknown: %v", err)
 	}
 }
@@ -80,7 +80,7 @@ func TestALinkTicketCannotSignUp(t *testing.T) {
 	f.signUpVerified("ana@gmail.com", goodPassword)
 	_, err := f.svc.ProviderSignIn(context.Background(), idtoken.Google, f.tokens.Issue(idtoken.Google, gmail("g-1", "ana@gmail.com")))
 	link := confirmation(t, err, "link_required").Ticket
-	if _, err := f.svc.ProviderSignUp(context.Background(), link, true); !errors.Is(err, identity.ErrInvalidToken) {
+	if _, err := f.svc.ProviderSignUp(context.Background(), link, true, identity.TermsVersion); !errors.Is(err, identity.ErrInvalidToken) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -91,9 +91,9 @@ func TestProviderSignUpTurnsIntoALinkWhenTheEmailWasTakenMeanwhile(t *testing.T)
 	ticket := f.signupTicket("g-1", "ana@gmail.com")
 	f.signUpVerified("ana@gmail.com", goodPassword)
 
-	_, err := f.svc.ProviderSignUp(ctx, ticket, true)
+	_, err := f.svc.ProviderSignUp(ctx, ticket, true, identity.TermsVersion)
 	confirmation(t, err, "link_required")
-	if _, err := f.svc.ProviderSignUp(ctx, ticket, true); !errors.Is(err, identity.ErrInvalidToken) {
+	if _, err := f.svc.ProviderSignUp(ctx, ticket, true, identity.TermsVersion); !errors.Is(err, identity.ErrInvalidToken) {
 		t.Fatalf("old ticket still usable: %v", err)
 	}
 }
@@ -101,7 +101,7 @@ func TestProviderSignUpTurnsIntoALinkWhenTheEmailWasTakenMeanwhile(t *testing.T)
 func TestPasswordlessAccountsGetAPasswordOnlyThroughRecovery(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	id, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-1", "ana@gmail.com"), true)
+	id, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-1", "ana@gmail.com"), true, identity.TermsVersion)
 	if err != nil {
 		t.Fatal(err)
 	}

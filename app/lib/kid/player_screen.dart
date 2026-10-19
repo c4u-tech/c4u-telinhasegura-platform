@@ -15,6 +15,7 @@ import 'hold_to_exit.dart';
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
 import 'kid_player.dart';
+import 'paused_profile.dart';
 import 'player_fullscreen.dart';
 import 'player_keys.dart';
 import 'player_stage.dart';
@@ -288,10 +289,19 @@ class _PlayerScreenState extends State<PlayerScreen>
 String? refusalNote(Object error) => switch (error) {
   ApiError(code: 'time_up') => null,
   ApiError(code: 'video_not_allowed' || 'not_found') => PlayerScreen.videoGone,
+  ApiError(code: 'consent_required') => PausedProfile.line,
   _ => PlayerScreen.cannotOpen,
 };
 
+/// A refusal no other video escapes: the day ran out, or the profile is
+/// paused until a guardian authorizes it again.
+bool refusesEvery(Object error) =>
+    error is ApiError &&
+    (error.code == 'time_up' || error.code == 'consent_required');
+
 /// Whether the shelves must be read again after a refusal worded [note]:
-/// the video left them, or the day ran out.
+/// the video left them, the day ran out, or the profile is paused.
 bool refetchAfter(String? note) =>
-    note == null || note == PlayerScreen.videoGone;
+    note == null ||
+    note == PlayerScreen.videoGone ||
+    note == PausedProfile.line;

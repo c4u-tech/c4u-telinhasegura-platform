@@ -126,14 +126,15 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		Log:           log,
 	})
 	a.par = parental.NewService(parental.Deps{
-		Pool:        pool,
-		Mail:        a.mail,
-		Audit:       auditRec,
-		Now:         clock,
-		Hash:        identity.HashParams{Memory: 64, Time: 1, Threads: 1},
-		AppBaseURL:  "https://app.test",
-		CodeLimiter: ratelimit.New(20, time.Hour, clock),
-		Log:         log,
+		Pool:           pool,
+		Mail:           a.mail,
+		Audit:          auditRec,
+		Now:            clock,
+		Hash:           identity.HashParams{Memory: 64, Time: 1, Threads: 1},
+		AppBaseURL:     "https://app.test",
+		CodeLimiter:    ratelimit.New(20, time.Hour, clock),
+		Log:            log,
+		ConsentVersion: family.ConsentPolicyVersion,
 	})
 	a.videos = &curationtest.Fake{}
 	a.thumbs = &curationtest.Thumbs{}
@@ -241,7 +242,7 @@ func (a *api) lastToken(addr string) string {
 }
 
 func signUpBody(email string) map[string]any {
-	return map[string]any{"email": email, "password": goodPassword, "adult_declaration": true}
+	return map[string]any{"email": email, "password": goodPassword, "adult_declaration": true, "terms_version": "2026-10-17"}
 }
 
 type mobileTokens struct {
@@ -332,7 +333,7 @@ func (a *api) providerSignUpMobile(sub, email string) mobileTokens {
 	r := a.do(http.MethodPost, "/v1/sessions/provider", map[string]string{"provider": "google", "id_token": a.googleToken(sub, email), "client": "mobile"})
 	b := decodeConfirm(a.t, r, "signup_required")
 	return decodeTokens(a.t, a.do(http.MethodPost, "/v1/sessions/provider/signup",
-		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "client": "mobile"}))
+		map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile"}))
 }
 
 // accountID reads the signed-in account's ID.

@@ -6,6 +6,7 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/forgot_password_screen.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
+import 'package:telinha_segura/legal/legal_links.dart';
 
 import 'harness.dart';
 
@@ -40,6 +41,26 @@ void main() {
       expect(find.text(Copy.passwordGuidance), findsOneWidget);
       expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
       expect(find.text('Passo 1 de 2'), findsOneWidget);
+    });
+
+    testWidgets('under the declaration, the agreement names the terms and '
+        'the privacy policy, each opening its page', (tester) async {
+      final h = Harness();
+      await h.pump(tester, initial: '/criar-conta');
+
+      expect(find.text(signupAgreement), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(signupAgreement)).dy,
+        greaterThan(tester.getBottomLeft(find.byType(DeclarationRow)).dy),
+      );
+      await tester.ensureVisible(find.text('Termos de uso'));
+      await tester.tap(find.text('Termos de uso'));
+      await tester.ensureVisible(find.text('Política de privacidade'));
+      await tester.tap(find.text('Política de privacidade'));
+      await tester.pump();
+
+      expect(h.links.opened, [kTermsUrl, kPrivacyUrl]);
+      expect(h.actions, isEmpty);
     });
 
     testWidgets('submit stays disabled until the declaration is checked', (
@@ -118,6 +139,7 @@ void main() {
 
       expect(h.actions.single, startsWith('POST /v1/accounts '));
       expect(h.actions.single, contains('"adult_declaration":true'));
+      expect(h.actions.single, contains('"terms_version":"2026-10-17"'));
       expect(find.byType(CheckEmailScreen), findsOneWidget);
       expect(
         find.textContaining(addressBreaks('ana@example.com')),

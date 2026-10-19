@@ -10,7 +10,7 @@ import (
 
 // EnterKidMode locks the calling session to one child of the family
 // ("entregar para"). The family must have a PIN, or nothing could
-// end the lock.
+// end the lock, and the child's consent must be current.
 func (s *Service) EnterKidMode(ctx context.Context, accountID, sessionID, minorID string) error {
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		familyID, err := lockStanding(ctx, tx, accountID)
@@ -19,6 +19,11 @@ func (s *Service) EnterKidMode(ctx context.Context, accountID, sessionID, minorI
 		}
 		if err := minorOfFamily(ctx, tx, familyID, minorID); err != nil {
 			return err
+		}
+		if ok, err := s.consentCurrent(ctx, tx, minorID); err != nil {
+			return err
+		} else if !ok {
+			return ErrConsentRequired
 		}
 		if err := pinExists(ctx, tx, familyID); err != nil {
 			return err
@@ -117,5 +122,5 @@ func (s *Service) Profile(ctx context.Context, p Principal) (Profile, error) {
 	if p.FamilyID == "" || p.MinorID == "" {
 		return Profile{}, ErrProfileGone
 	}
-	return profileOf(ctx, s.d.Pool, p.FamilyID, p.MinorID)
+	return s.profileOf(ctx, s.d.Pool, p.FamilyID, p.MinorID)
 }

@@ -37,6 +37,7 @@ func (s *Server) providerSignUp(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Ticket           string         `json:"ticket"`
 		AdultDeclaration bool           `json:"adult_declaration"`
+		TermsVersion     string         `json:"terms_version"`
 		Client           session.Client `json:"client"`
 		DeviceLabel      string         `json:"device_label"`
 	}
@@ -48,7 +49,7 @@ func (s *Server) providerSignUp(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, errBadBody)
 		return
 	}
-	accountID, err := s.Identity.ProviderSignUp(r.Context(), in.Ticket, in.AdultDeclaration)
+	accountID, err := s.Identity.ProviderSignUp(r.Context(), in.Ticket, in.AdultDeclaration, in.TermsVersion)
 	if err != nil {
 		s.fail(w, err)
 		return

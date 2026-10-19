@@ -64,7 +64,8 @@ func newFixture(t *testing.T) *fixture {
 	f.fam = family.NewService(family.Deps{Pool: f.pool, Mail: f.mail, Audit: f.audit, Now: clock, AppBaseURL: "https://app.test",
 		InviteLimiter: ratelimit.New(20, 24*time.Hour, clock), TokenLimiter: ratelimit.New(10, time.Minute, clock), Log: log})
 	f.par = parental.NewService(parental.Deps{Pool: f.pool, Mail: f.mail, Audit: f.audit, Now: clock, Hash: cheap,
-		AppBaseURL: "https://app.test", CodeLimiter: ratelimit.New(20, time.Hour, clock), Log: log})
+		AppBaseURL: "https://app.test", CodeLimiter: ratelimit.New(20, time.Hour, clock), Log: log,
+		ConsentVersion: family.ConsentPolicyVersion})
 	f.cur = curation.NewService(curation.Deps{Pool: f.pool, Audit: f.audit, Now: clock, Log: log})
 	f.deps = staff.Deps{Pool: f.pool, Audit: f.audit, Now: clock, MFAKey: mfaKey, Mail: f.mail, Log: log,
 		Accounts: f.ids, Sessions: f.sessions, Families: f.fam, Devices: f.par, Content: f.cur, AuditLog: f.store,

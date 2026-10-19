@@ -22,6 +22,18 @@ void main() {
     expect(f.invitations!.single.email, 'carla@example.com');
   });
 
+  test('each child says whether its consent is current; an answer without '
+      'it counts as current, so an older API never pauses a child', () {
+    final f = Family.fromJson(
+      familyWith([
+        {...minorJson('m1', 'Lia'), 'consent_current': false},
+        {...minorJson('m2', 'Téo'), 'consent_current': true},
+        minorJson('m3', 'Bia'),
+      ]),
+    );
+    expect(f.minors.map((m) => m.consentCurrent), [false, true, true]);
+  });
+
   test('a guardian family has no invitations list', () {
     final f = Family.fromJson(
       {...ownerFamily, 'role': 'guardian'}..remove('invitations'),

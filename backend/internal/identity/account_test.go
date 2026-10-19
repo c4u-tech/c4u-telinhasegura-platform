@@ -162,7 +162,7 @@ func TestResetWithAWeakPasswordKeepsTheToken(t *testing.T) {
 func TestResetVerifiesTheEmailAndLiftsTheThrottle(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	_ = f.svc.SignUp(ctx, "ana@example.com", goodPassword, true) // unverified
+	_ = f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.TermsVersion) // unverified
 	for range 6 {
 		_, _ = f.svc.Authenticate(ctx, "ana@example.com", otherPassword)
 	}
@@ -231,7 +231,7 @@ func TestEmailChangeCancelsResetTokensSentToTheOldAddress(t *testing.T) {
 func TestTokenMailsExpireWithTheirLink(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true); err != nil {
+	if err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.lastMail("ana@example.com").TTL; got != 24*time.Hour {
@@ -251,7 +251,7 @@ func TestTokenMailsExpireWithTheirLink(t *testing.T) {
 		t.Errorf("email-change TTL %s, want 24h", got)
 	}
 	// A notice without a link keeps the default (zero).
-	if err := f.svc.SignUp(ctx, "bia@example.com", goodPassword, true); err != nil {
+	if err := f.svc.SignUp(ctx, "bia@example.com", goodPassword, true, identity.TermsVersion); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.lastMail("bia@example.com").TTL; got != 0 {

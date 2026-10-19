@@ -85,10 +85,11 @@ func pinExists(ctx context.Context, q querier, familyID string) error {
 }
 
 // profileOf reads one child of the family; none is ErrProfileGone.
-func profileOf(ctx context.Context, q querier, familyID, minorID string) (Profile, error) {
+func (s *Service) profileOf(ctx context.Context, q querier, familyID, minorID string) (Profile, error) {
 	var p Profile
-	err := q.QueryRow(ctx, `SELECT id::text, nickname, avatar, age_band FROM minors
-		WHERE id = $1::uuid AND family_id = $2::uuid`, minorID, familyID).Scan(&p.ID, &p.Nickname, &p.Avatar, &p.AgeBand)
+	err := q.QueryRow(ctx, `SELECT id::text, nickname, avatar, age_band, `+consentSQL+` FROM minors
+		WHERE id = $1::uuid AND family_id = $3::uuid`, minorID, s.d.ConsentVersion, familyID).
+		Scan(&p.ID, &p.Nickname, &p.Avatar, &p.AgeBand, &p.ConsentCurrent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Profile{}, ErrProfileGone
 	}
