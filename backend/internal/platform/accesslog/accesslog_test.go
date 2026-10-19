@@ -71,6 +71,35 @@ func TestRecordKeepsOneRowPerSessionAndAddressPerHour(t *testing.T) {
 	}
 }
 
+func TestRecordDedupesADeviceWithinTheHour(t *testing.T) {
+	f := newFixture(t)
+	e := accesslog.Entry{DeviceID: device, IP: "203.0.113.7"}
+	f.record(e)
+	f.now = f.now.Add(30 * time.Minute)
+	f.record(e)
+	if n := f.count(`SELECT count(*) FROM access_log WHERE device_id = $1::uuid`, device); n != 1 {
+		t.Fatalf("%d rows, want 1", n)
+	}
+}
+
+func TestRecordKeysOnTheSessionNotTheAccount(t *testing.T) {
+	f := newFixture(t)
+	other := "44444444-4444-4444-4444-444444444444"
+	f.record(accesslog.Entry{AccountID: account, SessionID: sess, IP: "203.0.113.7"})
+	f.record(accesslog.Entry{AccountID: account, SessionID: other, IP: "203.0.113.7"})
+	if n := f.count(`SELECT count(*) FROM access_log WHERE account_id = $1::uuid`, account); n != 2 {
+		t.Fatalf("%d rows, want 2 (one per session)", n)
+	}
+}
+
+func TestRecordDropsTheZoneOfAnAddress(t *testing.T) {
+	f := newFixture(t)
+	f.record(accesslog.Entry{AccountID: account, SessionID: sess, IP: "fe80::1%eth0"})
+	if n := f.count(`SELECT count(*) FROM access_log WHERE host(ip) = 'fe80::1'`); n != 1 {
+		t.Fatalf("%d rows without the zone, want 1", n)
+	}
+}
+
 func TestRecordKeepsTheOwnerAndAValidPort(t *testing.T) {
 	f := newFixture(t)
 	f.record(accesslog.Entry{DeviceID: device, IP: "::ffff:203.0.113.7", Port: 51234})
@@ -109,6 +138,8 @@ func TestRecordRefusesAnEntryWithoutAddressOrOwner(t *testing.T) {
 
 // The app opens with several requests at once, possibly on different replicas.
 func TestRecordIsOneRowUnderConcurrency(t *testing.T) {
+	// Cold connections and lock queueing under load must not trip the bound.
+	defer accesslog.SetRecordTimeout(time.Minute)()
 	f := newFixture(t)
 	e := accesslog.Entry{AccountID: account, SessionID: sess, IP: "203.0.113.7"}
 	var wg sync.WaitGroup

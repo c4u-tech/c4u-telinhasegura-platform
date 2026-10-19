@@ -175,8 +175,8 @@ func (s *Service) GrantConsent(ctx context.Context, accountID, minorID, policyVe
 }
 
 // consentRetentionYears is how long a withdrawn consent is kept as proof
-// that the profile was authorized: five years after the profile was
-// deleted. A consent still in force is never deleted.
+// that the profile was authorized: five years after the consent was
+// withdrawn (the profile or the family deleted). A consent still in force is never deleted.
 const consentRetentionYears = 5
 
 // SweepConsents deletes the consents withdrawn more than five years ago.

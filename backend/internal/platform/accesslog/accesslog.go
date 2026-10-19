@@ -2,7 +2,7 @@
 // port, each account and each linked device used the service. Brazilian
 // law requires an application provider to keep that record for six
 // months, in confidence, and to hand it over only under a court order, so
-// a row outlives the account, session and device it names; the hourly
+// a row outlives the account, session and device it names; the retention
 // sweep deletes it once the six months are over.
 package accesslog
 
@@ -71,7 +71,9 @@ func (s Store) Record(ctx context.Context, e Entry) error {
 	if err != nil || (e.AccountID == "" && e.DeviceID == "") {
 		return ErrInvalid
 	}
-	ip := addr.Unmap().String()
+	// A zone (fe80::1%eth0) is local to the sender and Postgres rejects it
+	// with an error that would repeat the address, so it is dropped.
+	ip := addr.Unmap().WithZone("").String()
 	var port any // NULL unless a valid port came with the request
 	if e.Port >= 1 && e.Port <= 65535 {
 		port = e.Port
