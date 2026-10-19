@@ -106,6 +106,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
         const SizedBox(height: Space.md),
         AgeBandChoice(
           value: _band,
+          adviseUnderTwo: true,
           onChanged: (b) => setState(() => _band = b),
         ),
         const SizedBox(height: Space.xl),

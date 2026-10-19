@@ -125,14 +125,14 @@ void main() {
     expect(find.textContaining('Padrão da faixa'), findsNothing);
   });
 
-  testWidgets('a younger band reads in lower case', (tester) async {
+  testWidgets('the youngest band reads as its label', (tester) async {
     await hub(
       tester,
       id: 'm2',
       rules: () => json(200, rulesJson(isDefault: true)),
     );
 
-    expect(find.text('Padrão da faixa até 4 anos'), findsOneWidget);
+    expect(find.text('Padrão da faixa 2 a 4 anos'), findsOneWidget);
   });
 
   testWidgets('seven rows, today first, in words, none a target', (

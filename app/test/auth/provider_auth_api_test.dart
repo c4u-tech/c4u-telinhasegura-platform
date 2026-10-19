@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/auth/provider_sign_in.dart';
+import 'package:telinha_segura/legal/legal_links.dart';
 
 import 'fakes.dart';
 
@@ -109,7 +110,7 @@ void main() {
 
     expect(t.calls, [
       'POST /v1/sessions/provider/signup {"ticket":"tk",'
-          '"adult_declaration":true,"terms_version":"2026-10-17",'
+          '"adult_declaration":true,"terms_version":"$kTermsVersion",'
           '"client":"web","device_label":""}',
       'DELETE /v1/session',
     ]);

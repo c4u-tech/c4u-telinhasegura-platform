@@ -54,6 +54,15 @@ func TestRunSurvivesAPanickingJob(t *testing.T) {
 		close(done)
 	}()
 	tick <- time.Now()
+	// Wait until the good job has run at least twice (initial run plus second pass after tick).
+	// Poll with a short sleep, bounded by a 5-second deadline.
+	deadline := time.Now().Add(5 * time.Second)
+	for good.Load() < 2 {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for good job to run twice; ran %d times", good.Load())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	cancel()
 	select {
 	case <-done:

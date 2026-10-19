@@ -139,7 +139,7 @@ void main() {
 
       expect(h.actions.single, startsWith('POST /v1/accounts '));
       expect(h.actions.single, contains('"adult_declaration":true'));
-      expect(h.actions.single, contains('"terms_version":"2026-10-17"'));
+      expect(h.actions.single, contains('"terms_version":"$kTermsVersion"'));
       expect(find.byType(CheckEmailScreen), findsOneWidget);
       expect(
         find.textContaining(addressBreaks('ana@example.com')),

@@ -200,9 +200,9 @@ class _ChildTimeScreenState extends State<ChildTimeScreen>
     ];
   }
 
-  /// The band in the line's lower case: "5 a 8 anos", "até 4 anos".
+  /// The band as the line says it: "5 a 8 anos", "2 a 4 anos".
   static String _band(AgeBand band) => switch (band) {
     AgeBand.unknown => 'de idade',
-    _ => band.label.replaceFirst('Até', 'até'),
+    _ => band.label,
   };
 }

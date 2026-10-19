@@ -28,7 +28,7 @@ void main() {
     expect(find.text('Vídeos'), findsOneWidget);
     for (final (name, words) in [
       ('Lia', 'Vídeos de 5 a 8 anos'),
-      ('Téo', 'Vídeos de até 4 anos'),
+      ('Téo', 'Vídeos de 2 a 4 anos'),
       ('Nina', 'Vídeos de 9 a 12 anos'),
     ]) {
       final row = find.widgetWithText(DoorRow, name);

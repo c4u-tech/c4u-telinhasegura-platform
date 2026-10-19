@@ -201,6 +201,69 @@ void main() {
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
       semantics.dispose();
     });
+
+    testWidgets('on a child\'s profile, "2 a 4 anos" chosen shows the advice '
+        'about children under 2; another band hides it', (tester) async {
+      AgeBand? chosen;
+      await pumpIn(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => AgeBandChoice(
+            value: chosen,
+            adviseUnderTwo: true,
+            onChanged: (b) => setState(() => chosen = b),
+          ),
+        ),
+      );
+      expect(find.text(underTwoAdvice), findsNothing);
+
+      await tester.tap(find.text('2 a 4 anos'));
+      await tester.pump();
+      expect(find.text(underTwoAdvice), findsOneWidget);
+
+      await tester.tap(find.text('5 a 8 anos'));
+      await tester.pump();
+      expect(find.text(underTwoAdvice), findsNothing);
+    });
+
+    testWidgets('the advice is a live region only once the choice changes', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      AgeBand? chosen = AgeBand.upTo4;
+      await pumpIn(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => AgeBandChoice(
+            value: chosen,
+            adviseUnderTwo: true,
+            onChanged: (b) => setState(() => chosen = b),
+          ),
+        ),
+      );
+      bool live() => tester
+          .getSemantics(find.text(underTwoAdvice))
+          .flagsCollection
+          .isLiveRegion;
+      expect(live(), isFalse);
+
+      await tester.tap(find.text('5 a 8 anos'));
+      await tester.pump();
+      await tester.tap(find.text('2 a 4 anos'));
+      await tester.pump();
+      expect(live(), isTrue);
+      semantics.dispose();
+    });
+
+    testWidgets('without the advice asked for, "2 a 4 anos" shows none', (
+      tester,
+    ) async {
+      await pumpIn(
+        tester,
+        AgeBandChoice(value: AgeBand.upTo4, onChanged: (_) {}),
+      );
+      expect(find.text(underTwoAdvice), findsNothing);
+    });
   });
 
   for (final height in [56.0, 64.0]) {
