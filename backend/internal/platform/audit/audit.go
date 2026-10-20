@@ -63,6 +63,7 @@ const (
 	VideoHeld                   Event = "video_held"
 	VideoRemoved                Event = "video_removed"
 	VideoReopened               Event = "video_reopened"
+	VideoDoubtDecided           Event = "video_doubt_decided"
 	VideoHidden                 Event = "video_hidden"
 	VideoUnhidden               Event = "video_unhidden"
 	VideoReported               Event = "video_reported"

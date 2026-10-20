@@ -44,7 +44,7 @@ func TestEnforcementGuardsEveryAdminAndModeratorRoute(t *testing.T) {
 				}
 			}
 		}
-		if na == 0 || nm != 3 {
+		if na == 0 || nm != 4 {
 			t.Fatalf("swept %d admin and %d moderator routes", na, nm)
 		}
 	}

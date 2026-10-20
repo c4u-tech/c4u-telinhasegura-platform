@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 )
 
 func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
@@ -63,4 +64,32 @@ func (s *Server) moderate(do func(context.Context, curation.Moderation, string) 
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// decideDoubt serves a moderator's decision on a video a curator's doubt
+// holds: the body's decision, theme, band and reason, the caller and the
+// role their route matched.
+func (s *Server) decideDoubt(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Decision   string `json:"decision"`
+		Theme      string `json:"theme"`
+		MinAgeBand string `json:"min_age_band"`
+		Reason     string `json:"reason"`
+	}
+	if err := decode(w, r, &in); err != nil {
+		s.fail(w, err)
+		return
+	}
+	role, ok := actorRole(r)
+	if !ok {
+		s.fail(w, errors.New("httpapi: moderation route without withRole"))
+		return
+	}
+	m := curation.Moderation{ActorID: current(r).AccountID, ActorRole: role, Reason: in.Reason}
+	d := curation.DoubtDecision{Decision: curation.Decision(in.Decision), Theme: in.Theme, MinAgeBand: family.AgeBand(in.MinAgeBand)}
+	if err := s.Curation.DecideDoubt(r.Context(), m, r.PathValue("id"), d); err != nil {
+		s.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

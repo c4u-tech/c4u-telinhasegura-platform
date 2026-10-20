@@ -223,6 +223,9 @@ func (s *Server) routes() []route {
 		moderator("GET /v1/moderation/videos", s.heldVideos),
 		moderatorReauthed("POST /v1/moderation/videos/{id}/remove", s.moderate(s.Curation.ModerateRemove)),
 		moderator("POST /v1/moderation/videos/{id}/reopen", s.moderate(s.Curation.ModerateReopen)),
+		// Publishing or removing a doubted video is as weighty as a
+		// removal: it needs a fresh re-authentication too.
+		moderatorReauthed("POST /v1/moderation/videos/{id}/decide", s.decideDoubt),
 	}
 }
 
