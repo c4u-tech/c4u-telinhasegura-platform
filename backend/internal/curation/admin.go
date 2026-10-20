@@ -12,12 +12,13 @@ import (
 )
 
 // HeldVideo is a held video with its held round's rejections and
-// why it is held.
+// doubts, and why it is held.
 type HeldVideo struct {
 	Video      Video
 	Rejections []Review
+	Doubts     []Review      // the held round's doubts, with their answers and notes
 	Reports    ReportSummary // since the latest reopen
-	HeldReason string        // HeldByReview, HeldByReports or HeldByUnavailable
+	HeldReason string        // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
 }
 
 // HeldVideos lists the held videos, the longest held first, each with
@@ -38,6 +39,9 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 	}
 	for i := range out {
 		if out[i].Rejections, err = reviewsOf(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round, Reject); err != nil {
+			return nil, err
+		}
+		if out[i].Doubts, err = reviewsOf(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round, Doubt); err != nil {
 			return nil, err
 		}
 		if out[i].Reports, err = reportsOf(ctx, s.d.Pool, out[i].Video.ID); err != nil {

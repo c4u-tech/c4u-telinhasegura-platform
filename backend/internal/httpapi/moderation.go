@@ -25,6 +25,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 	type item struct {
 		Video      videoOut    `json:"video"`
 		Rejections []reviewOut `json:"rejections"`
+		Doubts     []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
 		HeldReason string      `json:"held_reason"`
 		Reports    reports     `json:"reports"` // since the latest reopen, never who reported
 	}
@@ -34,7 +35,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		for reason, n := range h.Reports.ByReason {
 			by[string(reason)] = n
 		}
-		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), h.HeldReason, reports{by, h.Reports.Notes}})
+		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason, reports{by, h.Reports.Notes}})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"videos": out})
 }

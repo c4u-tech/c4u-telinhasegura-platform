@@ -25,7 +25,7 @@ func TestHeldVideosListTheHeldRoundsRejections(t *testing.T) {
 		t.Fatalf("held %+v %v", held, err)
 	}
 	if r := held[0].Rejections; len(r) != 1 || r[0].Decision != curation.Reject || r[0].DisplayRole != curation.Cuidador ||
-		r[0].Reason != "Assustador para os pequenos." {
+		r[0].Reason != c04+"\nAssustador para os pequenos." {
 		t.Fatalf("rejections %+v", r)
 	}
 	f.exec(`UPDATE videos SET state = 'removed'`)

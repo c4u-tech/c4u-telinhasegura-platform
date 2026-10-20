@@ -84,7 +84,7 @@ func TestRevisitRejectionHolds(t *testing.T) {
 	}
 	held, err := f.svc.HeldVideos(ctx)
 	if err != nil || len(held) != 1 || held[0].Video.ID != v || held[0].Video.Round != 2 || len(held[0].Rejections) != 1 ||
-		held[0].Rejections[0].DisplayRole != curation.Psicologo || held[0].Rejections[0].Reason != "O canal mudou de dono." {
+		held[0].Rejections[0].DisplayRole != curation.Psicologo || held[0].Rejections[0].Reason != c04+"\nO canal mudou de dono." {
 		t.Fatalf("held %+v %v", held, err)
 	}
 }

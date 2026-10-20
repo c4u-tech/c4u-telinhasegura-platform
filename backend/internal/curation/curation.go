@@ -44,6 +44,8 @@ const (
 	HeldByReview      = "review"
 	HeldByReports     = "reports"
 	HeldByUnavailable = "unavailable"
+	HeldByDoubt       = "doubt" // a curator was unsure; a moderator decides
+	HeldByAudit       = "audit" // a moderator's audit disagreed with the approval
 )
 
 // The rules a composition can break, in the order they are checked.
@@ -70,6 +72,12 @@ var (
 	ErrStateConflict     = errors.New("curation: the video's state does not allow this")
 	ErrVideoNotAllowed   = errors.New("curation: the child may not see this video")
 	ErrProfileGone       = errors.New("curation: the child or its family is gone")
+
+	ErrChecklistOutdated      = errors.New("curation: the checklist version is not the current one")
+	ErrChecklistRefuses       = errors.New("curation: an answer refuses the video")
+	ErrChecklistBand          = errors.New("curation: the pace answered rules out the youngest band")
+	ErrChecklistInvalidReason = errors.New("curation: a difference of family, faith, colour or disability is no reason to refuse")
+	ErrConflictOfInterest     = errors.New("curation: the curator has a tie to the channel")
 
 	ErrThumbnailUnavailable = errors.New("curation: the thumbnail could not be fetched")
 )

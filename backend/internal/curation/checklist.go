@@ -1,6 +1,11 @@
 package curation
 
-import "slices"
+import (
+	"slices"
+	"strings"
+
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
+)
 
 // ChecklistVersion names the list of questions curators answer. A review
 // sent against another version is refused, so every stored answer reads
@@ -104,4 +109,94 @@ func Checklist() []ChecklistGroup {
 		out[i] = ChecklistGroup{ID: g.ID, Title: g.Title, Items: slices.Clone(g.Items)}
 	}
 	return out
+}
+
+// judge reads a complete answer set against the current list. A missing,
+// unknown or malformed answer is ErrValidation. A tie to the channel comes
+// first, since such a curator must not judge the video at all; then a
+// reason the criteria never accept; then an answer that refuses the video;
+// then the pace that rules out the youngest band. It reports whether the
+// review is a doubt: an explicit "doubt", or an "appears" on a question
+// that asks for a moderator.
+func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
+	if len(answers) != len(checklistOrder) {
+		return false, ErrValidation
+	}
+	var conflict, invalid, refuses, slow, doubt bool
+	for id, a := range answers {
+		item, ok := checklistItem[id]
+		if !ok || a != AnswerOK && a != AnswerAppears && a != AnswerDoubt {
+			return false, ErrValidation
+		}
+		if a == AnswerDoubt {
+			doubt = true
+		}
+		if a != AnswerAppears {
+			continue
+		}
+		switch item.Rule {
+		case RuleConflict:
+			conflict = true
+		case RuleInvalidReason:
+			invalid = true
+		case RuleRefuses:
+			refuses = true
+		case RuleBand:
+			slow = true
+		case RuleDoubt:
+			doubt = true
+		}
+	}
+	switch {
+	case conflict:
+		return false, ErrConflictOfInterest
+	case invalid:
+		return false, ErrChecklistInvalidReason
+	case refuses:
+		return false, ErrChecklistRefuses
+	case slow && band == family.AgeUpTo4:
+		return false, ErrChecklistBand
+	}
+	return doubt, nil
+}
+
+// failedItems checks a rejection's questions: one or more, each one whose
+// "appears" refuses, none twice. It returns them in the list's order.
+func failedItems(ids []string) ([]ChecklistItem, error) {
+	if len(ids) == 0 {
+		return nil, ErrValidation
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		item, ok := checklistItem[id]
+		if !ok || item.Rule != RuleRefuses || seen[id] {
+			return nil, ErrValidation
+		}
+		seen[id] = true
+	}
+	var out []ChecklistItem
+	for _, id := range checklistOrder {
+		if seen[id] {
+			out = append(out, checklistItem[id])
+		}
+	}
+	return out, nil
+}
+
+// composeReason is a rejection's reason as the held screens and the
+// history show it: each failed question on its own line, a question asked
+// in the positive as its "no", then the curator's note.
+func composeReason(items []ChecklistItem, note string) string {
+	lines := make([]string, 0, len(items)+1)
+	for _, it := range items {
+		if it.Positive {
+			lines = append(lines, "Não: "+it.Text)
+		} else {
+			lines = append(lines, it.Text)
+		}
+	}
+	if note != "" {
+		lines = append(lines, note)
+	}
+	return strings.Join(lines, "\n")
 }

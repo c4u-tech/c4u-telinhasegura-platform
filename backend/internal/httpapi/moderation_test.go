@@ -17,7 +17,7 @@ func (a *api) heldBy(admin mobileTokens, youtubeID string) string {
 	cur := a.curator(admin, "c-"+strings.ToLower(youtubeID)+"@example.com", "mae-pai")
 	v := a.suggest(a.familyOwner("g-"+strings.ToLower(youtubeID)+"@example.com"), youtubeID)
 	r := a.do(http.MethodPost, "/v1/curation/videos/"+v.ID+"/reviews",
-		map[string]string{"decision": "reject", "reason": "Tem propaganda no meio."}, bearer(cur)...)
+		rejection("Tem propaganda no meio.", "c15"), bearer(cur)...)
 	if r.Code != http.StatusCreated || !strings.Contains(r.Body.String(), `"video_state":"held"`) {
 		a.t.Fatalf("rejection: %d %s", r.Code, r.Body)
 	}

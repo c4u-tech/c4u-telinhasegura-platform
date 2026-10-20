@@ -140,6 +140,11 @@ var curationProblems = []struct {
 	{curation.ErrVideoNotAllowed, http.StatusForbidden, "video_not_allowed"},
 	{curation.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{curation.ErrThumbnailUnavailable, http.StatusServiceUnavailable, "thumbnail_unavailable"},
+	{curation.ErrChecklistOutdated, http.StatusConflict, "checklist_outdated"},
+	{curation.ErrChecklistRefuses, http.StatusUnprocessableEntity, "checklist_refuses"},
+	{curation.ErrChecklistBand, http.StatusUnprocessableEntity, "checklist_band"},
+	{curation.ErrChecklistInvalidReason, http.StatusUnprocessableEntity, "checklist_invalid_reason"},
+	{curation.ErrConflictOfInterest, http.StatusConflict, "conflict_of_interest"},
 }
 
 // privacyProblems maps the privacy module's sentinels to their codes

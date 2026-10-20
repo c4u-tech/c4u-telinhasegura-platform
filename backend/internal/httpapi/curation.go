@@ -36,17 +36,28 @@ func videoBody(v curation.Video) videoOut {
 
 // reviewOut never names the reviewer's account.
 type reviewOut struct {
-	DisplayRole string    `json:"display_role"`
-	Decision    string    `json:"decision"`
-	Theme       *string   `json:"theme"`
-	MinAgeBand  *string   `json:"min_age_band"`
-	Reason      *string   `json:"reason"`
-	ReviewedAt  time.Time `json:"reviewed_at"`
+	DisplayRole      string            `json:"display_role"`
+	Decision         string            `json:"decision"`
+	Theme            *string           `json:"theme"`
+	MinAgeBand       *string           `json:"min_age_band"`
+	Reason           *string           `json:"reason"`
+	ChecklistVersion *string           `json:"checklist_version"` // null before the list
+	Answers          map[string]string `json:"answers"`           // an approval's or a doubt's
+	FailedItems      []string          `json:"failed_items"`      // a rejection's
+	ReviewedAt       time.Time         `json:"reviewed_at"`
 }
 
 func reviewBody(x curation.Review) reviewOut {
-	return reviewOut{string(x.DisplayRole), string(x.Decision), orNull(x.Theme), orNull(string(x.MinAgeBand)),
-		orNull(x.Reason), x.ReviewedAt.UTC()}
+	var answers map[string]string
+	if x.Answers != nil {
+		answers = make(map[string]string, len(x.Answers))
+		for id, a := range x.Answers {
+			answers[id] = string(a)
+		}
+	}
+	return reviewOut{DisplayRole: string(x.DisplayRole), Decision: string(x.Decision), Theme: orNull(x.Theme),
+		MinAgeBand: orNull(string(x.MinAgeBand)), Reason: orNull(x.Reason), ChecklistVersion: orNull(x.ChecklistVersion),
+		Answers: answers, FailedItems: x.FailedItems, ReviewedAt: x.ReviewedAt.UTC()}
 }
 
 func reviewsBody(xs []curation.Review) []reviewOut {
@@ -172,17 +183,28 @@ func (s *Server) curationVideo(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) review(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Decision   string `json:"decision"`
-		Theme      string `json:"theme"`
-		MinAgeBand string `json:"min_age_band"`
-		Reason     string `json:"reason"`
+		Decision         string            `json:"decision"`
+		Theme            string            `json:"theme"`
+		MinAgeBand       string            `json:"min_age_band"`
+		ChecklistVersion string            `json:"checklist_version"`
+		Answers          map[string]string `json:"answers"`
+		FailedItems      []string          `json:"failed_items"`
+		Note             string            `json:"note"`
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
 		return
 	}
+	var answers map[string]curation.Answer
+	if in.Answers != nil {
+		answers = make(map[string]curation.Answer, len(in.Answers))
+		for id, a := range in.Answers {
+			answers[id] = curation.Answer(a)
+		}
+	}
 	rv, state, err := s.Curation.Review(r.Context(), current(r).AccountID, r.PathValue("id"), curation.ReviewInput{
-		Decision: curation.Decision(in.Decision), Theme: in.Theme, MinAgeBand: family.AgeBand(in.MinAgeBand), Reason: in.Reason})
+		Decision: curation.Decision(in.Decision), Theme: in.Theme, MinAgeBand: family.AgeBand(in.MinAgeBand),
+		ChecklistVersion: in.ChecklistVersion, Answers: answers, FailedItems: in.FailedItems, Note: in.Note})
 	if err != nil {
 		s.fail(w, err)
 		return
