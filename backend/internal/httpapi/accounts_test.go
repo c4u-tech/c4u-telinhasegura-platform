@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/httpapi"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 )
 
 func TestSignUpAnswersIdenticallyForNewAndExistingEmails(t *testing.T) {
@@ -30,10 +31,10 @@ func TestSignUpProblems(t *testing.T) {
 		status int
 		code   string
 	}{
-		{"no adult declaration", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": false, "terms_version": "2026-10-17"}, 422, "validation"},
+		{"no adult declaration", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": false, "terms_version": identity.TermsVersion}, 422, "validation"},
 		{"no terms version", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": true}, 422, "validation"},
 		{"outdated terms version", map[string]any{"email": "a@b.co", "password": goodPassword, "adult_declaration": true, "terms_version": "2020-01-01"}, 409, "terms_outdated"},
-		{"short password", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true, "terms_version": "2026-10-17"}, 422, "weak_password"},
+		{"short password", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true, "terms_version": identity.TermsVersion}, 422, "weak_password"},
 		{"malformed JSON", `{"email":`, 422, "validation"},
 		{"unknown field", `{"email":"a@b.co","password":"uma senha longa o bastante","adult_declaration":true,"terms_version":"2026-10-17","role":"admin"}`, 422, "validation"},
 		{"oversized body", `{"email":"` + strings.Repeat("a", 1<<20) + `"}`, 422, "validation"},
@@ -53,7 +54,7 @@ func TestSignUpProblems(t *testing.T) {
 
 func TestWeakPasswordProblemCarriesReasons(t *testing.T) {
 	a := newAPI(t)
-	r := a.do(http.MethodPost, "/v1/accounts", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true, "terms_version": "2026-10-17"})
+	r := a.do(http.MethodPost, "/v1/accounts", map[string]any{"email": "a@b.co", "password": "curta", "adult_declaration": true, "terms_version": identity.TermsVersion})
 	if !strings.Contains(r.Body.String(), `"reasons":["too_short"]`) {
 		t.Fatalf("body %s", r.Body)
 	}

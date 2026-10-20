@@ -39,7 +39,7 @@ void main() {
     expect(find.widgetWithText(DoorRow, 'Lia'), findsOneWidget);
     expect(find.widgetWithText(DoorRow, 'Téo'), findsOneWidget);
     expect(find.text('5 a 8 anos'), findsOneWidget);
-    expect(find.text('Até 4 anos'), findsOneWidget);
+    expect(find.text('2 a 4 anos'), findsOneWidget);
     final discs = tester.widgetList<AvatarDisc>(find.byType(AvatarDisc));
     expect(discs.map((d) => (d.avatar, d.size)), [
       (Avatar.fox, 56.0),

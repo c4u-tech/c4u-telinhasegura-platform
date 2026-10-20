@@ -19,6 +19,10 @@ void main() {
       kPrivacyUrl.toString(),
       'https://telinhasegura.coding4u.tech/privacidade',
     );
+    expect(
+      kCurationUrl.toString(),
+      'https://telinhasegura.coding4u.tech/curadoria',
+    );
     expect(ConsentText.privacyUrl, kPrivacyUrl);
   });
 }

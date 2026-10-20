@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 )
 
 func (a *api) sessionAccount(tok mobileTokens) map[string]any {
@@ -27,7 +29,7 @@ func TestProviderSignUpNeedsTheCurrentTermsVersion(t *testing.T) {
 	if r := a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2020-01-01", "client": "mobile"}); r.Code != http.StatusConflict || r.problemCode() != "terms_outdated" {
 		t.Fatalf("old: %d %q", r.Code, r.problemCode())
 	}
-	if r := a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": "2026-10-17", "client": "mobile"}); r.Code != http.StatusCreated {
+	if r := a.do(http.MethodPost, "/v1/sessions/provider/signup", map[string]any{"ticket": b.Ticket, "adult_declaration": true, "terms_version": identity.TermsVersion, "client": "mobile"}); r.Code != http.StatusCreated {
 		t.Fatalf("current: %d", r.Code)
 	}
 }
@@ -49,7 +51,7 @@ func TestAcceptTermsRecordsTheAcceptanceAndTheSessionReportsIt(t *testing.T) {
 	if r := a.do(http.MethodPost, "/v1/account/terms", map[string]any{}, bearer(tok)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
 		t.Fatalf("empty: %d %q", r.Code, r.problemCode())
 	}
-	if r := a.do(http.MethodPost, "/v1/account/terms", map[string]any{"terms_version": "2026-10-17"}, bearer(tok)...); r.Code != http.StatusNoContent {
+	if r := a.do(http.MethodPost, "/v1/account/terms", map[string]any{"terms_version": identity.TermsVersion}, bearer(tok)...); r.Code != http.StatusNoContent {
 		t.Fatalf("current: %d", r.Code)
 	}
 	if got := a.sessionAccount(tok)["terms_accepted"]; got != true {
@@ -62,7 +64,7 @@ func TestASuspendedAccountCanAcceptTheTerms(t *testing.T) {
 	a.signUpVerified("bia@example.com")
 	tok := a.signInMobile("bia@example.com")
 	a.markSuspended(a.accountID(tok))
-	if r := a.do(http.MethodPost, "/v1/account/terms", map[string]any{"terms_version": "2026-10-17"}, bearer(tok)...); r.Code != http.StatusNoContent {
+	if r := a.do(http.MethodPost, "/v1/account/terms", map[string]any{"terms_version": identity.TermsVersion}, bearer(tok)...); r.Code != http.StatusNoContent {
 		t.Fatalf("suspended: %d %q", r.Code, r.problemCode())
 	}
 }

@@ -62,7 +62,7 @@ void main() {
         ),
       );
       expect(h.actions.single, contains('"device_label":"$testDeviceLabel"'));
-      expect(h.actions.single, contains('"terms_version":"2026-10-17"'));
+      expect(h.actions.single, contains('"terms_version":"$kTermsVersion"'));
       expect(find.byType(FamilyHomeScreen), findsOneWidget);
       expect(h.services.pending.value, isNull);
     });

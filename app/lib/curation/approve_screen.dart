@@ -11,6 +11,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family.dart';
 import '../family/profile_fields.dart' show AgeBandChoice, SelectableRow;
+import '../legal/legal_links.dart' show kCurationUrl;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'curation.dart';
@@ -28,6 +29,12 @@ const approved = 'Sua aprovação foi registrada.';
 /// cleared to choose again.
 const approvalRefused =
     'Essa escolha não foi aceita. Escolha o tema e a idade de novo.';
+
+/// Over the bands: the rating every video must have.
+const curationRule = 'Todo vídeo precisa ser Livre.';
+
+/// The link to the criteria of each band, on the site.
+const curationCriteriaLink = 'Veja os critérios de cada idade';
 
 /// `/curadoria/:id/aprovar`: one theme of six and a band of three, none
 /// chosen on arrival; the primary "Aprovar" waits with its hint until
@@ -104,6 +111,8 @@ class _ApproveScreenState extends State<ApproveScreen> {
     return true;
   }
 
+  void _openCriteria() => AppScope.of(context).links.open(kCurationUrl);
+
   void _pick(void Function() pick) {
     _send.clearMessage();
     setState(() {
@@ -168,6 +177,18 @@ class _ApproveScreenState extends State<ApproveScreen> {
         ],
       const SizedBox(height: Space.xl),
       Text('A partir de', style: text.titleMedium),
+      const SizedBox(height: Space.xs),
+      Text(curationRule, style: text.bodyMedium),
+      Semantics(
+        link: true,
+        label: curationCriteriaLink,
+        excludeSemantics: true,
+        onTap: _openCriteria,
+        child: QuietAction(
+          label: curationCriteriaLink,
+          onPressed: _openCriteria,
+        ),
+      ),
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: band,

@@ -164,7 +164,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(h.actions, [
-      'POST /v1/account/terms {"terms_version":"2026-10-17"}',
+      'POST /v1/account/terms {"terms_version":"$kTermsVersion"}',
     ]);
     expect(
       h.calls.where((c) => c == 'GET /v1/session').length,

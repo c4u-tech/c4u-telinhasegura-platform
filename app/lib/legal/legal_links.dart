@@ -8,12 +8,15 @@ import '../shell/services.dart';
 /// A sign-up and an acceptance send it, and the server refuses any other
 /// than its own `identity.TermsVersion`: a change to either page that
 /// matters to users bumps both.
-const kTermsVersion = '2026-10-17';
+const kTermsVersion = '2026-10-19';
 
 final kTermsUrl = Uri.parse('https://telinhasegura.coding4u.tech/termos');
 final kPrivacyUrl = Uri.parse(
   'https://telinhasegura.coding4u.tech/privacidade',
 );
+
+/// The site page of the criteria the curation follows for each age band.
+final kCurationUrl = Uri.parse('https://telinhasegura.coding4u.tech/curadoria');
 
 const termsLabel = 'Termos de uso';
 const privacyLabel = 'Política de privacidade';

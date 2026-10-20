@@ -84,7 +84,7 @@ case "$kind" in
   site)
     start
     # Every page answers; its files carry their types.
-    for page in / /privacidade /termos /suporte /excluir-conta /participe; do
+    for page in / /privacidade /termos /suporte /excluir-conta /participe /curadoria; do
       [ "$(status "$page")" = 200 ] || fail "$page did not answer 200"
     done
     has_header /fonts/bricolage-grotesque.woff2 'content-type: font/woff2'

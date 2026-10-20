@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/parental"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/accesslog"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/session"
 )
 
@@ -26,6 +27,7 @@ func (s *Server) childAuthed(h http.HandlerFunc) http.HandlerFunc {
 			s.fail(w, err)
 			return
 		}
+		s.recordAccess(r, accesslog.Entry{AccountID: p.AccountID, DeviceID: p.DeviceID, SessionID: p.SessionID})
 		h(w, r.WithContext(context.WithValue(r.Context(), childKey{}, p)))
 	}
 }

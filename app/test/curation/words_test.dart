@@ -57,7 +57,7 @@ void main() {
   test('bands read as the family screens read them', () {
     expect(
       [for (final b in AgeBand.values) b.label],
-      ['Até 4 anos', '5 a 8 anos', '9 a 12 anos', 'Faixa não informada'],
+      ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos', 'Faixa não informada'],
     );
   });
 

@@ -173,3 +173,15 @@ func (s *Service) GrantConsent(ctx context.Context, accountID, minorID, policyVe
 	s.d.Audit.Record(ctx, accountID, audit.MinorConsentGranted)
 	return nil
 }
+
+// consentRetentionYears is how long a withdrawn consent is kept as proof
+// that the profile was authorized: five years after the consent was
+// withdrawn (the profile or the family deleted). A consent still in force is never deleted.
+const consentRetentionYears = 5
+
+// SweepConsents deletes the consents withdrawn more than five years ago.
+// It is idempotent, so every replica may run it.
+func (s *Service) SweepConsents(ctx context.Context) error {
+	_, err := s.d.Pool.Exec(ctx, `DELETE FROM minor_consents WHERE withdrawn_at < $1`, s.now().AddDate(-consentRetentionYears, 0, 0))
+	return err
+}

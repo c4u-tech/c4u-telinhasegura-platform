@@ -170,3 +170,27 @@ func TestRecordActionTxWritesWithItsTransaction(t *testing.T) {
 		t.Fatal("an action the table refuses must fail its transaction, not be logged away")
 	}
 }
+
+func TestSweepKeepsFiveYearsOfEvents(t *testing.T) {
+	pool := dbtest.New(t)
+	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	s := audit.Store{Pool: pool, Now: func() time.Time { return now }, Log: slog.New(slog.DiscardHandler)}
+	ctx := context.Background()
+	cutoff := now.AddDate(-5, 0, 0)
+	for _, at := range []time.Time{cutoff.Add(-time.Minute), cutoff.Add(time.Minute)} {
+		if _, err := pool.Exec(ctx, `INSERT INTO audit_events (account_id, event, occurred_at) VALUES (NULL, 'signed_up', $1)`, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	var left time.Time
+	if err := pool.QueryRow(ctx, `SELECT count(*), max(occurred_at) FROM audit_events`).Scan(&n, &left); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || !left.Equal(cutoff.Add(time.Minute)) {
+		t.Fatalf("%d events left, newest %v; want the one inside five years", n, left)
+	}
+}
