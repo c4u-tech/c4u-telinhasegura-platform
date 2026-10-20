@@ -33,8 +33,11 @@ dart-fmt:
 dart-analyze:
 	@for p in $(DART_PACKAGES); do (cd $$p && flutter analyze) || exit 1; done
 
+# Tests marked @TestOn('browser') also run in Chrome: the VM run skips them.
 dart-test:
-	@for p in $(DART_PACKAGES); do (cd $$p && flutter test) || exit 1; done
+	@for p in $(DART_PACKAGES); do (cd $$p && flutter test && \
+		b=$$(grep -rl "@TestOn('browser')" test 2>/dev/null); \
+		if [ -n "$$b" ]; then flutter test --platform chrome $$b; fi) || exit 1; done
 
 # Mobile development (docs/development/mobile.md). None of these is a gate.
 AVD ?= Medium_Phone_API_37.0
