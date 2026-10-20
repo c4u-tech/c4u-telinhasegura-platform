@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
+import 'kid_frame.dart';
 import 'kid_player.dart';
 
 /// The embed's parameters for kid mode: the
@@ -103,6 +104,7 @@ class YouTubeKidPlayer implements KidPlayer {
       origin: origin,
       params: kidPlayerParams(origin: origin),
       autoplay: true,
+      restrictFrame: true,
     );
   }
 }
@@ -121,6 +123,7 @@ class YouTubeAdultPlayer implements KidPlayer {
       origin: origin,
       params: adultPlayerParams(origin: origin),
       autoplay: false,
+      restrictFrame: false,
     );
   }
 }
@@ -131,8 +134,13 @@ class _YouTubePlayback implements KidPlayback {
     required String? origin,
     required YoutubePlayerParams params,
     required this._autoplay,
+    required bool restrictFrame,
   }) {
     _controller = YoutubePlayerController(params: params, key: youtubeId);
+    // Kid mode only: the guardian side may follow links out to YouTube.
+    // The frame is restricted before anything loads into it; when that
+    // fails the player never loads and reports a failure instead.
+    final safe = !restrictFrame || kidFrameHardener(_controller);
     if (!kIsWeb) {
       final base = Uri.parse(origin ?? params.host);
       unawaited(
@@ -159,7 +167,16 @@ class _YouTubePlayback implements KidPlayback {
       );
     }
     _values = _controller.stream.listen(_onValue);
-    unawaited(_start(params));
+    _loaded = safe;
+    if (safe) {
+      unawaited(_start(params));
+    } else {
+      _failed = true;
+      // After the screen has subscribed to [events].
+      scheduleMicrotask(() {
+        if (!_events.isClosed) _events.add(const PlayerFailed());
+      });
+    }
   }
 
   final String youtubeId;
@@ -169,6 +186,7 @@ class _YouTubePlayback implements KidPlayback {
   final _events = StreamController<PlayerEvent>.broadcast();
   PlayerState _state = PlayerState.unknown;
   bool _failed = false;
+  late final bool _loaded;
 
   Future<void> _start(YoutubePlayerParams params) async {
     await _controller.initWithParams(params: params);
@@ -223,7 +241,9 @@ class _YouTubePlayback implements KidPlayback {
   Future<void> close() async {
     await _values.cancel();
     await _events.close();
-    await _controller.stopVideo();
+    // A player that never loaded has nothing to stop, and would never
+    // answer the stop command.
+    if (_loaded) await _controller.stopVideo();
     await _controller.close();
   }
 }

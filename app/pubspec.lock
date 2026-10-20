@@ -891,7 +891,7 @@ packages:
     source: hosted
     version: "4.14.1"
   webview_flutter_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: webview_flutter_platform_interface
       sha256: "1221c1b12f5278791042f2ec2841743784cf25c5a644e23d6680e5d718824f04"
@@ -955,7 +955,7 @@ packages:
     source: hosted
     version: "6.0.2"
   youtube_player_iframe_web:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: youtube_player_iframe_web
       sha256: "405fccd8b7ae467835fc713bc86a3182470106098eec9aad0c178aec5395efa8"
