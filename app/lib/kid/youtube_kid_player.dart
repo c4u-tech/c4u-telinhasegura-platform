@@ -96,6 +96,12 @@ KidNavigation decideNavigation(
 /// fullscreen gestures, overlay and placeholder thumbnail would break the
 /// rules above), so the screen gets the bare WebView.
 class YouTubeKidPlayer implements KidPlayer {
+  /// [hardenFrame] restricts the player's frame before anything loads into
+  /// it; tests pass a fake to watch the call.
+  YouTubeKidPlayer({this.hardenFrame = hardenKidFrame});
+
+  final FrameHardener hardenFrame;
+
   @override
   KidPlayback open(String youtubeId) {
     final origin = appOrigin();
@@ -104,7 +110,7 @@ class YouTubeKidPlayer implements KidPlayer {
       origin: origin,
       params: kidPlayerParams(origin: origin),
       autoplay: true,
-      restrictFrame: true,
+      hardenFrame: hardenFrame,
     );
   }
 }
@@ -123,7 +129,6 @@ class YouTubeAdultPlayer implements KidPlayer {
       origin: origin,
       params: adultPlayerParams(origin: origin),
       autoplay: false,
-      restrictFrame: false,
     );
   }
 }
@@ -134,13 +139,13 @@ class _YouTubePlayback implements KidPlayback {
     required String? origin,
     required YoutubePlayerParams params,
     required this._autoplay,
-    required bool restrictFrame,
+    FrameHardener? hardenFrame,
   }) {
     _controller = YoutubePlayerController(params: params, key: youtubeId);
-    // Kid mode only: the guardian side may follow links out to YouTube.
-    // The frame is restricted before anything loads into it; when that
-    // fails the player never loads and reports a failure instead.
-    final safe = !restrictFrame || kidFrameHardener(_controller);
+    // Only kid mode passes a hardener: the guardian side may follow links
+    // out to YouTube. The frame is restricted before anything loads into
+    // it; when that fails the player never loads and reports a failure.
+    final safe = hardenFrame == null || hardenFrame(_controller);
     if (!kIsWeb) {
       final base = Uri.parse(origin ?? params.host);
       unawaited(

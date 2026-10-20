@@ -28,24 +28,21 @@ void main() {
     late FakeWebViewPlatform platform;
     late List<int> pagesLoadedWhenRestricted;
     late bool restricts;
-    late FrameHardener original;
+
+    bool fakeHardener(YoutubePlayerController controller) {
+      final fake = controller.webViewController.platform;
+      pagesLoadedWhenRestricted.add(
+        (fake as FakeWebViewController).loadedHtml.length,
+      );
+      return restricts;
+    }
 
     setUp(() {
       platform = FakeWebViewPlatform();
       WebViewPlatform.instance = platform;
       pagesLoadedWhenRestricted = [];
       restricts = true;
-      original = kidFrameHardener;
-      kidFrameHardener = (YoutubePlayerController controller) {
-        final fake = controller.webViewController.platform;
-        pagesLoadedWhenRestricted.add(
-          (fake as FakeWebViewController).loadedHtml.length,
-        );
-        return restricts;
-      };
     });
-
-    tearDown(() => kidFrameHardener = original);
 
     Future<void> settle() async {
       for (var i = 0; i < 5; i++) {
@@ -54,7 +51,7 @@ void main() {
     }
 
     test('kid mode restricts it before the player page loads', () async {
-      YouTubeKidPlayer().open('yt1');
+      YouTubeKidPlayer(hardenFrame: fakeHardener).open('yt1');
       await settle();
 
       expect(pagesLoadedWhenRestricted, [0]);
@@ -72,7 +69,7 @@ void main() {
     test('when the frame cannot be restricted, kid mode reports a failure '
         'and never loads the player', () async {
       restricts = false;
-      final playback = YouTubeKidPlayer().open('yt1');
+      final playback = YouTubeKidPlayer(hardenFrame: fakeHardener).open('yt1');
       final events = <PlayerEvent>[];
       final sub = playback.events.listen(events.add);
       await settle();
