@@ -180,6 +180,9 @@ func (s *Server) routes() []route {
 		kidConsented("POST /v1/child/plays/{id}/beat", s.beat),
 		kidConsented("POST /v1/child/time/extend", s.childExtend),
 		kidConsented("POST /v1/child/videos/{id}/unavailable", s.unavailable),
+		// Curators answer the list; moderators and admins read it to word
+		// what a curator marked, so any role holder may read it.
+		staffRoute("GET /v1/curation/checklist", s.checklist),
 		curator("GET /v1/curation/themes", s.themes),
 		curator("GET /v1/curation/queue", s.queue),
 		curator("GET /v1/curation/videos", s.approvedVideos),
