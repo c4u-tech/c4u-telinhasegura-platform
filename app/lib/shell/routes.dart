@@ -59,6 +59,34 @@ abstract final class Routes {
   static const curation = '/curadoria';
   static const admin = '/admin';
 
+  /// The curator terms, which a curator accepts before any review; its
+  /// `depois` is the curation screen that asked, kept by
+  /// [curatorTermsReturn].
+  static const curatorTerms = '/curadoria/termo';
+
+  static String curatorTermsFor({String? then}) => Uri(
+    path: curatorTerms,
+    queryParameters: then == null ? null : {'depois': then},
+  ).toString();
+
+  /// [raw] when it is a curation screen of this app other than the terms,
+  /// its query kept; [curation] for anything else, so `depois` never leads
+  /// outside the curation (no open redirect).
+  static String curatorTermsReturn(String? raw) {
+    final uri = raw == null ? null : Uri.tryParse(raw);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasFragment ||
+        !uri.path.startsWith('/') ||
+        uri.pathSegments.any((s) => s.isEmpty || s == '.' || s == '..') ||
+        !isCuratorScreen(uri.path) ||
+        uri.path == curatorTerms) {
+      return curation;
+    }
+    return uri.toString();
+  }
+
   /// The team: who holds which platform role,
   /// appointing someone, and one member's sheet, for an admin.
   static const team = '/admin/equipe';

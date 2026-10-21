@@ -69,6 +69,7 @@ import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
 import '../curation/approve_screen.dart';
 import '../curation/curation.dart' show Video;
+import '../curation/curator_terms_screen.dart';
 import '../curation/queue_screen.dart';
 import '../curation/refuse_screen.dart';
 import '../curation/review_screen.dart';
@@ -331,6 +332,15 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           },
         ),
         routes: [
+          // Before ':id', which would take "termo" for a video.
+          GoRoute(
+            path: 'termo',
+            builder: (_, state) => CuratorTermsScreen(
+              then: Routes.curatorTermsReturn(
+                state.uri.queryParameters['depois'],
+              ),
+            ),
+          ),
           GoRoute(
             path: ':id',
             builder: (_, state) =>

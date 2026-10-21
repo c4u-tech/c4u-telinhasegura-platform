@@ -28,12 +28,19 @@ String? roleRedirect(Set<PlatformRole>? roles, String path) {
 }
 
 /// Takes a staff call's `not_curator`, `not_admin` or `not_moderator`
-/// [error], or the MFA
-/// routes' `not_staff`: the role goes from the family
+/// [error], or the MFA routes' `not_staff`: the role goes from the family
 /// model, the session is read again, and the app goes home, where the
-/// notice says why and the door is gone. Returns whether it took
-/// [error]; a screen words anything else itself.
+/// notice says why and the door is gone. A curator who has not accepted
+/// the curator terms (`declaration_required`) is taken to them, to come
+/// back to this screen. Returns whether it took [error]; a screen words
+/// anything else itself.
 bool takeLostRole(BuildContext context, Object error) {
+  if (error case ApiError(code: 'declaration_required')) {
+    final here = GoRouter.of(context).routerDelegate.currentConfiguration.uri
+        .toString();
+    context.go(Routes.curatorTermsFor(then: here));
+    return true;
+  }
   const lost = {'not_curator', 'not_admin', 'not_moderator', 'not_staff'};
   if (error is! ApiError || !lost.contains(error.code)) {
     return false;
