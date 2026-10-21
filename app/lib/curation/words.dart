@@ -96,6 +96,12 @@ extension RefusalReasonMessage on RefusalReason {
 /// A non-breaking space: what it glues never parts at a line's end.
 const _nbsp = '\u00A0';
 
+/// Said wherever a curator decides what refuses a video: a difference is
+/// never a reason.
+const differenceReminder =
+    'Não recuse um vídeo só por mostrar uma família, religião, cor ou '
+    'deficiência diferente da sua.';
+
 abstract final class CurationWords {
   /// The dot between words on a line ("Canal · 4 min"), glued to the
   /// word before it so that at 200 % text it never opens a line.

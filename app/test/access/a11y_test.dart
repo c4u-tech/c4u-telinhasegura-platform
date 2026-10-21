@@ -30,7 +30,7 @@ import 'package:telinha_segura/privacy/export_delivery.dart';
 
 import '../account/account_screen_test.dart' show sessionJson, sessionsAnswer;
 import '../account/mfa_fixtures.dart';
-import '../curation/approve_screen_test.dart' show approve;
+import '../curation/approve_screen_test.dart' show approve, start, toReview;
 import '../curation/compose_pack_screen_test.dart' as composing;
 import '../curation/curation_api_test.dart'
     show rejectionJson, reviewJson, videoJson;
@@ -1738,6 +1738,16 @@ final curatorScreens =
         },
       ),
       'approve': ('/curadoria/v1/aprovar', curatorApi(), null),
+      'approve, a step': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) => start(tester),
+      ),
+      'approve, review': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) => toReview(tester),
+      ),
       'approve, refused': (
         '/curadoria/v1/aprovar',
         curatorApi(review: (_) => problem(422, 'validation')),

@@ -14,7 +14,6 @@ import '../design/tokens.dart';
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'checklist_form.dart' show marksNo;
 import 'curation.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'video_heading.dart';
@@ -45,8 +44,7 @@ const reasonMax = 500;
 const _countFrom = 400;
 
 /// `/curadoria/:id/recusar`: what a refusal does; every question that
-/// refuses, by group, to tick, a question asked in the positive as its
-/// "Não"; an optional note of up to 500 characters; and the ordinary ink
+/// refuses, by group, to tick; an optional note of up to 500 characters; and the ordinary ink
 /// primary "Recusar" (the Quiet Loss Rule: never clay), waiting until one
 /// question is ticked. [items] arrive ticked from an approval that marked
 /// them. It sends the refusal once, then the done state back to the queue.
@@ -238,7 +236,7 @@ class _RefuseScreenState extends State<RefuseScreen> {
           const SizedBox(height: Space.sm),
           for (final i in items)
             DeclarationRow(
-              text: i.positive ? '$marksNo: ${i.text}' : i.text,
+              text: i.text,
               value: _ticked.contains(i.id),
               onChanged: idle ? (on) => _toggle(i.id, on) : null,
             ),

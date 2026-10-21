@@ -22,19 +22,23 @@ Map<String, Object?> approvalOf(String role, Map<String, String>? answers) => {
   'theme': 'bichos',
   'min_age_band': '5-8',
   'reason': null,
-  'checklist_version': answers == null ? null : '2026-10-20',
+  'checklist_version': answers == null ? null : '2026-10-21',
   'answers': answers,
   'failed_items': null,
   'reviewed_at': '2026-10-04T12:00:00Z',
 };
 
 const cleanAnswers = {
-  'c01': 'ok',
   'c25': 'ok',
+  'c03': 'ok',
   'c04': 'ok',
   'c07': 'ok',
-  'c21': 'ok',
+  'c08': 'ok',
+  'c15': 'ok',
+  'c12': 'ok',
   'c22': 'ok',
+  'c23': 'ok',
+  'c24': 'ok',
 };
 
 final sampled = candidateOf(
@@ -112,7 +116,7 @@ void main() {
       nb('Pedagogo(a) aprovou · Bichos · 5 a 8 anos'),
       nb('Mãe ou pai aprovou · Bichos · 5 a 8 anos'),
       nb('Cuidador(a) aprovou · Bichos · 5 a 8 anos'),
-      'Não: Ritmo calmo?',
+      'Aparece: Tem ritmo agitado?',
       beforeTheList,
     ]) {
       expect(find.textContaining(line), findsOneWidget, reason: line);
@@ -128,7 +132,7 @@ void main() {
 
     for (final (role, marks) in [
       ('Pedagogo(a)', nothingMarked),
-      ('Mãe ou pai', 'Não: Ritmo calmo?'),
+      ('Mãe ou pai', 'Aparece: Tem ritmo agitado?'),
       ('Cuidador(a)', beforeTheList),
     ]) {
       expect(
@@ -163,7 +167,7 @@ void main() {
 
     expect(find.text(marksFailed), findsNothing);
     expect(find.textContaining(nothingMarked), findsOneWidget);
-    expect(find.textContaining('Não: Ritmo calmo?'), findsOneWidget);
+    expect(find.textContaining('Aparece: Tem ritmo agitado?'), findsOneWidget);
   });
 
   testWidgets('"De acordo" records once and goes back to the sample', (

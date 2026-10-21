@@ -61,7 +61,7 @@ void main() {
       nb('Mãe ou pai teve dúvida · Bichos · 5 a 8 anos'),
       '“Não sei se a tristeza pesa.”',
       'Aparece: Algum personagem fica triste?',
-      'Tenho dúvida: Ritmo calmo?',
+      'Tenho dúvida: Tem ritmo agitado?',
     ]) {
       expect(find.text(line), findsOneWidget, reason: line);
     }
