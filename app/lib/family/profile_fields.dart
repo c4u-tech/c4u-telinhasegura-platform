@@ -148,6 +148,7 @@ class AgeBandChoice extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.adviseUnderTwo = false,
+    this.disabled = const {},
   });
 
   final AgeBand? value;
@@ -156,6 +157,10 @@ class AgeBandChoice extends StatefulWidget {
   /// On a child's profile, "2 a 4 anos" chosen shows [underTwoAdvice]
   /// under the rows. A curator choosing a video's band sees none.
   final bool adviseUnderTwo;
+
+  /// Bands shown but not offered: a curator's video whose pace rules out
+  /// the youngest.
+  final Set<AgeBand> disabled;
 
   @override
   State<AgeBandChoice> createState() => _AgeBandChoiceState();
@@ -185,7 +190,9 @@ class _AgeBandChoiceState extends State<AgeBandChoice> {
             SelectableRow(
               label: band.label,
               selected: band == value,
-              onTap: onChanged == null ? null : () => onChanged(band),
+              onTap: onChanged == null || widget.disabled.contains(band)
+                  ? null
+                  : () => onChanged(band),
             ),
           ],
         if (widget.adviseUnderTwo && value == AgeBand.upTo4) ...[

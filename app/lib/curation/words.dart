@@ -222,3 +222,14 @@ extension ChecklistMarkLabel on ChecklistAnswer {
     ChecklistAnswer.unknown => 'Sem resposta',
   };
 }
+
+/// An answer in words. Every question asks whether something is in the
+/// video, so "Não" is always the answer that keeps it.
+extension ChecklistAnswerWord on ChecklistAnswer {
+  String get word => switch (this) {
+    ChecklistAnswer.ok => 'Não',
+    ChecklistAnswer.appears => 'Sim',
+    ChecklistAnswer.doubt => 'Não sei',
+    ChecklistAnswer.unknown => 'Sem resposta',
+  };
+}

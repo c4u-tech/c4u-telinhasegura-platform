@@ -255,4 +255,11 @@ void main() {
       expect(line, isNot(matches(banned)), reason: line);
     }
   });
+
+  test('an answer reads as Não, Sim or Não sei', () {
+    expect(ChecklistAnswer.ok.word, 'Não');
+    expect(ChecklistAnswer.appears.word, 'Sim');
+    expect(ChecklistAnswer.doubt.word, 'Não sei');
+    expect(ChecklistAnswer.unknown.word, 'Sem resposta');
+  });
 }

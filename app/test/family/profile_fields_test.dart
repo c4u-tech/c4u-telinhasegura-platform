@@ -165,6 +165,32 @@ void main() {
       expect(modules.where((m) => m.filled), isEmpty);
     });
 
+    testWidgets('a disabled band shows, reads as disabled and a tap leaves '
+        'it unchosen', (tester) async {
+      final semantics = tester.ensureSemantics();
+      AgeBand? chosen;
+      await pumpIn(
+        tester,
+        AgeBandChoice(
+          value: null,
+          disabled: const {AgeBand.upTo4},
+          onChanged: (b) => chosen = b,
+        ),
+      );
+
+      await tester.tap(find.text(AgeBand.upTo4.label));
+      await tester.pump();
+      expect(chosen, isNull);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel(AgeBand.upTo4.label)),
+        isSemantics(hasEnabledState: true, isEnabled: false),
+      );
+      await tester.tap(find.text(AgeBand.from5To8.label));
+      await tester.pump();
+      expect(chosen, AgeBand.from5To8);
+      semantics.dispose();
+    });
+
     testWidgets('a tap chooses; each row is a labelled choice of one', (
       tester,
     ) async {
