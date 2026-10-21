@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
 import 'package:telinha_segura/curation/curation.dart';
+import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show ChoiceTarget;
 
 import '../family/widgets_test.dart' show pumpIn;
@@ -117,6 +118,45 @@ void main() {
     await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
     await expectLater(tester, meetsGuideline(textContrastGuideline));
     semantics.dispose();
+  });
+
+  testWidgets('without onChanged the keys look disabled, a chosen one '
+      'still carrying its check', (tester) async {
+    await pumpIn(
+      tester,
+      const AnswerChoice(
+        question: question,
+        value: ChecklistAnswer.appears,
+        onChanged: null,
+      ),
+    );
+
+    final p = tester.element(find.byType(AnswerChoice)).palette;
+    for (final w in words) {
+      final box =
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: keyOf(w),
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .decoration!
+              as BoxDecoration;
+      expect(box.color, p.outline.withValues(alpha: .32), reason: w);
+      expect(
+        tester.widget<Text>(find.text(w)).style?.color,
+        p.text.withValues(alpha: .6),
+        reason: w,
+      );
+    }
+    expect(
+      find.descendant(
+        of: keyOf('Sim'),
+        matching: find.byIcon(Icons.check_rounded),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('without onChanged the keys are disabled', (tester) async {

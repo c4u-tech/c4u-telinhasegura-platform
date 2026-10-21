@@ -76,7 +76,10 @@ class AnswerChoice extends StatelessWidget {
 }
 
 /// One answer as a key: the input tone with an outline stroke, or, chosen,
-/// the action colour with a check before its word.
+/// the action colour with a check before its word. Without [onTap] (a
+/// send running) it waits: the outline tone at 32% fill and its words at
+/// 60%, a chosen key keeping its check and its stroke in the action
+/// colour.
 class _AnswerKey extends StatelessWidget {
   const _AnswerKey({
     required this.answer,
@@ -91,7 +94,12 @@ class _AnswerKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final ink = selected ? p.onAction : p.text;
+    final off = onTap == null;
+    final ink = off
+        ? p.text.withValues(alpha: .6)
+        : selected
+        ? p.onAction
+        : p.text;
     return ChoiceTarget(
       label: answer.word,
       selected: selected,
@@ -106,7 +114,11 @@ class _AnswerKey extends StatelessWidget {
           vertical: Space.md,
         ),
         decoration: BoxDecoration(
-          color: selected ? p.action : p.input,
+          color: off
+              ? p.outline.withValues(alpha: .32)
+              : selected
+              ? p.action
+              : p.input,
           borderRadius: BorderRadius.circular(Radii.control),
           // The same width chosen or not: choosing moves nothing.
           border: Border.all(
