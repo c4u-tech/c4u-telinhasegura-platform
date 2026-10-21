@@ -292,11 +292,14 @@ type entry struct {
 // prepare checks a review before any lookup and turns it into its ledger
 // entry. A refused review stores nothing.
 func prepare(in ReviewInput) (entry, error) {
-	if utf8.RuneCountInString(in.Note) > maxReason || in.Decision != Approve && in.Decision != Reject {
+	if in.Decision != Approve && in.Decision != Reject {
 		return entry{}, ErrValidation
 	}
 	if in.ChecklistVersion != ChecklistVersion {
 		return entry{}, ErrChecklistOutdated
+	}
+	if utf8.RuneCountInString(in.Note) > maxReason {
+		return entry{}, ErrValidation
 	}
 	if in.Decision == Reject {
 		if in.Theme != "" || in.MinAgeBand != "" || in.Answers != nil {

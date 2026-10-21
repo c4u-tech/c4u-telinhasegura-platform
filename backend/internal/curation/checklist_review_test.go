@@ -4,6 +4,7 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,6 +46,12 @@ func TestChecklistRefusalsStoreNothing(t *testing.T) {
 	outdated.ChecklistVersion = "2026-01-01"
 	missing := approve("bichos", family.Age5To8)
 	delete(missing.Answers, "c13")
+	// The version is judged before the shape: an old app hears its list is
+	// outdated, even with a note longer than the current one allows.
+	outdatedLong := reject(strings.Repeat("a", 501))
+	outdatedLong.ChecklistVersion = "2026-01-01"
+	outdatedNoDecision := outdated
+	outdatedNoDecision.Decision = ""
 	with := func(band family.AgeBand, changed map[string]curation.Answer) curation.ReviewInput {
 		return approveWith("bichos", band, changed)
 	}
@@ -54,6 +61,8 @@ func TestChecklistRefusalsStoreNothing(t *testing.T) {
 		want error
 	}{
 		"an old list":                     {outdated, curation.ErrChecklistOutdated},
+		"an old list with a long note":    {outdatedLong, curation.ErrChecklistOutdated},
+		"an old list with no decision":    {outdatedNoDecision, curation.ErrValidation},
 		"a missing answer":                {missing, curation.ErrValidation},
 		"an unknown item":                 {with(family.Age5To8, map[string]curation.Answer{"c99": curation.AnswerOK}), curation.ErrValidation},
 		"an answer that refuses":          {with(family.Age5To8, map[string]curation.Answer{"c15": appears}), curation.ErrChecklistRefuses},
