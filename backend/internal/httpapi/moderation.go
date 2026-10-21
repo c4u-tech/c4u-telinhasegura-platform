@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
@@ -23,12 +24,18 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		ByReason map[string]int `json:"by_reason"`
 		Notes    []string       `json:"notes"`
 	}
+	type heldAudit struct {
+		Verdict   string    `json:"verdict"`
+		Reason    string    `json:"reason"`
+		AuditedAt time.Time `json:"audited_at"`
+	}
 	type item struct {
 		Video      videoOut    `json:"video"`
 		Rejections []reviewOut `json:"rejections"`
 		Doubts     []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
 		HeldReason string      `json:"held_reason"`
-		Reports    reports     `json:"reports"` // since the latest reopen, never who reported
+		Reports    reports     `json:"reports"`         // since the latest reopen, never who reported
+		Audit      *heldAudit  `json:"audit,omitempty"` // the audit that held the video, never who audited
 	}
 	out := make([]item, 0, len(list))
 	for _, h := range list {
@@ -36,7 +43,12 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		for reason, n := range h.Reports.ByReason {
 			by[string(reason)] = n
 		}
-		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason, reports{by, h.Reports.Notes}})
+		var audit *heldAudit
+		if h.Audit != nil {
+			audit = &heldAudit{string(h.Audit.Verdict), h.Audit.Reason, h.Audit.AuditedAt.UTC()}
+		}
+		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason,
+			reports{by, h.Reports.Notes}, audit})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"videos": out})
 }

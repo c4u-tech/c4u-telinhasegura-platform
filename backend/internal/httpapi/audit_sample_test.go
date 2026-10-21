@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"slices"
 	"strings"
@@ -61,6 +62,17 @@ func TestApprovalAuditOverHTTP(t *testing.T) {
 	}
 	if n := a.count(`SELECT count(*) FROM videos WHERE id = $1::uuid AND state = 'held' AND held_reason = 'audit'`, v.ID); n != 1 {
 		t.Fatal("the video was not held")
+	}
+	var held struct {
+		Videos []struct {
+			HeldReason string          `json:"held_reason"`
+			Audit      json.RawMessage `json:"audit"`
+		} `json:"videos"`
+	}
+	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+	want := `{"verdict":"disagree","reason":"Tem publi no fim.","audited_at":"` + a.now.UTC().Format(time.RFC3339Nano) + `"}`
+	if len(held.Videos) != 1 || held.Videos[0].HeldReason != "audit" || string(held.Videos[0].Audit) != want {
+		t.Fatalf("held list %+v, want audit %s", held, want)
 	}
 	if r := a.do(http.MethodPost, audits, hold, bearer(mod)...); r.Code != http.StatusConflict || r.problemCode() != "already_audited" {
 		t.Fatalf("audit twice: %d %q", r.Code, r.problemCode())

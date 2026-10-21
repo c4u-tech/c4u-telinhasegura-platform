@@ -198,3 +198,33 @@ func TestNoOneAuditsTheirOwnReview(t *testing.T) {
 		t.Fatalf("a round the auditor did not review: %v", err)
 	}
 }
+
+// A video held by an audit shows the moderators the audit that held it;
+// a video held for any other reason carries none.
+func TestAHeldVideoShowsTheAuditThatHeldIt(t *testing.T) {
+	f := newFixture(t)
+	mod := f.account("mia@example.com")
+	v := f.publishedAt(nthID(1), f.now.Add(-time.Hour))
+	other := f.heldVideo("refusedvid1")
+	f.now = f.now.Add(time.Minute)
+	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Tem publi no fim."}
+	if err := f.svc.AuditApproval(ctx, m, curation.AuditInput{VideoID: v, Round: 1, Verdict: curation.Disagree, Hold: true}); err != nil {
+		t.Fatal(err)
+	}
+	held, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(held) != 2 {
+		t.Fatalf("held %+v %v", held, err)
+	}
+	for _, h := range held {
+		switch h.Video.ID {
+		case v:
+			if h.Audit == nil || h.Audit.Verdict != curation.Disagree || h.Audit.Reason != "Tem publi no fim." || !h.Audit.AuditedAt.Equal(f.now) {
+				t.Errorf("audit %+v", h.Audit)
+			}
+		case other:
+			if h.Audit != nil {
+				t.Errorf("a refusal carries an audit: %+v", h.Audit)
+			}
+		}
+	}
+}

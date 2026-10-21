@@ -47,6 +47,9 @@ func TestModerationOverHTTP(t *testing.T) {
 	if held.Code != http.StatusOK || !strings.Contains(held.Body.String(), v) {
 		t.Fatalf("moderator: %d %s", held.Code, held.Body)
 	}
+	if strings.Contains(held.Body.String(), `"audit"`) {
+		t.Fatalf("a video held by a refusal carries an audit: %s", held.Body)
+	}
 	if got := a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(admin)...); got.Code != http.StatusOK || got.Body.String() != held.Body.String() {
 		t.Fatalf("admin: %d %s, want %s", got.Code, got.Body, held.Body)
 	}
