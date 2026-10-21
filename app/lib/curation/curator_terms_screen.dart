@@ -10,16 +10,20 @@ import '../auth/api_error.dart';
 import '../design/field_layout.dart';
 import '../design/tokens.dart';
 import '../family/widgets.dart' show FamilyPlaceholder;
+import '../legal/legal_links.dart' show kCurationUrl;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'curation.dart';
 import 'role_gate.dart';
 
-const curatorTermsTitle = 'Termo da curadoria';
+const curatorTermsTitle = 'Termo do curador';
 const curatorTermsLead =
-    'Antes de revisar, leia o termo da curadoria. Se estiver de acordo, '
+    'Antes de revisar, leia o termo do curador. Se estiver de acordo, '
     'toque em Aceito.';
 const curatorTermsAccept = 'Aceito';
+
+/// The site page with the criteria the terms ask to apply.
+const curationCriteriaTitle = 'Como escolhemos os vídeos';
 
 /// `/curadoria/termo`: a curator who has not accepted the curator terms in
 /// force lands here from any curation screen. The text is the server's,
@@ -91,6 +95,8 @@ class _CuratorTermsScreenState extends State<CuratorTermsScreen> {
     if (ok && mounted) context.go(widget.then);
   }
 
+  void _openCriteria() => AppScope.of(context).links.open(kCurationUrl);
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _accept,
@@ -118,6 +124,18 @@ class _CuratorTermsScreenState extends State<CuratorTermsScreen> {
       Text(curatorTermsLead, style: text.bodyLarge),
       const SizedBox(height: Space.xl),
       Text(terms.text, style: text.bodyLarge),
+      const SizedBox(height: Space.md),
+      // The terms name the criteria page: it opens on the site.
+      Semantics(
+        link: true,
+        label: curationCriteriaTitle,
+        excludeSemantics: true,
+        onTap: _openCriteria,
+        child: QuietAction(
+          label: curationCriteriaTitle,
+          onPressed: _openCriteria,
+        ),
+      ),
       const SizedBox(height: Space.xl),
       if (_accept.message case final message?) ...[
         ErrorNote(message),

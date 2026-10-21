@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/curator_terms_screen.dart';
 import 'package:telinha_segura/curation/queue_screen.dart' show emptyQueue;
+import 'package:telinha_segura/legal/legal_links.dart' show kCurationUrl;
 import 'package:telinha_segura/shell/routes.dart';
 
 import '../access/harness.dart';
@@ -57,6 +59,7 @@ Future<void> agree(WidgetTester tester) async {
 }
 
 void main() {
+  namingAndLink();
   test('the terms route and where "Aceito" may return', () {
     expect(Routes.curatorTerms, '/curadoria/termo');
     expect(
@@ -228,5 +231,56 @@ void main() {
 
     expect(h.location(tester), startsWith('/curadoria/termo'));
     expect(find.widgetWithText(FilledButton, curatorTermsAccept), findsOne);
+  });
+}
+
+void namingAndLink() {
+  testWidgets('the terms are called "termo do curador", as on the site', (
+    tester,
+  ) async {
+    await awaitingTerms(tester);
+
+    expect(find.text('Termo do curador'), findsWidgets);
+    expect(curatorTermsLead, contains('termo do curador'));
+    for (final code in ['declaration_required', 'declaration_outdated']) {
+      expect(
+        Copy.forError(ApiError(status: 409, code: code)),
+        contains('termo do curador'),
+        reason: code,
+      );
+    }
+  });
+
+  test('no screen calls them "termo da curadoria"', () {
+    for (final f in Directory('lib').listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      expect(
+        f.readAsStringSync().toLowerCase().contains('termo da curadoria'),
+        isFalse,
+        reason: f.path,
+      );
+    }
+  });
+
+  testWidgets('the terms link the published criteria, read as a link', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final h = await awaitingTerms(tester);
+
+    await tester.ensureVisible(find.text(curationCriteriaTitle));
+    await tester.pumpAndSettle();
+    expect(
+      find.semantics.byPredicate(
+        (n) => n.label == curationCriteriaTitle && n.flagsCollection.isLink,
+      ),
+      findsOne,
+    );
+    await tester.tap(find.text(curationCriteriaTitle));
+    await tester.pumpAndSettle();
+
+    expect(h.links.opened, [kCurationUrl]);
+    expect(h.location(tester), '/curadoria/termo?depois=%2Fcuradoria');
+    semantics.dispose();
   });
 }

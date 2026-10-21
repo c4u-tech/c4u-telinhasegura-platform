@@ -174,9 +174,9 @@ abstract final class Copy {
     'conflict_of_interest':
         'Você tem vínculo com este canal, então a revisão dele fica com '
         'outros curadores.',
-    'declaration_required': 'Para revisar, aceite antes o termo da curadoria.',
+    'declaration_required': 'Para revisar, aceite antes o termo do curador.',
     'declaration_outdated':
-        'O termo da curadoria mudou. Leia a versão nova para aceitar.',
+        'O termo do curador mudou. Leia a versão nova para aceitar.',
     'already_audited': 'Essa aprovação já foi conferida.',
     'own_review':
         'Você revisou este vídeo nesta rodada; outra pessoa da equipe precisa '
