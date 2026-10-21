@@ -232,6 +232,44 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('a mark on a question is a checkbox, taken back by a second '
+      'tap; a group\'s "nothing appears" stays a radio', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await approving(tester);
+    const label = 'Aparece: Alguém bate de propósito?';
+
+    expect(
+      tester.getSemantics(markRow(label)),
+      isSemantics(
+        label: label,
+        isInMutuallyExclusiveGroup: false,
+        hasCheckedState: true,
+        isChecked: false,
+      ),
+    );
+    await mark(tester, label);
+    expect(
+      tester.getSemantics(markRow(label)),
+      isSemantics(
+        label: label,
+        isInMutuallyExclusiveGroup: false,
+        hasCheckedState: true,
+        isChecked: true,
+      ),
+    );
+    await mark(tester, label);
+    expect(tester.getSemantics(markRow(label)), isSemantics(isChecked: false));
+    expect(
+      tester.getSemantics(markRow('Nada disso aparece: Violência e medo')),
+      isSemantics(
+        label: 'Nada disso aparece: Violência e medo',
+        isInMutuallyExclusiveGroup: true,
+        hasCheckedState: true,
+      ),
+    );
+    semantics.dispose();
+  });
+
   testWidgets('sends the approval once and shows the done state, back to '
       'the queue', (tester) async {
     final answer = Completer<http.Response>();

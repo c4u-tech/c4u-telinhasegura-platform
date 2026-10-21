@@ -45,10 +45,12 @@ class ChecklistForm extends StatelessWidget {
           : item.positive
           ? marksNo
           : marksAppears;
+      // A second tap takes the mark back: each mark is a checkbox.
       return SelectableRow(
         label: '$words: ${item.text}',
         text: words,
         asKey: true,
+        toggle: true,
         selected: draft.answerOf(item) == a,
         onTap: act(() => draft.mark(g, item, a)),
       );
