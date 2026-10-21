@@ -102,6 +102,10 @@ abstract final class Routes {
   static const moderation = '/moderacao';
   static const heldVideos = '/moderacao/retidos';
 
+  /// The audit of recent approvals, for a moderator or an admin: the
+  /// sample, then one video of it.
+  static const auditSample = '/moderacao/auditoria';
+
   /// The pacotinhos' curation:
   /// composing and reviewing for curators, removal for admins.
   static const packs = '/pacotinhos';
@@ -241,6 +245,9 @@ abstract final class Routes {
   /// One account's sheet, opened only by a lookup.
   static String accountSheet(String accountId) =>
       '$accounts/${Uri.encodeComponent(accountId)}';
+
+  static String auditVideo(String videoId) =>
+      '$auditSample/${Uri.encodeComponent(videoId)}';
 
   static String heldVideo(String videoId) =>
       '$heldVideos/${Uri.encodeComponent(videoId)}';
