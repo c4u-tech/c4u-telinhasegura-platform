@@ -133,3 +133,33 @@ func TestDecideDoubtOnlyDecidesDoubts(t *testing.T) {
 		t.Fatalf("refused decisions were recorded: %d", n)
 	}
 }
+
+// The moderator sees the reports filed while the video was held, so a
+// publication by the moderator restarts the count: only reports after the
+// decision can hold the video again.
+func TestDecideDoubtRestartsTheReportCount(t *testing.T) {
+	f := newFixture(t)
+	mod := f.account("mia@example.com")
+	_, owners := f.families(6)
+	v := f.doubted(ytID)
+	for _, o := range owners[:3] {
+		f.report(o, v, curation.ReportOutro, "")
+	}
+	f.now = f.now.Add(time.Hour)
+	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Os avisos não se confirmam."}
+	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := f.state(v); st != "approved" {
+		t.Fatalf("after the decision: %s", st)
+	}
+	f.report(owners[3], v, curation.ReportOutro, "")
+	f.report(owners[4], v, curation.ReportOutro, "")
+	if st, _ := f.state(v); st != "approved" {
+		t.Fatalf("reports from before the decision still count: %s", st)
+	}
+	f.report(owners[5], v, curation.ReportOutro, "")
+	if st, why := f.state(v); st != "held" || why != curation.HeldByReports {
+		t.Fatalf("3 reports since the decision: %s %s", st, why)
+	}
+}

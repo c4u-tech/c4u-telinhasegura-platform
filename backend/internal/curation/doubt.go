@@ -23,6 +23,8 @@ type DoubtDecision struct {
 // interpret the criteria on their own: an unsure case is decided by the
 // team, with a recorded reason. Publishing closes the round as the
 // curators' approvals would; removing works as a moderator's removal.
+// Publishing also restarts the report count, as a reopen does: the
+// moderator saw the reports filed while the video was held.
 // Any other held video keeps the reopen and remove of moderation.
 func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string, d DoubtDecision) error {
 	reason, err := staff.CheckReason(m.Reason)
@@ -63,8 +65,8 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 			return err
 		}
 		_, err = tx.Exec(ctx, `UPDATE videos SET state = 'approved', held_reason = NULL, round = round + 1,
-			published_round = round, theme = $2, min_age_band = $3, last_reviewed_at = $4, review_due_at = $5, updated_at = $4
-			WHERE id = $1::uuid`, videoID, d.Theme, string(d.MinAgeBand), now, now.Add(s.d.RevisitAfter))
+			published_round = round, theme = $2, min_age_band = $3, last_reviewed_at = $4, review_due_at = $5, reopened_at = $4,
+			updated_at = $4 WHERE id = $1::uuid`, videoID, d.Theme, string(d.MinAgeBand), now, now.Add(s.d.RevisitAfter))
 		return err
 	})
 	if err != nil {
