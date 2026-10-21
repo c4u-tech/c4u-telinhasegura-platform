@@ -192,3 +192,24 @@ func TestNoOneDecidesADoubtInTheirOwnRound(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A doubt raised in a revisit is a doubt about that round: publishing it
+// makes the revisit round the one that published the video.
+func TestDecideDoubtRaisedInARevisit(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.approvedVideo(ytID, f.now)
+	if state := f.review(c, v, approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c19": curation.AnswerDoubt})); state != curation.Held {
+		t.Fatalf("a doubt in the revisit: %s", state)
+	}
+	f.now = f.now.Add(time.Hour)
+	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Sem risco no vídeo."}
+	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "musica", MinAgeBand: family.AgeUpTo4}); err != nil {
+		t.Fatal(err)
+	}
+	got := f.detail(v).Video
+	if got.State != curation.Approved || got.Round != 3 || got.PublishedRound == nil || *got.PublishedRound != 2 ||
+		got.Theme != "musica" || got.MinAgeBand != family.AgeUpTo4 || !got.LastReviewedAt.Equal(f.now) {
+		t.Fatalf("published %+v", got)
+	}
+}

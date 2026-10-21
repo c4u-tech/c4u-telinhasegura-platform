@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/staff"
 )
@@ -226,5 +227,51 @@ func TestAHeldVideoShowsTheAuditThatHeldIt(t *testing.T) {
 				t.Errorf("a refusal carries an audit: %+v", h.Audit)
 			}
 		}
+	}
+}
+
+// A round a moderator published by deciding a doubt holds no curator's
+// approval: there is no curator's judgement to audit.
+func TestAuditSampleLeavesOutRoundsWithNoCuratorApproval(t *testing.T) {
+	f := newFixture(t)
+	mod := f.account("mia@example.com")
+	v := f.doubted(ytID)
+	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Sem risco no vídeo."}
+	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := f.state(v); st != "approved" {
+		t.Fatalf("state %s", st)
+	}
+	sample, err := f.svc.AuditSample(ctx, f.account("bia@example.com"))
+	if err != nil || len(sample) != 0 {
+		t.Fatalf("sampled a round with no approval: %+v %v", sample, err)
+	}
+}
+
+// An audit goes with its video, and outlives its auditor's account
+// without naming it.
+func TestApprovalAuditsFollowTheVideoAndForgetTheAuditor(t *testing.T) {
+	f := newFixture(t)
+	kept := f.account("mia@example.com")
+	gone := f.account("bia@example.com")
+	v := f.publishedAt(nthID(1), f.now.Add(-time.Hour))
+	w := f.publishedAt(nthID(2), f.now.Add(-time.Hour))
+	if err := f.svc.AuditApproval(ctx, curation.Moderation{ActorID: kept, ActorRole: staff.Moderator}, curation.AuditInput{VideoID: v, Round: 1, Verdict: curation.Agree}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.AuditApproval(ctx, curation.Moderation{ActorID: gone, ActorRole: staff.Moderator}, curation.AuditInput{VideoID: w, Round: 1, Verdict: curation.Agree}); err != nil {
+		t.Fatal(err)
+	}
+	f.exec(`DELETE FROM accounts WHERE id = $1::uuid`, gone)
+	if n := f.count(`SELECT count(*) FROM approval_audits WHERE video_id = $1::uuid AND auditor_id IS NULL`, w); n != 1 {
+		t.Fatal("the audit did not outlive its auditor")
+	}
+	f.exec(`DELETE FROM videos WHERE id = $1::uuid`, v)
+	if n := f.count(`SELECT count(*) FROM approval_audits WHERE video_id = $1::uuid`, v); n != 0 {
+		t.Fatal("the audit outlived its video")
+	}
+	if n := f.count(`SELECT count(*) FROM approval_audits`); n != 1 {
+		t.Fatalf("audits left: %d", n)
 	}
 }
