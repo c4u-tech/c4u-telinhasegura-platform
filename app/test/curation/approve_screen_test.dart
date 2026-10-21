@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
 import 'package:telinha_segura/legal/legal_links.dart';
 import 'package:telinha_segura/family/profile_fields.dart'
@@ -46,19 +47,42 @@ Future<void> choose(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-/// Chooses "Música" and "5 a 8 anos" and sends; with [settle] false it
-/// leaves the request running.
-Future<void> approve(WidgetTester tester, {bool settle = true}) async {
-  await choose(tester, 'Música');
-  await choose(tester, '5 a 8 anos');
-  await tapPrimary(tester, settle: settle);
-}
-
 Future<void> tapPrimary(WidgetTester tester, {bool settle = true}) async {
   await tester.ensureVisible(find.byType(PrimaryButton));
   await tester.pumpAndSettle();
   await tester.tap(find.byType(PrimaryButton));
   await (settle ? tester.pumpAndSettle() : tester.pump());
+}
+
+Finder markRow(String label) =>
+    find.byWidgetPredicate((w) => w is SelectableRow && w.label == label);
+
+Future<void> mark(WidgetTester tester, String label) async {
+  await tester.ensureVisible(markRow(label));
+  await tester.pumpAndSettle();
+  await tester.tap(markRow(label));
+  await tester.pumpAndSettle();
+}
+
+/// Answers every group of the fixture's list with nothing marked.
+Future<void> clearAll(WidgetTester tester) async {
+  for (final label in [
+    'Tudo certo neste grupo: Antes de assistir',
+    'Nada disso aparece: Violência e medo',
+    'Nada disso aparece: Linguagem e respeito',
+    'Tudo certo neste grupo: Faixa',
+  ]) {
+    await mark(tester, label);
+  }
+}
+
+/// Answers the list, chooses "Música" and "5 a 8 anos" and sends; with
+/// [settle] false it leaves the request running.
+Future<void> approve(WidgetTester tester, {bool settle = true}) async {
+  await clearAll(tester);
+  await choose(tester, 'Música');
+  await choose(tester, '5 a 8 anos');
+  await tapPrimary(tester, settle: settle);
 }
 
 List<String> posts(Harness h) =>
@@ -127,7 +151,7 @@ void main() {
       'does, through to the done state', (tester) async {
     await approving(tester);
 
-    expectNamed(tester, find.text('Tema'));
+    expectNamed(tester, find.text(checklistLead));
     await approve(tester);
     expectNamed(tester, find.text(approved));
   });
@@ -136,13 +160,13 @@ void main() {
       'it again', (tester) async {
     final h = await approving(tester, initial: '/curadoria/v1');
 
-    await tester.ensureVisible(find.text('Escolher tema e idade'));
+    await tester.ensureVisible(find.text('Responder às perguntas'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Escolher tema e idade'));
+    await tester.tap(find.text('Responder às perguntas'));
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/curadoria/v1/aprovar');
-    expectNamed(tester, find.text('Tema'));
+    expectNamed(tester, find.text(checklistLead));
     expect(videoReads(h), 1);
   });
 
@@ -158,6 +182,8 @@ void main() {
     }
     expect(primary(tester).label, 'Aprovar');
     expect(primary(tester).onPressed, isNull);
+    expect(find.text(checklistHint), findsOneWidget);
+    await clearAll(tester);
     expect(find.text(approveHint), findsOneWidget);
   });
 
@@ -165,6 +191,7 @@ void main() {
     tester,
   ) async {
     await approving(tester);
+    await clearAll(tester);
 
     await choose(tester, 'Bichos');
     await choose(tester, 'Música');
@@ -215,6 +242,15 @@ void main() {
       'decision': 'approve',
       'theme': 'musica',
       'min_age_band': '5-8',
+      'checklist_version': '2026-10-20',
+      'answers': {
+        'c01': 'ok',
+        'c25': 'ok',
+        'c04': 'ok',
+        'c07': 'ok',
+        'c21': 'ok',
+        'c22': 'ok',
+      },
     });
     expect(posts(h).single, startsWith('POST /v1/curation/videos/v1/reviews'));
     expect(find.widgetWithText(Notice, approved), findsOneWidget);
@@ -300,6 +336,161 @@ void main() {
 
     expect(h.location(tester), '/');
     expect(find.text('Você não faz mais parte da curadoria.'), findsOneWidget);
+  });
+
+  testWidgets('reads the list group by group, "Nada disso aparece" answering '
+      'a group, with "Aparece" and "Tenho dúvida" on each question', (
+    tester,
+  ) async {
+    await approving(tester);
+
+    for (final title in [
+      'Antes de assistir',
+      'Violência e medo',
+      'Linguagem e respeito',
+      'Faixa',
+    ]) {
+      expect(find.text(title), findsOneWidget, reason: title);
+    }
+    expect(markRow('Aparece: Alguém bate de propósito?'), findsOneWidget);
+    expect(markRow('Tenho dúvida: Alguém bate de propósito?'), findsOneWidget);
+    expect(
+      markRow('Não: Ritmo calmo?'),
+      findsOneWidget,
+      reason: 'a question asked in the positive is marked "Não"',
+    );
+    expect(primary(tester).onPressed, isNull);
+    await clearAll(tester);
+    await choose(tester, 'Bichos');
+    await choose(tester, '5 a 8 anos');
+    expect(primary(tester).label, 'Aprovar');
+    expect(primary(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('a question that refuses leads to the refusal with it '
+      'marked, and sends nothing', (tester) async {
+    final h = await approving(tester);
+
+    await mark(tester, 'Aparece: Alguém bate de propósito?');
+    expect(find.text(refusingLine), findsOneWidget);
+    expect(primary(tester).label, 'Ir para a recusa');
+    await tapPrimary(tester);
+
+    expect(h.location(tester), '/curadoria/v1/recusar?itens=c04');
+    expect(posts(h), isEmpty);
+  });
+
+  testWidgets('a doubt is sent as one, with its note, and says the team '
+      'decides', (tester) async {
+    final h = await approving(
+      tester,
+      review: (_) => json(201, {'video_state': 'held'}),
+    );
+
+    await clearAll(tester);
+    await mark(tester, 'Tenho dúvida: Algum personagem fica triste?');
+    expect(find.text(doubtLine), findsOneWidget);
+    await choose(tester, 'Música');
+    await choose(tester, '5 a 8 anos');
+    await tester.enterText(
+      find.widgetWithText(TextField, doubtNoteLabel),
+      '  A tristeza é o tema.  ',
+    );
+    await tester.pump();
+    expect(primary(tester).label, 'Enviar dúvida');
+    await tapPrimary(tester);
+
+    final body = jsonDecode(
+      posts(h).single.split(' ').skip(2).join(' '),
+    ) as Map<String, dynamic>;
+    expect((body['answers'] as Map)['c07'], 'doubt');
+    expect(body['note'], 'A tristeza é o tema.');
+    expect(find.widgetWithText(Notice, doubtSent), findsOneWidget);
+  });
+
+  testWidgets('a tie to the channel says so and goes back to the queue, '
+      'sending nothing', (tester) async {
+    final h = await approving(tester);
+
+    await mark(tester, 'Aparece: Você tem vínculo com este canal?');
+    expect(find.text(conflictLine), findsOneWidget);
+    expect(primary(tester).label, 'Voltar para a fila');
+    await tapPrimary(tester);
+
+    expect(h.location(tester), '/curadoria');
+    expect(posts(h), isEmpty);
+  });
+
+  testWidgets('an invalid reason waits until it is unmarked', (tester) async {
+    await approving(tester);
+
+    await clearAll(tester);
+    await mark(tester, 'Aparece: Você recusaria só pela diferença?');
+    await choose(tester, 'Música');
+    await choose(tester, '5 a 8 anos');
+    expect(find.text(invalidReasonLine), findsOneWidget);
+    expect(primary(tester).onPressed, isNull);
+
+    await mark(tester, 'Aparece: Você recusaria só pela diferença?');
+    expect(find.text(invalidReasonLine), findsNothing);
+  });
+
+  testWidgets('a fast pace rules out "2 a 4 anos" only', (tester) async {
+    await approving(tester);
+
+    await clearAll(tester);
+    await mark(tester, 'Não: Ritmo calmo?');
+    await choose(tester, 'Música');
+    await choose(tester, '2 a 4 anos');
+    expect(find.text(bandLine), findsOneWidget);
+    expect(primary(tester).onPressed, isNull);
+
+    await choose(tester, '5 a 8 anos');
+    expect(find.text(bandLine), findsNothing);
+    expect(primary(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('checklist_outdated reads the list again and says why', (
+    tester,
+  ) async {
+    final h = await approving(
+      tester,
+      review: (_) => problem(409, 'checklist_outdated'),
+    );
+
+    await approve(tester);
+
+    expect(
+      find.widgetWithText(
+        ErrorNote,
+        Copy.forError(const ApiError(status: 409, code: 'checklist_outdated')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      h.actions.where((a) => a == 'GET /v1/curation/checklist'),
+      hasLength(2),
+    );
+  });
+
+  testWidgets('conflict_of_interest goes back to the queue with a notice', (
+    tester,
+  ) async {
+    final h = await approving(
+      tester,
+      review: (_) => problem(409, 'conflict_of_interest'),
+    );
+
+    await approve(tester);
+
+    expect(h.location(tester), '/curadoria');
+    expect(
+      find.text(
+        'Você tem vínculo com este canal, então a revisão dele fica com '
+        'outros curadores.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('back returns to the review', (tester) async {

@@ -181,7 +181,20 @@ abstract final class Routes {
 
   static String approve(String videoId) => '${review(videoId)}/aprovar';
 
-  static String refuse(String videoId) => '${review(videoId)}/recusar';
+  /// The refusal, with the questions an approval marked as appearing
+  /// ticked on arrival.
+  static String refuse(String videoId, {List<String> items = const []}) => Uri(
+    path: '${review(videoId)}/recusar',
+    queryParameters: items.isEmpty ? null : {'itens': items.join(',')},
+  ).toString();
+
+  /// The refusal's `itens` as question IDs; none for anything empty.
+  static List<String> refuseItems(String? raw) => raw == null || raw.isEmpty
+      ? const []
+      : [
+          for (final id in raw.split(','))
+            if (id.isNotEmpty) id,
+        ];
 
   /// One member's sheet.
   static String member(String accountId) =>

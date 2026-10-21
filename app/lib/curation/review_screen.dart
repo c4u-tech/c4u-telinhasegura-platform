@@ -131,9 +131,9 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
         children: [
           DoorRow(
             title: 'Aprovar',
-            semanticsLabel: 'Aprovar, Escolher tema e idade',
+            semanticsLabel: 'Aprovar, Responder às perguntas',
             onTap: () => context.go(Routes.approve(widget.id), extra: v),
-            child: Text('Escolher tema e idade', style: muted),
+            child: Text('Responder às perguntas', style: muted),
           ),
           DoorRow(
             title: 'Recusar',
@@ -157,7 +157,8 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
 }
 
 /// One review of the round, read and never a target: "Pedagogo(a)
-/// aprovou · Bichos · 5 a 8 anos", a refusal's reason on its own line.
+/// aprovou · Bichos · 5 a 8 anos", the reason of a refusal or of a
+/// doubt on its own line.
 class _ReviewLine extends StatelessWidget {
   const _ReviewLine(this.review);
 
@@ -167,7 +168,9 @@ class _ReviewLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final line = CurationWords.review(review);
-    final reason = review.decision == ReviewDecision.reject
+    final reason =
+        review.decision == ReviewDecision.reject ||
+            review.decision == ReviewDecision.doubt
         ? review.reason?.trim()
         : null;
     final hasReason = reason != null && reason.isNotEmpty;

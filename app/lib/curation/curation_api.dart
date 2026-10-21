@@ -88,15 +88,25 @@ class CurationApi {
     await _json('GET', '/v1/curation/videos/${_id(id)}'),
   );
 
-  /// Approves; the video's state after the review.
+  /// Approves with every answer of the checklist [version]; the video's
+  /// state after the review. A doubt, or an answer that asks for the team,
+  /// holds the video instead, with [note].
+  /// Refused with `checklist_outdated`, `checklist_refuses`,
+  /// `checklist_band`, `checklist_invalid_reason` or `conflict_of_interest`.
   Future<VideoState> approve(
     String id, {
     required VideoTheme theme,
     required AgeBand minAgeBand,
+    required String version,
+    required Map<String, ChecklistAnswer> answers,
+    String? note,
   }) => _review(id, {
     'decision': 'approve',
     'theme': theme.wire,
     'min_age_band': minAgeBand.wire,
+    'checklist_version': version,
+    'answers': {for (final e in answers.entries) e.key: e.value.wire},
+    'note': ?note,
   });
 
   /// Rejects with a reason of 1 to 500 characters; the video is held.

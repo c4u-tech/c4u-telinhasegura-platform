@@ -113,6 +113,9 @@ void main() {
       'v1',
       theme: VideoTheme.bichos,
       minAgeBand: AgeBand.from5To8,
+      version: '2026-10-20',
+      answers: {'c01': ChecklistAnswer.ok, 'c04': ChecklistAnswer.doubt},
+      note: 'Não sei.',
     );
     await api.reject('v1', 'Muito barulhento');
     expect(t.calls, [
@@ -122,7 +125,7 @@ void main() {
       'GET /v1/curation/queue',
       'GET /v1/curation/queue?offset=50',
       'GET /v1/curation/videos/v1',
-      'POST /v1/curation/videos/v1/reviews {"decision":"approve","theme":"bichos","min_age_band":"5-8"}',
+      'POST /v1/curation/videos/v1/reviews {"decision":"approve","theme":"bichos","min_age_band":"5-8","checklist_version":"2026-10-20","answers":{"c01":"ok","c04":"doubt"},"note":"Não sei."}',
       'POST /v1/curation/videos/v1/reviews {"decision":"reject","reason":"Muito barulhento"}',
     ]);
   });
@@ -170,6 +173,8 @@ void main() {
         'v1',
         theme: VideoTheme.bichos,
         minAgeBand: AgeBand.from5To8,
+        version: '2026-10-20',
+        answers: const {},
       ),
       VideoState.approved,
     );
