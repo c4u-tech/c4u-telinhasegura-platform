@@ -36,7 +36,9 @@ const startQuestions = 'Começar as perguntas';
 const nextStep = 'Próxima etapa';
 const chooseTopic = 'Escolher tema e idade';
 
-/// The theme and band's primary: it leads to the summary, not a step.
+/// The primary of a page that leads to the review: the theme and band, the
+/// last step when the answers do not approve, and a page changed from the
+/// review.
 const seeSummary = 'Ver resumo';
 
 /// The flow's title on every page, whatever the answers lead to.
@@ -410,7 +412,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         ),
       ] else
         ..._foot(
-          label: startQuestions,
+          // Changed from the review, it goes back to the summary.
+          label: d.nextIsReview ? seeSummary : startQuestions,
           onPressed: d.canGoOn ? _forward : null,
           hint: stepHint,
         ),
@@ -453,7 +456,11 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       const SizedBox(height: Space.xl),
       ..._questions(d, g),
       ..._foot(
-        label: d.nextIsTopic ? chooseTopic : nextStep,
+        label: d.nextIsTopic
+            ? chooseTopic
+            : d.nextIsReview
+            ? seeSummary
+            : nextStep,
         onPressed: d.canGoOn ? _forward : null,
         hint: stepHint,
       ),

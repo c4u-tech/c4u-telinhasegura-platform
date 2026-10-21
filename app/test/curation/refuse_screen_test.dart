@@ -114,6 +114,7 @@ void main() {
     expect(primary(tester).label, 'Recusar');
     expect(primary(tester).onPressed, isNull);
     expect(find.text(refuseHint), findsOneWidget);
+    expect(refuseHint, 'Marque acima pelo menos uma coisa que acontece.');
 
     await tick(tester, 'Alguém bate de propósito?');
     expect(primary(tester).onPressed, isNotNull);

@@ -130,6 +130,9 @@ class ApprovalDraft {
   /// Whether going on opens the theme and band.
   bool get nextIsTopic => _next == topicPage;
 
+  /// Whether going on opens the review.
+  bool get nextIsReview => _next == reviewPage;
+
   void forward() {
     _page = _next;
     _returning = false;

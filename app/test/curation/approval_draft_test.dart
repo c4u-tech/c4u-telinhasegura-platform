@@ -247,6 +247,21 @@ void main() {
     expect(d.page, d.stepCount, reason: 'no longer returning');
   });
 
+  test('says when going on opens the review', () {
+    final d = ApprovalDraft(list);
+    expect(d.nextIsReview, isFalse);
+    final team = atLastStep()..answer(item('c07'), ChecklistAnswer.doubt);
+    expect(team.nextIsReview, isTrue);
+    final refuse = atLastStep()..answer(item('c23'), ChecklistAnswer.appears);
+    expect(refuse.nextIsReview, isTrue);
+    final approve = atLastStep();
+    expect(approve.nextIsReview, isFalse, reason: 'the theme and band first');
+    team
+      ..forward()
+      ..change(1);
+    expect(team.nextIsReview, isTrue, reason: 'changed from the review');
+  });
+
   test('a fast pace takes back "2 a 4 anos" and keeps any other band', () {
     final d = atLastStep()..band = AgeBand.upTo4;
     d.answer(item('c22'), ChecklistAnswer.appears);

@@ -501,8 +501,12 @@ void main() {
       expect(find.text('Etapa 5 de 5'), findsOneWidget);
       await noneOfThis(tester);
       expect(primary(tester).label, chooseTopic);
+      // Leading to the summary, not to another step.
+      await answer(tester, 'Falta começo, meio ou fim?', 'Sim');
+      expect(primary(tester).label, seeSummary);
+      await answer(tester, 'Falta começo, meio ou fim?', 'Não');
       await answer(tester, others, 'Sim');
-      expect(primary(tester).label, nextStep);
+      expect(primary(tester).label, seeSummary);
       await tapPrimary(tester);
 
       expect(find.text(reviewTitle), findsOneWidget);
@@ -729,6 +733,7 @@ void main() {
 
       await tapOn(tester, change('Linguagem e respeito'));
       expect(find.text('Etapa 2 de 5'), findsOneWidget);
+      expect(primary(tester).label, seeSummary);
       await tapPrimary(tester);
       expect(find.text(reviewTitle), findsOneWidget);
 
@@ -753,6 +758,7 @@ void main() {
 
       await tapOn(tester, change('Antes de começar'));
       expect(find.text(checkedByApp), findsOneWidget);
+      expect(primary(tester).label, seeSummary);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 

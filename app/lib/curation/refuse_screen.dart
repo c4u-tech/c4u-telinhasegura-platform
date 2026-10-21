@@ -27,7 +27,7 @@ const refuseItemsLead =
     'Marque o que acontece no vídeo. Só recusamos pelos critérios publicados.';
 
 /// Under the primary while nothing is ticked.
-const refuseHint = 'Marque acima pelo menos uma coisa que aparece.';
+const refuseHint = 'Marque acima pelo menos uma coisa que acontece.';
 
 /// The done state's notice.
 const refused = 'Sua recusa foi registrada.';
