@@ -42,7 +42,7 @@ class PlayerStrayed extends PlayerEvent {
 }
 
 /// Opens one embedded player per screen. The app's seam over the YouTube
-/// embed, so widget tests run without a WebView (Player seam).
+/// embed, so widget tests run without a WebView.
 abstract interface class KidPlayer {
   /// A player for [youtubeId] that starts on its own: the child's tap on
   /// the thumbnail was the choice.

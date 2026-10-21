@@ -17,7 +17,7 @@ func (a *api) heldBy(admin mobileTokens, youtubeID string) string {
 	cur := a.curator(admin, "c-"+strings.ToLower(youtubeID)+"@example.com", "mae-pai")
 	v := a.suggest(a.familyOwner("g-"+strings.ToLower(youtubeID)+"@example.com"), youtubeID)
 	r := a.do(http.MethodPost, "/v1/curation/videos/"+v.ID+"/reviews",
-		map[string]string{"decision": "reject", "reason": "Tem propaganda no meio."}, bearer(cur)...)
+		rejection("Tem propaganda no meio.", "c15"), bearer(cur)...)
 	if r.Code != http.StatusCreated || !strings.Contains(r.Body.String(), `"video_state":"held"`) {
 		a.t.Fatalf("rejection: %d %s", r.Code, r.Body)
 	}
@@ -46,6 +46,9 @@ func TestModerationOverHTTP(t *testing.T) {
 	held := a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...)
 	if held.Code != http.StatusOK || !strings.Contains(held.Body.String(), v) {
 		t.Fatalf("moderator: %d %s", held.Code, held.Body)
+	}
+	if strings.Contains(held.Body.String(), `"audit"`) {
+		t.Fatalf("a video held by a refusal carries an audit: %s", held.Body)
 	}
 	if got := a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(admin)...); got.Code != http.StatusOK || got.Body.String() != held.Body.String() {
 		t.Fatalf("admin: %d %s, want %s", got.Code, got.Body, held.Body)

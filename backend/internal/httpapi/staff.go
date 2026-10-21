@@ -21,7 +21,7 @@ type staffMemberOut struct {
 }
 
 // staffMemberBody writes a curator's displayed role and flag on its own
-// entry only, and roles as [] once none is left (Contract).
+// entry only, and roles as [] once none is left, never null.
 func staffMemberBody(m staff.Member) staffMemberOut {
 	out := staffMemberOut{AccountID: m.AccountID, Email: m.Email, Roles: make([]heldRoleOut, 0, len(m.Roles))}
 	for _, h := range m.Roles {

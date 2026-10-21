@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'tokens.dart';
 
 /// The Espiadinha's head and fingers, drawn from the mark's 64-unit
-/// geometry (Construction) above the edge of the
+/// geometry above the edge of the
 /// ink field, which is its screen. The strip spans mark y 5 (head top) to
 /// y 27 (screen top): 64 × 22 units.
 ///

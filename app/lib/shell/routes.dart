@@ -1,6 +1,6 @@
 import '../auth/auth_api.dart' show PlatformRole;
 
-/// The app's routes (access-screens and family-screens specs, Routes).
+/// The app's routes.
 /// `/verificar-email`, `/esqueci-a-senha`, `/redefinir-senha` and
 /// `/convite` are fixed by the backend's mail
 /// (backend/internal/identity/service.go, account.go, messages.go; the
@@ -27,12 +27,11 @@ abstract final class Routes {
   static const invitations = '/familia/convites';
   static const deleteFamily = '/familia/excluir';
 
-  /// The children's screen time, then each child's hub and its errands
-  /// (screen-time screens, Routes).
+  /// The children's screen time, then each child's hub and its errands.
   static const screenTime = '/familia/tempo';
 
   /// What each child can watch, then one child's catalogue, one video
-  /// and its report (family catalogue screens, Routes).
+  /// and its report.
   static const familyVideos = '/familia/videos';
   static const acceptInvitation = '/convite';
 
@@ -53,29 +52,29 @@ abstract final class Routes {
   static const kidPack = '/crianca/pacotinho';
   static const redeem = '/vincular-aparelho';
 
-  /// The curation screens (curation screens, Routes): suggestions for
+  /// The curation screens: suggestions for
   /// every guardian, the queue for curators, administration for admins.
   static const suggestions = '/sugestoes';
   static const newSuggestion = '/sugestoes/nova';
   static const curation = '/curadoria';
   static const admin = '/admin';
 
-  /// The team (staff screens, Routes): who holds which platform role,
+  /// The team: who holds which platform role,
   /// appointing someone, and one member's sheet, for an admin.
   static const team = '/admin/equipe';
   static const appoint = '/admin/equipe/nova';
 
-  /// The account directory (account directory screens, Routes): one
+  /// The account directory: one
   /// account's reasoned search, and the staff audit log, for an admin.
   static const accounts = '/admin/contas';
   static const audit = '/admin/auditoria';
 
-  /// The moderation screens (staff screens, Routes): the held videos,
+  /// The moderation screens: the held videos,
   /// for a moderator or an admin.
   static const moderation = '/moderacao';
   static const heldVideos = '/moderacao/retidos';
 
-  /// The pacotinhos' curation (pacotinho curation screens, Routes):
+  /// The pacotinhos' curation:
   /// composing and reviewing for curators, removal for admins.
   static const packs = '/pacotinhos';
   static const newPack = '/pacotinhos/novo';
@@ -89,7 +88,7 @@ abstract final class Routes {
   static const accountData = '/conta/dados';
   static const accountDelete = '/conta/excluir';
 
-  /// The second factor of a platform role holder (MFA screens, Routes):
+  /// The second factor of a platform role holder:
   /// its status and new recovery codes, then its enrollment.
   static const accountMfa = '/conta/verificacao';
   static const accountMfaEnroll = '/conta/verificacao/ativar';

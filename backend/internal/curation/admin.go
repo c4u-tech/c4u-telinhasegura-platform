@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/staff"
@@ -12,12 +13,22 @@ import (
 )
 
 // HeldVideo is a held video with its held round's rejections and
-// why it is held.
+// doubts, and why it is held.
 type HeldVideo struct {
 	Video      Video
 	Rejections []Review
+	Doubts     []Review      // the held round's doubts, with their answers and notes
 	Reports    ReportSummary // since the latest reopen
-	HeldReason string        // HeldByReview, HeldByReports or HeldByUnavailable
+	HeldReason string        // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
+	Audit      *HeldAudit    // the audit that held the video; nil unless HeldByAudit
+}
+
+// HeldAudit is the audit of the published round that held a video, so
+// moderators see why it disagreed. It never names the auditor.
+type HeldAudit struct {
+	Verdict   Verdict
+	Reason    string
+	AuditedAt time.Time
 }
 
 // HeldVideos lists the held videos, the longest held first, each with
@@ -40,11 +51,37 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 		if out[i].Rejections, err = reviewsOf(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round, Reject); err != nil {
 			return nil, err
 		}
+		if out[i].Doubts, err = reviewsOf(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round, Doubt); err != nil {
+			return nil, err
+		}
 		if out[i].Reports, err = reportsOf(ctx, s.d.Pool, out[i].Video.ID); err != nil {
 			return nil, err
 		}
+		if out[i].HeldReason == HeldByAudit {
+			if out[i].Audit, err = heldAudit(ctx, s.d.Pool, out[i].Video.ID); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return out, nil
+}
+
+// heldAudit reads the audit of the round that last published the video:
+// the one an audit hold is about.
+func heldAudit(ctx context.Context, q querier, videoID string) (*HeldAudit, error) {
+	var a HeldAudit
+	var verdict string
+	err := q.QueryRow(ctx, `SELECT a.verdict, coalesce(a.reason, ''), a.audited_at FROM approval_audits a
+		JOIN videos v ON v.id = a.video_id AND a.round = v.published_round WHERE a.video_id = $1::uuid`, videoID).
+		Scan(&verdict, &a.Reason, &a.AuditedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	a.Verdict = Verdict(verdict)
+	return &a, nil
 }
 
 // Moderation is who moderates a video, under which platform role, and

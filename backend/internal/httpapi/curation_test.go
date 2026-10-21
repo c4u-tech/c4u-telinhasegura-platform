@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation/curationtest"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 )
@@ -57,9 +58,29 @@ func (a *api) suggest(tok mobileTokens, id string) videoResp {
 	return decodeVideo(a.t, r)
 }
 
-func approval(theme, band string) map[string]string {
-	return map[string]string{"decision": "approve", "theme": theme, "min_age_band": band}
+// cleanAnswers answers every question of the current list with "ok".
+func cleanAnswers() map[string]string {
+	out := map[string]string{}
+	for _, g := range curation.Checklist() {
+		for _, it := range g.Items {
+			out[it.ID] = string(curation.AnswerOK)
+		}
+	}
+	return out
 }
+
+func approval(theme, band string) map[string]any {
+	return map[string]any{"decision": "approve", "theme": theme, "min_age_band": band,
+		"checklist_version": curation.ChecklistVersion, "answers": cleanAnswers()}
+}
+
+// rejection refuses for items, with note.
+func rejection(note string, items ...string) map[string]any {
+	return map[string]any{"decision": "reject", "checklist_version": curation.ChecklistVersion,
+		"failed_items": items, "note": note}
+}
+
+const c15 = "Pede para comprar, pedir aos pais, comentar para ganhar ou diz preço e loja?"
 
 func TestSuggestOverHTTP(t *testing.T) {
 	a := newAPI(t)
@@ -248,7 +269,7 @@ func TestHeldVideosOverHTTP(t *testing.T) {
 	v := a.suggest(gui, ytID)
 	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
 	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...)
-	r := a.do(http.MethodPost, reviews, map[string]string{"decision": "reject", "reason": "Tem propaganda no meio."}, bearer(c2)...)
+	r := a.do(http.MethodPost, reviews, rejection("Tem propaganda no meio.", "c15"), bearer(c2)...)
 	if r.Code != http.StatusCreated || !strings.Contains(r.Body.String(), `"video_state":"held"`) {
 		t.Fatalf("rejection: %d %s", r.Code, r.Body)
 	}
@@ -264,7 +285,7 @@ func TestHeldVideosOverHTTP(t *testing.T) {
 	}
 	_ = json.Unmarshal(a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(admin)...).Body.Bytes(), &held)
 	if len(held.Videos) != 1 || held.Videos[0].Video.ID != v.ID || len(held.Videos[0].Rejections) != 1 ||
-		held.Videos[0].Rejections[0].DisplayRole != "cuidador" || held.Videos[0].Rejections[0].Reason != "Tem propaganda no meio." {
+		held.Videos[0].Rejections[0].DisplayRole != "cuidador" || held.Videos[0].Rejections[0].Reason != c15+"\nTem propaganda no meio." {
 		t.Fatalf("held %+v", held)
 	}
 
@@ -303,7 +324,7 @@ func TestCurationAuditCarriesIDsOnly(t *testing.T) {
 	a.do(http.MethodPost, "/v1/curation/videos/"+published.ID+"/reviews", approval("bichos", "5-8"), bearer(c1)...)
 	a.do(http.MethodPost, "/v1/curation/videos/"+published.ID+"/reviews", approval("bichos", "5-8"), bearer(c2)...)
 	held := a.suggest(gui, "bbbbbbbbbbb")
-	a.do(http.MethodPost, "/v1/curation/videos/"+held.ID+"/reviews", map[string]string{"decision": "reject", "reason": "Não."}, bearer(c1)...)
+	a.do(http.MethodPost, "/v1/curation/videos/"+held.ID+"/reviews", rejection("Não.", "c04"), bearer(c1)...)
 	why := map[string]any{"reason": "Motivo válido."}
 	a.do(http.MethodPost, "/v1/moderation/videos/"+held.ID+"/remove", why, bearer(admin)...)
 	a.do(http.MethodPost, "/v1/moderation/videos/"+held.ID+"/reopen", why, bearer(admin)...)

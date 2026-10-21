@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'export_delivery.dart';
 
 // The only file that imports share_plus: guardian area, never kid mode,
-// which allows no third-party SDK (account-privacy-screens Security).
+// which allows no third-party SDK, so a child's screen never loads one.
 
 /// The share sheet's request: the bytes as an in-memory file, named and
 /// typed, opened from [origin].

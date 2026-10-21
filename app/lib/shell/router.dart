@@ -312,7 +312,7 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           ),
         ],
       ),
-      // The curation areas (curation screens, Routes); each lands its own
+      // The curation areas; each lands its own
       // screen and sub-routes.
       GoRoute(
         path: Routes.suggestions,

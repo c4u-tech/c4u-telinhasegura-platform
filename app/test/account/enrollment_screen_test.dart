@@ -80,7 +80,7 @@ void main() {
   });
 
   testWidgets('without a platform role, it returns to /conta and asks for '
-      'no key (MFA screens, Routes)', (tester) async {
+      'no key', (tester) async {
     final h = Harness(signedIn: true, api: mfaApi())..family = ownerFamily;
     await h.pump(tester, initial: '/conta/verificacao/ativar');
 
