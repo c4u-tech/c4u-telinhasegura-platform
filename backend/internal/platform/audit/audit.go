@@ -57,6 +57,7 @@ const (
 	CuratorAppointed            Event = "curator_appointed"
 	CuratorUpdated              Event = "curator_updated"
 	CuratorRemoved              Event = "curator_removed"
+	CuratorTermsAccepted        Event = "curator_terms_accepted"
 	ModeratorAppointed          Event = "moderator_appointed"
 	ModeratorRemoved            Event = "moderator_removed"
 	VideoPublished              Event = "video_published"

@@ -130,6 +130,8 @@ var curationProblems = []struct {
 }{
 	{curation.ErrValidation, http.StatusUnprocessableEntity, "validation"},
 	{curation.ErrNotFound, http.StatusNotFound, "not_found"},
+	{curation.ErrDeclarationRequired, http.StatusForbidden, "declaration_required"},
+	{curation.ErrDeclarationOutdated, http.StatusConflict, "declaration_outdated"},
 	{curation.ErrInvalidLink, http.StatusUnprocessableEntity, "invalid_link"},
 	{curation.ErrSourceUnavailable, http.StatusServiceUnavailable, "video_source_unavailable"},
 	{curation.ErrNotReviewable, http.StatusConflict, "not_reviewable"},

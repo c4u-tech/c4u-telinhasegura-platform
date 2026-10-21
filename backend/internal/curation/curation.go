@@ -77,6 +77,8 @@ var (
 	ErrChecklistRefuses       = errors.New("curation: an answer refuses the video")
 	ErrChecklistBand          = errors.New("curation: the pace answered rules out the youngest band")
 	ErrChecklistInvalidReason = errors.New("curation: a difference of family, faith, colour or disability is no reason to refuse")
+	ErrDeclarationRequired    = errors.New("curation: the curator has not accepted the current curator terms")
+	ErrDeclarationOutdated    = errors.New("curation: the curator terms version is not the current one")
 	ErrConflictOfInterest     = errors.New("curation: the curator has a tie to the channel")
 
 	ErrThumbnailUnavailable = errors.New("curation: the thumbnail could not be fetched")
