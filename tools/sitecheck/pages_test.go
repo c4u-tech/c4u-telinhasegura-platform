@@ -228,7 +228,8 @@ func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
 			"ligado à conta excluída e em sigilo", "o registro de acesso da sua conta"},
 		"/termos": {"pelo menos duas pessoas", "15 dias", "30 dias de antecedência",
 			"Termos de Serviço do YouTube", "abuso", "classificação indicativa Livre", Address,
-			"escolhe e supervisiona quem faz a curadoria"},
+			"escolhe e supervisiona quem faz a curadoria",
+			"não tem compras nem anúncios próprios", "player do YouTube, que pode exibir anúncios do próprio YouTube"},
 		"/suporte":       {ReportEmail, "mesmo sem conta", "anônim", "Disque 100", "190"},
 		"/excluir-conta": {"37 dias", "15 dias"},
 		"/":              {"pelo menos duas pessoas"},
@@ -254,7 +255,7 @@ func TestLegalPagesCarryTheRequiredNotices(t *testing.T) {
 	}
 	// A report hides a video from the reporting family at once; it leaves
 	// everyone's screen only when several families report it.
-	stale := regexp.MustCompile(`volta para (a comunidade )?revis|em até 29 dias|O modo criança não tem anúncios|encarregad|[Aa]té 4 anos|\(até 4,|IP não fica gravado`)
+	stale := regexp.MustCompile(`volta para (a comunidade )?revis|em até 29 dias|O modo criança não tem anúncios|não tem anúncios nem compras|Grátis e sem anúncios\.|encarregad|[Aa]té 4 anos|\(até 4,|IP não fica gravado`)
 	for path, p := range pages {
 		if m := stale.FindString(p.Text); m != "" {
 			t.Errorf("%s still says %q, which no longer matches the service", path, m)
