@@ -25,7 +25,7 @@ const beforeTheList = 'Aprovado antes da lista de perguntas';
 
 /// Back on the sample.
 const auditGone = 'Essa aprovação já foi conferida.';
-const auditOwn = 'Você revisou esse vídeo e não pode conferi-lo.';
+const auditOwn = 'Você revisou esse vídeo e não pode conferi\u2011lo.';
 const auditChanged = 'Esse vídeo mudou desde a amostra.';
 String agreedWith(String title) =>
     'Você concordou com a aprovação de “$title”.';
