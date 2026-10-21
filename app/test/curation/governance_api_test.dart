@@ -110,7 +110,11 @@ void main() {
       'Tenho dúvida: Ritmo calmo?',
     ]);
     expect(CurationWords.marked(Review.fromJson(rejectionJson), list), isEmpty);
-    expect(CurationWords.review(doubt), endsWith('teve dúvida'));
+    expect(
+      CurationWords.review(doubt),
+      'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5 a 8 anos',
+      reason: 'a doubt names the theme and band its curator chose',
+    );
     final c01 = list.item('c01')!;
     expect(ChecklistAnswer.appears.label(c01), 'Não');
     expect(ChecklistAnswer.ok.label(c01), 'Sim');

@@ -16,7 +16,7 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
 import 'curation.dart';
-import 'held_video_screen.dart' show heldGone;
+import 'held_video_screen.dart' show doubtsHeading, heldGone;
 import 'role_gate.dart';
 import 'video_heading.dart';
 import 'words.dart';
@@ -74,8 +74,11 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
     _write = staffWrite(context);
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
-    _held = widget.held;
-    if (_held == null) scheduleMicrotask(_read);
+    if (widget.held case final held?) {
+      _take(held);
+    } else {
+      scheduleMicrotask(_read);
+    }
   }
 
   @override
@@ -95,7 +98,7 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       if (held == null || held.heldReason != HeldReason.doubt) {
         return context.go(Routes.heldVideos, extra: heldGone);
       }
-      setState(() => _held = held);
+      setState(() => _take(held));
     } on Object catch (e) {
       if (!mounted ||
           takeLostRole(context, e) ||
@@ -104,6 +107,20 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       }
       setState(() => _failed = true);
     }
+  }
+
+  /// The held video, and the theme and band a doubting curator chose as
+  /// the starting choice: the moderator confirms or changes them.
+  void _take(HeldVideo held) {
+    _held = held;
+    _theme ??= held.doubts
+        .map((d) => d.theme)
+        .where((t) => t != null && t != VideoTheme.unknown)
+        .firstOrNull;
+    _band ??= held.doubts
+        .map((d) => d.minAgeBand)
+        .where((b) => b != null && b != AgeBand.unknown)
+        .firstOrNull;
   }
 
   bool _handle(ApiError e) {
@@ -166,6 +183,19 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       VideoHeading(held.video),
       const SizedBox(height: Space.xl),
       Text(publishLead, style: text.bodyLarge),
+      if (held.doubts.isNotEmpty) ...[
+        const SizedBox(height: Space.xl),
+        Semantics(
+          header: true,
+          child: Text(doubtsHeading, style: text.titleMedium),
+        ),
+        const SizedBox(height: Space.sm),
+        for (final d in held.doubts)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.xs),
+            child: Text(CurationWords.review(d), style: text.bodyLarge),
+          ),
+      ],
       const SizedBox(height: Space.xl),
       Text('Tema', style: text.titleMedium),
       const SizedBox(height: Space.md),

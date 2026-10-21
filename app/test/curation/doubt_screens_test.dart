@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
+import 'package:telinha_segura/curation/audit_video_screen.dart'
+    show marksFailed;
 import 'package:telinha_segura/curation/held_video_screen.dart';
 import 'package:telinha_segura/curation/publish_doubt_screen.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
@@ -27,11 +29,16 @@ Future<Harness> doubtHeld(
   WidgetTester tester, {
   String initial = '/moderacao/retidos/v1',
   FutureOr<http.Response> Function(http.Request)? settle,
+  FutureOr<http.Response> Function()? checklist,
 }) async {
   final h =
       Harness(
           signedIn: true,
-          api: adminApi(held: () => heldList([doubted]), settle: settle),
+          api: adminApi(
+            held: () => heldList([doubted]),
+            settle: settle,
+            checklist: checklist,
+          ),
         )
         ..family = ownerFamily
         ..roles = ['admin'];
@@ -51,7 +58,8 @@ void main() {
     expect(find.text('Retido por dúvida da curadoria'), findsOneWidget);
     expect(find.text(doubtsHeading), findsOneWidget);
     for (final line in [
-      'Mãe ou pai: Não sei se a tristeza pesa.',
+      nb('Mãe ou pai teve dúvida · Bichos · 5 a 8 anos'),
+      '“Não sei se a tristeza pesa.”',
       'Aparece: Algum personagem fica triste?',
       'Tenho dúvida: Ritmo calmo?',
     ]) {
@@ -60,6 +68,64 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Publicar'), findsOneWidget);
     expect(find.widgetWithText(QuietAction, 'Remover de vez'), findsOneWidget);
     expect(find.text('Reabrir para revisão'), findsNothing);
+  });
+
+  testWidgets('a failed read of the questions still shows the doubt, says '
+      'the answers could not be read and retries them', (tester) async {
+    var reads = 0;
+    await doubtHeld(
+      tester,
+      checklist: () =>
+          ++reads == 1 ? problem(503, 'unavailable') : json(200, checklistJson),
+    );
+
+    expect(find.text('Retido por dúvida da curadoria'), findsOneWidget);
+    expect(
+      find.text(nb('Mãe ou pai teve dúvida · Bichos · 5 a 8 anos')),
+      findsOneWidget,
+    );
+    expect(find.text(marksFailed), findsOneWidget);
+    expect(find.text('Aparece: Algum personagem fica triste?'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Publicar'), findsOneWidget);
+
+    await tapOn(tester, find.widgetWithText(QuietAction, 'Tentar de novo'));
+
+    expect(reads, 2);
+    expect(find.text(marksFailed), findsNothing);
+    expect(find.text('Aparece: Algum personagem fica triste?'), findsOneWidget);
+  });
+
+  testWidgets('"Publicar" shows the doubts and starts from the theme and '
+      'band the curator chose', (tester) async {
+    await doubtHeld(tester);
+
+    await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
+
+    expect(
+      find.text(nb('Mãe ou pai teve dúvida · Bichos · 5 a 8 anos')),
+      findsOneWidget,
+    );
+    expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Motivo'),
+      'Sem risco no vídeo.',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Publicar'))
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('"Publicar" opened directly starts from the curator\'s choice '
+      'too', (tester) async {
+    await doubtHeld(tester, initial: '/moderacao/retidos/v1/publicar');
+
+    expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
   });
 
   testWidgets('"Publicar" asks a theme, a band and a reason, publishes once '

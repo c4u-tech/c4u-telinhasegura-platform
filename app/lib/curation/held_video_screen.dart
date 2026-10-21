@@ -15,6 +15,7 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
 import 'adult_window.dart';
+import 'audit_video_screen.dart' show marksFailed;
 import 'curation.dart';
 import 'role_gate.dart';
 import 'video_heading.dart';
@@ -84,6 +85,7 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
   bool _failed = false;
   HeldVideo? _held;
   Checklist? _checklist;
+  bool _marksFailed = false;
 
   /// The write running is the removal, whose action shows the progress.
   bool _removing = false;
@@ -114,14 +116,9 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
       if (!mounted) return;
       final held = all.where((h) => h.video.id == widget.id).firstOrNull;
       if (held == null) return _leave(heldGone);
-      // A doubt's marks are worded with the list the server holds.
-      if (held.heldReason == HeldReason.doubt) {
-        final list = await scope.curation.checklist();
-        if (!mounted) return;
-        _checklist = list;
-      }
       setState(() => _held = held);
       openPlayer(held.video.youtubeId);
+      if (held.heldReason == HeldReason.doubt) unawaited(_readMarks());
     } on Object catch (e) {
       if (!mounted ||
           takeLostRole(context, e) ||
@@ -129,6 +126,20 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         return;
       }
       setState(() => _failed = true);
+    }
+  }
+
+  /// A doubt's marks are worded with the list the server holds. Without
+  /// it the doubts still show, by role, with their theme, band and note.
+  Future<void> _readMarks() async {
+    if (!mounted) return;
+    setState(() => _marksFailed = false);
+    try {
+      final list = await AppScope.of(context).curation.checklist();
+      if (mounted) setState(() => _checklist = list);
+    } on Object catch (e) {
+      if (!mounted || takeLostRole(context, e)) return;
+      setState(() => _marksFailed = true);
     }
   }
 
@@ -258,13 +269,24 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         ..._section('Recusas', [
           for (final r in held.rejections) CurationWords.rejection(r),
         ]),
-      if (held.doubts.isNotEmpty)
+      if (held.doubts.isNotEmpty) ...[
         ..._section(doubtsHeading, [
           for (final d in held.doubts) ...[
-            CurationWords.rejection(d),
+            CurationWords.review(d),
+            if (d.reason?.trim() case final note? when note.isNotEmpty)
+              '“$note”',
             if (_checklist case final list?) ...CurationWords.marked(d, list),
           ],
         ]),
+        if (_marksFailed) ...[
+          const SizedBox(height: Space.md),
+          Semantics(
+            liveRegion: true,
+            child: Text(marksFailed, style: text.bodyLarge),
+          ),
+          QuietAction(label: 'Tentar de novo', onPressed: _readMarks),
+        ],
+      ],
       if (held.audit case final audit?) ...[
         const SizedBox(height: Space.sm),
         Text(auditLine(audit), style: text.bodyLarge),

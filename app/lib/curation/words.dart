@@ -160,8 +160,9 @@ abstract final class CurationWords {
   }
 
   /// One review of the round, by displayed role: "Pedagogo(a)
-  /// aprovou · Bichos · 5 a 8 anos", "Mãe ou pai recusou". A refusal's
-  /// reason is its own line.
+  /// aprovou · Bichos · 5 a 8 anos", "Mãe ou pai recusou", "Educador(a)
+  /// teve dúvida · Música · 2 a 4 anos". A refusal's or a doubt's reason is
+  /// its own line.
   static String review(Review r) {
     final who = r.displayRole.label;
     return switch (r.decision) {
@@ -171,7 +172,11 @@ abstract final class CurationWords {
         ?r.minAgeBand?.label,
       ].join(dot),
       ReviewDecision.reject => '$who recusou',
-      ReviewDecision.doubt => '$who teve dúvida',
+      ReviewDecision.doubt => [
+        '$who teve dúvida',
+        ?r.theme?.label,
+        ?r.minAgeBand?.label,
+      ].join(dot),
       ReviewDecision.unknown => '$who revisou',
     };
   }
