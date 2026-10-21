@@ -147,4 +147,86 @@ void main() {
 
     expect(h.location(tester), '/curadoria');
   });
+
+  for (final bad in ['%2F%2Fexample.com', '%2Fadmin']) {
+    testWidgets('accepted terms never return to $bad', (tester) async {
+      final h = Harness(signedIn: true, api: curatorApi())
+        ..family = ownerFamily
+        ..roles = ['curator'];
+      await h.pump(tester, initial: '/curadoria/termo?depois=$bad');
+
+      expect(h.location(tester), '/curadoria');
+    });
+  }
+
+  testWidgets('"Aceito" never returns outside the curation', (tester) async {
+    final h = await awaitingTerms(
+      tester,
+      initial: '/curadoria/termo?depois=%2Fadmin',
+    );
+    await agree(tester);
+
+    expect(h.location(tester), '/curadoria');
+  });
+
+  testWidgets('the pacotinhos without the terms come back to the pacotinhos', (
+    tester,
+  ) async {
+    var declared = false;
+    final curator = curatorApi(
+      declaration: () => json(200, termsJson()),
+      accept: (_) {
+        declared = true;
+        return json(200, termsJson(accepted: true));
+      },
+    );
+    final packs = packApi(
+      list: (_) =>
+          declared ? packPage([]) : problem(403, 'declaration_required'),
+    );
+    final h =
+        Harness(
+            signedIn: true,
+            api: (req) => req.url.path == '/v1/curation/declaration'
+                ? curator(req)
+                : packs(req),
+          )
+          ..family = ownerFamily
+          ..roles = ['curator'];
+    await h.pump(tester, initial: '/pacotinhos');
+
+    expect(h.location(tester), '/curadoria/termo?depois=%2Fpacotinhos');
+    await agree(tester);
+    expect(h.location(tester), '/pacotinhos');
+  });
+
+  testWidgets('declaration_required from the terms calls is a failure, not a '
+      'loop', (tester) async {
+    final read =
+        Harness(
+            signedIn: true,
+            api: curatorApi(
+              declaration: () => problem(403, 'declaration_required'),
+            ),
+          )
+          ..family = ownerFamily
+          ..roles = ['curator'];
+    await read.pump(tester, initial: '/curadoria/termo?depois=%2Fcuradoria');
+
+    expect(read.location(tester), '/curadoria/termo?depois=%2Fcuradoria');
+    expect(find.text('Tentar de novo'), findsOneWidget);
+  });
+
+  testWidgets('declaration_required on "Aceito" stays on the terms', (
+    tester,
+  ) async {
+    final h = await awaitingTerms(
+      tester,
+      accept: (_) => problem(403, 'declaration_required'),
+    );
+    await agree(tester);
+
+    expect(h.location(tester), startsWith('/curadoria/termo'));
+    expect(find.widgetWithText(FilledButton, curatorTermsAccept), findsOne);
+  });
 }

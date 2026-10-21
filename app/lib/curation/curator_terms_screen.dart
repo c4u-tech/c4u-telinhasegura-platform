@@ -56,6 +56,13 @@ class _CuratorTermsScreenState extends State<CuratorTermsScreen> {
     super.dispose();
   }
 
+  /// [takeLostRole] for anything but `declaration_required`: these very
+  /// calls answering it would send the screen to itself, so it is a plain
+  /// failure here.
+  bool _takeOther(Object e) =>
+      !(e is ApiError && e.code == 'declaration_required') &&
+      takeLostRole(context, e);
+
   Future<void> _read() async {
     if (!mounted) return;
     setState(() => _failed = false);
@@ -65,7 +72,7 @@ class _CuratorTermsScreenState extends State<CuratorTermsScreen> {
       if (terms.accepted) return context.go(widget.then);
       setState(() => _terms = terms);
     } on Object catch (e) {
-      if (!mounted || takeLostRole(context, e)) return;
+      if (!mounted || _takeOther(e)) return;
       setState(() => _failed = true);
     }
   }
@@ -75,7 +82,7 @@ class _CuratorTermsScreenState extends State<CuratorTermsScreen> {
     final ok = await _accept.run(
       () => api.acceptDeclaration(terms.version),
       handle: (ApiError e) {
-        if (takeLostRole(context, e)) return true;
+        if (_takeOther(e)) return true;
         // Terms changed while they were read: the new ones are shown.
         if (e.code == 'declaration_outdated') unawaited(_read());
         return false;
