@@ -283,7 +283,7 @@ func TestHelpPagesGiveTheirSteps(t *testing.T) {
 func TestJoinPageInvitesCurators(t *testing.T) {
 	p := mustPages(t)["/participe"]
 	for _, want := range []string{
-		"curador", CurationEmail, "voluntári", "não é remunerad", "código aberto",
+		"curador", CurationEmail, "voluntári", "não é remunerad", "código aberto", "termo do curador",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/participe does not say %q", want)
@@ -393,6 +393,8 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 		"pelo menos duas pessoas", "Quem sugere um vídeo não pode aprová-lo",
 		"A Coding4u, que faz o Telinha Segura, escolhe quem faz parte da curadoria",
 		"Não recusamos", "menos de 2 anos", "Denunciar este vídeo",
+		"a mesma lista de perguntas", "vão para a equipe da Coding4u", "confere aprovações por amostra",
+		"Ninguém da curadoria revisa vídeos do próprio canal",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/curadoria does not say %q", want)
