@@ -24,7 +24,7 @@ const guardianScreens = [
   '/',
   '/familia/criancas',
   '/familia/responsaveis',
-  // The screen-time screens (screen-time screens, Routes).
+  // The screen-time screens.
   '/familia/tempo',
   '/familia/tempo/m1',
   '/familia/tempo/m1/mais',
@@ -40,10 +40,10 @@ const guardianScreens = [
   '/conta/aparelhos',
   '/conta/dados',
   '/conta/excluir',
-  // The second factor, for a platform role holder (MFA screens, Routes).
+  // The second factor, for a platform role holder.
   '/conta/verificacao',
   '/conta/verificacao/ativar',
-  // The curation screens, with both roles (curation screens, Routes).
+  // The curation screens, with both roles.
   '/sugestoes',
   '/sugestoes/nova',
   '/curadoria',
@@ -56,8 +56,7 @@ const guardianScreens = [
   '/admin/equipe/a1',
   '/moderacao/retidos',
   '/moderacao/retidos/v1',
-  // A pacotinho on a child's catalogue (pacotinhos in the guardian's
-  // catalogue, Routes).
+  // A pacotinho on a child's catalogue, as a guardian sees it.
   '/familia/videos/m1/pacotinho/k1',
 ];
 const childScreens = [

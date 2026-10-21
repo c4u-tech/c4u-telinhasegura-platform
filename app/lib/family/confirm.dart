@@ -60,7 +60,7 @@ const reasonHint = 'Escreva acima um motivo de 3 a 200 caracteres.';
 
 /// Asks before a destructive family action. [title] and [body] name who
 /// it affects and what goes; [action] confirms. True once confirmed,
-/// false when cancelled (family-screens Security, destructive actions).
+/// false when cancelled: nothing destructive happens on a single tap.
 ///
 /// When [title] or [body] show an address with its break marks
 /// (`addressBreaks`), [titleSemanticsLabel] and [bodySemanticsLabels] are

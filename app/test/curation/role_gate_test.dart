@@ -22,7 +22,7 @@ Future<String> open(WidgetTester tester, Harness h, String path) async {
 }
 
 void main() {
-  group('the curation routes (curation screens, Routes)', () {
+  group('the curation routes', () {
     test('their paths', () {
       expect(Routes.suggestions, '/sugestoes');
       expect(Routes.newSuggestion, '/sugestoes/nova');

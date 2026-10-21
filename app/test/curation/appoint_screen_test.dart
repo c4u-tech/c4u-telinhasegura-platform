@@ -285,7 +285,7 @@ void main() {
   }
 
   testWidgets('reauth_required asks to confirm it is you, then retries once '
-      '(staff screens Security)', (tester) async {
+      'for a staff write', (tester) async {
     var confirmed = false;
     final h =
         Harness(
