@@ -44,7 +44,7 @@ func reject(note string) curation.ReviewInput {
 }
 
 // c04 is the question reject fails: the first line of its reason.
-const c04 = "Alguém bate, chuta, atira ou ataca de propósito, mesmo de mentirinha?"
+const c04 = "Alguém bate, chuta, atira ou ataca de propósito, mesmo de brincadeira?"
 
 // review records a review that must succeed, a minute after the clock,
 // and returns the video's state after it.

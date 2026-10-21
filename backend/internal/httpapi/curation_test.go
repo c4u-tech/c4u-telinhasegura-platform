@@ -80,7 +80,7 @@ func rejection(note string, items ...string) map[string]any {
 		"failed_items": items, "note": note}
 }
 
-const c15 = "Pede para comprar, pedir aos pais, comentar para ganhar ou diz preço e loja?"
+const c15 = "Pede para comprar, pedir aos pais, comentar para ganhar, ou diz preço e loja?"
 
 func TestSuggestOverHTTP(t *testing.T) {
 	a := newAPI(t)
