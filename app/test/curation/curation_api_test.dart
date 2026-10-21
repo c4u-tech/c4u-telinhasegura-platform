@@ -296,4 +296,17 @@ void main() {
   test('the app services build one CurationApi', () {
     expect(Harness().services.curation, isA<CurationApi>());
   });
+
+  test('a doubt is sent without a theme or a band', () async {
+    final t = build(ClientKind.mobile, contract);
+    await CurationApi(t.client).approve(
+      'v1',
+      version: '2026-10-21',
+      answers: {'c07': ChecklistAnswer.doubt},
+      note: 'Não sei.',
+    );
+    expect(t.calls, [
+      'POST /v1/curation/videos/v1/reviews {"decision":"approve","checklist_version":"2026-10-21","answers":{"c07":"doubt"},"note":"Não sei."}',
+    ]);
+  });
 }
