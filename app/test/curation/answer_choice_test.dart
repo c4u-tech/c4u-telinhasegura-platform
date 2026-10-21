@@ -83,6 +83,27 @@ void main() {
     expect(keyOf('Não sei'), findsNothing);
   });
 
+  testWidgets('in a narrow window at large text, the three keys stand level '
+      'at one height of 56 dp or more', (tester) async {
+    await pumpIn(
+      tester,
+      AnswerChoice(
+        question: question,
+        value: ChecklistAnswer.doubt,
+        onChanged: (_) {},
+      ),
+      size: const Size(320, 640),
+      textScale: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    final heights = {for (final w in words) tester.getSize(keyOf(w)).height};
+    expect(heights, hasLength(1), reason: 'equal heights');
+    expect(heights.single, greaterThanOrEqualTo(56));
+    final tops = {for (final w in words) tester.getTopLeft(keyOf(w)).dy};
+    expect(tops, hasLength(1), reason: 'one row');
+  });
+
   testWidgets('reads as a group named by its question, each answer a radio '
       'of it', (tester) async {
     final semantics = tester.ensureSemantics();

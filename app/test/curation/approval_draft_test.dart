@@ -230,6 +230,23 @@ void main() {
     expect(d.page, d.reviewPage);
   });
 
+  test('back from a step changed from the review whose answer now '
+      'approves goes on to the theme and band, then the review', () {
+    final d = atLastStep()
+      ..answer(item('c07'), ChecklistAnswer.appears)
+      ..forward()
+      ..change(1)
+      ..answer(item('c07'), ChecklistAnswer.ok);
+
+    expect(d.back(), isTrue);
+    expect(d.page, d.topicPage);
+    d
+      ..theme = VideoTheme.bichos
+      ..band = AgeBand.from9To12;
+    expect(d.back(), isTrue);
+    expect(d.page, d.stepCount, reason: 'no longer returning');
+  });
+
   test('a fast pace takes back "2 a 4 anos" and keeps any other band', () {
     final d = atLastStep()..band = AgeBand.upTo4;
     d.answer(item('c22'), ChecklistAnswer.appears);
