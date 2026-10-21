@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/httpapi"
 )
 
@@ -25,8 +26,18 @@ func (a *api) admin(email string) mobileTokens {
 }
 
 // curator has the admin appoint a new verified guardian with the given
-// displayed role, and signs them in.
+// displayed role, signs them in and accepts the curator terms for them.
 func (a *api) curator(admin mobileTokens, email, role string) mobileTokens {
+	a.t.Helper()
+	tok := a.undeclaredCurator(admin, email, role)
+	if r := a.do(http.MethodPost, "/v1/curation/declaration", map[string]string{"version": curation.CuratorTermsVersion}, bearer(tok)...); r.Code != http.StatusOK {
+		a.t.Fatalf("declare %s: %d %s", email, r.Code, r.Body)
+	}
+	return tok
+}
+
+// undeclaredCurator is curator before the curator terms are accepted.
+func (a *api) undeclaredCurator(admin mobileTokens, email, role string) mobileTokens {
 	a.t.Helper()
 	a.signUpVerified(email)
 	extra := map[string]any{"display_role": role, "verified_professional": role != "mae-pai" && role != "cuidador"}
@@ -70,7 +81,10 @@ func TestRoleRoutesCheckTheRoleOnEveryRequest(t *testing.T) {
 			}
 		}
 	}
-	if nc == 0 || na != 15 || nm != 3 || ns != 5 { // 7 team and pack routes, 6 directory routes, 2 suspension routes
+	// Admin: 7 team and pack routes, 6 directory routes, 2 suspension
+	// routes. Moderator: the held list, remove, reopen, decide a doubt, the
+	// audit sample and an audit. Staff: 5 MFA routes and the checklist.
+	if nc == 0 || na != 15 || nm != 6 || ns != 6 {
 		t.Fatalf("swept %d curator, %d admin, %d moderator and %d staff routes", nc, na, nm, ns)
 	}
 

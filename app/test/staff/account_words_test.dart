@@ -80,6 +80,8 @@ void main() {
             'mfa_reset',
             'account_suspended',
             'account_reinstated',
+            'video_doubt_decided',
+            'approval_audited',
           ])
             e: AccountWords.event(e),
         },
@@ -101,6 +103,8 @@ void main() {
           'mfa_reset': 'Verificação em duas etapas redefinida',
           'account_suspended': 'Conta suspensa',
           'account_reinstated': 'Conta reativada',
+          'video_doubt_decided': 'Dúvida da curadoria decidida',
+          'approval_audited': 'Aprovação conferida',
         },
       );
     });

@@ -14,13 +14,37 @@ import (
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/staff"
 )
 
-func approve(theme string, band family.AgeBand) curation.ReviewInput {
-	return curation.ReviewInput{Decision: curation.Approve, Theme: theme, MinAgeBand: band}
+// clean answers every question of the current list with "ok".
+func clean() map[string]curation.Answer {
+	out := map[string]curation.Answer{}
+	for _, g := range curation.Checklist() {
+		for _, it := range g.Items {
+			out[it.ID] = curation.AnswerOK
+		}
+	}
+	return out
 }
 
-func reject(reason string) curation.ReviewInput {
-	return curation.ReviewInput{Decision: curation.Reject, Reason: reason}
+func approve(theme string, band family.AgeBand) curation.ReviewInput {
+	return curation.ReviewInput{Decision: curation.Approve, Theme: theme, MinAgeBand: band,
+		ChecklistVersion: curation.ChecklistVersion, Answers: clean()}
 }
+
+// approveWith is approve with the given answers changed.
+func approveWith(theme string, band family.AgeBand, changed map[string]curation.Answer) curation.ReviewInput {
+	in := approve(theme, band)
+	maps.Copy(in.Answers, changed)
+	return in
+}
+
+// reject refuses for c04, with note.
+func reject(note string) curation.ReviewInput {
+	return curation.ReviewInput{Decision: curation.Reject, ChecklistVersion: curation.ChecklistVersion,
+		FailedItems: []string{"c04"}, Note: note}
+}
+
+// c04 is the question reject fails: the first line of its reason.
+const c04 = "Alguém bate, chuta, atira ou ataca de propósito, mesmo de mentirinha?"
 
 // review records a review that must succeed, a minute after the clock,
 // and returns the video's state after it.
@@ -192,7 +216,7 @@ func TestRejectionHolds(t *testing.T) {
 	f.review(c1, v, approve("bichos", family.Age5To8))
 
 	r, state, err := f.svc.Review(ctx, c2, v, reject("  Tem propaganda no meio.  "))
-	if err != nil || state != curation.Held || r.Reason != "Tem propaganda no meio." || r.DisplayRole != curation.Cuidador {
+	if err != nil || state != curation.Held || r.Reason != c04+"\nTem propaganda no meio." || r.DisplayRole != curation.Cuidador {
 		t.Fatalf("rejection: %+v %s %v", r, state, err)
 	}
 	if got := f.detail(v).Video; got.State != curation.Held || got.Round != 1 {
@@ -242,16 +266,41 @@ func TestReviewValidation(t *testing.T) {
 	f := newFixture(t)
 	c := f.curator("c1@example.com", curation.MaePai)
 	v := f.video(ytID)
+	noted := approve("bichos", family.Age5To8)
+	noted.Note = "ok"
+	withItems := approve("bichos", family.Age5To8)
+	withItems.FailedItems = []string{"c04"}
+	noAnswers := approve("bichos", family.Age5To8)
+	noAnswers.Answers = nil
+	themed := reject("x")
+	themed.Theme = "bichos"
+	answered := reject("x")
+	answered.Answers = clean()
+	items := func(ids ...string) curation.ReviewInput {
+		in := reject("")
+		in.FailedItems = ids
+		return in
+	}
 	for name, in := range map[string]curation.ReviewInput{
-		"no theme":               approve("", family.Age5To8),
-		"unknown theme":          approve("carros", family.Age5To8),
-		"no band":                approve("bichos", ""),
-		"unknown band":           approve("bichos", "13-17"),
-		"approval with a reason": {Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8, Reason: "ok"},
-		"blank reason":           reject("   "),
-		"reason too long":        reject(strings.Repeat("é", 501)),
-		"rejection with a theme": {Decision: curation.Reject, Reason: "x", Theme: "bichos"},
-		"no decision":            {Theme: "bichos", MinAgeBand: family.Age5To8},
+		"no theme":                          approve("", family.Age5To8),
+		"unknown theme":                     approve("carros", family.Age5To8),
+		"no band":                           approve("bichos", ""),
+		"unknown band":                      approve("bichos", "13-17"),
+		"approval with a note and no doubt": noted,
+		"approval with failed items":        withItems,
+		"approval without answers":          noAnswers,
+		"an unknown answer":                 approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c04": "maybe"}),
+		"rejection without items":           items(),
+		"rejection for a non-refusing item": items("c07"),
+		"rejection for an unknown item":     items("c99"),
+		"rejection naming an item twice":    items("c04", "c04"),
+		"rejection with a theme":            themed,
+		"rejection with answers":            answered,
+		"note too long":                     reject(strings.Repeat("é", 501)),
+		"no decision": {Theme: "bichos", MinAgeBand: family.Age5To8, ChecklistVersion: curation.ChecklistVersion,
+			Answers: clean()},
+		"doubt sent as a decision": {Decision: curation.Doubt, Theme: "bichos", MinAgeBand: family.Age5To8,
+			ChecklistVersion: curation.ChecklistVersion, Answers: clean()},
 	} {
 		if _, _, err := f.svc.Review(ctx, c, v, in); !errors.Is(err, curation.ErrValidation) {
 			t.Errorf("%s: %v", name, err)
@@ -261,7 +310,7 @@ func TestReviewValidation(t *testing.T) {
 		t.Fatalf("invalid reviews were stored: %d rows", n)
 	}
 	if state := f.review(c, v, reject(strings.Repeat("é", 500))); state != curation.Held {
-		t.Fatalf("a 500-character reason: %s", state)
+		t.Fatalf("a 500-character note: %s", state)
 	}
 }
 

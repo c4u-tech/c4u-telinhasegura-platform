@@ -110,8 +110,8 @@ void main() {
     ];
     final tops = [for (final f in order) tester.getTopLeft(f).dy];
     expect(tops, [...tops]..sort());
-    expect(find.text('Escolher tema e idade'), findsOneWidget);
-    expect(find.text('Dizer o motivo'), findsOneWidget);
+    expect(find.text('Responder às perguntas'), findsOneWidget);
+    expect(find.text('Marcar o que aparece'), findsOneWidget);
     expect(find.text('Revisita', findRichText: true), findsNothing);
   });
 
@@ -128,6 +128,17 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  testWidgets('a doubt shows its note under its line, as a refusal does', (
+    tester,
+  ) async {
+    await review(
+      tester,
+      video: (_) => detailOf(babyShark, reviews: [doubtJson]),
+    );
+
+    expect(find.text('Não sei se a tristeza pesa.'), findsOneWidget);
   });
 
   testWidgets('with no reviews yet, it says so', (tester) async {

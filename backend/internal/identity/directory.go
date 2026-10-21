@@ -1,6 +1,6 @@
 package identity
 
-// The staff directory's reads of an account (Scope).
+// The staff directory's reads of an account, kept to the least it needs.
 // staff reaches identity only through these methods.
 
 import (

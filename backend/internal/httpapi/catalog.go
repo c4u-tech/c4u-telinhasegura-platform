@@ -47,7 +47,8 @@ type familyPackVideoOut struct {
 	Hidden          bool   `json:"hidden"`
 }
 
-// familyPackOut carries displayed roles, never accounts (packs, Security).
+// familyPackOut carries displayed roles, never accounts: a family never
+// learns who curated a pack.
 type familyPackOut struct {
 	ID           string               `json:"id"`
 	Title        string               `json:"title"`

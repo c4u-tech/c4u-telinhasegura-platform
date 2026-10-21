@@ -6,7 +6,7 @@ import 'package:telinha_segura/shell/routes.dart';
 import 'role_gate_test.dart' show guardian, open;
 
 void main() {
-  group('the pacotinho routes (pacotinho curation screens, Routes)', () {
+  group('the pacotinho routes', () {
     test('their paths', () {
       expect(Routes.packs, '/pacotinhos');
       expect(Routes.newPack, '/pacotinhos/novo');

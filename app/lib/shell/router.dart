@@ -52,6 +52,8 @@ import '../catalog/pack_screen.dart';
 import '../catalog/report_screen.dart';
 import '../curation/family_catalog.dart' show FamilyPack, FamilyVideo;
 import '../curation/admin_pack_screen.dart';
+import '../curation/audit_sample_screen.dart';
+import '../curation/audit_video_screen.dart';
 import '../curation/admin_packs_screen.dart';
 import '../curation/admin_screen.dart';
 import '../curation/appoint_screen.dart' show AppointScreen;
@@ -68,7 +70,9 @@ import '../curation/team_screen.dart';
 import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
 import '../curation/approve_screen.dart';
-import '../curation/curation.dart' show Video;
+import '../curation/curation.dart' show AuditCandidate, HeldVideo, Video;
+import '../curation/publish_doubt_screen.dart';
+import '../curation/curator_terms_screen.dart';
 import '../curation/queue_screen.dart';
 import '../curation/refuse_screen.dart';
 import '../curation/review_screen.dart';
@@ -312,7 +316,7 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           ),
         ],
       ),
-      // The curation areas (curation screens, Routes); each lands its own
+      // The curation areas; each lands its own
       // screen and sub-routes.
       GoRoute(
         path: Routes.suggestions,
@@ -331,6 +335,15 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           },
         ),
         routes: [
+          // Before ':id', which would take "termo" for a video.
+          GoRoute(
+            path: 'termo',
+            builder: (_, state) => CuratorTermsScreen(
+              then: Routes.curatorTermsReturn(
+                state.uri.queryParameters['depois'],
+              ),
+            ),
+          ),
           GoRoute(
             path: ':id',
             builder: (_, state) =>
@@ -348,6 +361,7 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
                 builder: (_, state) => RefuseScreen(
                   id: state.pathParameters['id']!,
                   video: state.extra as Video?,
+                  items: Routes.refuseItems(state.uri.queryParameters['itens']),
                 ),
               ),
             ],
@@ -497,10 +511,38 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         ],
       ),
       GoRoute(
+        path: Routes.auditSample,
+        builder: (_, state) => StaffGate(
+          title: 'Auditoria das aprovações',
+          child: AuditSampleScreen(
+            // Opening a video hands its screen the candidate, not a notice.
+            notice: state.extra is String ? state.extra as String : null,
+          ),
+        ),
+        routes: [
+          // The sample lives only in memory and is drawn anew on each
+          // read: without it (a reload, a link), back to the sample.
+          GoRoute(
+            path: ':id',
+            redirect: (_, state) =>
+                state.extra is AuditCandidate ? null : Routes.auditSample,
+            builder: (_, state) => StaffGate(
+              title: 'Conferir aprovação',
+              child: AuditVideoScreen(
+                candidate: state.extra! as AuditCandidate,
+              ),
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
         path: Routes.heldVideos,
         builder: (_, state) => StaffGate(
           title: 'Vídeos retidos',
-          child: HeldVideosScreen(notice: state.extra as String?),
+          child: HeldVideosScreen(
+            // Opening a held video hands its screen the video, not a notice.
+            notice: state.extra is String ? state.extra as String : null,
+          ),
         ),
         routes: [
           GoRoute(
@@ -509,6 +551,18 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
               title: 'Vídeo retido',
               child: HeldVideoScreen(id: state.pathParameters['id']!),
             ),
+            routes: [
+              GoRoute(
+                path: 'publicar',
+                builder: (_, state) => StaffGate(
+                  title: 'Publicar',
+                  child: PublishDoubtScreen(
+                    id: state.pathParameters['id']!,
+                    held: state.extra as HeldVideo?,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

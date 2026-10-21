@@ -90,9 +90,20 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
   FutureOr<http.Response> Function(http.Request)? queue,
   FutureOr<http.Response> Function(String id)? video,
   FutureOr<http.Response> Function(http.Request)? review,
+  FutureOr<http.Response> Function()? checklist,
+  FutureOr<http.Response> Function()? declaration,
+  FutureOr<http.Response> Function(http.Request)? accept,
 }) => (req) {
   final path = req.url.path;
   const videos = '/v1/curation/videos/';
+  if (req.method == 'GET' && path == '/v1/curation/checklist') {
+    return checklist?.call() ?? json(200, checklistJson);
+  }
+  if (path == '/v1/curation/declaration') {
+    return req.method == 'GET'
+        ? declaration?.call() ?? json(200, termsJson(accepted: true))
+        : accept?.call(req) ?? json(200, termsJson(accepted: true));
+  }
   if (req.method == 'GET' && path == '/v1/curation/queue') {
     return queue?.call(req) ?? queuePage([]);
   }
@@ -107,6 +118,111 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
   return http.Response('', 204);
 };
 
+/// A short checklist as the curation route carries it: one question of
+/// each rule, two asked in the positive.
+const checklistJson = <String, Object?>{
+  'version': '2026-10-20',
+  'groups': [
+    {
+      'id': 'antes',
+      'title': 'Antes de assistir',
+      'items': [
+        {
+          'id': 'c01',
+          'text': 'Está marcado como feito para crianças?',
+          'rule': 'refuses',
+          'positive': true,
+        },
+        {
+          'id': 'c25',
+          'text': 'Você tem vínculo com este canal?',
+          'rule': 'conflict',
+          'positive': false,
+        },
+      ],
+    },
+    {
+      'id': 'violencia',
+      'title': 'Violência e medo',
+      'items': [
+        {
+          'id': 'c04',
+          'text': 'Alguém bate de propósito?',
+          'rule': 'refuses',
+          'positive': false,
+        },
+        {
+          'id': 'c07',
+          'text': 'Algum personagem fica triste?',
+          'rule': 'doubt',
+          'positive': false,
+        },
+      ],
+    },
+    {
+      'id': 'linguagem',
+      'title': 'Linguagem e respeito',
+      'items': [
+        {
+          'id': 'c21',
+          'text': 'Você recusaria só pela diferença?',
+          'rule': 'invalid_reason',
+          'positive': false,
+        },
+      ],
+    },
+    {
+      'id': 'faixa',
+      'title': 'Faixa',
+      'items': [
+        {'id': 'c22', 'text': 'Ritmo calmo?', 'rule': 'band', 'positive': true},
+      ],
+    },
+  ],
+};
+
+/// The curator terms as the route carries them.
+Map<String, Object?> termsJson({bool accepted = false}) => {
+  'version': '2026-10-20',
+  'text':
+      'Ao fazer parte da curadoria, você se compromete a: aplicar os '
+      'critérios.',
+  'accepted': accepted,
+};
+
+/// A curator's doubt as the held list carries it.
+const doubtJson = <String, Object?>{
+  'display_role': 'mae-pai',
+  'decision': 'doubt',
+  'theme': 'bichos',
+  'min_age_band': '5-8',
+  'reason': 'Não sei se a tristeza pesa.',
+  'checklist_version': '2026-10-20',
+  'answers': {
+    'c01': 'ok',
+    'c25': 'ok',
+    'c04': 'ok',
+    'c07': 'appears',
+    'c21': 'ok',
+    'c22': 'doubt',
+  },
+  'failed_items': null,
+  'reviewed_at': '2026-10-04T12:00:00Z',
+};
+
+/// One audit candidate as the sample carries it.
+Map<String, Object?> candidateOf(
+  Map<String, Object?> video, {
+  List<Map<String, Object?>> approvals = const [],
+}) => {'video': video, 'round': 1, 'approvals': approvals};
+
+/// The audit that held a video, as the held list carries it.
+const auditJson = <String, Object?>{
+  'verdict': 'disagree',
+  'reason': 'Tem publi.',
+  'audited_at': '2026-10-10T09:30:00Z',
+};
+
 /// One held video as the wire carries it: [video] with its [rejections],
 /// [reason] and reports by reason with their [notes].
 Map<String, Object?> heldOf(
@@ -115,9 +231,13 @@ Map<String, Object?> heldOf(
   String? reason = 'review',
   Map<String, int> reports = const {},
   List<String> notes = const [],
+  List<Map<String, Object?>> doubts = const [],
+  Map<String, Object?>? audit,
 }) => {
   'video': {...video, 'state': 'held'},
   'rejections': rejections,
+  'doubts': doubts,
+  'audit': ?audit,
   'held_reason': ?reason,
   'reports': {'by_reason': reports, 'notes': notes},
 };
@@ -201,8 +321,20 @@ FutureOr<http.Response> Function(http.Request) adminApi({
   FutureOr<http.Response> Function(http.Request)? audit,
   FutureOr<http.Response> Function(http.Request)? lookup,
   FutureOr<http.Response> Function(http.Request)? support,
+  FutureOr<http.Response> Function()? checklist,
+  FutureOr<http.Response> Function()? sample,
+  FutureOr<http.Response> Function(http.Request)? verdict,
 }) => (req) {
   final path = req.url.path;
+  if (req.method == 'GET' && path == '/v1/curation/checklist') {
+    return checklist?.call() ?? json(200, checklistJson);
+  }
+  if (req.method == 'GET' && path == '/v1/moderation/audit-sample') {
+    return sample?.call() ?? json(200, {'videos': <Object>[]});
+  }
+  if (req.method == 'POST' && path == '/v1/moderation/audits') {
+    return verdict?.call(req) ?? http.Response('', 204);
+  }
   const accounts = '/v1/admin/accounts/';
   if (req.method == 'POST' && path == '${accounts}lookup') {
     return lookup?.call(req) ?? json(200, sheetJson);

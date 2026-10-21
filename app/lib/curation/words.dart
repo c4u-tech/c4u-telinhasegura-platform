@@ -56,6 +56,8 @@ extension HeldReasonLabel on HeldReason {
     HeldReason.review => 'Retido por recusa',
     HeldReason.reports => 'Retido por denúncias',
     HeldReason.unavailable => 'Indisponível no YouTube',
+    HeldReason.doubt => 'Retido por dúvida da curadoria',
+    HeldReason.audit => 'Retido pela auditoria',
     HeldReason.unknown => 'Retido',
   };
 }
@@ -158,8 +160,9 @@ abstract final class CurationWords {
   }
 
   /// One review of the round, by displayed role: "Pedagogo(a)
-  /// aprovou · Bichos · 5 a 8 anos", "Mãe ou pai recusou". A refusal's
-  /// reason is its own line.
+  /// aprovou · Bichos · 5 a 8 anos", "Mãe ou pai recusou", "Educador(a)
+  /// teve dúvida · Música · 2 a 4 anos". A refusal's or a doubt's reason is
+  /// its own line.
   static String review(Review r) {
     final who = r.displayRole.label;
     return switch (r.decision) {
@@ -169,9 +172,24 @@ abstract final class CurationWords {
         ?r.minAgeBand?.label,
       ].join(dot),
       ReviewDecision.reject => '$who recusou',
+      ReviewDecision.doubt => [
+        '$who teve dúvida',
+        ?r.theme?.label,
+        ?r.minAgeBand?.label,
+      ].join(dot),
       ReviewDecision.unknown => '$who revisou',
     };
   }
+
+  /// What a review marked, question by question in the list's order:
+  /// "Aparece: Alguém bate…", "Tenho dúvida: Ritmo calmo?". Nothing for a
+  /// review with every answer "ok" or none at all.
+  static List<String> marked(Review r, Checklist list) => [
+    for (final item in list.items)
+      if (r.answers?[item.id] case final a?
+          when a != ChecklistAnswer.ok && a != ChecklistAnswer.unknown)
+        '${a.label(item)}: ${item.text}',
+  ];
 
   /// A held video's refusal: "Psicólogo(a): Tem um susto no fim."
   static String rejection(Review r) {
@@ -192,4 +210,15 @@ abstract final class CurationWords {
     if (refusals > 0) refusals == 1 ? '1 recusa' : '$refusals recusas',
     if (reports > 0) reports == 1 ? '1 denúncia' : '$reports denúncias',
   ].join(dot);
+}
+
+/// A mark on a question, in words: "Aparece", "Não" (a question asked in
+/// the positive), "Tenho dúvida".
+extension ChecklistMarkLabel on ChecklistAnswer {
+  String label(ChecklistItem item) => switch (this) {
+    ChecklistAnswer.appears => item.positive ? 'Não' : 'Aparece',
+    ChecklistAnswer.doubt => 'Tenho dúvida',
+    ChecklistAnswer.ok => item.positive ? 'Sim' : 'Não aparece',
+    ChecklistAnswer.unknown => 'Sem resposta',
+  };
 }

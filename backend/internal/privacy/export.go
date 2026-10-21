@@ -2,6 +2,7 @@ package privacy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,7 +12,7 @@ import (
 )
 
 // Export is the document of `GET /v1/account/export`: its JSON tags are
-// the format (Export document). Every list is non-nil, so it
+// the format. Every list is non-nil, so it
 // encodes as [] when empty.
 type Export struct {
 	Format      string    `json:"format"`
@@ -21,25 +22,26 @@ type Export struct {
 }
 
 type Account struct {
-	ID               string            `json:"id"`
-	Email            string            `json:"email"`
-	EmailVerifiedAt  *time.Time        `json:"email_verified_at"`
-	AdultDeclaredAt  time.Time         `json:"adult_declared_at"`
-	TermsVersion     *string           `json:"terms_version"`
-	TermsAcceptedAt  *time.Time        `json:"terms_accepted_at"`
-	CreatedAt        time.Time         `json:"created_at"`
-	HasPassword      bool              `json:"has_password"`
-	MFAEnrolledAt    *time.Time        `json:"mfa_enrolled_at"` // a confirmed staff factor, never its secret or codes
-	LinkedProviders  []LinkedProvider  `json:"linked_providers"`
-	Sessions         []Session         `json:"sessions"`
-	AccessLog        []AccessEntry     `json:"access_log"`
-	Events           []Event           `json:"events"`
-	SubjectActions   []Event           `json:"subject_actions"` // staff actions about the account
-	PlatformRoles    []PlatformRole    `json:"platform_roles"`
-	Suggestions      []Suggestion      `json:"suggestions"`
-	Reviews          []Review          `json:"reviews"`
-	PackReviews      []PackReview      `json:"pack_reviews"`
-	PackCompositions []PackComposition `json:"pack_compositions"`
+	ID                  string               `json:"id"`
+	Email               string               `json:"email"`
+	EmailVerifiedAt     *time.Time           `json:"email_verified_at"`
+	AdultDeclaredAt     time.Time            `json:"adult_declared_at"`
+	TermsVersion        *string              `json:"terms_version"`
+	TermsAcceptedAt     *time.Time           `json:"terms_accepted_at"`
+	CreatedAt           time.Time            `json:"created_at"`
+	HasPassword         bool                 `json:"has_password"`
+	MFAEnrolledAt       *time.Time           `json:"mfa_enrolled_at"` // a confirmed staff factor, never its secret or codes
+	LinkedProviders     []LinkedProvider     `json:"linked_providers"`
+	Sessions            []Session            `json:"sessions"`
+	AccessLog           []AccessEntry        `json:"access_log"`
+	Events              []Event              `json:"events"`
+	SubjectActions      []Event              `json:"subject_actions"` // staff actions about the account
+	PlatformRoles       []PlatformRole       `json:"platform_roles"`
+	CuratorDeclarations []CuratorDeclaration `json:"curator_declarations"`
+	Suggestions         []Suggestion         `json:"suggestions"`
+	Reviews             []Review             `json:"reviews"`
+	PackReviews         []PackReview         `json:"pack_reviews"`
+	PackCompositions    []PackComposition    `json:"pack_compositions"`
 }
 
 // LinkedProvider never carries the provider's subject.
@@ -83,18 +85,26 @@ type Suggestion struct {
 	SuggestedAt time.Time `json:"suggested_at"`
 }
 
+// CuratorDeclaration is one acceptance of the curator terms.
+type CuratorDeclaration struct {
+	Version    string    `json:"version"`
+	AcceptedAt time.Time `json:"accepted_at"`
+}
+
 // Review is one of the account's curation reviews, with the displayed
 // role it was given under.
 type Review struct {
-	YouTubeID   string    `json:"youtube_id"`
-	VideoTitle  string    `json:"video_title"`
-	Round       int       `json:"round"`
-	DisplayRole string    `json:"display_role"`
-	Decision    string    `json:"decision"`
-	Theme       *string   `json:"theme"`
-	MinAgeBand  *string   `json:"min_age_band"`
-	Reason      *string   `json:"reason"`
-	ReviewedAt  time.Time `json:"reviewed_at"`
+	YouTubeID        string          `json:"youtube_id"`
+	VideoTitle       string          `json:"video_title"`
+	Round            int             `json:"round"`
+	DisplayRole      string          `json:"display_role"`
+	Decision         string          `json:"decision"`
+	Theme            *string         `json:"theme"`
+	MinAgeBand       *string         `json:"min_age_band"`
+	Reason           *string         `json:"reason"`
+	ChecklistVersion *string         `json:"checklist_version"` // null before the list
+	Checklist        json.RawMessage `json:"checklist"`         // the answers, or a rejection's questions
+	ReviewedAt       time.Time       `json:"reviewed_at"`
 }
 
 // PackReview is one of the account's pack reviews.
@@ -490,6 +500,20 @@ func readCuration(ctx context.Context, tx pgx.Tx, a *Account) error {
 		return err
 	}
 
+	rows, err = tx.Query(ctx, `SELECT version, accepted_at FROM curator_declarations
+		WHERE account_id = $1::uuid ORDER BY accepted_at, id`, a.ID)
+	if err != nil {
+		return err
+	}
+	if a.CuratorDeclarations, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (CuratorDeclaration, error) {
+		var x CuratorDeclaration
+		err := r.Scan(&x.Version, &x.AcceptedAt)
+		x.AcceptedAt = x.AcceptedAt.UTC()
+		return x, err
+	}); err != nil {
+		return err
+	}
+
 	rows, err = tx.Query(ctx, `SELECT v.youtube_id, v.title, s.suggested_at
 		FROM video_suggestions s JOIN videos v ON v.id = s.video_id
 		WHERE s.account_id = $1::uuid ORDER BY s.suggested_at, v.youtube_id`, a.ID)
@@ -506,7 +530,7 @@ func readCuration(ctx context.Context, tx pgx.Tx, a *Account) error {
 	}
 
 	rows, err = tx.Query(ctx, `SELECT v.youtube_id, v.title, r.round, r.display_role, r.decision, r.theme,
-			r.min_age_band, r.reason, r.reviewed_at
+			r.min_age_band, r.reason, r.checklist_version, r.checklist, r.reviewed_at
 		FROM video_reviews r JOIN videos v ON v.id = r.video_id
 		WHERE r.curator_id = $1::uuid ORDER BY r.reviewed_at, r.id`, a.ID)
 	if err != nil {
@@ -514,9 +538,10 @@ func readCuration(ctx context.Context, tx pgx.Tx, a *Account) error {
 	}
 	if a.Reviews, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (Review, error) {
 		var x Review
+		var list []byte
 		err := r.Scan(&x.YouTubeID, &x.VideoTitle, &x.Round, &x.DisplayRole, &x.Decision, &x.Theme,
-			&x.MinAgeBand, &x.Reason, &x.ReviewedAt)
-		x.ReviewedAt = x.ReviewedAt.UTC()
+			&x.MinAgeBand, &x.Reason, &x.ChecklistVersion, &list, &x.ReviewedAt)
+		x.Checklist, x.ReviewedAt = list, x.ReviewedAt.UTC()
 		return x, err
 	}); err != nil {
 		return err

@@ -25,7 +25,7 @@ const (
 
 var themes = []string{"bichos", "musica", "historias", "aprender", "brincar", "natureza"}
 
-// Themes is the fixed theme set, in display order (Themes).
+// Themes is the fixed theme set, in the order the app shows it.
 func Themes() []string { return slices.Clone(themes) }
 
 var (

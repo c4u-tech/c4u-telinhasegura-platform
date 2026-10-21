@@ -29,6 +29,9 @@ String? reviewGoneNotice(Object error) => switch (error) {
   ApiError(code: 'own_suggestion') =>
     'Você sugeriu esse vídeo, então a revisão dele fica com outros '
         'curadores.',
+  ApiError(code: 'conflict_of_interest') =>
+    'Você tem vínculo com este canal, então a revisão dele fica com outros '
+        'curadores.',
   ApiError(code: 'not_found') => 'Esse vídeo não está mais na curadoria.',
   _ => null,
 };

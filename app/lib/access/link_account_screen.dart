@@ -131,7 +131,7 @@ class _LinkAccountScreenState extends State<LinkAccountScreen> {
 }
 
 /// The eviction choice states its consequence before the button that
-/// takes it (access-screens Security, Linking).
+/// takes it, so no one drops their password without knowing it.
 class _ClearPasswordChoice extends StatelessWidget {
   const _ClearPasswordChoice({required this.onPressed});
 

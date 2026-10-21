@@ -10,8 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// PackReviewInput is an approval, or a rejection with a reason (packs,
-// Contract).
+// PackReviewInput is an approval, or a rejection with a reason.
 type PackReviewInput struct {
 	Decision Decision
 	Reason   string

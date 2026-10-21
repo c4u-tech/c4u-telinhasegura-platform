@@ -1,0 +1,129 @@
+package httpapi_test
+
+import (
+	"encoding/json"
+	"net/http"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestApprovalAuditOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	mod := a.moderator(admin, "mia@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	c2 := a.curator(admin, "c2@example.com", "pedagogo")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
+	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...)
+	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+		t.Fatalf("publish: %d %s", r.Code, r.Body)
+	}
+
+	var sample struct {
+		Videos []struct {
+			Video     videoResp `json:"video"`
+			Round     int       `json:"round"`
+			Approvals []struct {
+				DisplayRole string            `json:"display_role"`
+				Decision    string            `json:"decision"`
+				Answers     map[string]string `json:"answers"`
+			} `json:"approvals"`
+		} `json:"videos"`
+	}
+	r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(mod)...)
+	getJSON(t, r, &sample)
+	if len(sample.Videos) != 1 || sample.Videos[0].Video.ID != v.ID || sample.Videos[0].Round != 1 || len(sample.Videos[0].Approvals) != 2 {
+		t.Fatalf("sample %+v", sample)
+	}
+	var roles []string
+	for _, x := range sample.Videos[0].Approvals {
+		if x.Decision != "approve" || len(x.Answers) != 25 {
+			t.Errorf("approval %+v", x)
+		}
+		roles = append(roles, x.DisplayRole)
+	}
+	if slices.Sort(roles); !slices.Equal(roles, []string{"mae-pai", "pedagogo"}) {
+		t.Fatalf("roles %v", roles)
+	}
+	if strings.Contains(r.Body.String(), a.accountID(c1)) || strings.Contains(r.Body.String(), "c1@example.com") {
+		t.Fatal("the sample names a curator")
+	}
+
+	audits := "/v1/moderation/audits"
+	if r := a.do(http.MethodPost, audits, map[string]any{"video_id": v.ID, "round": 1, "verdict": "disagree"}, bearer(mod)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "reason_required" {
+		t.Fatalf("no reason: %d %q", r.Code, r.problemCode())
+	}
+	hold := map[string]any{"video_id": v.ID, "round": 1, "verdict": "disagree", "reason": "Tem publi no fim.", "hold": true}
+	if r := a.do(http.MethodPost, audits, hold, bearer(mod)...); r.Code != http.StatusNoContent {
+		t.Fatalf("audit: %d %s", r.Code, r.Body)
+	}
+	if n := a.count(`SELECT count(*) FROM videos WHERE id = $1::uuid AND state = 'held' AND held_reason = 'audit'`, v.ID); n != 1 {
+		t.Fatal("the video was not held")
+	}
+	var held struct {
+		Videos []struct {
+			HeldReason string          `json:"held_reason"`
+			Audit      json.RawMessage `json:"audit"`
+		} `json:"videos"`
+	}
+	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+	want := `{"verdict":"disagree","reason":"Tem publi no fim.","audited_at":"` + a.now.UTC().Format(time.RFC3339Nano) + `"}`
+	if len(held.Videos) != 1 || held.Videos[0].HeldReason != "audit" || string(held.Videos[0].Audit) != want {
+		t.Fatalf("held list %+v, want audit %s", held, want)
+	}
+	if r := a.do(http.MethodPost, audits, hold, bearer(mod)...); r.Code != http.StatusConflict || r.problemCode() != "already_audited" {
+		t.Fatalf("audit twice: %d %q", r.Code, r.problemCode())
+	}
+	if r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(admin)...); r.Code != http.StatusOK || strings.TrimSpace(r.Body.String()) != `{"videos":[]}` {
+		t.Fatalf("empty sample: %d %s", r.Code, r.Body)
+	}
+
+	// The audit is a write and needs a fresh re-authentication; the sample
+	// is a read and does not.
+	a.now = a.now.Add(6 * time.Minute)
+	late := a.refresh(mod)
+	if r := a.do(http.MethodPost, audits, map[string]any{"video_id": v.ID, "round": 1, "verdict": "agree"}, bearer(late)...); r.Code != http.StatusForbidden || r.problemCode() != "reauth_required" {
+		t.Fatalf("a stale re-auth: %d %q", r.Code, r.problemCode())
+	}
+	if r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(late)...); r.Code != http.StatusOK {
+		t.Fatalf("sample with a stale re-auth: %d", r.Code)
+	}
+}
+
+// An account may both curate and moderate; it is never offered, nor
+// allowed to audit or decide, a round it reviewed.
+func TestNoOneJudgesTheirOwnRoundOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	both := a.curator(admin, "c1@example.com", "mae-pai")
+	if r := a.grant(admin, "c1@example.com", "moderator", nil); r.Code != http.StatusCreated {
+		t.Fatalf("grant moderator: %d %s", r.Code, r.Body)
+	}
+	c2 := a.curator(admin, "c2@example.com", "pedagogo")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
+	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(both)...)
+	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+		t.Fatalf("publish: %d %s", r.Code, r.Body)
+	}
+	if r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(both)...); r.Code != http.StatusOK || strings.TrimSpace(r.Body.String()) != `{"videos":[]}` {
+		t.Fatalf("own sample: %d %s", r.Code, r.Body)
+	}
+	agree := map[string]any{"video_id": v.ID, "round": 1, "verdict": "agree"}
+	if r := a.do(http.MethodPost, "/v1/moderation/audits", agree, bearer(both)...); r.Code != http.StatusConflict || r.problemCode() != "own_review" {
+		t.Fatalf("own audit: %d %q", r.Code, r.problemCode())
+	}
+
+	doubted := a.suggest(a.familyOwner("h@example.com"), "ccccccccccc")
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+doubted.ID+"/reviews",
+		approvalWith("bichos", "5-8", map[string]string{"c13": "doubt"}), bearer(both)...); !strings.Contains(r.Body.String(), `"video_state":"held"`) {
+		t.Fatalf("doubt: %d %s", r.Code, r.Body)
+	}
+	publish := map[string]any{"decision": "approve", "theme": "musica", "min_age_band": "5-8", "reason": "Sem risco no vídeo."}
+	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+doubted.ID+"/decide", publish, bearer(both)...); r.Code != http.StatusConflict || r.problemCode() != "own_review" {
+		t.Fatalf("own decision: %d %q", r.Code, r.problemCode())
+	}
+}
