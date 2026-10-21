@@ -389,7 +389,11 @@ class HeldAudit {
 
   factory HeldAudit.fromJson(Map<String, dynamic> j) => HeldAudit(
     verdict: AuditVerdict.parse(j['verdict']),
-    reason: j['reason'] as String?,
+    // The server sends an empty reason when the audit gave none.
+    reason: switch (j['reason']) {
+      final String r when r.isNotEmpty => r,
+      _ => null,
+    },
     auditedAt: DateTime.parse(j['audited_at'] as String),
   );
 

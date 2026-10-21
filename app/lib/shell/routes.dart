@@ -245,6 +245,10 @@ abstract final class Routes {
   static String heldVideo(String videoId) =>
       '$heldVideos/${Uri.encodeComponent(videoId)}';
 
+  /// Publishing a video a curator's doubt holds.
+  static String publishDoubt(String videoId) =>
+      '${heldVideo(videoId)}/publicar';
+
   /// The review of one pacotinho, and what opens from it.
   static String packReview(String packId) =>
       '$packs/${Uri.encodeComponent(packId)}';

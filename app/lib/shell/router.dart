@@ -68,7 +68,8 @@ import '../curation/team_screen.dart';
 import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
 import '../curation/approve_screen.dart';
-import '../curation/curation.dart' show Video;
+import '../curation/curation.dart' show HeldVideo, Video;
+import '../curation/publish_doubt_screen.dart';
 import '../curation/curator_terms_screen.dart';
 import '../curation/queue_screen.dart';
 import '../curation/refuse_screen.dart';
@@ -511,7 +512,10 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         path: Routes.heldVideos,
         builder: (_, state) => StaffGate(
           title: 'Vídeos retidos',
-          child: HeldVideosScreen(notice: state.extra as String?),
+          child: HeldVideosScreen(
+            // Opening a held video hands its screen the video, not a notice.
+            notice: state.extra is String ? state.extra as String : null,
+          ),
         ),
         routes: [
           GoRoute(
@@ -520,6 +524,18 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
               title: 'Vídeo retido',
               child: HeldVideoScreen(id: state.pathParameters['id']!),
             ),
+            routes: [
+              GoRoute(
+                path: 'publicar',
+                builder: (_, state) => StaffGate(
+                  title: 'Publicar',
+                  child: PublishDoubtScreen(
+                    id: state.pathParameters['id']!,
+                    held: state.extra as HeldVideo?,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

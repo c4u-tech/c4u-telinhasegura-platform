@@ -132,6 +132,10 @@ void main() {
       ),
     );
     expect(agreed.audit!.reason, isNull);
+    final blank = HeldVideo.fromJson(
+      heldOf(pendingJson, audit: {...auditJson, 'reason': ''}),
+    );
+    expect(blank.audit!.reason, isNull);
     expect(AuditVerdict.parse('x'), AuditVerdict.unknown);
   });
 
