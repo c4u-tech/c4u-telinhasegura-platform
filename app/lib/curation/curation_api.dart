@@ -109,9 +109,19 @@ class CurationApi {
     'note': ?note,
   });
 
-  /// Rejects with a reason of 1 to 500 characters; the video is held.
-  Future<VideoState> reject(String id, String reason) =>
-      _review(id, {'decision': 'reject', 'reason': reason});
+  /// Rejects for [failedItems], each a question that refuses, with an
+  /// optional [note] of up to 500 characters; the video is held.
+  Future<VideoState> reject(
+    String id, {
+    required String version,
+    required List<String> failedItems,
+    String? note,
+  }) => _review(id, {
+    'decision': 'reject',
+    'checklist_version': version,
+    'failed_items': failedItems,
+    'note': ?note,
+  });
 
   Future<VideoState> _review(String id, Map<String, Object> body) async =>
       VideoState.parse(

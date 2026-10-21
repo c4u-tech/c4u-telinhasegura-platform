@@ -137,9 +137,9 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
           ),
           DoorRow(
             title: 'Recusar',
-            semanticsLabel: 'Recusar, Dizer o motivo',
+            semanticsLabel: 'Recusar, Marcar o que aparece',
             onTap: () => context.go(Routes.refuse(widget.id), extra: v),
-            child: Text('Dizer o motivo', style: muted),
+            child: Text('Marcar o que aparece', style: muted),
           ),
         ],
       ),

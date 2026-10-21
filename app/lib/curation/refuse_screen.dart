@@ -4,65 +4,86 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../access/copy.dart';
 import '../access/submission.dart';
 import '../access/widgets.dart';
 import '../auth/api_error.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
+import 'checklist_form.dart' show marksNo;
 import 'curation.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'video_heading.dart';
 
-/// What a refusal does, said before the field.
+/// What a refusal does, said first.
 const refuseLead = 'Recusar tira o vídeo das prateleiras na mesma hora.';
 
-/// Under the primary while the reason is blank.
-const refuseHint = 'Escreva acima o motivo da recusa.';
+/// Over the questions.
+const refuseItemsLead =
+    'Marque o que aparece no vídeo. Só recusamos pelos critérios publicados.';
+
+/// Under the primary while nothing is ticked.
+const refuseHint = 'Marque acima pelo menos uma coisa que aparece.';
 
 /// The done state's notice.
 const refused = 'Sua recusa foi registrada.';
 
-/// `validation` on a refusal, on the field.
-const reasonInvalid = 'Escreva um motivo de 1 a 500 caracteres.';
+/// `validation` on a refusal, on the note.
+const noteInvalid = 'Escreva no máximo 500 caracteres.';
 
-/// The longest reason the server takes, in characters.
+/// The optional note.
+const refuseNoteLabel = 'Quer contar mais? (opcional)';
+
+/// The longest note the server takes, in characters.
 const reasonMax = 500;
 
 /// From this many characters the field shows its count.
 const _countFrom = 400;
 
-/// `/curadoria/:id/recusar`: what a refusal does, one multi-line
-/// "Motivo" of 1 to 500 characters, and the ordinary ink primary
-/// "Recusar" (the Quiet Loss Rule: never clay), waiting until the reason
-/// has a non-blank character; it sends the refusal once, then the done
-/// state back to the queue.
+/// `/curadoria/:id/recusar`: what a refusal does; every question that
+/// refuses, by group, to tick, a question asked in the positive as its
+/// "Não"; an optional note of up to 500 characters; and the ordinary ink
+/// primary "Recusar" (the Quiet Loss Rule: never clay), waiting until one
+/// question is ticked. [items] arrive ticked from an approval that marked
+/// them. It sends the refusal once, then the done state back to the queue.
 class RefuseScreen extends StatefulWidget {
-  const RefuseScreen({super.key, required this.id, this.video});
+  const RefuseScreen({
+    super.key,
+    required this.id,
+    this.video,
+    this.items = const [],
+  });
 
   final String id;
 
   /// The video as the review read it; opened directly, it is read here.
   final Video? video;
 
+  final List<String> items;
+
   @override
   State<RefuseScreen> createState() => _RefuseScreenState();
 }
 
 class _RefuseScreenState extends State<RefuseScreen> {
-  final _reason = TextEditingController();
+  final _note = TextEditingController();
   final _send = Submission();
+  late final Set<String> _ticked = {...widget.items};
   bool _started = false;
   Video? _video;
+  Checklist? _checklist;
+  bool _checklistFailed = false;
   String? _fieldError;
   bool _done = false;
 
   @override
   void initState() {
     super.initState();
-    _reason.addListener(() {
+    _note.addListener(() {
       _send.clearMessage();
       setState(() => _fieldError = null);
     });
@@ -77,11 +98,11 @@ class _RefuseScreenState extends State<RefuseScreen> {
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _video = widget.video;
     if (_video == null) scheduleMicrotask(_readVideo);
+    scheduleMicrotask(_readChecklist);
   }
 
   /// Opened directly: the video is read to be named. A video gone from
-  /// the queue goes back to it; any other failure leaves the form as is,
-  /// since the decision does not need the name to be sent.
+  /// the queue goes back to it; any other failure leaves the form as is.
   Future<void> _readVideo() async {
     if (!mounted) return;
     try {
@@ -92,21 +113,46 @@ class _RefuseScreenState extends State<RefuseScreen> {
     }
   }
 
+  /// A ticked question the list does not hold as refusing is dropped: a
+  /// link cannot tick anything else.
+  Future<void> _readChecklist() async {
+    if (!mounted) return;
+    setState(() => _checklistFailed = false);
+    try {
+      final list = await AppScope.of(context).curation.checklist();
+      if (!mounted) return;
+      setState(() {
+        _checklist = list;
+        _ticked.retainWhere(
+          (id) => list.item(id)?.rule == ChecklistRule.refuses,
+        );
+      });
+    } on Object catch (e) {
+      if (!mounted || leaveForQueue(context, e)) return;
+      setState(() => _checklistFailed = true);
+    }
+  }
+
   @override
   void dispose() {
-    _reason.dispose();
+    _note.dispose();
     _send.dispose();
     super.dispose();
   }
 
-  String get _text => _reason.text.trim();
-
-  Future<void> _refuse() async {
-    final reason = _text;
-    if (reason.isEmpty) return;
+  Future<void> _refuse(Checklist list) async {
+    final note = _note.text.trim();
     final api = AppScope.of(context).curation;
     final ok = await _send.run(
-      () => api.reject(widget.id, reason),
+      () => api.reject(
+        widget.id,
+        version: list.version,
+        failedItems: [
+          for (final i in list.items)
+            if (_ticked.contains(i.id)) i.id,
+        ],
+        note: note.isEmpty ? null : note,
+      ),
       handle: _handle,
     );
     if (ok && mounted) setState(() => _done = true);
@@ -114,9 +160,18 @@ class _RefuseScreenState extends State<RefuseScreen> {
 
   bool _handle(ApiError e) {
     if (leaveForQueue(context, e)) return true;
+    if (e.code == 'checklist_outdated') {
+      unawaited(_readChecklist());
+      return false;
+    }
     if (e.code != 'validation') return false;
-    setState(() => _fieldError = reasonInvalid);
+    setState(() => _fieldError = noteInvalid);
     return true;
+  }
+
+  void _toggle(String id, bool on) {
+    _send.clearMessage();
+    setState(() => on ? _ticked.add(id) : _ticked.remove(id));
   }
 
   @override
@@ -147,15 +202,48 @@ class _RefuseScreenState extends State<RefuseScreen> {
 
   List<Widget> _form() {
     final text = Theme.of(context).textTheme;
-    final blank = _text.isEmpty;
+    final list = _checklist;
+    if (list == null) {
+      return [
+        Text(refuseLead, style: text.bodyLarge),
+        const SizedBox(height: Space.xl),
+        if (!_checklistFailed)
+          const FamilyPlaceholder(label: 'Carregando as perguntas')
+        else ...[
+          const ErrorNote(Copy.genericRetry),
+          const SizedBox(height: Space.lg),
+          PrimaryButton(label: 'Tentar de novo', onPressed: _readChecklist),
+        ],
+      ];
+    }
+    final idle = !_send.blocked;
+    final none = _ticked.isEmpty;
     return [
       Text(refuseLead, style: text.bodyLarge),
+      const SizedBox(height: Space.lg),
+      Text(refuseItemsLead, style: text.bodyLarge),
+      for (final g in list.groups)
+        if (g.items.where((i) => i.rule == ChecklistRule.refuses).toList()
+            case final items when items.isNotEmpty) ...[
+          const SizedBox(height: Space.xl),
+          Semantics(
+            header: true,
+            child: Text(g.title, style: text.titleMedium),
+          ),
+          const SizedBox(height: Space.sm),
+          for (final i in items)
+            DeclarationRow(
+              text: i.positive ? '$marksNo: ${i.text}' : i.text,
+              value: _ticked.contains(i.id),
+              onChanged: idle ? (on) => _toggle(i.id, on) : null,
+            ),
+        ],
       const SizedBox(height: Space.xl),
       TextField(
-        controller: _reason,
+        controller: _note,
         keyboardType: TextInputType.multiline,
         textCapitalization: TextCapitalization.sentences,
-        minLines: 3,
+        minLines: 2,
         maxLines: null,
         maxLength: reasonMax,
         maxLengthEnforcement: MaxLengthEnforcement.enforced,
@@ -170,7 +258,7 @@ class _RefuseScreenState extends State<RefuseScreen> {
                     ),
                   ),
         decoration: InputDecoration(
-          labelText: 'Motivo',
+          labelText: refuseNoteLabel,
           alignLabelWithHint: true,
           errorText: _fieldError,
           errorMaxLines: 3,
@@ -184,9 +272,9 @@ class _RefuseScreenState extends State<RefuseScreen> {
       PrimaryButton(
         label: 'Recusar',
         busy: _send.busy,
-        onPressed: blank || _send.blocked ? null : _refuse,
+        onPressed: none || !idle ? null : () => _refuse(list),
       ),
-      SubmitHint(refuseHint, visible: blank, reserve: true),
+      SubmitHint(refuseHint, visible: none, reserve: true),
     ];
   }
 }

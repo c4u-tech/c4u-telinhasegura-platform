@@ -348,6 +348,7 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
                 builder: (_, state) => RefuseScreen(
                   id: state.pathParameters['id']!,
                   video: state.extra as Video?,
+                  items: Routes.refuseItems(state.uri.queryParameters['itens']),
                 ),
               ),
             ],

@@ -27,21 +27,36 @@ Future<Harness> refusing(
   return h;
 }
 
-Finder get field => find.widgetWithText(TextField, 'Motivo');
+Finder get field => find.widgetWithText(TextField, refuseNoteLabel);
+
+Finder item(String text) => find.widgetWithText(DeclarationRow, text);
+
+bool ticked(WidgetTester tester, String text) =>
+    tester.widget<DeclarationRow>(item(text)).value;
 
 String? fieldError(WidgetTester tester) =>
     tester.widget<TextField>(field).decoration?.errorText;
 
-Future<void> type(WidgetTester tester, String reason) async {
-  await tester.enterText(field, reason);
+Future<void> type(WidgetTester tester, String note) async {
+  await tester.enterText(field, note);
   await tester.pump();
 }
 
+Future<void> tick(WidgetTester tester, String text) async {
+  await tester.ensureVisible(item(text));
+  await tester.pumpAndSettle();
+  await tester.tap(item(text));
+  await tester.pumpAndSettle();
+}
+
+/// Ticks "Alguém bate de propósito?", writes [reason] as the note and
+/// sends; with [settle] false it leaves the request running.
 Future<void> refuse(
   WidgetTester tester, {
   String reason = 'Tem um susto no fim.',
   bool settle = true,
 }) async {
+  await tick(tester, 'Alguém bate de propósito?');
   await type(tester, reason);
   await tapPrimary(tester, settle: settle);
 }
@@ -60,9 +75,9 @@ void main() {
       'it again', (tester) async {
     final h = await refusing(tester, initial: '/curadoria/v1');
 
-    await tester.ensureVisible(find.text('Dizer o motivo'));
+    await tester.ensureVisible(find.text('Marcar o que aparece'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dizer o motivo'));
+    await tester.tap(find.text('Marcar o que aparece'));
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/curadoria/v1/recusar');
@@ -70,48 +85,59 @@ void main() {
     expect(videoReads(h), 1);
   });
 
-  testWidgets('says a refusal takes the video off the shelves at once, '
-      'then one multi-line "Motivo" and the ink primary, waiting with its '
-      'hint', (tester) async {
+  testWidgets('lists only the questions that refuse, none ticked, a '
+      'question asked in the positive as its "Não"; the primary waits with '
+      'its hint', (tester) async {
     await refusing(tester);
 
-    expect(find.text('Recusar'), findsWidgets);
-    expect(find.text(refuseLead), findsOneWidget);
+    expect(find.text(refuseItemsLead), findsOneWidget);
+    expect(item('Alguém bate de propósito?'), findsOneWidget);
+    expect(item('Não: Está marcado como feito para crianças?'), findsOneWidget);
+    for (final other in [
+      'Algum personagem fica triste?',
+      'Você tem vínculo com este canal?',
+      'Você recusaria só pela diferença?',
+      'Ritmo calmo?',
+    ]) {
+      expect(find.textContaining(other), findsNothing, reason: other);
+    }
+    expect(ticked(tester, 'Alguém bate de propósito?'), isFalse);
+    expect(primary(tester).label, 'Recusar');
+    expect(primary(tester).onPressed, isNull);
+    expect(find.text(refuseHint), findsOneWidget);
+
+    await tick(tester, 'Alguém bate de propósito?');
+    expect(primary(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('arriving from an approval, its questions are ticked', (
+    tester,
+  ) async {
+    await refusing(tester, initial: '/curadoria/v1/recusar?itens=c04');
+
+    expect(ticked(tester, 'Alguém bate de propósito?'), isTrue);
+    expect(primary(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('the note is optional, multi-line, and counts only near the '
+      'bound', (tester) async {
+    await refusing(tester);
+
     final input = tester.widget<TextField>(field);
     expect(input.keyboardType, TextInputType.multiline);
     expect(input.maxLines, isNull);
     expect(input.maxLength, 500);
     expect(input.maxLengthEnforcement, MaxLengthEnforcement.enforced);
-    expect(primary(tester).label, 'Recusar');
-    expect(primary(tester).onPressed, isNull);
-    expect(find.text(refuseHint), findsOneWidget);
-    final leadTop = tester.getTopLeft(find.text(refuseLead)).dy;
-    expect(leadTop, lessThan(tester.getTopLeft(field).dy));
-  });
-
-  testWidgets('the primary waits until the reason has a non-blank '
-      'character', (tester) async {
-    await refusing(tester);
-
-    await type(tester, '   \n ');
-    expect(primary(tester).onPressed, isNull);
-    await type(tester, ' Tem propaganda. ');
-    expect(primary(tester).onPressed, isNotNull);
-  });
-
-  testWidgets('the count shows only near the bound', (tester) async {
-    await refusing(tester);
-
     await type(tester, 'a' * 399);
     expect(find.textContaining('de 500'), findsNothing);
     await type(tester, 'a' * 450);
     expect(find.text('450 de 500'), findsOneWidget);
-    await type(tester, 'a' * 520);
-    expect(find.text('500 de 500'), findsOneWidget);
   });
 
-  testWidgets('sends the refusal once, trimmed, and shows the done state, '
-      'back to the queue', (tester) async {
+  testWidgets('sends the refusal once, the questions in the list\'s order '
+      'and the note trimmed, then the done state back to the queue', (
+    tester,
+  ) async {
     final answer = Completer<http.Response>();
     final h = await refusing(tester, review: (_) => answer.future);
 
@@ -122,10 +148,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(posts(h), hasLength(1));
-    expect(posts(h).single, startsWith('POST /v1/curation/videos/v1/reviews'));
     expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
       'decision': 'reject',
-      'reason': 'Tem um susto no fim.',
+      'checklist_version': '2026-10-20',
+      'failed_items': ['c04'],
+      'note': 'Tem um susto no fim.',
     });
     expect(find.widgetWithText(Notice, refused), findsOneWidget);
     expect(field, findsNothing, reason: 'the form is gone');
@@ -135,8 +162,22 @@ void main() {
     expect(h.location(tester), '/curadoria');
   });
 
-  testWidgets('a network failure keeps the reason, and the primary tries '
-      'again', (tester) async {
+  testWidgets('without a note, none is sent', (tester) async {
+    final h = await refusing(tester);
+
+    await tick(tester, 'Não: Está marcado como feito para crianças?');
+    await tick(tester, 'Alguém bate de propósito?');
+    await tapPrimary(tester);
+
+    expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
+      'decision': 'reject',
+      'checklist_version': '2026-10-20',
+      'failed_items': ['c01', 'c04'],
+    });
+  });
+
+  testWidgets('a network failure keeps the questions and the note, and the '
+      'primary tries again', (tester) async {
     var fail = true;
     final h = await refusing(
       tester,
@@ -148,6 +189,7 @@ void main() {
     await refuse(tester);
 
     expect(find.widgetWithText(ErrorNote, Copy.genericRetry), findsOneWidget);
+    expect(ticked(tester, 'Alguém bate de propósito?'), isTrue);
     expect(find.text('Tem um susto no fim.'), findsOneWidget);
     fail = false;
     await tapPrimary(tester);
@@ -155,12 +197,12 @@ void main() {
     expect(find.text(refused), findsOneWidget);
   });
 
-  testWidgets('validation marks the field', (tester) async {
+  testWidgets('validation marks the note', (tester) async {
     await refusing(tester, review: (_) => problem(422, 'validation'));
 
     await refuse(tester);
 
-    expect(fieldError(tester), reasonInvalid);
+    expect(fieldError(tester), noteInvalid);
     expect(find.byType(ErrorNote), findsNothing);
     await type(tester, 'Outro motivo.');
     expect(fieldError(tester), isNull);

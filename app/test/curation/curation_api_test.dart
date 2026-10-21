@@ -117,7 +117,12 @@ void main() {
       answers: {'c01': ChecklistAnswer.ok, 'c04': ChecklistAnswer.doubt},
       note: 'Não sei.',
     );
-    await api.reject('v1', 'Muito barulhento');
+    await api.reject(
+      'v1',
+      version: '2026-10-20',
+      failedItems: ['c04'],
+      note: 'Muito barulhento',
+    );
     expect(t.calls, [
       'POST /v1/suggestions {"url":"https://youtu.be/dQw4w9WgXcQ"}',
       'GET /v1/suggestions',
@@ -126,7 +131,7 @@ void main() {
       'GET /v1/curation/queue?offset=50',
       'GET /v1/curation/videos/v1',
       'POST /v1/curation/videos/v1/reviews {"decision":"approve","theme":"bichos","min_age_band":"5-8","checklist_version":"2026-10-20","answers":{"c01":"ok","c04":"doubt"},"note":"Não sei."}',
-      'POST /v1/curation/videos/v1/reviews {"decision":"reject","reason":"Muito barulhento"}',
+      'POST /v1/curation/videos/v1/reviews {"decision":"reject","checklist_version":"2026-10-20","failed_items":["c04"],"note":"Muito barulhento"}',
     ]);
   });
 
