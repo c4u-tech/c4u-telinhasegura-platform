@@ -137,13 +137,18 @@ class ApprovalDraft {
 
   /// One page back: the review goes back to the theme and band when it
   /// approves, else to the last step; a page changed from the review
-  /// returns to it. False on the first page, which the screen leaves.
+  /// returns to it, even the first page, as long as the page can still go
+  /// on (a tie to the channel just marked cannot). Otherwise false on the
+  /// first page, which the screen leaves.
   bool back() {
-    if (_page == 0) return false;
     if (_returning) {
-      forward();
-      return true;
+      if (canGoOn) {
+        forward();
+        return true;
+      }
+      _returning = false;
     }
+    if (_page == 0) return false;
     if (_page == reviewPage) {
       _page = outcome == ApprovalOutcome.approve ? topicPage : stepCount;
     } else {

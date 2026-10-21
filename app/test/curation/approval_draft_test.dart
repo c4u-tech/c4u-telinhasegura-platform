@@ -181,6 +181,38 @@ void main() {
     expect(d.page, d.reviewPage, reason: 'back returns to the review too');
   });
 
+  test('back on "Antes de começar" changed from the review returns to the '
+      'review', () {
+    final d = atLastStep()
+      ..answer(item('c07'), ChecklistAnswer.appears)
+      ..forward()
+      ..change(0);
+    expect(d.back(), isTrue);
+    expect(d.page, d.reviewPage);
+  });
+
+  test('back from a changed page that cannot go on is a plain back, never '
+      'the review', () {
+    final d = atLastStep()
+      ..answer(item('c07'), ChecklistAnswer.appears)
+      ..forward()
+      ..change(0)
+      ..answer(item('c25'), ChecklistAnswer.appears);
+    expect(d.back(), isFalse, reason: 'the first page leaves the flow');
+    expect(d.page, 0);
+
+    final topic = atLastStep()
+      ..forward()
+      ..theme = VideoTheme.musica
+      ..band = AgeBand.from5To8
+      ..forward()
+      ..band = null
+      ..change(atLastStep().topicPage);
+    expect(topic.back(), isTrue);
+    expect(topic.page, topic.stepCount);
+    expect(topic.nextIsTopic, isTrue, reason: 'no longer returning');
+  });
+
   test('a change that now approves asks the theme and band before the '
       'review', () {
     final d = atLastStep()
