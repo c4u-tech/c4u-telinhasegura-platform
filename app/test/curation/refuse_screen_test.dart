@@ -9,6 +9,7 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/refuse_screen.dart';
+import 'package:telinha_segura/curation/words.dart' show differenceReminder;
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -81,9 +82,9 @@ void main() {
       'it again', (tester) async {
     final h = await refusing(tester, initial: '/curadoria/v1');
 
-    await tester.ensureVisible(find.text('Marcar o que aparece'));
+    await tester.ensureVisible(find.text('Marcar o que acontece'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Marcar o que aparece'));
+    await tester.tap(find.text('Marcar o que acontece'));
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/curadoria/v1/recusar');
@@ -91,19 +92,21 @@ void main() {
     expect(videoReads(h), 1);
   });
 
-  testWidgets('lists only the questions that refuse, none ticked, a '
-      'question asked in the positive as its "Não"; the primary waits with '
-      'its hint', (tester) async {
+  testWidgets('lists only the questions that refuse, none ticked; the '
+      'primary waits with its hint', (tester) async {
     await refusing(tester);
 
     expect(find.text(refuseItemsLead), findsOneWidget);
+    expect(refuseItemsLead, startsWith('Marque o que acontece no vídeo.'));
+    expect(find.text(differenceReminder), findsOneWidget);
     expect(item('Alguém bate de propósito?'), findsOneWidget);
-    expect(item('Não: Está marcado como feito para crianças?'), findsOneWidget);
+    expect(item('Aparece promoção paga?'), findsOneWidget);
+    expect(item('Falta começo, meio ou fim?'), findsOneWidget);
     for (final other in [
       'Algum personagem fica triste?',
       'Você tem vínculo com este canal?',
-      'Você recusaria só pela diferença?',
-      'Ritmo calmo?',
+      'Tem ritmo agitado?',
+      'O canal tem outros vídeos que você recusaria?',
     ]) {
       expect(find.textContaining(other), findsNothing, reason: other);
     }
@@ -111,6 +114,7 @@ void main() {
     expect(primary(tester).label, 'Recusar');
     expect(primary(tester).onPressed, isNull);
     expect(find.text(refuseHint), findsOneWidget);
+    expect(refuseHint, 'Marque acima pelo menos uma coisa que acontece.');
 
     await tick(tester, 'Alguém bate de propósito?');
     expect(primary(tester).onPressed, isNotNull);
@@ -156,7 +160,7 @@ void main() {
     expect(posts(h), hasLength(1));
     expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
       'decision': 'reject',
-      'checklist_version': '2026-10-20',
+      'checklist_version': '2026-10-21',
       'failed_items': ['c04'],
       'note': 'Tem um susto no fim.',
     });
@@ -171,14 +175,14 @@ void main() {
   testWidgets('without a note, none is sent', (tester) async {
     final h = await refusing(tester);
 
-    await tick(tester, 'Não: Está marcado como feito para crianças?');
+    await tick(tester, 'Aparece promoção paga?');
     await tick(tester, 'Alguém bate de propósito?');
     await tapPrimary(tester);
 
     expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
       'decision': 'reject',
-      'checklist_version': '2026-10-20',
-      'failed_items': ['c01', 'c04'],
+      'checklist_version': '2026-10-21',
+      'failed_items': ['c03', 'c04'],
     });
   });
 

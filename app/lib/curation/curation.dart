@@ -220,9 +220,9 @@ class Video {
   final bool revisit;
 }
 
-/// An answer to one question of the curation checklist. For a question
-/// asked in the positive ("Tem começo, meio e fim claros?") [ok] is yes
-/// and [appears] is no. [unknown] only ever comes from [parse].
+/// An answer to one question of the curation checklist. Every question
+/// asks whether something is in the video: [ok] is "Não", [appears] is
+/// "Sim" and [doubt] is "Não sei". [unknown] only ever comes from [parse].
 enum ChecklistAnswer {
   ok,
   appears,
@@ -237,14 +237,13 @@ enum ChecklistAnswer {
   );
 }
 
-/// What an [ChecklistAnswer.appears] does to a review: it refuses the
-/// video, sends it to the team, rules out the youngest band, is a reason
-/// the criteria never accept, or keeps the curator from reviewing it.
+/// What a Sim ([ChecklistAnswer.appears]) does to a review: it refuses
+/// the video, sends it to the team, rules out the youngest band, or keeps
+/// the curator from reviewing it.
 enum ChecklistRule {
   refuses('refuses'),
   doubt('doubt'),
   band('band'),
-  invalidReason('invalid_reason'),
   conflict('conflict'),
   unknown('');
 
@@ -263,22 +262,17 @@ class ChecklistItem {
     required this.id,
     required this.text,
     required this.rule,
-    this.positive = false,
   });
 
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
     id: j['id'] as String,
     text: j['text'] as String,
     rule: ChecklistRule.parse(j['rule']),
-    positive: j['positive'] as bool? ?? false,
   );
 
   final String id;
   final String text;
   final ChecklistRule rule;
-
-  /// Asked in the positive: marking it means "no".
-  final bool positive;
 }
 
 class ChecklistGroup {

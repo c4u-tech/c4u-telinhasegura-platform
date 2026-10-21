@@ -147,7 +147,6 @@ var curationProblems = []struct {
 	{curation.ErrChecklistOutdated, http.StatusConflict, "checklist_outdated"},
 	{curation.ErrChecklistRefuses, http.StatusUnprocessableEntity, "checklist_refuses"},
 	{curation.ErrChecklistBand, http.StatusUnprocessableEntity, "checklist_band"},
-	{curation.ErrChecklistInvalidReason, http.StatusUnprocessableEntity, "checklist_invalid_reason"},
 	{curation.ErrConflictOfInterest, http.StatusConflict, "conflict_of_interest"},
 }
 
