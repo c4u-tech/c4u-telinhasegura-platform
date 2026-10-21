@@ -28,7 +28,7 @@ type PackReview struct {
 }
 
 // Pack is a pack as curators see it: the current round's composition and
-// reviews, and the published round's provenance (packs, Contract).
+// reviews, and the published round's provenance.
 type Pack struct {
 	ID           string
 	State        State

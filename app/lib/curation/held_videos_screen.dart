@@ -14,6 +14,7 @@ import '../screentime/refetch_on_return.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
+import 'audit_sample_screen.dart' show auditDoor, auditDoorLine;
 import 'curation.dart';
 import 'role_gate.dart';
 import 'words.dart';
@@ -99,6 +100,21 @@ class _HeldVideosScreenState extends State<HeldVideosScreen>
         Notice(notice),
         const SizedBox(height: Space.xl),
       ],
+      Doors(
+        children: [
+          DoorRow(
+            title: auditDoor,
+            semanticsLabel: '$auditDoor, $auditDoorLine',
+            onTap: () => context.go(Routes.auditSample),
+            child: Text(
+              auditDoorLine,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: context.palette.muted),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: Space.xl),
       ..._list(),
     ],
   );

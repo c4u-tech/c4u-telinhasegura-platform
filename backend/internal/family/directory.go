@@ -1,6 +1,6 @@
 package family
 
-// The staff directory's reads of a family (Scope):
+// The staff directory's reads of a family, kept to the least it needs:
 // counts and the caller's role only, never a minor.
 
 import (

@@ -33,11 +33,12 @@ type Route struct {
 
 type route struct {
 	Route
-	h        http.HandlerFunc
-	reauth   bool // guardian, admin, moderator, staff: needs a re-authentication within 5 minutes
-	elevated bool // staff: needs the session's privileged elevation
-	bare     bool // public: outside the per-IP budget (health checks)
-	consent  bool // child: refused while the child's consent is not current
+	h          http.HandlerFunc
+	reauth     bool // guardian, admin, moderator, staff: needs a re-authentication within 5 minutes
+	elevated   bool // staff: needs the session's privileged elevation
+	bare       bool // public: outside the per-IP budget (health checks)
+	consent    bool // child: refused while the child's consent is not current
+	undeclared bool // curator: open before the curator terms are accepted
 }
 
 // Routes lists every registered route with its kind.
@@ -71,6 +72,11 @@ func (s *Server) routes() []route {
 	}
 	curator := func(p string, h http.HandlerFunc) route {
 		return route{Route: Route{Pattern: p, Kind: CuratorRoute}, h: h}
+	}
+	// curatorUndeclared is a curator route open before the curator terms
+	// are accepted: reading and accepting them.
+	curatorUndeclared := func(p string, h http.HandlerFunc) route {
+		return route{Route: Route{Pattern: p, Kind: CuratorRoute}, h: h, undeclared: true}
 	}
 	admin := func(p string, h http.HandlerFunc) route {
 		return route{Route: Route{Pattern: p, Kind: AdminRoute}, h: h}
@@ -180,6 +186,11 @@ func (s *Server) routes() []route {
 		kidConsented("POST /v1/child/plays/{id}/beat", s.beat),
 		kidConsented("POST /v1/child/time/extend", s.childExtend),
 		kidConsented("POST /v1/child/videos/{id}/unavailable", s.unavailable),
+		// Curators answer the list; moderators and admins read it to word
+		// what a curator marked, so any role holder may read it.
+		staffRoute("GET /v1/curation/checklist", s.checklist),
+		curatorUndeclared("GET /v1/curation/declaration", s.declaration),
+		curatorUndeclared("POST /v1/curation/declaration", s.acceptDeclaration),
 		curator("GET /v1/curation/themes", s.themes),
 		curator("GET /v1/curation/queue", s.queue),
 		curator("GET /v1/curation/videos", s.approvedVideos),
@@ -200,7 +211,7 @@ func (s *Server) routes() []route {
 		admin("GET /v1/admin/packs", s.adminPacks),
 		admin("GET /v1/admin/packs/{id}", s.adminPack),
 		// A stolen admin session cannot take pacotinhos down unnoticed:
-		// removal needs a fresh re-authentication (packs, Security).
+		// removal needs a fresh re-authentication.
 		adminReauthed("POST /v1/admin/packs/{id}/remove", s.removePack),
 		// The account directory: an exact-match lookup
 		// with a reason, and support actions that each need a fresh
@@ -220,6 +231,14 @@ func (s *Server) routes() []route {
 		moderator("GET /v1/moderation/videos", s.heldVideos),
 		moderatorReauthed("POST /v1/moderation/videos/{id}/remove", s.moderate(s.Curation.ModerateRemove)),
 		moderator("POST /v1/moderation/videos/{id}/reopen", s.moderate(s.Curation.ModerateReopen)),
+		// Publishing or removing a doubted video is as weighty as a
+		// removal: it needs a fresh re-authentication too.
+		moderatorReauthed("POST /v1/moderation/videos/{id}/decide", s.decideDoubt),
+		// Auditing a sample of recent approvals: reading the sample is
+		// free; a verdict, which may hold a video, needs a fresh
+		// re-authentication.
+		moderator("GET /v1/moderation/audit-sample", s.auditSample),
+		moderatorReauthed("POST /v1/moderation/audits", s.auditApproval),
 	}
 }
 
@@ -231,7 +250,13 @@ func (s *Server) wrap(r route) http.HandlerFunc {
 		}
 		return s.authed(r.SuspendedOK, r.h)
 	case CuratorRoute:
-		return s.withRole([]staff.Role{staff.Curator}, staff.ErrNotCurator, r.h)
+		// Role first, then the curator terms: a guardian without the role
+		// learns not_curator, never declaration_required.
+		h := r.h
+		if !r.undeclared {
+			h = s.requireDeclaration(h)
+		}
+		return s.withRole([]staff.Role{staff.Curator}, staff.ErrNotCurator, h)
 	case AdminRoute, ModeratorRoute:
 		// Role, then elevation (while the switch is on), then
 		// re-authentication: a guardian without the role learns not_admin

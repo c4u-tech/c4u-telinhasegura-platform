@@ -429,7 +429,7 @@ void main() {
   });
 
   testWidgets('reauth_required asks to confirm it is you, then retries the '
-      'removal once (staff screens Security)', (tester) async {
+      'removal once', (tester) async {
     var confirmed = false;
     final h =
         Harness(

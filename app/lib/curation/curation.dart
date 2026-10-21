@@ -62,6 +62,7 @@ enum DisplayRole {
 enum ReviewDecision {
   approve,
   reject,
+  doubt,
   unknown;
 
   static ReviewDecision parse(Object? wire) => values.firstWhere(
@@ -97,6 +98,8 @@ enum HeldReason {
   review,
   reports,
   unavailable,
+  doubt,
+  audit,
   unknown;
 
   static HeldReason parse(Object? wire) => wire == null
@@ -217,6 +220,188 @@ class Video {
   final bool revisit;
 }
 
+/// An answer to one question of the curation checklist. For a question
+/// asked in the positive ("Tem começo, meio e fim claros?") [ok] is yes
+/// and [appears] is no. [unknown] only ever comes from [parse].
+enum ChecklistAnswer {
+  ok,
+  appears,
+  doubt,
+  unknown;
+
+  String get wire => name;
+
+  static ChecklistAnswer parse(Object? wire) => values.firstWhere(
+    (a) => a != unknown && a.name == wire,
+    orElse: () => unknown,
+  );
+}
+
+/// What an [ChecklistAnswer.appears] does to a review: it refuses the
+/// video, sends it to the team, rules out the youngest band, is a reason
+/// the criteria never accept, or keeps the curator from reviewing it.
+enum ChecklistRule {
+  refuses('refuses'),
+  doubt('doubt'),
+  band('band'),
+  invalidReason('invalid_reason'),
+  conflict('conflict'),
+  unknown('');
+
+  const ChecklistRule(this.wire);
+
+  final String wire;
+
+  static ChecklistRule parse(Object? wire) => values.firstWhere(
+    (r) => r != unknown && r.wire == wire,
+    orElse: () => unknown,
+  );
+}
+
+class ChecklistItem {
+  const ChecklistItem({
+    required this.id,
+    required this.text,
+    required this.rule,
+    this.positive = false,
+  });
+
+  factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
+    id: j['id'] as String,
+    text: j['text'] as String,
+    rule: ChecklistRule.parse(j['rule']),
+    positive: j['positive'] as bool? ?? false,
+  );
+
+  final String id;
+  final String text;
+  final ChecklistRule rule;
+
+  /// Asked in the positive: marking it means "no".
+  final bool positive;
+}
+
+class ChecklistGroup {
+  const ChecklistGroup({
+    required this.id,
+    required this.title,
+    required this.items,
+  });
+
+  factory ChecklistGroup.fromJson(Map<String, dynamic> j) => ChecklistGroup(
+    id: j['id'] as String,
+    title: j['title'] as String,
+    items: [
+      for (final i in j['items'] as List<dynamic>)
+        ChecklistItem.fromJson(i as Map<String, dynamic>),
+    ],
+  );
+
+  final String id;
+  final String title;
+  final List<ChecklistItem> items;
+}
+
+/// The list every review answers, as the server holds it: the app renders
+/// it and sends its [version] back with the answers.
+class Checklist {
+  const Checklist({required this.version, required this.groups});
+
+  factory Checklist.fromJson(Map<String, dynamic> j) => Checklist(
+    version: j['version'] as String,
+    groups: [
+      for (final g in j['groups'] as List<dynamic>)
+        ChecklistGroup.fromJson(g as Map<String, dynamic>),
+    ],
+  );
+
+  final String version;
+  final List<ChecklistGroup> groups;
+
+  Iterable<ChecklistItem> get items => groups.expand((g) => g.items);
+
+  /// The question [id] names; null for one this list does not have.
+  ChecklistItem? item(String id) => items.where((i) => i.id == id).firstOrNull;
+}
+
+/// The curator terms in force, and whether this curator accepted them.
+class CuratorTerms {
+  const CuratorTerms({
+    required this.version,
+    required this.text,
+    required this.accepted,
+  });
+
+  factory CuratorTerms.fromJson(Map<String, dynamic> j) => CuratorTerms(
+    version: j['version'] as String,
+    text: j['text'] as String,
+    accepted: j['accepted'] as bool,
+  );
+
+  final String version;
+  final String text;
+  final bool accepted;
+}
+
+/// A published round offered to an audit, with the approvals that
+/// published it by displayed role.
+class AuditCandidate {
+  const AuditCandidate({
+    required this.video,
+    required this.round,
+    required this.approvals,
+  });
+
+  factory AuditCandidate.fromJson(Map<String, dynamic> j) => AuditCandidate(
+    video: Video.fromJson(j['video'] as Map<String, dynamic>),
+    round: j['round'] as int,
+    approvals: [
+      for (final r in j['approvals'] as List<dynamic>)
+        Review.fromJson(r as Map<String, dynamic>),
+    ],
+  );
+
+  final Video video;
+  final int round;
+  final List<Review> approvals;
+}
+
+/// A moderator's verdict on an approval they audited.
+enum AuditVerdict {
+  agree,
+  disagree,
+  unknown;
+
+  static AuditVerdict parse(Object? wire) => values.firstWhere(
+    (v) => v != unknown && v.name == wire,
+    orElse: () => unknown,
+  );
+}
+
+/// The audit that held a video: the verdict and its reason, never who
+/// audited.
+class HeldAudit {
+  const HeldAudit({
+    required this.verdict,
+    required this.auditedAt,
+    this.reason,
+  });
+
+  factory HeldAudit.fromJson(Map<String, dynamic> j) => HeldAudit(
+    verdict: AuditVerdict.parse(j['verdict']),
+    // The server sends an empty reason when the audit gave none.
+    reason: switch (j['reason']) {
+      final String r when r.isNotEmpty => r,
+      _ => null,
+    },
+    auditedAt: DateTime.parse(j['audited_at'] as String),
+  );
+
+  final AuditVerdict verdict;
+  final String? reason;
+  final DateTime auditedAt;
+}
+
 /// One review, as curators see it: the displayed role, never the account.
 class Review {
   const Review({
@@ -226,6 +411,9 @@ class Review {
     this.theme,
     this.minAgeBand,
     this.reason,
+    this.checklistVersion,
+    this.answers,
+    this.failedItems,
   });
 
   factory Review.fromJson(Map<String, dynamic> j) => Review(
@@ -237,6 +425,14 @@ class Review {
         ? null
         : AgeBand.parse(j['min_age_band']),
     reason: j['reason'] as String?,
+    checklistVersion: j['checklist_version'] as String?,
+    answers: switch (j['answers']) {
+      final Map<String, dynamic> m => {
+        for (final e in m.entries) e.key: ChecklistAnswer.parse(e.value),
+      },
+      _ => null,
+    },
+    failedItems: (j['failed_items'] as List<dynamic>?)?.cast<String>(),
   );
 
   final DisplayRole displayRole;
@@ -245,6 +441,15 @@ class Review {
   final VideoTheme? theme;
   final AgeBand? minAgeBand;
   final String? reason;
+
+  /// Null for a review written before the checklist.
+  final String? checklistVersion;
+
+  /// An approval's or a doubt's answers, by question.
+  final Map<String, ChecklistAnswer>? answers;
+
+  /// A rejection's questions.
+  final List<String>? failedItems;
 }
 
 /// The published round's approvals by displayed role.
@@ -321,8 +526,10 @@ class HeldVideo {
   const HeldVideo({
     required this.video,
     required this.rejections,
+    this.doubts = const [],
     this.heldReason = HeldReason.review,
     this.reports = const ReportSummary(),
+    this.audit,
   });
 
   factory HeldVideo.fromJson(Map<String, dynamic> j) => HeldVideo(
@@ -331,14 +538,27 @@ class HeldVideo {
       for (final r in j['rejections'] as List<dynamic>)
         Review.fromJson(r as Map<String, dynamic>),
     ],
+    doubts: [
+      for (final r in j['doubts'] as List<dynamic>? ?? const [])
+        Review.fromJson(r as Map<String, dynamic>),
+    ],
     heldReason: HeldReason.parse(j['held_reason']),
     reports: ReportSummary.fromJson(j['reports'] as Map<String, dynamic>?),
+    audit: j['audit'] == null
+        ? null
+        : HeldAudit.fromJson(j['audit'] as Map<String, dynamic>),
   );
 
   final Video video;
   final List<Review> rejections;
+
+  /// The held round's curator doubts, with the answers and the note.
+  final List<Review> doubts;
   final HeldReason heldReason;
   final ReportSummary reports;
+
+  /// Only for [HeldReason.audit]: the audit that held the video.
+  final HeldAudit? audit;
 }
 
 /// A video the guardian suggested, with where it stands.

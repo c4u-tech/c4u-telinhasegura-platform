@@ -20,8 +20,7 @@ type HeldRole struct {
 	VerifiedProfessional bool
 }
 
-// Member is an account holding platform roles, as the team lists it
-// (Contract).
+// Member is an account holding platform roles, as the team lists it.
 type Member struct {
 	AccountID string
 	Email     string

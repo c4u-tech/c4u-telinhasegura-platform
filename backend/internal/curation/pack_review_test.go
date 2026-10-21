@@ -171,7 +171,7 @@ func TestPackReviewRefusals(t *testing.T) {
 	}
 }
 
-func TestPackReviewValidation(t *testing.T) { // packs, Contract (the review body)
+func TestPackReviewValidation(t *testing.T) { // the shape of the review body
 	f := newFixture(t)
 	c1 := f.curator("c1@example.com", curation.MaePai)
 	c2 := f.curator("c2@example.com", curation.MaePai)

@@ -47,8 +47,9 @@ func (e *BatchItemsError) Unwrap() error { return ErrSourceUnavailable }
 
 const YouTubeBaseURL = "https://www.googleapis.com/youtube/v3/videos"
 
-// YouTube calls the Data API's videos.list with a server-side key
-// (Outbound). Its errors never carry the key or the URL.
+// YouTube calls the Data API's videos.list with a server-side key, the
+// only outbound call of a suggestion. Its errors never carry the key or
+// the URL.
 type YouTube struct {
 	Client  *http.Client
 	BaseURL string

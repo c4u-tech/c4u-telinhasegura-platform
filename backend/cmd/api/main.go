@@ -251,6 +251,7 @@ func serve(log *slog.Logger) error {
 		sweep.Job{Name: "screentime_retention", Run: st.Sweep},
 		sweep.Job{Name: "access_log_retention", Run: access.Sweep},
 		sweep.Job{Name: "audit_retention", Run: auditStore.Sweep},
+		sweep.Job{Name: "curator_declaration_retention", Run: cur.SweepDeclarations},
 		sweep.Job{Name: "consent_retention", Run: fam.SweepConsents},
 		sweep.Job{Name: "session_retention", Run: sessions.Sweep},
 		sweep.Job{Name: "youtube_refresh", Run: cur.RefreshSources},

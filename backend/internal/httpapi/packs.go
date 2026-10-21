@@ -16,7 +16,8 @@ type packVideoOut struct {
 	State           string `json:"state"`
 }
 
-// packReviewOut never names the reviewer's account (packs, Security).
+// packReviewOut never names the reviewer's account, only the displayed
+// role, so curators review without being singled out.
 type packReviewOut struct {
 	DisplayRole string    `json:"display_role"`
 	Decision    string    `json:"decision"`
@@ -58,7 +59,7 @@ func packBody(p curation.Pack) packOut {
 	return out
 }
 
-// packIn is the composition body of POST and PUT (packs, Contract).
+// packIn is the composition body of POST and PUT.
 type packIn struct {
 	Title        string   `json:"title"`
 	VideoIDs     []string `json:"video_ids"`

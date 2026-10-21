@@ -15,6 +15,7 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
 import 'adult_window.dart';
+import 'audit_video_screen.dart' show marksFailed;
 import 'curation.dart';
 import 'role_gate.dart';
 import 'video_heading.dart';
@@ -29,6 +30,9 @@ const heldPlayerFailed =
 /// Back on the list when the video is no longer held (`state_conflict`, `not_found`).
 const heldGone = 'Esse vídeo não está mais retido.';
 
+/// Over the curators' doubts, with what each one marked.
+const doubtsHeading = 'Dúvidas';
+
 /// Over the families' notes, apart from the counts.
 const notesHeading = 'O que as famílias escreveram';
 
@@ -38,6 +42,18 @@ String reopened(String title) =>
 
 /// Back on the list after "Remover de vez".
 String removedForGood(String title) => 'Removemos “$title” de vez.';
+
+/// What the audit that held the video said: "Auditoria: discordou — motivo".
+String auditLine(HeldAudit audit) {
+  final verdict = switch (audit.verdict) {
+    AuditVerdict.agree => 'concordou',
+    AuditVerdict.disagree => 'discordou',
+    AuditVerdict.unknown => null,
+  };
+  final head = verdict == null ? 'Auditoria' : 'Auditoria: $verdict';
+  final reason = audit.reason;
+  return reason == null ? head : '$head \u2014 $reason';
+}
 
 /// One reason's reports: "Assustador · 2 denúncias".
 String reportLine(ReportReason reason, int n) => CurationWords.joined([
@@ -68,6 +84,8 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
   bool _started = false;
   bool _failed = false;
   HeldVideo? _held;
+  Checklist? _checklist;
+  bool _marksFailed = false;
 
   /// The write running is the removal, whose action shows the progress.
   bool _removing = false;
@@ -92,13 +110,15 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
   Future<void> _read() async {
     if (!mounted) return;
     setState(() => _failed = false);
+    final scope = AppScope.of(context);
     try {
-      final all = await AppScope.of(context).staff.heldVideos();
+      final all = await scope.staff.heldVideos();
       if (!mounted) return;
       final held = all.where((h) => h.video.id == widget.id).firstOrNull;
       if (held == null) return _leave(heldGone);
       setState(() => _held = held);
       openPlayer(held.video.youtubeId);
+      if (held.heldReason == HeldReason.doubt) unawaited(_readMarks());
     } on Object catch (e) {
       if (!mounted ||
           takeLostRole(context, e) ||
@@ -106,6 +126,20 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         return;
       }
       setState(() => _failed = true);
+    }
+  }
+
+  /// A doubt's marks are worded with the list the server holds. Without
+  /// it the doubts still show, by role, with their theme, band and note.
+  Future<void> _readMarks() async {
+    if (!mounted) return;
+    setState(() => _marksFailed = false);
+    try {
+      final list = await AppScope.of(context).curation.checklist();
+      if (mounted) setState(() => _checklist = list);
+    } on Object catch (e) {
+      if (!mounted || takeLostRole(context, e)) return;
+      setState(() => _marksFailed = true);
     }
   }
 
@@ -167,6 +201,31 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
     if (ok) _leave(removedForGood(v.title));
   }
 
+  /// A doubt is settled by the team: removing it goes through the
+  /// decision, with its reason.
+  Future<void> _removeDoubt(Video v) async {
+    final api = AppScope.of(context).staff;
+    unawaited(playback?.pause());
+    final reason = await confirmWithReason(
+      context,
+      title: 'Remover este vídeo de vez?',
+      body: [
+        '“${v.title}” sai da curadoria e não volta para o catálogo.',
+        'A dúvida da curadoria fica decidida assim.',
+      ],
+      action: 'Remover de vez',
+    );
+    if (reason == null || !mounted) return;
+    setState(() => _removing = true);
+    final ok = await _write.write(
+      () => api.decideDoubt(v.id, publish: false, reason: reason),
+      handle: _handle,
+    );
+    if (!mounted) return;
+    setState(() => _removing = false);
+    if (ok) _leave(removedForGood(v.title));
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _write,
@@ -210,6 +269,28 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         ..._section('Recusas', [
           for (final r in held.rejections) CurationWords.rejection(r),
         ]),
+      if (held.doubts.isNotEmpty) ...[
+        ..._section(doubtsHeading, [
+          for (final d in held.doubts) ...[
+            CurationWords.review(d),
+            if (d.reason?.trim() case final note? when note.isNotEmpty)
+              '“$note”',
+            if (_checklist case final list?) ...CurationWords.marked(d, list),
+          ],
+        ]),
+        if (_marksFailed) ...[
+          const SizedBox(height: Space.md),
+          Semantics(
+            liveRegion: true,
+            child: Text(marksFailed, style: text.bodyLarge),
+          ),
+          QuietAction(label: 'Tentar de novo', onPressed: _readMarks),
+        ],
+      ],
+      if (held.audit case final audit?) ...[
+        const SizedBox(height: Space.sm),
+        Text(auditLine(audit), style: text.bodyLarge),
+      ],
       if (reports.isNotEmpty) ..._section('Denúncias', reports),
       if (notes.isNotEmpty)
         ..._section(notesHeading, [for (final n in notes) '“$n”']),
@@ -220,18 +301,34 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         ErrorNote(message),
         const SizedBox(height: Space.lg),
       ],
-      PrimaryButton(
-        label: 'Reabrir para revisão',
-        busy: _write.busy && !_removing,
-        onPressed: idle ? () => _reopen(v) : null,
-      ),
-      const SizedBox(height: Space.xxl),
-      QuietAction(
-        label: 'Remover de vez',
-        destructive: true,
-        busy: _write.busy && _removing,
-        onPressed: idle ? () => _remove(v) : null,
-      ),
+      if (held.heldReason == HeldReason.doubt) ...[
+        PrimaryButton(
+          label: 'Publicar',
+          onPressed: idle
+              ? () => context.go(Routes.publishDoubt(v.id), extra: held)
+              : null,
+        ),
+        const SizedBox(height: Space.xxl),
+        QuietAction(
+          label: 'Remover de vez',
+          destructive: true,
+          busy: _write.busy && _removing,
+          onPressed: idle ? () => _removeDoubt(v) : null,
+        ),
+      ] else ...[
+        PrimaryButton(
+          label: 'Reabrir para revisão',
+          busy: _write.busy && !_removing,
+          onPressed: idle ? () => _reopen(v) : null,
+        ),
+        const SizedBox(height: Space.xxl),
+        QuietAction(
+          label: 'Remover de vez',
+          destructive: true,
+          busy: _write.busy && _removing,
+          onPressed: idle ? () => _remove(v) : null,
+        ),
+      ],
     ];
   }
 

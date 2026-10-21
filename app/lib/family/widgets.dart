@@ -229,7 +229,7 @@ class Doors extends StatelessWidget {
   }
 }
 
-/// A read row ending on a figure (Figure Row):
+/// A read row ending on a figure:
 /// [label] in body-large on the left, [figure] on the right in
 /// tabular figures, at least 48 dp with 12 px above and below, between
 /// the door rows' hairlines. Where the two cannot share the line (200 %

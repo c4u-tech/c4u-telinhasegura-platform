@@ -43,8 +43,8 @@ func writeProblem(w http.ResponseWriter, p problem) {
 	_ = json.NewEncoder(w).Encode(p)
 }
 
-// familyProblems maps the family module's sentinels to their codes
-// (Codes).
+// familyProblems maps the family module's sentinels to their status and
+// code.
 var familyProblems = []struct {
 	err    error
 	status int
@@ -66,8 +66,8 @@ var familyProblems = []struct {
 	{family.ErrOtherGuardians, http.StatusForbidden, "account_suspended"}, // only DeleteAsSoleGuardian returns it
 }
 
-// parentalProblems maps the parental module's sentinels to their codes
-// (Codes).
+// parentalProblems maps the parental module's sentinels to their status
+// and code.
 var parentalProblems = []struct {
 	err    error
 	status int
@@ -87,7 +87,7 @@ var parentalProblems = []struct {
 	{parental.ErrConsentRequired, http.StatusForbidden, "consent_required"},
 }
 
-// staffProblems maps the staff module's sentinels to their codes (Codes).
+// staffProblems maps the staff module's sentinels to their status and code.
 // curation.ErrNotCurator is staff.ErrNotCurator.
 var staffProblems = []struct {
 	err    error
@@ -121,8 +121,8 @@ var staffProblems = []struct {
 	{staff.ErrNotSuspended, http.StatusConflict, "not_suspended"},
 }
 
-// curationProblems maps the curation module's sentinels to their codes
-// (Codes).
+// curationProblems maps the curation module's sentinels to their status
+// and code.
 var curationProblems = []struct {
 	err    error
 	status int
@@ -130,6 +130,8 @@ var curationProblems = []struct {
 }{
 	{curation.ErrValidation, http.StatusUnprocessableEntity, "validation"},
 	{curation.ErrNotFound, http.StatusNotFound, "not_found"},
+	{curation.ErrDeclarationRequired, http.StatusForbidden, "declaration_required"},
+	{curation.ErrDeclarationOutdated, http.StatusConflict, "declaration_outdated"},
 	{curation.ErrInvalidLink, http.StatusUnprocessableEntity, "invalid_link"},
 	{curation.ErrSourceUnavailable, http.StatusServiceUnavailable, "video_source_unavailable"},
 	{curation.ErrNotReviewable, http.StatusConflict, "not_reviewable"},
@@ -137,13 +139,20 @@ var curationProblems = []struct {
 	{curation.ErrOwnSuggestion, http.StatusForbidden, "own_suggestion"},
 	{curation.ErrOwnComposition, http.StatusForbidden, "own_composition"},
 	{curation.ErrStateConflict, http.StatusConflict, "state_conflict"},
+	{curation.ErrAlreadyAudited, http.StatusConflict, "already_audited"},
+	{curation.ErrOwnReview, http.StatusConflict, "own_review"},
 	{curation.ErrVideoNotAllowed, http.StatusForbidden, "video_not_allowed"},
 	{curation.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{curation.ErrThumbnailUnavailable, http.StatusServiceUnavailable, "thumbnail_unavailable"},
+	{curation.ErrChecklistOutdated, http.StatusConflict, "checklist_outdated"},
+	{curation.ErrChecklistRefuses, http.StatusUnprocessableEntity, "checklist_refuses"},
+	{curation.ErrChecklistBand, http.StatusUnprocessableEntity, "checklist_band"},
+	{curation.ErrChecklistInvalidReason, http.StatusUnprocessableEntity, "checklist_invalid_reason"},
+	{curation.ErrConflictOfInterest, http.StatusConflict, "conflict_of_interest"},
 }
 
-// privacyProblems maps the privacy module's sentinels to their codes
-// (Codes).
+// privacyProblems maps the privacy module's sentinels to their status
+// and code.
 var privacyProblems = []struct {
 	err    error
 	status int
@@ -157,7 +166,7 @@ var privacyProblems = []struct {
 }
 
 // screentimeProblems maps the screentime module's sentinels to their
-// codes (Codes).
+// status and code.
 var screentimeProblems = []struct {
 	err    error
 	status int

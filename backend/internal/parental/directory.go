@@ -1,7 +1,7 @@
 package parental
 
-// The staff directory's reads and one write of a family's devices
-// (Scope). A device's label is typed by a guardian
+// The staff directory's reads and one write of a family's devices, kept
+// to the least support needs. A device's label is typed by a guardian
 // and often names the child, so it never leaves through here.
 
 import (

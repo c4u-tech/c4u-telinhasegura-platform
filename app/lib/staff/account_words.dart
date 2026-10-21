@@ -15,6 +15,8 @@ abstract final class AccountWords {
 
   static const _events = {
     'account_looked_up': 'Conta buscada',
+    'video_doubt_decided': 'Dúvida da curadoria decidida',
+    'approval_audited': 'Aprovação conferida',
     'account_sessions_revoked': 'Sessões encerradas',
     'account_device_unlinked': 'Aparelho desvinculado',
     'account_password_reset_sent': 'Redefinição de senha enviada',

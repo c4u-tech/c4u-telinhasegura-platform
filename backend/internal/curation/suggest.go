@@ -16,8 +16,9 @@ type Suggestion struct {
 
 // Suggest records the account's suggestion of a YouTube link.
 // created reports a video new to the catalogue (201), as against one
-// already in it (200). The checks run in the order of the plan's Global
-// Constraints; nothing is stored unless all pass.
+// already in it (200). The cheapest checks run first: the account's
+// limit, the link, the stored video, and only then YouTube, which is asked
+// only when nothing cheaper can answer. Nothing is stored unless all pass.
 func (s *Service) Suggest(ctx context.Context, accountID, link string) (Video, bool, error) {
 	if err := s.checkSuggestionLimit(ctx, accountID); err != nil {
 		return Video{}, false, err

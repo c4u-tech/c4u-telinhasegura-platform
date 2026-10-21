@@ -2,7 +2,9 @@ package curation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"maps"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -14,7 +16,7 @@ import (
 
 const (
 	queuePage = 50  // videos per queue page
-	maxReason = 500 // runes in a rejection reason
+	maxReason = 500 // runes in a rejection's or a doubt's note
 )
 
 type Decision string
@@ -22,26 +24,34 @@ type Decision string
 const (
 	Approve Decision = "approve"
 	Reject  Decision = "reject"
+	Doubt   Decision = "doubt" // stored, never sent: an approval with a doubt becomes one
 )
 
-// ReviewInput is an approval with a theme and a band, or a rejection
-// with a reason.
+// ReviewInput is an approval with a theme, a band and every answer of the
+// list, or a rejection with the questions it failed. Note is the
+// curator's own words: a rejection's, or a doubt's.
 type ReviewInput struct {
-	Decision   Decision
-	Theme      string
-	MinAgeBand family.AgeBand
-	Reason     string
+	Decision         Decision
+	Theme            string
+	MinAgeBand       family.AgeBand
+	ChecklistVersion string
+	Answers          map[string]Answer // an approval's, every question
+	FailedItems      []string          // a rejection's
+	Note             string
 }
 
 // Review is one review as curators see it: the displayed role at review
 // time, never the account.
 type Review struct {
-	DisplayRole DisplayRole
-	Decision    Decision
-	Theme       string
-	MinAgeBand  family.AgeBand
-	Reason      string
-	ReviewedAt  time.Time
+	DisplayRole      DisplayRole
+	Decision         Decision
+	Theme            string
+	MinAgeBand       family.AgeBand
+	Reason           string
+	ChecklistVersion string            // "" for a review written before the list
+	Answers          map[string]Answer // an approval's or a doubt's; nil otherwise
+	FailedItems      []string          // a rejection's; nil otherwise
+	ReviewedAt       time.Time
 }
 
 type QueueItem struct {
@@ -102,15 +112,20 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 	if !validID(videoID) {
 		return Review{}, "", ErrNotFound
 	}
-	in.Reason = strings.TrimSpace(in.Reason)
-	if err := checkReview(in); err != nil {
+	in.Note = strings.TrimSpace(in.Note)
+	e, err := prepare(in)
+	if err != nil {
 		return Review{}, "", err
 	}
 	now := s.now()
-	rv := Review{Decision: in.Decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: in.Reason, ReviewedAt: now}
+	rv := Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,
+		ChecklistVersion: ChecklistVersion, FailedItems: e.failed, ReviewedAt: now}
+	if e.decision != Reject {
+		rv.Answers = maps.Clone(in.Answers)
+	}
 	var state State
 	var event audit.Event
-	err := s.inTx(ctx, func(tx pgx.Tx) error {
+	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		var st string
 		var round int
 		var due *time.Time
@@ -152,13 +167,22 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		}
 		rv.DisplayRole = DisplayRole(role)
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
-			min_age_band, reason, reviewed_at) VALUES ($1::uuid, $2, $3::uuid, $4, $5, nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9)`,
-			videoID, round, curatorID, role, string(in.Decision), in.Theme, string(in.MinAgeBand), in.Reason, now); err != nil {
+			min_age_band, reason, reviewed_at, checklist_version, checklist) VALUES ($1::uuid, $2, $3::uuid, $4, $5,
+			nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb)`,
+			videoID, round, curatorID, role, string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
+			ChecklistVersion, string(e.checklist)); err != nil {
 			return err
 		}
-		if in.Decision == Reject { // held at once, pending or in a revisit
+		// A rejection or a doubt holds the video at once, pending or in a
+		// revisit: one is enough.
+		if e.decision != Approve {
+			why := HeldByReview
+			if e.decision == Doubt {
+				why = HeldByDoubt
+			}
 			state, event = Held, audit.VideoHeld
-			_, err := tx.Exec(ctx, `UPDATE videos SET state = 'held', held_reason = 'review', updated_at = $2 WHERE id = $1::uuid`, videoID, now)
+			_, err := tx.Exec(ctx, `UPDATE videos SET state = 'held', held_reason = $3, updated_at = $2 WHERE id = $1::uuid`,
+				videoID, now, why)
 			return err
 		}
 		published, held, err := s.publishIfComplete(ctx, tx, videoID, round, now)
@@ -257,18 +281,57 @@ func published(approvals []approval) (string, family.AgeBand) {
 	return theme, band
 }
 
-func checkReview(in ReviewInput) error {
-	switch in.Decision {
-	case Approve:
-		if validTheme(in.Theme) && bandRank(in.MinAgeBand) > 0 && in.Reason == "" {
-			return nil
-		}
-	case Reject:
-		if n := utf8.RuneCountInString(in.Reason); n >= 1 && n <= maxReason && in.Theme == "" && in.MinAgeBand == "" {
-			return nil
-		}
+// entry is a review as the ledger stores it.
+type entry struct {
+	decision  Decision
+	reason    string   // a rejection's failed questions and note; a doubt's note
+	checklist []byte   // the answers, or the failed questions
+	failed    []string // a rejection's questions, in the list's order
+}
+
+// prepare checks a review before any lookup and turns it into its ledger
+// entry. A refused review stores nothing.
+func prepare(in ReviewInput) (entry, error) {
+	if in.Decision != Approve && in.Decision != Reject {
+		return entry{}, ErrValidation
 	}
-	return ErrValidation
+	if in.ChecklistVersion != ChecklistVersion {
+		return entry{}, ErrChecklistOutdated
+	}
+	if utf8.RuneCountInString(in.Note) > maxReason {
+		return entry{}, ErrValidation
+	}
+	if in.Decision == Reject {
+		if in.Theme != "" || in.MinAgeBand != "" || in.Answers != nil {
+			return entry{}, ErrValidation
+		}
+		items, err := failedItems(in.FailedItems)
+		if err != nil {
+			return entry{}, err
+		}
+		ids := make([]string, len(items))
+		for i, it := range items {
+			ids[i] = it.ID
+		}
+		list, err := json.Marshal(ids)
+		return entry{decision: Reject, reason: composeReason(items, in.Note), checklist: list, failed: ids}, err
+	}
+	if !validTheme(in.Theme) || bandRank(in.MinAgeBand) == 0 || in.FailedItems != nil {
+		return entry{}, ErrValidation
+	}
+	doubt, err := judge(in.Answers, in.MinAgeBand)
+	if err != nil {
+		return entry{}, err
+	}
+	// A note travels only with a doubt: a plain approval has nothing to explain.
+	if !doubt && in.Note != "" {
+		return entry{}, ErrValidation
+	}
+	list, err := json.Marshal(in.Answers)
+	if doubt {
+		return entry{decision: Doubt, reason: in.Note, checklist: list}, err
+	}
+	return entry{decision: Approve, checklist: list}, err
 }
 
 // VideoDetail reads a video, its current round's reviews and its
@@ -312,7 +375,7 @@ func provenance(ctx context.Context, q querier, v Video) (*Provenance, error) {
 // of them.
 func reviewsOf(ctx context.Context, q querier, videoID string, round int, decision Decision) ([]Review, error) {
 	rows, err := q.Query(ctx, `SELECT display_role, decision, coalesce(theme, ''), coalesce(min_age_band, ''),
-		coalesce(reason, ''), reviewed_at FROM video_reviews
+		coalesce(reason, ''), reviewed_at, coalesce(checklist_version, ''), checklist FROM video_reviews
 		WHERE video_id = $1::uuid AND round = $2 AND ($3::text = '' OR decision = $3::text) ORDER BY reviewed_at, id`,
 		videoID, round, string(decision))
 	if err != nil {
@@ -321,8 +384,18 @@ func reviewsOf(ctx context.Context, q querier, videoID string, round int, decisi
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (Review, error) {
 		var x Review
 		var role, dec, band string
-		err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt)
+		var list []byte
+		if err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt, &x.ChecklistVersion, &list); err != nil {
+			return x, err
+		}
 		x.DisplayRole, x.Decision, x.MinAgeBand, x.ReviewedAt = DisplayRole(role), Decision(dec), family.AgeBand(band), x.ReviewedAt.UTC()
-		return x, err
+		switch {
+		case list == nil: // written before the list
+		case x.Decision == Reject:
+			return x, json.Unmarshal(list, &x.FailedItems)
+		default:
+			return x, json.Unmarshal(list, &x.Answers)
+		}
+		return x, nil
 	})
 }

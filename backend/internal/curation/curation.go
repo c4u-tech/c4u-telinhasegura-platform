@@ -28,7 +28,7 @@ const (
 	Removed  State = "removed"
 )
 
-// The reasons a suggested video is refused (Codes).
+// The reasons a suggested video is refused, as the API sends them.
 const (
 	RefusedNotFound      = "not_found"
 	RefusedNotForKids    = "not_for_kids"
@@ -44,6 +44,8 @@ const (
 	HeldByReview      = "review"
 	HeldByReports     = "reports"
 	HeldByUnavailable = "unavailable"
+	HeldByDoubt       = "doubt" // a curator was unsure; a moderator decides
+	HeldByAudit       = "audit" // a moderator's audit disagreed with the approval
 )
 
 // The rules a composition can break, in the order they are checked.
@@ -68,8 +70,18 @@ var (
 	ErrOwnSuggestion     = errors.New("curation: a curator cannot review their own suggestion")
 	ErrOwnComposition    = errors.New("curation: a curator cannot review their own composition")
 	ErrStateConflict     = errors.New("curation: the video's state does not allow this")
+	ErrAlreadyAudited    = errors.New("curation: the round was already audited")
+	ErrOwnReview         = errors.New("curation: the round holds a review of the same account")
 	ErrVideoNotAllowed   = errors.New("curation: the child may not see this video")
 	ErrProfileGone       = errors.New("curation: the child or its family is gone")
+
+	ErrChecklistOutdated      = errors.New("curation: the checklist version is not the current one")
+	ErrChecklistRefuses       = errors.New("curation: an answer refuses the video")
+	ErrChecklistBand          = errors.New("curation: the pace answered rules out the youngest band")
+	ErrChecklistInvalidReason = errors.New("curation: a difference of family, faith, colour or disability is no reason to refuse")
+	ErrDeclarationRequired    = errors.New("curation: the curator has not accepted the current curator terms")
+	ErrDeclarationOutdated    = errors.New("curation: the curator terms version is not the current one")
+	ErrConflictOfInterest     = errors.New("curation: the curator has a tie to the channel")
 
 	ErrThumbnailUnavailable = errors.New("curation: the thumbnail could not be fetched")
 )

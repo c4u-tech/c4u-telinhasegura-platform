@@ -150,7 +150,8 @@ class AppServices {
 
   /// The provider step waiting for a confirmation: a [SignupRequired] or
   /// a [LinkRequired]. Its ticket lives only here, never in a URL or in
-  /// storage (access-screens Security), so a reload drops it.
+  /// storage, where another app or a later visitor could read it, so a
+  /// reload drops it.
   final pending = ValueNotifier<ProviderSignInResult?>(null);
 
   /// The token a signed-out visitor opened `/convite` with, held only

@@ -9,7 +9,7 @@ import (
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 )
 
-func TestPackDetailOfAPendingPack(t *testing.T) { // packs, Contract (the pack detail)
+func TestPackDetailOfAPendingPack(t *testing.T) { // the detail a curator reads
 	f := newFixture(t)
 	c1 := f.curator("c1@example.com", curation.MaePai)
 	c2 := f.curator("c2@example.com", curation.Pedagogo)
@@ -46,7 +46,7 @@ func TestPackDetailOfAPublishedPack(t *testing.T) {
 	}
 }
 
-func TestPackDetailOfAnUnknownPack(t *testing.T) { // packs, Codes (not_found)
+func TestPackDetailOfAnUnknownPack(t *testing.T) { // an unknown pack is not_found
 	f := newFixture(t)
 	c := f.curator("c1@example.com", curation.MaePai)
 	for _, id := range []string{"abc", "00000000-0000-0000-0000-000000000000"} {

@@ -26,6 +26,26 @@ class CurationApi {
 
   static String _id(String id) => Uri.encodeComponent(id);
 
+  /// The list every review answers, with its version.
+  Future<Checklist> checklist() async =>
+      Checklist.fromJson(await _json('GET', '/v1/curation/checklist'));
+
+  /// The curator terms in force; every other curator route answers
+  /// `declaration_required` until they are accepted.
+  Future<CuratorTerms> declaration() async =>
+      CuratorTerms.fromJson(await _json('GET', '/v1/curation/declaration'));
+
+  /// Accepts the terms of [version], the one shown; another answers
+  /// `declaration_outdated`.
+  Future<CuratorTerms> acceptDeclaration(String version) async =>
+      CuratorTerms.fromJson(
+        await _json(
+          'POST',
+          '/v1/curation/declaration',
+          body: {'version': version},
+        ),
+      );
+
   /// Suggests a YouTube link; the video, and whether this suggestion
   /// created it (201) or it was already in the catalogue (200).
   Future<({Video video, bool created})> suggest(String url) async {
@@ -68,20 +88,40 @@ class CurationApi {
     await _json('GET', '/v1/curation/videos/${_id(id)}'),
   );
 
-  /// Approves; the video's state after the review.
+  /// Approves with every answer of the checklist [version]; the video's
+  /// state after the review. A doubt, or an answer that asks for the team,
+  /// holds the video instead, with [note].
+  /// Refused with `checklist_outdated`, `checklist_refuses`,
+  /// `checklist_band`, `checklist_invalid_reason` or `conflict_of_interest`.
   Future<VideoState> approve(
     String id, {
     required VideoTheme theme,
     required AgeBand minAgeBand,
+    required String version,
+    required Map<String, ChecklistAnswer> answers,
+    String? note,
   }) => _review(id, {
     'decision': 'approve',
     'theme': theme.wire,
     'min_age_band': minAgeBand.wire,
+    'checklist_version': version,
+    'answers': {for (final e in answers.entries) e.key: e.value.wire},
+    'note': ?note,
   });
 
-  /// Rejects with a reason of 1 to 500 characters; the video is held.
-  Future<VideoState> reject(String id, String reason) =>
-      _review(id, {'decision': 'reject', 'reason': reason});
+  /// Rejects for [failedItems], each a question that refuses, with an
+  /// optional [note] of up to 500 characters; the video is held.
+  Future<VideoState> reject(
+    String id, {
+    required String version,
+    required List<String> failedItems,
+    String? note,
+  }) => _review(id, {
+    'decision': 'reject',
+    'checklist_version': version,
+    'failed_items': failedItems,
+    'note': ?note,
+  });
 
   Future<VideoState> _review(String id, Map<String, Object> body) async =>
       VideoState.parse(

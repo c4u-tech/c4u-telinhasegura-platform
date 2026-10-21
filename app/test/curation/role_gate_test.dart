@@ -22,7 +22,7 @@ Future<String> open(WidgetTester tester, Harness h, String path) async {
 }
 
 void main() {
-  group('the curation routes (curation screens, Routes)', () {
+  group('the curation routes', () {
     test('their paths', () {
       expect(Routes.suggestions, '/sugestoes');
       expect(Routes.newSuggestion, '/sugestoes/nova');
@@ -30,6 +30,14 @@ void main() {
       expect(Routes.review('v/1'), '/curadoria/v%2F1');
       expect(Routes.approve('v1'), '/curadoria/v1/aprovar');
       expect(Routes.refuse('v1'), '/curadoria/v1/recusar');
+      expect(
+        Routes.refuse('v1', items: ['c04', 'c15']),
+        '/curadoria/v1/recusar?itens=c04%2Cc15',
+      );
+      expect(Routes.refuseItems('c04,c15'), ['c04', 'c15']);
+      expect(Routes.refuseItems(',c04,'), ['c04']);
+      expect(Routes.refuseItems(''), isEmpty);
+      expect(Routes.refuseItems(null), isEmpty);
       expect(Routes.admin, '/admin');
       expect(Routes.team, '/admin/equipe');
       expect(Routes.appoint, '/admin/equipe/nova');

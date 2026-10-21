@@ -208,7 +208,9 @@ class _AgeBandChoiceState extends State<AgeBandChoice> {
 /// stroke thickens in the action colour. It takes the palette of the
 /// ground it sits on; on the child side it stands at the kid target's
 /// [height], cornered at the screen ratio of it. As a key ([asKey]) it stands
-/// as one of a row of choice keys, its module and words centred.
+/// as one of a row of choice keys, its module and words centred. A
+/// [toggle] row is a mark of its own, set and taken back by a tap: it reads
+/// as a checkbox, not as one of a group.
 class SelectableRow extends StatelessWidget {
   const SelectableRow({
     super.key,
@@ -219,6 +221,7 @@ class SelectableRow extends StatelessWidget {
     this.text,
     this.detail,
     this.asKey = false,
+    this.toggle = false,
   });
 
   /// What assistive technology reads, and the words shown unless [text]
@@ -233,6 +236,7 @@ class SelectableRow extends StatelessWidget {
 
   /// A choice key: narrow, its content centred (the PIN door's times).
   final bool asKey;
+  final bool toggle;
   final bool selected;
   final VoidCallback? onTap;
 
@@ -249,6 +253,7 @@ class SelectableRow extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       radius: radius,
+      toggle: toggle,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
@@ -309,7 +314,8 @@ class SelectableRow extends StatelessWidget {
 }
 
 /// A choice-of-one target: read as a radio (its label, checked or not,
-/// one of a group), with the 3 px focus ring outside it.
+/// one of a group), with the 3 px focus ring outside it. A [toggle] target
+/// stands alone and reads as a checkbox.
 class ChoiceTarget extends StatefulWidget {
   const ChoiceTarget({
     super.key,
@@ -318,7 +324,10 @@ class ChoiceTarget extends StatefulWidget {
     required this.onTap,
     required this.child,
     this.radius = Radii.small,
+    this.toggle = false,
   });
+
+  final bool toggle;
 
   final String label;
   final bool selected;
@@ -342,7 +351,7 @@ class _ChoiceTargetState extends State<ChoiceTarget> {
     final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
     return Semantics(
       container: true,
-      inMutuallyExclusiveGroup: true,
+      inMutuallyExclusiveGroup: !widget.toggle,
       checked: widget.selected,
       enabled: widget.onTap != null,
       label: widget.label,

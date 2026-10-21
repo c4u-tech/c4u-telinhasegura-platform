@@ -1,6 +1,6 @@
 import '../auth/auth_api.dart' show PlatformRole;
 
-/// The app's routes (access-screens and family-screens specs, Routes).
+/// The app's routes.
 /// `/verificar-email`, `/esqueci-a-senha`, `/redefinir-senha` and
 /// `/convite` are fixed by the backend's mail
 /// (backend/internal/identity/service.go, account.go, messages.go; the
@@ -27,12 +27,11 @@ abstract final class Routes {
   static const invitations = '/familia/convites';
   static const deleteFamily = '/familia/excluir';
 
-  /// The children's screen time, then each child's hub and its errands
-  /// (screen-time screens, Routes).
+  /// The children's screen time, then each child's hub and its errands.
   static const screenTime = '/familia/tempo';
 
   /// What each child can watch, then one child's catalogue, one video
-  /// and its report (family catalogue screens, Routes).
+  /// and its report.
   static const familyVideos = '/familia/videos';
   static const acceptInvitation = '/convite';
 
@@ -53,29 +52,61 @@ abstract final class Routes {
   static const kidPack = '/crianca/pacotinho';
   static const redeem = '/vincular-aparelho';
 
-  /// The curation screens (curation screens, Routes): suggestions for
+  /// The curation screens: suggestions for
   /// every guardian, the queue for curators, administration for admins.
   static const suggestions = '/sugestoes';
   static const newSuggestion = '/sugestoes/nova';
   static const curation = '/curadoria';
   static const admin = '/admin';
 
-  /// The team (staff screens, Routes): who holds which platform role,
+  /// The curator terms, which a curator accepts before any review; its
+  /// `depois` is the curation screen that asked, kept by
+  /// [curatorTermsReturn].
+  static const curatorTerms = '/curadoria/termo';
+
+  static String curatorTermsFor({String? then}) => Uri(
+    path: curatorTerms,
+    queryParameters: then == null ? null : {'depois': then},
+  ).toString();
+
+  /// [raw] when it is a curation screen of this app other than the terms,
+  /// its query kept; [curation] for anything else, so `depois` never leads
+  /// outside the curation (no open redirect).
+  static String curatorTermsReturn(String? raw) {
+    final uri = raw == null ? null : Uri.tryParse(raw);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasFragment ||
+        !uri.path.startsWith('/') ||
+        uri.pathSegments.any((s) => s.isEmpty || s == '.' || s == '..') ||
+        !isCuratorScreen(uri.path) ||
+        uri.path == curatorTerms) {
+      return curation;
+    }
+    return uri.toString();
+  }
+
+  /// The team: who holds which platform role,
   /// appointing someone, and one member's sheet, for an admin.
   static const team = '/admin/equipe';
   static const appoint = '/admin/equipe/nova';
 
-  /// The account directory (account directory screens, Routes): one
+  /// The account directory: one
   /// account's reasoned search, and the staff audit log, for an admin.
   static const accounts = '/admin/contas';
   static const audit = '/admin/auditoria';
 
-  /// The moderation screens (staff screens, Routes): the held videos,
+  /// The moderation screens: the held videos,
   /// for a moderator or an admin.
   static const moderation = '/moderacao';
   static const heldVideos = '/moderacao/retidos';
 
-  /// The pacotinhos' curation (pacotinho curation screens, Routes):
+  /// The audit of recent approvals, for a moderator or an admin: the
+  /// sample, then one video of it.
+  static const auditSample = '/moderacao/auditoria';
+
+  /// The pacotinhos' curation:
   /// composing and reviewing for curators, removal for admins.
   static const packs = '/pacotinhos';
   static const newPack = '/pacotinhos/novo';
@@ -89,7 +120,7 @@ abstract final class Routes {
   static const accountData = '/conta/dados';
   static const accountDelete = '/conta/excluir';
 
-  /// The second factor of a platform role holder (MFA screens, Routes):
+  /// The second factor of a platform role holder:
   /// its status and new recovery codes, then its enrollment.
   static const accountMfa = '/conta/verificacao';
   static const accountMfaEnroll = '/conta/verificacao/ativar';
@@ -182,7 +213,20 @@ abstract final class Routes {
 
   static String approve(String videoId) => '${review(videoId)}/aprovar';
 
-  static String refuse(String videoId) => '${review(videoId)}/recusar';
+  /// The refusal, with the questions an approval marked as appearing
+  /// ticked on arrival.
+  static String refuse(String videoId, {List<String> items = const []}) => Uri(
+    path: '${review(videoId)}/recusar',
+    queryParameters: items.isEmpty ? null : {'itens': items.join(',')},
+  ).toString();
+
+  /// The refusal's `itens` as question IDs; none for anything empty.
+  static List<String> refuseItems(String? raw) => raw == null || raw.isEmpty
+      ? const []
+      : [
+          for (final id in raw.split(','))
+            if (id.isNotEmpty) id,
+        ];
 
   /// One member's sheet.
   static String member(String accountId) =>
@@ -202,8 +246,15 @@ abstract final class Routes {
   static String accountSheet(String accountId) =>
       '$accounts/${Uri.encodeComponent(accountId)}';
 
+  static String auditVideo(String videoId) =>
+      '$auditSample/${Uri.encodeComponent(videoId)}';
+
   static String heldVideo(String videoId) =>
       '$heldVideos/${Uri.encodeComponent(videoId)}';
+
+  /// Publishing a video a curator's doubt holds.
+  static String publishDoubt(String videoId) =>
+      '${heldVideo(videoId)}/publicar';
 
   /// The review of one pacotinho, and what opens from it.
   static String packReview(String packId) =>

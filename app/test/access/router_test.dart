@@ -316,7 +316,7 @@ void main() {
     }
   });
 
-  group('screen-time routes (screen-time screens, Routes)', () {
+  group('screen-time routes', () {
     for (final (path, screen) in [
       ('/familia/tempo', ScreenTimeScreen),
       ('/familia/tempo/m1', ChildTimeScreen),

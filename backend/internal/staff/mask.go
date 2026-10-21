@@ -7,8 +7,8 @@ import (
 
 const maskTail = "•••"
 
-// MaskEmail is an email as the account sheet and the audit log show it
-// (Masking): the first character of the local part
+// MaskEmail is an email as the account sheet and the audit log show it,
+// enough to tell accounts apart without revealing them: the first character of the local part
 // and of the domain's first label, each followed by •••, then the
 // domain from its first dot (TestMaskEmail).
 func MaskEmail(email string) string {
