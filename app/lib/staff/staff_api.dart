@@ -1,6 +1,8 @@
 import '../auth/api_client.dart';
 import '../auth/auth_api.dart' show PlatformRole;
-import '../curation/curation.dart' show DisplayRole, HeldVideo;
+import '../curation/curation.dart'
+    show AuditCandidate, DisplayRole, HeldVideo, VideoTheme;
+import '../family/family.dart' show AgeBand;
 import 'staff.dart';
 
 /// The staff contract, one method per route: the
@@ -104,5 +106,55 @@ class StaffApi {
     'POST',
     '/v1/moderation/videos/${_id(id)}/reopen',
     body: {'reason': reason},
+  );
+
+  /// Settles a video a curator's doubt holds: published with [theme] and
+  /// [minAgeBand], or removed for good. Needs a re-authentication within
+  /// 5 minutes; anything but a doubt answers `state_conflict`.
+  Future<void> decideDoubt(
+    String id, {
+    required bool publish,
+    VideoTheme? theme,
+    AgeBand? minAgeBand,
+    required String reason,
+  }) => _client.send(
+    'POST',
+    '/v1/moderation/videos/${_id(id)}/decide',
+    body: {
+      'decision': publish ? 'approve' : 'reject',
+      'theme': ?theme?.wire,
+      'min_age_band': ?minAgeBand?.wire,
+      'reason': reason,
+    },
+  );
+
+  /// Up to 10 recent approvals not audited yet, drawn anew on each read.
+  Future<List<AuditCandidate>> auditSample() async => [
+    for (final c
+        in (await _json('GET', '/v1/moderation/audit-sample'))['videos']
+            as List<dynamic>)
+      AuditCandidate.fromJson(c as Map<String, dynamic>),
+  ];
+
+  /// Records the audit of a published round: [agree], or a disagreement
+  /// with its [reason] that holds the video when [hold]. Needs a
+  /// re-authentication within 5 minutes; a second audit answers
+  /// `already_audited`.
+  Future<void> auditApproval({
+    required String videoId,
+    required int round,
+    required bool agree,
+    String? reason,
+    bool hold = false,
+  }) => _client.send(
+    'POST',
+    '/v1/moderation/audits',
+    body: {
+      'video_id': videoId,
+      'round': round,
+      'verdict': agree ? 'agree' : 'disagree',
+      'reason': ?reason,
+      if (hold) 'hold': true,
+    },
   );
 }

@@ -81,6 +81,8 @@ void main() {
         HeldReason.review: 'Retido por recusa',
         HeldReason.reports: 'Retido por denúncias',
         HeldReason.unavailable: 'Indisponível no YouTube',
+        HeldReason.doubt: 'Retido por dúvida da curadoria',
+        HeldReason.audit: 'Retido pela auditoria',
         HeldReason.unknown: 'Retido',
       },
     );

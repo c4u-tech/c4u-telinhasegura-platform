@@ -159,6 +159,28 @@ abstract final class Copy {
     'not_curator': 'Você não faz mais parte da curadoria.',
     'not_admin': 'Você não tem mais acesso à administração.',
     'not_moderator': 'Você não tem mais acesso à moderação.',
+    // The curation checklist, the curator terms and the audits.
+    'checklist_outdated':
+        'A lista de perguntas mudou. Abrimos a nova para você responder.',
+    'checklist_refuses':
+        'Com o que você marcou, o vídeo não pode ser aprovado. Recuse '
+        'marcando o que aparece.',
+    'checklist_band':
+        'Com o ritmo que você marcou, o vídeo não serve para 2 a 4 anos. '
+        'Escolha outra idade.',
+    'checklist_invalid_reason':
+        'Família, religião, cor ou deficiência diferente da sua não é motivo '
+        'para recusar.',
+    'conflict_of_interest':
+        'Você tem vínculo com este canal, então a revisão dele fica com '
+        'outros curadores.',
+    'declaration_required': 'Para revisar, aceite antes o termo da curadoria.',
+    'declaration_outdated':
+        'O termo da curadoria mudou. Leia a versão nova para aceitar.',
+    'already_audited': 'Essa aprovação já foi conferida.',
+    'own_review':
+        'Você revisou este vídeo nesta rodada; outra pessoa da equipe precisa '
+        'decidir.',
   };
 
   static const _weakPassword = {

@@ -56,6 +56,8 @@ extension HeldReasonLabel on HeldReason {
     HeldReason.review => 'Retido por recusa',
     HeldReason.reports => 'Retido por denúncias',
     HeldReason.unavailable => 'Indisponível no YouTube',
+    HeldReason.doubt => 'Retido por dúvida da curadoria',
+    HeldReason.audit => 'Retido pela auditoria',
     HeldReason.unknown => 'Retido',
   };
 }
@@ -169,9 +171,20 @@ abstract final class CurationWords {
         ?r.minAgeBand?.label,
       ].join(dot),
       ReviewDecision.reject => '$who recusou',
+      ReviewDecision.doubt => '$who teve dúvida',
       ReviewDecision.unknown => '$who revisou',
     };
   }
+
+  /// What a review marked, question by question in the list's order:
+  /// "Aparece: Alguém bate…", "Tenho dúvida: Ritmo calmo?". Nothing for a
+  /// review with every answer "ok" or none at all.
+  static List<String> marked(Review r, Checklist list) => [
+    for (final item in list.items)
+      if (r.answers?[item.id] case final a?
+          when a != ChecklistAnswer.ok && a != ChecklistAnswer.unknown)
+        '${a.label(item)}: ${item.text}',
+  ];
 
   /// A held video's refusal: "Psicólogo(a): Tem um susto no fim."
   static String rejection(Review r) {
@@ -192,4 +205,15 @@ abstract final class CurationWords {
     if (refusals > 0) refusals == 1 ? '1 recusa' : '$refusals recusas',
     if (reports > 0) reports == 1 ? '1 denúncia' : '$reports denúncias',
   ].join(dot);
+}
+
+/// A mark on a question, in words: "Aparece", "Não" (a question asked in
+/// the positive), "Tenho dúvida".
+extension ChecklistMarkLabel on ChecklistAnswer {
+  String label(ChecklistItem item) => switch (this) {
+    ChecklistAnswer.appears => item.positive ? 'Não' : 'Aparece',
+    ChecklistAnswer.doubt => 'Tenho dúvida',
+    ChecklistAnswer.ok => item.positive ? 'Sim' : 'Não aparece',
+    ChecklistAnswer.unknown => 'Sem resposta',
+  };
 }

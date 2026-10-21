@@ -26,6 +26,26 @@ class CurationApi {
 
   static String _id(String id) => Uri.encodeComponent(id);
 
+  /// The list every review answers, with its version.
+  Future<Checklist> checklist() async =>
+      Checklist.fromJson(await _json('GET', '/v1/curation/checklist'));
+
+  /// The curator terms in force; every other curator route answers
+  /// `declaration_required` until they are accepted.
+  Future<CuratorTerms> declaration() async =>
+      CuratorTerms.fromJson(await _json('GET', '/v1/curation/declaration'));
+
+  /// Accepts the terms of [version], the one shown; another answers
+  /// `declaration_outdated`.
+  Future<CuratorTerms> acceptDeclaration(String version) async =>
+      CuratorTerms.fromJson(
+        await _json(
+          'POST',
+          '/v1/curation/declaration',
+          body: {'version': version},
+        ),
+      );
+
   /// Suggests a YouTube link; the video, and whether this suggestion
   /// created it (201) or it was already in the catalogue (200).
   Future<({Video video, bool created})> suggest(String url) async {

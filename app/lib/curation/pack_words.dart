@@ -40,6 +40,7 @@ abstract final class PackWords {
     return switch (r.decision) {
       ReviewDecision.approve => '$who aprovou',
       ReviewDecision.reject => '$who recusou',
+      ReviewDecision.doubt => '$who teve dúvida',
       ReviewDecision.unknown => '$who revisou',
     };
   }
