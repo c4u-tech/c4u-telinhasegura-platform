@@ -18,6 +18,7 @@ import 'package:telinha_segura/shell/routes.dart';
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
+import '../kid/fake_player.dart';
 import 'appoint_screen_test.dart' show tapOn;
 import 'fixtures.dart';
 
@@ -193,7 +194,7 @@ double scrolled(WidgetTester tester) => tester
 void main() {
   group('Antes de começar', () {
     testWidgets('says what the app checked, asks the tie with Não and Sim '
-        'only, and waits on "Assistir e responder" until both are '
+        'only, and waits on "Começar as perguntas" until both are '
         'answered', (tester) async {
       await approving(tester);
 
@@ -201,7 +202,8 @@ void main() {
       expect(find.text(checkedByApp), findsOneWidget);
       expect(key(tie, 'Não sei'), findsNothing);
       expect(key(paid, 'Não sei'), findsOneWidget);
-      expect(primary(tester).label, watchAndAnswer);
+      expect(primary(tester).label, startQuestions);
+      expect(startQuestions, 'Começar as perguntas');
       expect(primary(tester).onPressed, isNull);
       expect(find.text(stepHint), findsOneWidget);
       await answer(tester, tie, 'Não');
@@ -244,6 +246,113 @@ void main() {
       expect(h.location(tester), '/curadoria/v1/aprovar');
       expectNamed(tester, find.text(checkedByApp));
       expect(videoReads(h), 1);
+    });
+  });
+
+  group('the video', () {
+    Finder window() => find.byKey(FakePlayback.viewKey);
+
+    /// Opens the flow from the review, whose own player stays beneath:
+    /// the flow's player is the one opened after it.
+    Future<Harness> fromReview(WidgetTester tester) async {
+      final h = await approving(tester, initial: '/curadoria/v1');
+      expect(h.adultPlayer.opened, hasLength(1));
+      await tapOn(tester, find.text('Responder às perguntas'));
+      return h;
+    }
+
+    testWidgets('plays at the top of "Antes de começar" and of each step, '
+        'under the video\'s name, without playing on its own', (tester) async {
+      final h = await fromReview(tester);
+
+      expect(h.adultPlayer.opened, hasLength(2));
+      final flow = h.adultPlayer.opened.last;
+      expect(flow.youtubeId, 'yt-v1');
+      expect(flow.calls, isEmpty, reason: 'no autoplay');
+      expect(window(), findsOneWidget);
+      final below = [
+        find.text('Baby Shark'),
+        window(),
+        find.text('Antes de começar'),
+      ];
+      final tops = [for (final f in below) tester.getTopLeft(f).dy];
+      expect(tops, [...tops]..sort());
+      final size = tester.getSize(window());
+      expect(size.height, closeTo(size.width * 9 / 16, .01));
+
+      await start(tester);
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      expect(window(), findsOneWidget);
+      expect(
+        tester.getTopLeft(window()).dy,
+        lessThan(tester.getTopLeft(find.text('Etapa 1 de 5')).dy),
+      );
+    });
+
+    testWidgets('one playback for the whole flow: moving between steps '
+        'neither opens another nor rebuilds its view', (tester) async {
+      final h = await fromReview(tester);
+      final flow = h.adultPlayer.opened.last;
+      final view = tester.element(window());
+
+      await start(tester);
+      expect(tester.element(window()), same(view));
+      await clearSteps(tester, to: 4);
+      expect(find.text('Etapa 5 de 5'), findsOneWidget);
+      expect(tester.element(window()), same(view));
+      await tapOn(
+        tester,
+        find.descendant(
+          of: find.byType(QuietAction),
+          matching: find.text('Voltar'),
+        ),
+      );
+      expect(find.text('Etapa 4 de 5'), findsOneWidget);
+      expect(tester.element(window()), same(view));
+
+      expect(h.adultPlayer.opened, hasLength(2));
+      expect(h.adultPlayer.opened.last, same(flow));
+      expect(flow.closed, isFalse);
+    });
+
+    testWidgets('the theme and band and the review show no player', (
+      tester,
+    ) async {
+      final h = await fromReview(tester);
+      await toTopic(tester);
+
+      expect(find.text('Tema'), findsOneWidget);
+      expect(window(), findsNothing);
+      await choose(tester, 'Música');
+      await choose(tester, '5 a 8 anos');
+      await tapPrimary(tester);
+      expect(find.text(reviewTitle), findsOneWidget);
+      expect(window(), findsNothing);
+      expect(h.adultPlayer.opened, hasLength(2));
+    });
+
+    testWidgets('leaving the flow lets its player go; the review\'s stays', (
+      tester,
+    ) async {
+      final h = await fromReview(tester);
+      final review = h.adultPlayer.opened.first;
+      final flow = h.adultPlayer.opened.last;
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1');
+      expect(flow.closed, isTrue);
+      expect(review.closed, isFalse);
+    });
+
+    testWidgets('opened directly, the player loads once the video is read', (
+      tester,
+    ) async {
+      final h = await approving(tester);
+
+      expect(window(), findsOneWidget);
+      expect(h.adultPlayer.opened.last.youtubeId, 'yt-v1');
     });
   });
 

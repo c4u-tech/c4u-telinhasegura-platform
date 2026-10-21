@@ -235,7 +235,8 @@ void main() {
     await tester.tap(find.text('Aprovar'));
     await tester.pumpAndSettle();
     expect(h.location(tester), '/curadoria/v1/aprovar');
-    expect(player(h)!.calls, ['pause']);
+    // The approval opens its own player; the review's waits beneath.
+    expect(h.adultPlayer.opened.first.calls, ['pause']);
 
     goTo(tester, '/curadoria/v1');
     await tester.pumpAndSettle();

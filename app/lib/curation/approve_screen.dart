@@ -17,6 +17,7 @@ import '../family/widgets.dart' show FamilyPlaceholder;
 import '../legal/legal_links.dart' show kCurationUrl;
 import '../shell/routes.dart';
 import '../shell/services.dart';
+import 'adult_window.dart';
 import 'answer_choice.dart';
 import 'approval_draft.dart';
 import 'curation.dart';
@@ -31,7 +32,7 @@ const checkedByApp =
 
 /// The primaries: of "Antes de começar", of a step, and of the last step
 /// when the video can be approved.
-const watchAndAnswer = 'Assistir e responder';
+const startQuestions = 'Começar as perguntas';
 const nextStep = 'Próxima etapa';
 const chooseTopic = 'Escolher tema e idade';
 
@@ -61,6 +62,9 @@ const fastPaceLine = 'Ritmo agitado não serve para 2 a 4 anos.';
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';
 const doubtSent = 'Sua dúvida foi enviada para a equipe da Coding4u.';
+
+/// In the player's place when it could not play the video.
+const flowPlayerFailed = 'Esse vídeo não abriu aqui.';
 
 /// `validation` on an approval: the theme and band are asked again.
 const approvalRefused =
@@ -101,7 +105,9 @@ String stepLabel(int step, int of) => 'Etapa $step de $of';
 /// questions ticked) or "Enviar para a equipe" (an approval the server
 /// holds as a doubt). A tie to the channel ends on the first page. Back,
 /// on screen or from the system, goes one page back; leaving drops the
-/// answers.
+/// answers. The video plays at the top of the first page and of every
+/// step, in one player for the whole flow, so going from step to step
+/// never reloads it; it goes when the flow does.
 class ApproveScreen extends StatefulWidget {
   const ApproveScreen({super.key, required this.id, this.video});
 
@@ -114,7 +120,7 @@ class ApproveScreen extends StatefulWidget {
   State<ApproveScreen> createState() => _ApproveScreenState();
 }
 
-class _ApproveScreenState extends State<ApproveScreen> {
+class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   final _send = Submission();
   final _note = TextEditingController();
   bool _started = false;
@@ -124,6 +130,10 @@ class _ApproveScreenState extends State<ApproveScreen> {
   bool _refused = false;
   String? _done;
 
+  /// Keeps the one player's view across pages: each page is built anew,
+  /// and a view built anew would load the video again.
+  final _window = GlobalKey();
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -132,7 +142,11 @@ class _ApproveScreenState extends State<ApproveScreen> {
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _video = widget.video;
-    if (_video == null) scheduleMicrotask(_readVideo);
+    if (_video case final video?) {
+      openPlayer(video.youtubeId);
+    } else {
+      scheduleMicrotask(_readVideo);
+    }
     scheduleMicrotask(_readChecklist);
   }
 
@@ -143,7 +157,9 @@ class _ApproveScreenState extends State<ApproveScreen> {
     if (!mounted) return;
     try {
       final detail = await AppScope.of(context).curation.video(widget.id);
-      if (mounted) setState(() => _video = detail.video);
+      if (!mounted) return;
+      setState(() => _video = detail.video);
+      openPlayer(detail.video.youtubeId);
     } on Object catch (e) {
       if (mounted) leaveForQueue(context, e);
     }
@@ -221,7 +237,10 @@ class _ApproveScreenState extends State<ApproveScreen> {
       ),
       handle: (e) => _handle(e, d),
     );
-    if (ok && mounted) setState(() => _done = team ? doubtSent : approved);
+    if (!ok || !mounted) return;
+    // Decided: nothing is left to watch.
+    unawaited(closePlayer());
+    setState(() => _done = team ? doubtSent : approved);
   }
 
   bool _handle(ApiError e, ApprovalDraft d) {
@@ -311,6 +330,15 @@ class _ApproveScreenState extends State<ApproveScreen> {
     return d.page == d.topicPage ? _topic(d) : _review(d);
   }
 
+  /// The video, at the top of the first page and of every step.
+  List<Widget> _player() => [
+    KeyedSubtree(
+      key: _window,
+      child: playerWindow(failed: flowPlayerFailed),
+    ),
+    const SizedBox(height: Space.xl),
+  ];
+
   Widget _line(String words) => Semantics(
     liveRegion: true,
     child: Text(words, style: Theme.of(context).textTheme.bodyLarge),
@@ -357,6 +385,7 @@ class _ApproveScreenState extends State<ApproveScreen> {
   List<Widget> _before(ApprovalDraft d, ChecklistGroup g) {
     final text = Theme.of(context).textTheme;
     return [
+      ..._player(),
       Semantics(header: true, child: Text(g.title, style: text.titleMedium)),
       const SizedBox(height: Space.md),
       Text(
@@ -375,7 +404,7 @@ class _ApproveScreenState extends State<ApproveScreen> {
         ),
       ] else
         ..._foot(
-          label: watchAndAnswer,
+          label: startQuestions,
           onPressed: d.canGoOn ? _forward : null,
           hint: stepHint,
         ),
@@ -387,6 +416,7 @@ class _ApproveScreenState extends State<ApproveScreen> {
     final step = d.page;
     final of = d.stepCount;
     return [
+      ..._player(),
       // Announced as the page changes: "Etapa 2 de 5, Linguagem e respeito".
       Semantics(
         container: true,
