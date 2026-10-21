@@ -114,10 +114,15 @@ class _RefuseScreenState extends State<RefuseScreen> {
   }
 
   /// A ticked question the list does not hold as refusing is dropped: a
-  /// link cannot tick anything else.
+  /// link cannot tick anything else. The old list goes first, so a failed
+  /// read after it changed offers to try again rather than the outdated
+  /// list.
   Future<void> _readChecklist() async {
     if (!mounted) return;
-    setState(() => _checklistFailed = false);
+    setState(() {
+      _checklist = null;
+      _checklistFailed = false;
+    });
     try {
       final list = await AppScope.of(context).curation.checklist();
       if (!mounted) return;

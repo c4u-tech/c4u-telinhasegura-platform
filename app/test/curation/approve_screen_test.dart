@@ -23,11 +23,17 @@ const bands = ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos'];
 Future<Harness> approving(
   WidgetTester tester, {
   FutureOr<http.Response> Function(http.Request)? review,
+  FutureOr<http.Response> Function()? checklist,
+  FutureOr<http.Response> Function(String id)? video,
   String initial = '/curadoria/v1/aprovar',
 }) async {
-  final h = Harness(signedIn: true, api: curatorApi(review: review))
-    ..family = ownerFamily
-    ..roles = ['curator'];
+  final h =
+      Harness(
+          signedIn: true,
+          api: curatorApi(review: review, checklist: checklist, video: video),
+        )
+        ..family = ownerFamily
+        ..roles = ['curator'];
   await h.pump(tester, initial: initial);
   return h;
 }
@@ -390,6 +396,7 @@ void main() {
     await clearAll(tester);
     await mark(tester, 'Tenho dúvida: Algum personagem fica triste?');
     expect(find.text(doubtLine), findsOneWidget);
+    expect(find.text(doubtRevisitLine), findsNothing);
     await choose(tester, 'Música');
     await choose(tester, '5 a 8 anos');
     await tester.enterText(
@@ -433,6 +440,66 @@ void main() {
 
     await mark(tester, 'Aparece: Você recusaria só pela diferença?');
     expect(find.text(invalidReasonLine), findsNothing);
+    await mark(tester, 'Nada disso aparece: Linguagem e respeito');
+    expect(primary(tester).label, 'Aprovar');
+    expect(primary(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('an invalid reason is said with a question that refuses too', (
+    tester,
+  ) async {
+    await approving(tester);
+
+    await mark(tester, 'Aparece: Alguém bate de propósito?');
+    await mark(tester, 'Aparece: Você recusaria só pela diferença?');
+
+    expect(find.text(refusingLine), findsOneWidget);
+    expect(find.text(invalidReasonLine), findsOneWidget);
+  });
+
+  testWidgets('a note written for a doubt taken back is not sent with the '
+      'approval', (tester) async {
+    final h = await approving(
+      tester,
+      review: (_) => json(201, {'video_state': 'pending'}),
+    );
+
+    await clearAll(tester);
+    await mark(tester, 'Tenho dúvida: Algum personagem fica triste?');
+    await tester.enterText(
+      find.widgetWithText(TextField, doubtNoteLabel),
+      'Pensei melhor.',
+    );
+    await tester.pump();
+    await mark(tester, 'Nada disso aparece: Violência e medo');
+    await choose(tester, 'Música');
+    await choose(tester, '5 a 8 anos');
+    expect(primary(tester).label, 'Aprovar');
+    await tapPrimary(tester);
+
+    final body = jsonDecode(
+      posts(h).single.split(' ').skip(2).join(' '),
+    ) as Map<String, dynamic>;
+    expect(body.containsKey('note'), isFalse);
+    expect(find.widgetWithText(Notice, approved), findsOneWidget);
+  });
+
+  testWidgets('a doubt on a revisited video says it leaves the app until '
+      'the team decides', (tester) async {
+    await approving(
+      tester,
+      video: (id) => detailOf({
+        ...queuedJson(id, 'Baby Shark', channel: 'Canal Baby Shark'),
+        'state': 'approved',
+        'round': 2,
+      }),
+    );
+
+    await clearAll(tester);
+    await mark(tester, 'Tenho dúvida: Algum personagem fica triste?');
+
+    expect(find.text(doubtRevisitLine), findsOneWidget);
+    expect(find.text(doubtLine), findsNothing);
   });
 
   testWidgets('a fast pace rules out "2 a 4 anos" only', (tester) async {
@@ -471,6 +538,29 @@ void main() {
       h.actions.where((a) => a == 'GET /v1/curation/checklist'),
       hasLength(2),
     );
+  });
+
+  testWidgets('checklist_outdated whose new list fails to read offers to '
+      'try again, never the old list', (tester) async {
+    var reads = 0;
+    final h = await approving(
+      tester,
+      checklist: () =>
+          ++reads == 2 ? problem(503, 'unavailable') : json(200, checklistJson),
+      review: (_) => problem(409, 'checklist_outdated'),
+    );
+
+    await approve(tester);
+
+    expect(find.byType(SelectableRow), findsNothing);
+    expect(find.widgetWithText(ErrorNote, Copy.genericRetry), findsOneWidget);
+    await tapPrimary(tester);
+
+    expect(reads, 3);
+    expect(posts(h), hasLength(1));
+    expect(find.text(checklistLead), findsOneWidget);
+    expect(primary(tester).onPressed, isNull, reason: 'a new list unanswered');
+    expect(find.text(checklistHint), findsOneWidget);
   });
 
   testWidgets('conflict_of_interest goes back to the queue with a notice', (

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/refuse_screen.dart';
 
 import '../access/harness.dart';
@@ -18,11 +19,16 @@ import 'fixtures.dart';
 Future<Harness> refusing(
   WidgetTester tester, {
   FutureOr<http.Response> Function(http.Request)? review,
+  FutureOr<http.Response> Function()? checklist,
   String initial = '/curadoria/v1/recusar',
 }) async {
-  final h = Harness(signedIn: true, api: curatorApi(review: review))
-    ..family = ownerFamily
-    ..roles = ['curator'];
+  final h =
+      Harness(
+          signedIn: true,
+          api: curatorApi(review: review, checklist: checklist),
+        )
+        ..family = ownerFamily
+        ..roles = ['curator'];
   await h.pump(tester, initial: initial);
   return h;
 }
@@ -220,6 +226,53 @@ void main() {
 
     expect(h.location(tester), '/curadoria');
     expect(find.text('Esse vídeo já saiu da fila.'), findsOneWidget);
+  });
+
+  testWidgets('checklist_outdated reads the list again and says why', (
+    tester,
+  ) async {
+    final h = await refusing(
+      tester,
+      review: (_) => problem(409, 'checklist_outdated'),
+    );
+
+    await refuse(tester);
+
+    expect(
+      find.widgetWithText(
+        ErrorNote,
+        Copy.forError(const ApiError(status: 409, code: 'checklist_outdated')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      h.actions.where((a) => a == 'GET /v1/curation/checklist'),
+      hasLength(2),
+    );
+    expect(item('Alguém bate de propósito?'), findsOneWidget);
+  });
+
+  testWidgets('checklist_outdated whose new list fails to read offers to '
+      'try again, never the old list', (tester) async {
+    var reads = 0;
+    final h = await refusing(
+      tester,
+      checklist: () =>
+          ++reads == 2 ? problem(503, 'unavailable') : json(200, checklistJson),
+      review: (_) => problem(409, 'checklist_outdated'),
+    );
+
+    await refuse(tester);
+
+    expect(find.byType(DeclarationRow), findsNothing);
+    expect(find.widgetWithText(ErrorNote, Copy.genericRetry), findsOneWidget);
+    expect(primary(tester).label, 'Tentar de novo');
+    await tapPrimary(tester);
+
+    expect(reads, 3);
+    expect(posts(h), hasLength(1));
+    expect(item('Alguém bate de propósito?'), findsOneWidget);
+    expect(primary(tester).label, 'Recusar');
   });
 
   testWidgets('back returns to the review', (tester) async {

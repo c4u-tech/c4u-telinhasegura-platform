@@ -53,7 +53,13 @@ const invalidReasonLine =
     'para recusar. Desmarque essa resposta.';
 const bandLine =
     'Com o ritmo que você marcou, o vídeo não serve para 2 a 4 anos.';
+
+/// A doubt on a video still waiting for its first decision, and on one
+/// already in the app, revisited.
 const doubtLine =
+    'Sua dúvida vai para a equipe da Coding4u, que decide. O vídeo fica '
+    'esperando a decisão da equipe.';
+const doubtRevisitLine =
     'Sua dúvida vai para a equipe da Coding4u, que decide. O vídeo sai do '
     'app até lá.';
 
@@ -122,10 +128,14 @@ class _ApproveScreenState extends State<ApproveScreen> {
   }
 
   /// The list is read on every arrival, and again when the server says it
-  /// changed; a new list starts unanswered.
+  /// changed; a new list starts unanswered. The old answers go first, so a
+  /// failed read offers to try again rather than the outdated list.
   Future<void> _readChecklist() async {
     if (!mounted) return;
-    setState(() => _checklistFailed = false);
+    setState(() {
+      _draft = null;
+      _checklistFailed = false;
+    });
     try {
       final list = await AppScope.of(context).curation.checklist();
       if (mounted) setState(() => _draft = ChecklistDraft(list));
@@ -193,6 +203,11 @@ class _ApproveScreenState extends State<ApproveScreen> {
     }
     return false;
   }
+
+  /// A video already in the app leaves it while the team decides a doubt;
+  /// one waiting for its first decision just keeps waiting.
+  bool get _revisit =>
+      _video?.revisit == true || _video?.state == VideoState.approved;
 
   void _openCriteria() => AppScope.of(context).links.open(kCurationUrl);
 
@@ -279,15 +294,19 @@ class _ApproveScreenState extends State<ApproveScreen> {
       const SizedBox(height: Space.xl),
       ChecklistForm(draft: draft, onChanged: idle ? _changed : null),
       const SizedBox(height: Space.xxl),
-      if (draft.conflict)
-        line(conflictLine)
-      else if (refusing)
+      if (draft.conflict) ...[
+        line(conflictLine),
+        const SizedBox(height: Space.lg),
+      ] else if (refusing) ...[
         line(refusingLine),
+        const SizedBox(height: Space.lg),
+      ],
+      // Said whatever else is marked: the answer must be taken back.
+      if (draft.invalidReason) ...[
+        line(invalidReasonLine),
+        const SizedBox(height: Space.lg),
+      ],
       if (choosing) ...[
-        if (draft.invalidReason) ...[
-          line(invalidReasonLine),
-          const SizedBox(height: Space.lg),
-        ],
         Text('Tema', style: text.titleMedium),
         if (_refused) ...[
           const SizedBox(height: Space.xs),
@@ -331,7 +350,7 @@ class _ApproveScreenState extends State<ApproveScreen> {
         if (barred) ...[const SizedBox(height: Space.sm), line(bandLine)],
         if (draft.doubt) ...[
           const SizedBox(height: Space.xl),
-          line(doubtLine),
+          line(_revisit ? doubtRevisitLine : doubtLine),
           const SizedBox(height: Space.md),
           TextField(
             controller: _note,
