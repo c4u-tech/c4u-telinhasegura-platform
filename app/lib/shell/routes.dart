@@ -59,6 +59,34 @@ abstract final class Routes {
   static const curation = '/curadoria';
   static const admin = '/admin';
 
+  /// The curator terms, which a curator accepts before any review; its
+  /// `depois` is the curation screen that asked, kept by
+  /// [curatorTermsReturn].
+  static const curatorTerms = '/curadoria/termo';
+
+  static String curatorTermsFor({String? then}) => Uri(
+    path: curatorTerms,
+    queryParameters: then == null ? null : {'depois': then},
+  ).toString();
+
+  /// [raw] when it is a curation screen of this app other than the terms,
+  /// its query kept; [curation] for anything else, so `depois` never leads
+  /// outside the curation (no open redirect).
+  static String curatorTermsReturn(String? raw) {
+    final uri = raw == null ? null : Uri.tryParse(raw);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasFragment ||
+        !uri.path.startsWith('/') ||
+        uri.pathSegments.any((s) => s.isEmpty || s == '.' || s == '..') ||
+        !isCuratorScreen(uri.path) ||
+        uri.path == curatorTerms) {
+      return curation;
+    }
+    return uri.toString();
+  }
+
   /// The team: who holds which platform role,
   /// appointing someone, and one member's sheet, for an admin.
   static const team = '/admin/equipe';
@@ -73,6 +101,10 @@ abstract final class Routes {
   /// for a moderator or an admin.
   static const moderation = '/moderacao';
   static const heldVideos = '/moderacao/retidos';
+
+  /// The audit of recent approvals, for a moderator or an admin: the
+  /// sample, then one video of it.
+  static const auditSample = '/moderacao/auditoria';
 
   /// The pacotinhos' curation:
   /// composing and reviewing for curators, removal for admins.
@@ -181,7 +213,20 @@ abstract final class Routes {
 
   static String approve(String videoId) => '${review(videoId)}/aprovar';
 
-  static String refuse(String videoId) => '${review(videoId)}/recusar';
+  /// The refusal, with the questions an approval marked as appearing
+  /// ticked on arrival.
+  static String refuse(String videoId, {List<String> items = const []}) => Uri(
+    path: '${review(videoId)}/recusar',
+    queryParameters: items.isEmpty ? null : {'itens': items.join(',')},
+  ).toString();
+
+  /// The refusal's `itens` as question IDs; none for anything empty.
+  static List<String> refuseItems(String? raw) => raw == null || raw.isEmpty
+      ? const []
+      : [
+          for (final id in raw.split(','))
+            if (id.isNotEmpty) id,
+        ];
 
   /// One member's sheet.
   static String member(String accountId) =>
@@ -201,8 +246,15 @@ abstract final class Routes {
   static String accountSheet(String accountId) =>
       '$accounts/${Uri.encodeComponent(accountId)}';
 
+  static String auditVideo(String videoId) =>
+      '$auditSample/${Uri.encodeComponent(videoId)}';
+
   static String heldVideo(String videoId) =>
       '$heldVideos/${Uri.encodeComponent(videoId)}';
+
+  /// Publishing a video a curator's doubt holds.
+  static String publishDoubt(String videoId) =>
+      '${heldVideo(videoId)}/publicar';
 
   /// The review of one pacotinho, and what opens from it.
   static String packReview(String packId) =>
