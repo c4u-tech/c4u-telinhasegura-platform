@@ -163,3 +163,32 @@ func TestDecideDoubtRestartsTheReportCount(t *testing.T) {
 		t.Fatalf("3 reports since the decision: %s %s", st, why)
 	}
 }
+
+// No one settles a doubt in a round they reviewed: not the curator who
+// doubted, nor one who approved beside them.
+func TestNoOneDecidesADoubtInTheirOwnRound(t *testing.T) {
+	f := newFixture(t)
+	doubter := f.curator("c1@example.com", curation.MaePai)
+	approver := f.curator("c2@example.com", curation.Pedagogo)
+	v := f.video(ytID)
+	f.review(approver, v, approve("bichos", family.Age5To8))
+	if state := f.review(doubter, v, approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c13": curation.AnswerDoubt})); state != curation.Held {
+		t.Fatalf("doubt: %s", state)
+	}
+	publish := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}
+	for _, who := range []string{doubter, approver} {
+		m := curation.Moderation{ActorID: who, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+		for _, d := range []curation.DoubtDecision{publish, {Decision: curation.Reject}} {
+			if err := f.svc.DecideDoubt(ctx, m, v, d); !errors.Is(err, curation.ErrOwnReview) {
+				t.Errorf("deciding an own round: %v", err)
+			}
+		}
+	}
+	if st, why := f.state(v); st != "held" || why != curation.HeldByDoubt || f.audited(audit.VideoDoubtDecided) != 0 {
+		t.Fatalf("the doubt moved: %s %s", st, why)
+	}
+	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	if err := f.svc.DecideDoubt(ctx, m, v, publish); err != nil {
+		t.Fatal(err)
+	}
+}

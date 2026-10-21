@@ -46,7 +46,7 @@ func TestAuditSample(t *testing.T) {
 	f.exec(`UPDATE videos SET state = 'held', held_reason = 'reports' WHERE id = $1::uuid`, held)
 	f.video(nthID(23)) // never published
 
-	sample, err := f.svc.AuditSample(ctx)
+	sample, err := f.svc.AuditSample(ctx, mod)
 	if err != nil || len(sample) != 10 {
 		t.Fatalf("sample of %d: %v", len(sample), err)
 	}
@@ -81,7 +81,7 @@ func TestAuditApproval(t *testing.T) {
 		AND auditor_id = $2::uuid AND reason IS NULL AND audited_at = $3`, agreed, mod, f.now); n != 1 {
 		t.Fatal("the agreement was not stored")
 	}
-	sample, err := f.svc.AuditSample(ctx)
+	sample, err := f.svc.AuditSample(ctx, mod)
 	if err != nil || len(sample) != 0 {
 		t.Fatalf("an audited round was sampled again: %+v %v", sample, err)
 	}
@@ -142,5 +142,59 @@ func TestAuditApproval(t *testing.T) {
 	}
 	if a, _ := f.audit.LastAction(audit.ApprovalAudited); a.Metadata["held"] != "false" {
 		t.Fatalf("action %+v", a)
+	}
+}
+
+// reviewedIn records a review of video v by account in round, with no
+// checklist, as a review from before the list.
+func (f *fixture) reviewedIn(v string, round int, account string, decision curation.Decision) {
+	f.t.Helper()
+	f.exec(`INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, reason, reviewed_at)
+		VALUES ($1::uuid, $2, $3::uuid, 'mae-pai', $4, CASE WHEN $4 = 'reject' THEN 'Motivo.' END, $5)`,
+		v, round, account, string(decision), f.now)
+}
+
+// An account may both curate and moderate; it never audits a round it
+// reviewed itself, whatever it decided there.
+func TestNoOneAuditsTheirOwnReview(t *testing.T) {
+	f := newFixture(t)
+	both := f.curator("mia@example.com", curation.MaePai)
+	approved := f.publishedAt(nthID(1), f.now.Add(-time.Hour))
+	f.reviewedIn(approved, 1, both, curation.Approve)
+	refused := f.publishedAt(nthID(2), f.now.Add(-time.Hour))
+	f.reviewedIn(refused, 1, both, curation.Reject)
+	later := f.publishedAt(nthID(3), f.now.Add(-time.Hour)) // reviewed in the revisit, not in the published round
+	f.reviewedIn(later, 2, both, curation.Approve)
+	other := f.publishedAt(nthID(4), f.now.Add(-time.Hour))
+
+	sample, err := f.svc.AuditSample(ctx, both)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, c := range sample {
+		got[c.Video.ID] = true
+	}
+	if len(got) != 2 || !got[later] || !got[other] {
+		t.Fatalf("sample %v", got)
+	}
+	if sample, err := f.svc.AuditSample(ctx, f.account("bia@example.com")); err != nil || len(sample) != 4 {
+		t.Fatalf("another auditor's sample of %d: %v", len(sample), err)
+	}
+
+	m := curation.Moderation{ActorID: both, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	for _, v := range []string{approved, refused} {
+		if err := f.svc.AuditApproval(ctx, m, curation.AuditInput{VideoID: v, Round: 1, Verdict: curation.Disagree, Hold: true}); !errors.Is(err, curation.ErrOwnReview) {
+			t.Errorf("auditing an own review: %v", err)
+		}
+		if st, _ := f.state(v); st != "approved" {
+			t.Errorf("held by an own audit: %s", st)
+		}
+	}
+	if n := f.count(`SELECT count(*) FROM approval_audits`); n != 0 || f.audited(audit.ApprovalAudited) != 0 {
+		t.Fatalf("own audits were stored: %d", n)
+	}
+	if err := f.svc.AuditApproval(ctx, m, curation.AuditInput{VideoID: later, Round: 1, Verdict: curation.Agree}); err != nil {
+		t.Fatalf("a round the auditor did not review: %v", err)
 	}
 }

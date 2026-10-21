@@ -49,13 +49,16 @@ type AuditInput struct {
 
 // AuditSample draws, at random, up to auditSampleSize videos still in the
 // catalogue whose last publication is within auditWindow, holds at least
-// one curator's approval, and was never audited.
-func (s *Service) AuditSample(ctx context.Context) ([]AuditCandidate, error) {
+// one curator's approval, and was never audited. A round the auditor
+// reviewed is left out: an account may both curate and moderate, and no
+// one checks their own work.
+func (s *Service) AuditSample(ctx context.Context, auditorID string) ([]AuditCandidate, error) {
 	rows, err := s.d.Pool.Query(ctx, `SELECT `+videoCols+` FROM videos v
 		WHERE v.state = 'approved' AND v.published_round IS NOT NULL AND v.last_reviewed_at >= $1
 		AND EXISTS (SELECT 1 FROM video_reviews r WHERE r.video_id = v.id AND r.round = v.published_round AND r.decision = 'approve')
 		AND NOT EXISTS (SELECT 1 FROM approval_audits a WHERE a.video_id = v.id AND a.round = v.published_round)
-		ORDER BY random() LIMIT $2`, s.now().Add(-auditWindow), auditSampleSize)
+		AND NOT EXISTS (SELECT 1 FROM video_reviews o WHERE o.video_id = v.id AND o.round = v.published_round AND o.curator_id = $3::uuid)
+		ORDER BY random() LIMIT $2`, s.now().Add(-auditWindow), auditSampleSize, auditorID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +80,7 @@ func (s *Service) AuditSample(ctx context.Context) ([]AuditCandidate, error) {
 // AuditApproval records a moderator's or an admin's check of a published
 // round, once. A disagreement carries its reason and may hold the video;
 // an agreement may carry one. The round must be the one that last
-// published the video.
+// published the video, and one the auditor did not review.
 func (s *Service) AuditApproval(ctx context.Context, m Moderation, in AuditInput) error {
 	reason := strings.TrimSpace(m.Reason)
 	switch {
@@ -110,6 +113,9 @@ func (s *Service) AuditApproval(ctx context.Context, m Moderation, in AuditInput
 		if published == nil || *published != in.Round {
 			return ErrStateConflict
 		}
+		if err := notReviewedBy(ctx, tx, in.VideoID, in.Round, m.ActorID); err != nil {
+			return err
+		}
 		tag, err := tx.Exec(ctx, `INSERT INTO approval_audits (video_id, round, auditor_id, verdict, reason, audited_at)
 			VALUES ($1::uuid, $2, $3::uuid, $4, nullif($5::text, ''), $6) ON CONFLICT (video_id, round) DO NOTHING`,
 			in.VideoID, in.Round, m.ActorID, string(in.Verdict), reason, now)
@@ -135,6 +141,22 @@ func (s *Service) AuditApproval(ctx context.Context, m Moderation, in AuditInput
 		Metadata: map[string]string{"verdict": string(in.Verdict), "round": strconv.Itoa(in.Round), "held": strconv.FormatBool(held)}})
 	if held {
 		s.d.Audit.Record(ctx, m.ActorID, audit.VideoHeld)
+	}
+	return nil
+}
+
+// notReviewedBy refuses with ErrOwnReview when account reviewed the
+// video's round, whatever it decided: a moderator who also curates never
+// judges a round they took part in.
+func notReviewedBy(ctx context.Context, tx pgx.Tx, videoID string, round int, account string) error {
+	var own bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM video_reviews WHERE video_id = $1::uuid AND round = $2
+		AND curator_id = $3::uuid)`, videoID, round, account).Scan(&own)
+	if err != nil {
+		return err
+	}
+	if own {
+		return ErrOwnReview
 	}
 	return nil
 }

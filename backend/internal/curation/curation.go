@@ -71,6 +71,7 @@ var (
 	ErrOwnComposition    = errors.New("curation: a curator cannot review their own composition")
 	ErrStateConflict     = errors.New("curation: the video's state does not allow this")
 	ErrAlreadyAudited    = errors.New("curation: the round was already audited")
+	ErrOwnReview         = errors.New("curation: the round holds a review of the same account")
 	ErrVideoNotAllowed   = errors.New("curation: the child may not see this video")
 	ErrProfileGone       = errors.New("curation: the child or its family is gone")
 

@@ -25,7 +25,8 @@ type DoubtDecision struct {
 // curators' approvals would; removing works as a moderator's removal.
 // Publishing also restarts the report count, as a reopen does: the
 // moderator saw the reports filed while the video was held.
-// Any other held video keeps the reopen and remove of moderation.
+// Any other held video keeps the reopen and remove of moderation. No one
+// decides a round they reviewed in, as the doubter or beside them.
 func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string, d DoubtDecision) error {
 	reason, err := staff.CheckReason(m.Reason)
 	if err != nil {
@@ -50,7 +51,9 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		var st string
 		var held *string
-		err := tx.QueryRow(ctx, `SELECT state, held_reason FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).Scan(&st, &held)
+		var round int
+		err := tx.QueryRow(ctx, `SELECT state, held_reason, round FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
+			Scan(&st, &held, &round)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -59,6 +62,9 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 		}
 		if State(st) != Held || held == nil || *held != HeldByDoubt {
 			return ErrStateConflict
+		}
+		if err := notReviewedBy(ctx, tx, videoID, round, m.ActorID); err != nil {
+			return err
 		}
 		if d.Decision == Reject {
 			_, err = tx.Exec(ctx, `UPDATE videos SET state = 'removed', updated_at = $2 WHERE id = $1::uuid`, videoID, now)

@@ -80,3 +80,38 @@ func TestApprovalAuditOverHTTP(t *testing.T) {
 		t.Fatalf("sample with a stale re-auth: %d", r.Code)
 	}
 }
+
+// An account may both curate and moderate; it is never offered, nor
+// allowed to audit or decide, a round it reviewed.
+func TestNoOneJudgesTheirOwnRoundOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	both := a.curator(admin, "c1@example.com", "mae-pai")
+	if r := a.grant(admin, "c1@example.com", "moderator", nil); r.Code != http.StatusCreated {
+		t.Fatalf("grant moderator: %d %s", r.Code, r.Body)
+	}
+	c2 := a.curator(admin, "c2@example.com", "pedagogo")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
+	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(both)...)
+	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+		t.Fatalf("publish: %d %s", r.Code, r.Body)
+	}
+	if r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(both)...); r.Code != http.StatusOK || strings.TrimSpace(r.Body.String()) != `{"videos":[]}` {
+		t.Fatalf("own sample: %d %s", r.Code, r.Body)
+	}
+	agree := map[string]any{"video_id": v.ID, "round": 1, "verdict": "agree"}
+	if r := a.do(http.MethodPost, "/v1/moderation/audits", agree, bearer(both)...); r.Code != http.StatusConflict || r.problemCode() != "own_review" {
+		t.Fatalf("own audit: %d %q", r.Code, r.problemCode())
+	}
+
+	doubted := a.suggest(a.familyOwner("h@example.com"), "ccccccccccc")
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+doubted.ID+"/reviews",
+		approvalWith("bichos", "5-8", map[string]string{"c13": "doubt"}), bearer(both)...); !strings.Contains(r.Body.String(), `"video_state":"held"`) {
+		t.Fatalf("doubt: %d %s", r.Code, r.Body)
+	}
+	publish := map[string]any{"decision": "approve", "theme": "musica", "min_age_band": "5-8", "reason": "Sem risco no vídeo."}
+	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+doubted.ID+"/decide", publish, bearer(both)...); r.Code != http.StatusConflict || r.problemCode() != "own_review" {
+		t.Fatalf("own decision: %d %q", r.Code, r.problemCode())
+	}
+}

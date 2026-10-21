@@ -9,7 +9,7 @@ import (
 
 // auditSample serves a fresh random sample on every read.
 func (s *Server) auditSample(w http.ResponseWriter, r *http.Request) {
-	list, err := s.Curation.AuditSample(r.Context())
+	list, err := s.Curation.AuditSample(r.Context(), current(r).AccountID)
 	if err != nil {
 		s.fail(w, err)
 		return

@@ -140,6 +140,7 @@ var curationProblems = []struct {
 	{curation.ErrOwnComposition, http.StatusForbidden, "own_composition"},
 	{curation.ErrStateConflict, http.StatusConflict, "state_conflict"},
 	{curation.ErrAlreadyAudited, http.StatusConflict, "already_audited"},
+	{curation.ErrOwnReview, http.StatusConflict, "own_review"},
 	{curation.ErrVideoNotAllowed, http.StatusForbidden, "video_not_allowed"},
 	{curation.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{curation.ErrThumbnailUnavailable, http.StatusServiceUnavailable, "thumbnail_unavailable"},
