@@ -105,13 +105,14 @@ void main() {
       find.text('Cuidador(a) recusou'),
       find.text('Tem propaganda.'),
       window,
-      find.widgetWithText(DoorRow, 'Aprovar'),
+      find.widgetWithText(DoorRow, 'Revisar vídeo'),
       find.widgetWithText(DoorRow, 'Recusar'),
     ];
     final tops = [for (final f in order) tester.getTopLeft(f).dy];
     expect(tops, [...tops]..sort());
     expect(find.text('Responder às perguntas'), findsOneWidget);
-    expect(find.text('Marcar o que aparece'), findsOneWidget);
+    expect(find.text('Marcar o que acontece'), findsOneWidget);
+    expect(find.text('Aprovar'), findsNothing);
     expect(find.text('Revisita', findRichText: true), findsNothing);
   });
 
@@ -169,7 +170,9 @@ void main() {
     expect(player(h)?.youtubeId, 'yt-v1');
     expect(player(h)!.calls, isEmpty, reason: 'no autoplay');
     final size = tester.getSize(window);
-    final column = tester.getSize(find.widgetWithText(DoorRow, 'Aprovar'));
+    final column = tester.getSize(
+      find.widgetWithText(DoorRow, 'Revisar vídeo'),
+    );
     expect(size.width, column.width);
     expect(size.height, closeTo(size.width * 9 / 16, .01));
     for (final cover in [ClipRRect, ClipPath, GestureDetector, InkWell]) {
@@ -221,9 +224,11 @@ void main() {
     expectFailedWindow(
       tester,
       playerFailed,
-      width: tester.getSize(find.widgetWithText(DoorRow, 'Aprovar')).width,
+      width: tester
+          .getSize(find.widgetWithText(DoorRow, 'Revisar vídeo'))
+          .width,
     );
-    expect(find.widgetWithText(DoorRow, 'Aprovar'), findsOneWidget);
+    expect(find.widgetWithText(DoorRow, 'Revisar vídeo'), findsOneWidget);
     expect(find.widgetWithText(DoorRow, 'Recusar'), findsOneWidget);
   });
 
@@ -231,8 +236,8 @@ void main() {
       'beneath them', (tester) async {
     final h = await review(tester);
 
-    await tester.ensureVisible(find.text('Aprovar'));
-    await tester.tap(find.text('Aprovar'));
+    await tester.ensureVisible(find.text('Revisar vídeo'));
+    await tester.tap(find.text('Revisar vídeo'));
     await tester.pumpAndSettle();
     expect(h.location(tester), '/curadoria/v1/aprovar');
     // The approval opens its own player; the review's waits beneath.

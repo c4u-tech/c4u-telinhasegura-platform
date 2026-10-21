@@ -36,6 +36,12 @@ const startQuestions = 'Começar as perguntas';
 const nextStep = 'Próxima etapa';
 const chooseTopic = 'Escolher tema e idade';
 
+/// The theme and band's primary: it leads to the summary, not a step.
+const seeSummary = 'Ver resumo';
+
+/// The flow's title on every page, whatever the answers lead to.
+const flowTitle = 'Revisar vídeo';
+
 /// A step's shortcut, and the line that parts it from the questions.
 const noneHappens = 'Nada disso acontece no vídeo';
 const orOneByOne = 'ou responda uma a uma';
@@ -61,7 +67,7 @@ const fastPaceLine = 'Ritmo agitado não serve para 2 a 4 anos.';
 
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';
-const doubtSent = 'Sua dúvida foi enviada para a equipe da Coding4u.';
+const doubtSent = 'Enviamos o vídeo para a equipe da Coding4u decidir.';
 
 /// In the player's place when it could not play the video.
 const flowPlayerFailed = 'Esse vídeo não abriu aqui.';
@@ -290,7 +296,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       builder: (context, _) => FieldLayout(
         // A new page opens at its top, not where the last one was scrolled.
         key: ValueKey<Object?>(_done ?? _draft?.page),
-        title: 'Aprovar',
+        title: flowTitle,
         onBack: _back,
         children: [
           if (_video case final video?) ...[
@@ -458,7 +464,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     final text = Theme.of(context).textTheme;
     final barred = d.youngestBarred;
     return [
-      Text('Tema', style: text.titleMedium),
+      Semantics(header: true, child: Text('Tema', style: text.titleMedium)),
       if (_refused) ...[
         const SizedBox(height: Space.xs),
         Semantics(
@@ -504,7 +510,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         Text(fastPaceLine, style: text.bodyMedium),
       ],
       ..._foot(
-        label: nextStep,
+        label: seeSummary,
         onPressed: d.canGoOn ? _forward : null,
         hint: approveHint,
       ),
@@ -518,8 +524,10 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     VoidCallback? changeTo(int page) =>
         _idle ? () => _update(() => d.change(page)) : null;
     return [
+      // Announced as the page opens, as a step's header is.
       Semantics(
         header: true,
+        liveRegion: true,
         child: Text(reviewTitle, style: text.titleMedium),
       ),
       const SizedBox(height: Space.md),

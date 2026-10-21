@@ -82,9 +82,9 @@ void main() {
       'it again', (tester) async {
     final h = await refusing(tester, initial: '/curadoria/v1');
 
-    await tester.ensureVisible(find.text('Marcar o que aparece'));
+    await tester.ensureVisible(find.text('Marcar o que acontece'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Marcar o que aparece'));
+    await tester.tap(find.text('Marcar o que acontece'));
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/curadoria/v1/recusar');
@@ -97,6 +97,7 @@ void main() {
     await refusing(tester);
 
     expect(find.text(refuseItemsLead), findsOneWidget);
+    expect(refuseItemsLead, startsWith('Marque o que acontece no vídeo.'));
     expect(find.text(differenceReminder), findsOneWidget);
     expect(item('Alguém bate de propósito?'), findsOneWidget);
     expect(item('Aparece promoção paga?'), findsOneWidget);

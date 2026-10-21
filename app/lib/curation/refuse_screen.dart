@@ -24,7 +24,7 @@ const refuseLead = 'Recusar tira o vídeo das prateleiras na mesma hora.';
 
 /// Over the questions.
 const refuseItemsLead =
-    'Marque o que aparece no vídeo. Só recusamos pelos critérios publicados.';
+    'Marque o que acontece no vídeo. Só recusamos pelos critérios publicados.';
 
 /// Under the primary while nothing is ticked.
 const refuseHint = 'Marque acima pelo menos uma coisa que aparece.';

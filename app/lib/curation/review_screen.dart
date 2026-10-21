@@ -33,8 +33,8 @@ const playerFailed =
 /// by displayed role, never by person; then the player, whole in a
 /// square-edged 16:9 window at the column's width, loaded without
 /// playing, with YouTube's own controls and nothing of ours over it;
-/// then the doors "Aprovar" and "Recusar". The player pauses beneath a
-/// decision and goes when the curator leaves.
+/// then the doors "Revisar vídeo" and "Recusar". The player pauses
+/// beneath a decision and goes when the curator leaves.
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key, required this.id});
 
@@ -129,17 +129,19 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
       const SizedBox(height: Space.xl),
       Doors(
         children: [
+          // The questions may end in an approval, a refusal or the team's
+          // decision: the door names the review, not one outcome.
           DoorRow(
-            title: 'Aprovar',
-            semanticsLabel: 'Aprovar, Responder às perguntas',
+            title: 'Revisar vídeo',
+            semanticsLabel: 'Revisar vídeo, Responder às perguntas',
             onTap: () => context.go(Routes.approve(widget.id), extra: v),
             child: Text('Responder às perguntas', style: muted),
           ),
           DoorRow(
             title: 'Recusar',
-            semanticsLabel: 'Recusar, Marcar o que aparece',
+            semanticsLabel: 'Recusar, Marcar o que acontece',
             onTap: () => context.go(Routes.refuse(widget.id), extra: v),
-            child: Text('Marcar o que aparece', style: muted),
+            child: Text('Marcar o que acontece', style: muted),
           ),
         ],
       ),

@@ -241,7 +241,7 @@ void main() {
         'it again', (tester) async {
       final h = await approving(tester, initial: '/curadoria/v1');
 
-      await tapOn(tester, find.text('Responder às perguntas'));
+      await tapOn(tester, find.text(flowTitle));
 
       expect(h.location(tester), '/curadoria/v1/aprovar');
       expectNamed(tester, find.text(checkedByApp));
@@ -257,7 +257,7 @@ void main() {
     Future<Harness> fromReview(WidgetTester tester) async {
       final h = await approving(tester, initial: '/curadoria/v1');
       expect(h.adultPlayer.opened, hasLength(1));
-      await tapOn(tester, find.text('Responder às perguntas'));
+      await tapOn(tester, find.text(flowTitle));
       return h;
     }
 
@@ -353,6 +353,56 @@ void main() {
 
       expect(window(), findsOneWidget);
       expect(h.adultPlayer.opened.last.youtubeId, 'yt-v1');
+    });
+  });
+
+  group('the title', () {
+    void expectTitle(WidgetTester tester) {
+      expect(find.text(flowTitle), findsOneWidget);
+      expect(find.text('Aprovar'), findsNothing);
+    }
+
+    testWidgets('says "Revisar vídeo" on every page, whatever the answers '
+        'lead to', (tester) async {
+      expect(flowTitle, 'Revisar vídeo');
+      final h = await approving(
+        tester,
+        review: (_) => json(201, {'video_state': 'held'}),
+      );
+
+      expectTitle(tester);
+      await start(tester);
+      expectTitle(tester);
+      await answer(tester, hits, 'Não');
+      await answer(tester, sad, 'Não sei');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+      expect(find.text(reviewTitle), findsOneWidget);
+      expect(primary(tester).label, teamLabel);
+      expectTitle(tester);
+      await tapPrimary(tester);
+      expect(posts(h), hasLength(1));
+      expectTitle(tester);
+    });
+
+    testWidgets('the theme and band page names "Tema" as a header, and the '
+        'review\'s title is a header announced on arrival', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester);
+      await toTopic(tester);
+
+      expect(
+        tester.getSemantics(find.text('Tema')),
+        isSemantics(isHeader: true),
+      );
+      await choose(tester, 'Música');
+      await choose(tester, '5 a 8 anos');
+      await tapPrimary(tester);
+      expect(
+        tester.getSemantics(find.text(reviewTitle)),
+        isSemantics(isHeader: true, isLiveRegion: true),
+      );
+      semantics.dispose();
     });
   });
 
@@ -506,11 +556,11 @@ void main() {
 
     testWidgets('leaving the flow drops its answers', (tester) async {
       await approving(tester, initial: '/curadoria/v1');
-      await tapOn(tester, find.text('Responder às perguntas'));
+      await tapOn(tester, find.text(flowTitle));
       await answer(tester, tie, 'Não');
 
       await tapOn(tester, find.byTooltip('Voltar').last);
-      await tapOn(tester, find.text('Responder às perguntas'));
+      await tapOn(tester, find.text(flowTitle));
 
       expect(picked(tester, tie, 'Não'), isFalse);
     });
@@ -528,7 +578,9 @@ void main() {
         expect(row(label), findsOneWidget, reason: label);
         expect(chosen(tester, label), isFalse, reason: label);
       }
-      expect(primary(tester).label, nextStep);
+      // Not a step: it leads to the summary.
+      expect(primary(tester).label, seeSummary);
+      expect(seeSummary, 'Ver resumo');
       expect(primary(tester).onPressed, isNull);
       expect(find.text(approveHint), findsOneWidget);
       await choose(tester, 'Bichos');
@@ -778,6 +830,7 @@ void main() {
         'note': 'A tristeza é o tema.',
       });
       expect(find.widgetWithText(Notice, doubtSent), findsOneWidget);
+      expect(doubtSent, 'Enviamos o vídeo para a equipe da Coding4u decidir.');
     });
 
     testWidgets('a doubt on a revisited video says it leaves the app until '
