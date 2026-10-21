@@ -234,6 +234,11 @@ func (s *Server) routes() []route {
 		// Publishing or removing a doubted video is as weighty as a
 		// removal: it needs a fresh re-authentication too.
 		moderatorReauthed("POST /v1/moderation/videos/{id}/decide", s.decideDoubt),
+		// Auditing a sample of recent approvals: reading the sample is
+		// free; a verdict, which may hold a video, needs a fresh
+		// re-authentication.
+		moderator("GET /v1/moderation/audit-sample", s.auditSample),
+		moderatorReauthed("POST /v1/moderation/audits", s.auditApproval),
 	}
 }
 

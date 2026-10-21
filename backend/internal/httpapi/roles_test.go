@@ -81,7 +81,7 @@ func TestRoleRoutesCheckTheRoleOnEveryRequest(t *testing.T) {
 			}
 		}
 	}
-	if nc == 0 || na != 15 || nm != 4 || ns != 6 { // 7 team and pack routes, 6 directory routes, 2 suspension routes
+	if nc == 0 || na != 15 || nm != 6 || ns != 6 { // 7 team and pack routes, 6 directory routes, 2 suspension routes
 		t.Fatalf("swept %d curator, %d admin, %d moderator and %d staff routes", nc, na, nm, ns)
 	}
 
