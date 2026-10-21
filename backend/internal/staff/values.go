@@ -6,7 +6,7 @@ import (
 )
 
 // DisplayRole is how a curator's reviews are shown. The app owns the
-// PT-BR labels (Displayed roles).
+// PT-BR labels.
 type DisplayRole string
 
 const (
@@ -35,7 +35,7 @@ func checkDisplayRole(r DisplayRole, verified bool) error {
 }
 
 // CheckReason trims a staff write's reason and checks that it holds 3 to
-// 200 runes (Codes). Every team and moderation write
+// 200 runes. Every team and moderation write
 // checks it before any lookup.
 func CheckReason(raw string) (string, error) {
 	r := strings.TrimSpace(raw)

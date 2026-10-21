@@ -12,7 +12,7 @@ import (
 )
 
 // Export is the document of `GET /v1/account/export`: its JSON tags are
-// the format (Export document). Every list is non-nil, so it
+// the format. Every list is non-nil, so it
 // encodes as [] when empty.
 type Export struct {
 	Format      string    `json:"format"`

@@ -17,7 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// State is a child's day state (Rules of counting).
+// State is a child's day state: free to watch, the day's time used up, or
+// outside the hours a guardian allows.
 type State string
 
 const (

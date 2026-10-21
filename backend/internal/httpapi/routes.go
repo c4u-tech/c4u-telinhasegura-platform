@@ -211,7 +211,7 @@ func (s *Server) routes() []route {
 		admin("GET /v1/admin/packs", s.adminPacks),
 		admin("GET /v1/admin/packs/{id}", s.adminPack),
 		// A stolen admin session cannot take pacotinhos down unnoticed:
-		// removal needs a fresh re-authentication (packs, Security).
+		// removal needs a fresh re-authentication.
 		adminReauthed("POST /v1/admin/packs/{id}/remove", s.removePack),
 		// The account directory: an exact-match lookup
 		// with a reason, and support actions that each need a fresh

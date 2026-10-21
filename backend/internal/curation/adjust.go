@@ -196,9 +196,11 @@ type ReportSummary struct {
 	Notes    []string
 }
 
-// Report records the caller's family's report of a video, in the order
-// of the plan's Global Constraints. created reports a new report (201)
-// as against the family's earlier one, which stands. The
+// Report records the caller's family's report of a video. It checks the
+// rate limit first, then the reason and the note, then the caller's
+// family and the video, so a flood is turned away before any lookup.
+// created reports a new report (201) as against the family's earlier
+// one, which stands. The
 // video row lock comes first, so the reports of one video run one at a
 // time: the count sees every earlier report, and two last reports hold
 // once.

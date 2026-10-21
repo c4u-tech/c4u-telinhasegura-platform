@@ -28,7 +28,7 @@ const (
 	Removed  State = "removed"
 )
 
-// The reasons a suggested video is refused (Codes).
+// The reasons a suggested video is refused, as the API sends them.
 const (
 	RefusedNotFound      = "not_found"
 	RefusedNotForKids    = "not_for_kids"

@@ -21,7 +21,7 @@ const (
 )
 
 // PackInput is a composition: the title, the ordered videos, the cover
-// ("" is the first video) and an optional theme (packs, Contract).
+// ("" is the first video) and an optional theme.
 type PackInput struct {
 	Title        string
 	VideoIDs     []string

@@ -43,8 +43,8 @@ func writeProblem(w http.ResponseWriter, p problem) {
 	_ = json.NewEncoder(w).Encode(p)
 }
 
-// familyProblems maps the family module's sentinels to their codes
-// (Codes).
+// familyProblems maps the family module's sentinels to their status and
+// code.
 var familyProblems = []struct {
 	err    error
 	status int
@@ -66,8 +66,8 @@ var familyProblems = []struct {
 	{family.ErrOtherGuardians, http.StatusForbidden, "account_suspended"}, // only DeleteAsSoleGuardian returns it
 }
 
-// parentalProblems maps the parental module's sentinels to their codes
-// (Codes).
+// parentalProblems maps the parental module's sentinels to their status
+// and code.
 var parentalProblems = []struct {
 	err    error
 	status int
@@ -87,7 +87,7 @@ var parentalProblems = []struct {
 	{parental.ErrConsentRequired, http.StatusForbidden, "consent_required"},
 }
 
-// staffProblems maps the staff module's sentinels to their codes (Codes).
+// staffProblems maps the staff module's sentinels to their status and code.
 // curation.ErrNotCurator is staff.ErrNotCurator.
 var staffProblems = []struct {
 	err    error
@@ -121,8 +121,8 @@ var staffProblems = []struct {
 	{staff.ErrNotSuspended, http.StatusConflict, "not_suspended"},
 }
 
-// curationProblems maps the curation module's sentinels to their codes
-// (Codes).
+// curationProblems maps the curation module's sentinels to their status
+// and code.
 var curationProblems = []struct {
 	err    error
 	status int
@@ -151,8 +151,8 @@ var curationProblems = []struct {
 	{curation.ErrConflictOfInterest, http.StatusConflict, "conflict_of_interest"},
 }
 
-// privacyProblems maps the privacy module's sentinels to their codes
-// (Codes).
+// privacyProblems maps the privacy module's sentinels to their status
+// and code.
 var privacyProblems = []struct {
 	err    error
 	status int
@@ -166,7 +166,7 @@ var privacyProblems = []struct {
 }
 
 // screentimeProblems maps the screentime module's sentinels to their
-// codes (Codes).
+// status and code.
 var screentimeProblems = []struct {
 	err    error
 	status int

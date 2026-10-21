@@ -172,7 +172,9 @@ func TestParentalWritesNeedCSRFOnTheWeb(t *testing.T) { // Contract (CSRF)
 	}
 }
 
-func TestCORSAllowsPut(t *testing.T) { // Global Constraints (CORS)
+// A browser asks before a cross-origin PUT, such as setting the PIN; the
+// preflight must allow the method.
+func TestCORSAllowsPut(t *testing.T) {
 	a := newAPI(t, func(s *httpapi.Server) { s.AllowedOrigins = []string{"https://app.test"} })
 	r := a.do(http.MethodOptions, "/v1/parental/pin", nil, "Origin", "https://app.test", "Access-Control-Request-Method", "PUT")
 	if !strings.Contains(r.Header().Get("Access-Control-Allow-Methods"), "PUT") {

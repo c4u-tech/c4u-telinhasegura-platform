@@ -13,7 +13,7 @@ import (
 const ChecklistVersion = "2026-10-20"
 
 // Answer is a curator's answer to one question. For the questions asked
-// in the positive (Positive) "ok" means yes and "appears" means no; for
+// in the positive "ok" means yes and "appears" means no; for
 // the others "ok" means the thing does not appear.
 type Answer string
 
