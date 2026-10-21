@@ -60,8 +60,8 @@ void main() {
     for (final line in [
       nb('Mãe ou pai teve dúvida · Bichos · 5 a 8 anos'),
       '“Não sei se a tristeza pesa.”',
-      'Aparece: Algum personagem fica triste?',
-      'Tenho dúvida: Ritmo calmo?',
+      'Sim: Algum personagem fica triste?',
+      'Não sei: Tem ritmo agitado?',
     ]) {
       expect(find.text(line), findsOneWidget, reason: line);
     }
@@ -85,14 +85,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(marksFailed), findsOneWidget);
-    expect(find.text('Aparece: Algum personagem fica triste?'), findsNothing);
+    expect(find.text('Sim: Algum personagem fica triste?'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Publicar'), findsOneWidget);
 
     await tapOn(tester, find.widgetWithText(QuietAction, 'Tentar de novo'));
 
     expect(reads, 2);
     expect(find.text(marksFailed), findsNothing);
-    expect(find.text('Aparece: Algum personagem fica triste?'), findsOneWidget);
+    expect(find.text('Sim: Algum personagem fica triste?'), findsOneWidget);
   });
 
   testWidgets('"Publicar" shows the doubts and starts from the theme and '
@@ -272,5 +272,33 @@ void main() {
     expect(find.text('Retido pela auditoria'), findsOneWidget);
     expect(find.text('Auditoria: discordou \u2014 Tem publi.'), findsOneWidget);
     expect(find.text('Reabrir para revisão'), findsOneWidget);
+  });
+
+  testWidgets('a doubt sent without a theme or a band reads without them, '
+      'and "Publicar" starts with none chosen', (tester) async {
+    final h =
+        Harness(
+            signedIn: true,
+            api: adminApi(
+              held: () => heldList([
+                heldOf(
+                  queuedJson('v1', 'Baby Shark', channel: 'Canal Baby Shark'),
+                  reason: 'doubt',
+                  doubts: [
+                    {...doubtJson, 'theme': null, 'min_age_band': null},
+                  ],
+                ),
+              ]),
+            ),
+          )
+          ..family = ownerFamily
+          ..roles = ['admin'];
+    await h.pump(tester, initial: '/moderacao/retidos/v1');
+
+    expect(find.text('Mãe ou pai teve dúvida'), findsOneWidget);
+    await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
+
+    expect(tester.widget<SelectableRow>(row('Bichos')).selected, isFalse);
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isFalse);
   });
 }

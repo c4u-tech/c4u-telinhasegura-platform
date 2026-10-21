@@ -168,9 +168,6 @@ abstract final class Copy {
     'checklist_band':
         'Com o ritmo que você marcou, o vídeo não serve para 2 a 4 anos. '
         'Escolha outra idade.',
-    'checklist_invalid_reason':
-        'Família, religião, cor ou deficiência diferente da sua não é motivo '
-        'para recusar.',
     'conflict_of_interest':
         'Você tem vínculo com este canal, então a revisão dele fica com '
         'outros curadores.',

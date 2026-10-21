@@ -10,10 +10,9 @@ import (
 // answer it; moderators and admins read it to word what curators marked.
 func (s *Server) checklist(w http.ResponseWriter, _ *http.Request) {
 	type itemOut struct {
-		ID       string `json:"id"`
-		Text     string `json:"text"`
-		Rule     string `json:"rule"`
-		Positive bool   `json:"positive"`
+		ID   string `json:"id"`
+		Text string `json:"text"`
+		Rule string `json:"rule"`
 	}
 	type groupOut struct {
 		ID    string    `json:"id"`
@@ -24,7 +23,7 @@ func (s *Server) checklist(w http.ResponseWriter, _ *http.Request) {
 	for _, g := range curation.Checklist() {
 		out := groupOut{ID: g.ID, Title: g.Title, Items: []itemOut{}}
 		for _, it := range g.Items {
-			out.Items = append(out.Items, itemOut{it.ID, it.Text, string(it.Rule), it.Positive})
+			out.Items = append(out.Items, itemOut{it.ID, it.Text, string(it.Rule)})
 		}
 		groups = append(groups, out)
 	}

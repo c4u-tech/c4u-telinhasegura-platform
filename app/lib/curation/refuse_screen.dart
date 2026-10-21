@@ -14,20 +14,20 @@ import '../design/tokens.dart';
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'checklist_form.dart' show marksNo;
 import 'curation.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'video_heading.dart';
+import 'words.dart' show differenceReminder;
 
 /// What a refusal does, said first.
 const refuseLead = 'Recusar tira o vídeo das prateleiras na mesma hora.';
 
 /// Over the questions.
 const refuseItemsLead =
-    'Marque o que aparece no vídeo. Só recusamos pelos critérios publicados.';
+    'Marque o que acontece no vídeo. Só recusamos pelos critérios publicados.';
 
 /// Under the primary while nothing is ticked.
-const refuseHint = 'Marque acima pelo menos uma coisa que aparece.';
+const refuseHint = 'Marque acima pelo menos uma coisa que acontece.';
 
 /// The done state's notice.
 const refused = 'Sua recusa foi registrada.';
@@ -45,11 +45,11 @@ const reasonMax = 500;
 const _countFrom = 400;
 
 /// `/curadoria/:id/recusar`: what a refusal does; every question that
-/// refuses, by group, to tick, a question asked in the positive as its
-/// "Não"; an optional note of up to 500 characters; and the ordinary ink
-/// primary "Recusar" (the Quiet Loss Rule: never clay), waiting until one
-/// question is ticked. [items] arrive ticked from an approval that marked
-/// them. It sends the refusal once, then the done state back to the queue.
+/// refuses, by group, to tick; an optional note of up to 500 characters; and
+/// the ordinary ink primary "Recusar" (the Quiet Loss Rule: never clay),
+/// waiting until one question is ticked. [items] arrive ticked from an
+/// approval that marked them. It sends the refusal once, then the done state
+/// back to the queue.
 class RefuseScreen extends StatefulWidget {
   const RefuseScreen({
     super.key,
@@ -227,6 +227,8 @@ class _RefuseScreenState extends State<RefuseScreen> {
       Text(refuseLead, style: text.bodyLarge),
       const SizedBox(height: Space.lg),
       Text(refuseItemsLead, style: text.bodyLarge),
+      const SizedBox(height: Space.md),
+      Text(differenceReminder, style: text.bodyMedium),
       for (final g in list.groups)
         if (g.items.where((i) => i.rule == ChecklistRule.refuses).toList()
             case final items when items.isNotEmpty) ...[
@@ -238,7 +240,7 @@ class _RefuseScreenState extends State<RefuseScreen> {
           const SizedBox(height: Space.sm),
           for (final i in items)
             DeclarationRow(
-              text: i.positive ? '$marksNo: ${i.text}' : i.text,
+              text: i.text,
               value: _ticked.contains(i.id),
               onChanged: idle ? (on) => _toggle(i.id, on) : null,
             ),

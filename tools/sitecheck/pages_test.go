@@ -397,6 +397,8 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 		"a mesma lista de perguntas", "vão para a equipe da Coding4u", "confere aprovações por amostra",
 		"Ninguém da curadoria revisa vídeos do próprio canal",
 		"fica fora das telinhas até a equipe decidir",
+		// The same words as the curators' question.
+		"ataque de propósito, mesmo de brincadeira",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/curadoria does not say %q", want)

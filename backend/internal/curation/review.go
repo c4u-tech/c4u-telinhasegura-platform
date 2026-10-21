@@ -28,8 +28,10 @@ const (
 )
 
 // ReviewInput is an approval with a theme, a band and every answer of the
-// list, or a rejection with the questions it failed. Note is the
-// curator's own words: a rejection's, or a doubt's.
+// list, or a rejection with the questions it failed. An approval whose
+// answers make it a doubt may leave both the theme and the band out: the
+// moderator who decides it chooses them. Note is the curator's own words:
+// a rejection's, or a doubt's.
 type ReviewInput struct {
 	Decision         Decision
 	Theme            string
@@ -316,15 +318,19 @@ func prepare(in ReviewInput) (entry, error) {
 		list, err := json.Marshal(ids)
 		return entry{decision: Reject, reason: composeReason(items, in.Note), checklist: list, failed: ids}, err
 	}
-	if !validTheme(in.Theme) || bandRank(in.MinAgeBand) == 0 || in.FailedItems != nil {
+	// A review that turns into a doubt may leave the theme and the band to
+	// the moderator who decides it; when one is given, both are.
+	named := in.Theme != "" || in.MinAgeBand != ""
+	if named && (!validTheme(in.Theme) || bandRank(in.MinAgeBand) == 0) || in.FailedItems != nil {
 		return entry{}, ErrValidation
 	}
 	doubt, err := judge(in.Answers, in.MinAgeBand)
 	if err != nil {
 		return entry{}, err
 	}
-	// A note travels only with a doubt: a plain approval has nothing to explain.
-	if !doubt && in.Note != "" {
+	// A note travels only with a doubt, and a plain approval names its
+	// theme and its band.
+	if !doubt && (in.Note != "" || !named) {
 		return entry{}, ErrValidation
 	}
 	list, err := json.Marshal(in.Answers)
