@@ -96,6 +96,12 @@ extension RefusalReasonMessage on RefusalReason {
 /// A non-breaking space: what it glues never parts at a line's end.
 const _nbsp = '\u00A0';
 
+/// Said wherever a curator decides what refuses a video: a difference is
+/// never a reason.
+const differenceReminder =
+    'Não recuse um vídeo só por mostrar uma família, religião, cor ou '
+    'deficiência diferente da sua.';
+
 abstract final class CurationWords {
   /// The dot between words on a line ("Canal · 4 min"), glued to the
   /// word before it so that at 200 % text it never opens a line.
@@ -181,14 +187,15 @@ abstract final class CurationWords {
     };
   }
 
-  /// What a review marked, question by question in the list's order:
-  /// "Aparece: Alguém bate…", "Tenho dúvida: Ritmo calmo?". Nothing for a
-  /// review with every answer "ok" or none at all.
+  /// What a review answered other than "Não", question by question in the
+  /// list's order: "Sim: Alguém bate…", "Não sei: Tem ritmo agitado?".
+  /// Nothing for a review with every answer "Não" or none at all; a
+  /// question the current list no longer asks is left out.
   static List<String> marked(Review r, Checklist list) => [
     for (final item in list.items)
       if (r.answers?[item.id] case final a?
           when a != ChecklistAnswer.ok && a != ChecklistAnswer.unknown)
-        '${a.label(item)}: ${item.text}',
+        '${a.word}: ${item.text}',
   ];
 
   /// A held video's refusal: "Psicólogo(a): Tem um susto no fim."
@@ -212,13 +219,13 @@ abstract final class CurationWords {
   ].join(dot);
 }
 
-/// A mark on a question, in words: "Aparece", "Não" (a question asked in
-/// the positive), "Tenho dúvida".
-extension ChecklistMarkLabel on ChecklistAnswer {
-  String label(ChecklistItem item) => switch (this) {
-    ChecklistAnswer.appears => item.positive ? 'Não' : 'Aparece',
-    ChecklistAnswer.doubt => 'Tenho dúvida',
-    ChecklistAnswer.ok => item.positive ? 'Sim' : 'Não aparece',
+/// An answer in words. Every question asks whether something is in the
+/// video, so "Não" is always the answer that keeps it.
+extension ChecklistAnswerWord on ChecklistAnswer {
+  String get word => switch (this) {
+    ChecklistAnswer.ok => 'Não',
+    ChecklistAnswer.appears => 'Sim',
+    ChecklistAnswer.doubt => 'Não sei',
     ChecklistAnswer.unknown => 'Sem resposta',
   };
 }

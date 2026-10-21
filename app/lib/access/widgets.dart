@@ -260,12 +260,19 @@ class Guidance extends StatelessWidget {
   }
 }
 
-/// "Passo 1 de 2", with one module per step.
+/// "Passo 1 de 2", with one module per step. A flow that calls its steps
+/// something else names them with [word] ("Etapa 1 de 5").
 class StepMarks extends StatelessWidget {
-  const StepMarks({super.key, required this.step, required this.of});
+  const StepMarks({
+    super.key,
+    required this.step,
+    required this.of,
+    this.word = 'Passo',
+  });
 
   final int step;
   final int of;
+  final String word;
 
   @override
   Widget build(BuildContext context) => MergeSemantics(
@@ -278,7 +285,7 @@ class StepMarks extends StatelessWidget {
         const SizedBox(width: Space.xs),
         Flexible(
           child: Text(
-            'Passo $step de $of',
+            '$word $step de $of',
             style: Theme.of(context).textTheme.labelMedium
                 ?.copyWith(color: context.palette.muted),
           ),

@@ -118,64 +118,63 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
   return http.Response('', 204);
 };
 
-/// A short checklist as the curation route carries it: one question of
-/// each rule, two asked in the positive.
+/// A short checklist as the curation route carries it: "Antes de
+/// começar" and five steps, at least one question of each rule.
 const checklistJson = <String, Object?>{
-  'version': '2026-10-20',
+  'version': '2026-10-21',
   'groups': [
     {
       'id': 'antes',
-      'title': 'Antes de assistir',
+      'title': 'Antes de começar',
       'items': [
-        {
-          'id': 'c01',
-          'text': 'Está marcado como feito para crianças?',
-          'rule': 'refuses',
-          'positive': true,
-        },
         {
           'id': 'c25',
           'text': 'Você tem vínculo com este canal?',
           'rule': 'conflict',
-          'positive': false,
         },
+        {'id': 'c03', 'text': 'Aparece promoção paga?', 'rule': 'refuses'},
       ],
     },
     {
       'id': 'violencia',
       'title': 'Violência e medo',
       'items': [
-        {
-          'id': 'c04',
-          'text': 'Alguém bate de propósito?',
-          'rule': 'refuses',
-          'positive': false,
-        },
-        {
-          'id': 'c07',
-          'text': 'Algum personagem fica triste?',
-          'rule': 'doubt',
-          'positive': false,
-        },
+        {'id': 'c04', 'text': 'Alguém bate de propósito?', 'rule': 'refuses'},
+        {'id': 'c07', 'text': 'Algum personagem fica triste?', 'rule': 'doubt'},
       ],
     },
     {
       'id': 'linguagem',
       'title': 'Linguagem e respeito',
       'items': [
-        {
-          'id': 'c21',
-          'text': 'Você recusaria só pela diferença?',
-          'rule': 'invalid_reason',
-          'positive': false,
-        },
+        {'id': 'c08', 'text': 'Alguém xinga?', 'rule': 'refuses'},
       ],
     },
     {
-      'id': 'faixa',
-      'title': 'Faixa',
+      'id': 'consumo',
+      'title': 'Consumo e publicidade',
       'items': [
-        {'id': 'c22', 'text': 'Ritmo calmo?', 'rule': 'band', 'positive': true},
+        {'id': 'c15', 'text': 'Pede para comprar?', 'rule': 'refuses'},
+      ],
+    },
+    {
+      'id': 'saude',
+      'title': 'Saúde e segurança',
+      'items': [
+        {'id': 'c12', 'text': 'Alguém faz algo perigoso?', 'rule': 'refuses'},
+      ],
+    },
+    {
+      'id': 'ritmo',
+      'title': 'Ritmo e canal',
+      'items': [
+        {'id': 'c22', 'text': 'Tem ritmo agitado?', 'rule': 'band'},
+        {'id': 'c23', 'text': 'Falta começo, meio ou fim?', 'rule': 'refuses'},
+        {
+          'id': 'c24',
+          'text': 'O canal tem outros vídeos que você recusaria?',
+          'rule': 'doubt',
+        },
       ],
     },
   ],
@@ -197,14 +196,18 @@ const doubtJson = <String, Object?>{
   'theme': 'bichos',
   'min_age_band': '5-8',
   'reason': 'Não sei se a tristeza pesa.',
-  'checklist_version': '2026-10-20',
+  'checklist_version': '2026-10-21',
   'answers': {
-    'c01': 'ok',
     'c25': 'ok',
+    'c03': 'ok',
     'c04': 'ok',
     'c07': 'appears',
-    'c21': 'ok',
+    'c08': 'ok',
+    'c15': 'ok',
+    'c12': 'ok',
     'c22': 'doubt',
+    'c23': 'ok',
+    'c24': 'ok',
   },
   'failed_items': null,
   'reviewed_at': '2026-10-04T12:00:00Z',

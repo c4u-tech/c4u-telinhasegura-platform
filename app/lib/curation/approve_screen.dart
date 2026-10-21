@@ -17,45 +17,74 @@ import '../family/widgets.dart' show FamilyPlaceholder;
 import '../legal/legal_links.dart' show kCurationUrl;
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'checklist_draft.dart';
-import 'checklist_form.dart';
+import 'adult_window.dart';
+import 'answer_choice.dart';
+import 'approval_draft.dart';
 import 'curation.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'video_heading.dart';
 import 'words.dart';
 
-/// Over the list: how to answer it.
-const checklistLead = 'Assista ao vídeo até o fim e responda, grupo por grupo.';
+/// "Antes de começar": what the app checked when the video was suggested.
+const checkedByApp =
+    '✓ Já conferido pelo app: feito para crianças no YouTube, pode ser '
+    'exibido aqui, não é ao vivo e cabe no tempo máximo.';
 
-/// Under the primary until every group is answered.
-const checklistHint = 'Responda cada grupo de perguntas acima.';
+/// The primaries: of "Antes de começar", of a step, and of the last step
+/// when the video can be approved.
+const startQuestions = 'Começar as perguntas';
+const nextStep = 'Próxima etapa';
+const chooseTopic = 'Escolher tema e idade';
 
-/// Under the primary until a theme and a band are chosen.
+/// The primary of a page that leads to the review: the theme and band, the
+/// last step when the answers do not approve, and a page changed from the
+/// review.
+const seeSummary = 'Ver resumo';
+
+/// The flow's title on every page, whatever the answers lead to.
+const flowTitle = 'Revisar vídeo';
+
+/// A step's shortcut, and the line that parts it from the questions.
+const noneHappens = 'Nada disso acontece no vídeo';
+const orOneByOne = 'ou responda uma a uma';
+
+/// Under a page's primary until it can go on.
+const stepHint = 'Responda todas as perguntas desta etapa.';
 const approveHint = 'Escolha um tema e uma idade acima.';
+
+/// The review: its title, a step with nothing marked, the action back to
+/// a step, and the line of the theme and band.
+const reviewTitle = 'Confira antes de enviar';
+const allNo = 'tudo Não';
+const changeLabel = 'mudar';
+const topicTitle = 'Tema e idade';
+
+/// The review's final button, by what the answers lead to.
+const approveLabel = 'Aprovar';
+const refuseLabel = 'Recusar';
+const teamLabel = 'Enviar para a equipe';
+
+/// Under the bands when the pace rules out the youngest.
+const fastPaceLine = 'Ritmo agitado não serve para 2 a 4 anos.';
 
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';
-const doubtSent = 'Sua dúvida foi enviada para a equipe da Coding4u.';
+const doubtSent = 'Enviamos o vídeo para a equipe da Coding4u decidir.';
 
-/// `validation` on an approval: the choices are marked, and
-/// cleared to choose again.
+/// In the player's place when it could not play the video.
+const flowPlayerFailed = 'Esse vídeo não abriu aqui.';
+
+/// `validation` on an approval: the theme and band are asked again.
 const approvalRefused =
     'Essa escolha não foi aceita. Escolha o tema e a idade de novo.';
 
-/// What the marks mean, said over the primary.
-const refusingLine =
-    'Com o que você marcou, o vídeo não pode ser aprovado. Siga para a recusa.';
+/// A tie to the channel, said on "Antes de começar".
 const conflictLine =
     'Você tem vínculo com este canal, então a revisão dele fica com outros '
     'curadores.';
-const invalidReasonLine =
-    'Família, religião, cor ou deficiência diferente da sua não é motivo '
-    'para recusar. Desmarque essa resposta.';
-const bandLine =
-    'Com o ritmo que você marcou, o vídeo não serve para 2 a 4 anos.';
 
-/// A doubt on a video still waiting for its first decision, and on one
-/// already in the app, revisited.
+/// What the team's decision means for a video still waiting for its first
+/// decision, and for one already in the app, revisited.
 const doubtLine =
     'Sua dúvida vai para a equipe da Coding4u, que decide. O vídeo fica '
     'esperando a decisão da equipe.';
@@ -63,7 +92,7 @@ const doubtRevisitLine =
     'Sua dúvida vai para a equipe da Coding4u, que decide. O vídeo sai do '
     'app até lá.';
 
-/// The doubt's optional note.
+/// The note sent to the team, optional.
 const doubtNoteLabel = 'Conte sua dúvida (opcional)';
 
 /// Over the bands: the rating every video must have.
@@ -72,12 +101,21 @@ const curationRule = 'Todo vídeo precisa ser Livre.';
 /// The link to the criteria of each band, on the site.
 const curationCriteriaLink = 'Veja os critérios de cada idade';
 
-/// `/curadoria/:id/aprovar`: the checklist the server holds, group by
-/// group, then one theme of six and a band of three. What the curator
-/// marks decides the primary: a question that refuses leads to the
-/// refusal with it marked; a tie to the channel back to the queue; a
-/// doubt sends the review to the team with an optional note; otherwise
-/// "Aprovar". Each is sent once, then the done state back to the queue.
+/// "Etapa 2 de 5".
+String stepLabel(int step, int of) => 'Etapa $step de $of';
+
+/// `/curadoria/:id/aprovar`: the checklist the server holds, one page at
+/// a time. "Antes de começar" (the list's first group, under what the app
+/// already checked), then one step per remaining group, each going on only
+/// once every question is answered; then the theme and band, only when
+/// the answers approve; then "Confira antes de enviar", whose final button
+/// says what happens: "Aprovar", "Recusar" (the refusal, with the
+/// questions ticked) or "Enviar para a equipe" (an approval the server
+/// holds as a doubt). A tie to the channel ends on the first page. Back,
+/// on screen or from the system, goes one page back; leaving drops the
+/// answers. The video plays at the top of the first page and of every
+/// step, in one player for the whole flow, so going from step to step
+/// never reloads it; it goes when the flow does.
 class ApproveScreen extends StatefulWidget {
   const ApproveScreen({super.key, required this.id, this.video});
 
@@ -90,17 +128,19 @@ class ApproveScreen extends StatefulWidget {
   State<ApproveScreen> createState() => _ApproveScreenState();
 }
 
-class _ApproveScreenState extends State<ApproveScreen> {
+class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   final _send = Submission();
   final _note = TextEditingController();
   bool _started = false;
   Video? _video;
-  ChecklistDraft? _draft;
+  ApprovalDraft? _draft;
   bool _checklistFailed = false;
-  VideoTheme? _theme;
-  AgeBand? _band;
   bool _refused = false;
   String? _done;
+
+  /// Keeps the one player's view across pages: each page is built anew,
+  /// and a view built anew would load the video again.
+  final _window = GlobalKey();
 
   @override
   void didChangeDependencies() {
@@ -110,26 +150,33 @@ class _ApproveScreenState extends State<ApproveScreen> {
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _video = widget.video;
-    if (_video == null) scheduleMicrotask(_readVideo);
+    if (_video case final video?) {
+      openPlayer(video.youtubeId);
+    } else {
+      scheduleMicrotask(_readVideo);
+    }
     scheduleMicrotask(_readChecklist);
   }
 
   /// Opened directly: the video is read to be named. A video gone from
-  /// the queue goes back to it; any other failure leaves the form as is,
+  /// the queue goes back to it; any other failure leaves the flow as is,
   /// since the decision does not need the name to be sent.
   Future<void> _readVideo() async {
     if (!mounted) return;
     try {
       final detail = await AppScope.of(context).curation.video(widget.id);
-      if (mounted) setState(() => _video = detail.video);
+      if (!mounted) return;
+      setState(() => _video = detail.video);
+      openPlayer(detail.video.youtubeId);
     } on Object catch (e) {
       if (mounted) leaveForQueue(context, e);
     }
   }
 
   /// The list is read on every arrival, and again when the server says it
-  /// changed; a new list starts unanswered. The old answers go first, so a
-  /// failed read offers to try again rather than the outdated list.
+  /// changed; a new list starts over on its first page, unanswered. The
+  /// old answers go first, so a failed read offers to try again rather
+  /// than the outdated list.
   Future<void> _readChecklist() async {
     if (!mounted) return;
     setState(() {
@@ -138,7 +185,7 @@ class _ApproveScreenState extends State<ApproveScreen> {
     });
     try {
       final list = await AppScope.of(context).curation.checklist();
-      if (mounted) setState(() => _draft = ChecklistDraft(list));
+      if (mounted) setState(() => _draft = ApprovalDraft(list));
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
       setState(() => _checklistFailed = true);
@@ -152,51 +199,80 @@ class _ApproveScreenState extends State<ApproveScreen> {
     super.dispose();
   }
 
-  void _changed() {
+  bool get _idle => !_send.blocked;
+
+  /// Any change takes away the last error and the refused choices' line.
+  void _update(void Function() change) {
     _send.clearMessage();
-    setState(() => _refused = false);
+    setState(() {
+      _refused = false;
+      change();
+    });
   }
 
-  void _toRefusal(ChecklistDraft draft) => context.go(
-    Routes.refuse(widget.id, items: draft.refusing),
-    extra: _video,
-  );
+  void _forward() => _update(_draft!.forward);
 
-  Future<void> _approve(
-    ChecklistDraft draft,
-    VideoTheme theme,
-    AgeBand band,
-  ) async {
+  /// One page back; from the first page back to the video, and from the
+  /// done state to the queue.
+  void _back() {
+    final d = _draft;
+    if (_done != null) {
+      context.go(Routes.curation);
+    } else if (d == null || !d.back()) {
+      context.go(Routes.review(widget.id));
+    } else {
+      _update(() {});
+    }
+  }
+
+  void _toRefusal(ApprovalDraft d) =>
+      context.go(Routes.refuse(widget.id, items: d.refusing), extra: _video);
+
+  /// Sends the answers: an approval with its theme and band, or, for the
+  /// team, without them and with the optional note.
+  Future<void> _submit(ApprovalDraft d) async {
     final api = AppScope.of(context).curation;
+    final team = d.outcome == ApprovalOutcome.team;
     final note = _note.text.trim();
-    final doubt = draft.doubt;
     final ok = await _send.run(
       () => api.approve(
         widget.id,
-        theme: theme,
-        minAgeBand: band,
-        version: draft.checklist.version,
-        answers: draft.answers,
-        note: doubt && note.isNotEmpty ? note : null,
+        theme: team ? null : d.theme,
+        minAgeBand: team ? null : d.band,
+        version: d.checklist.version,
+        answers: d.answers,
+        note: team && note.isNotEmpty ? note : null,
       ),
-      handle: (e) => _handle(e, draft),
+      handle: (e) => _handle(e, d),
     );
-    if (ok && mounted) setState(() => _done = doubt ? doubtSent : approved);
+    if (!ok || !mounted) return;
+    // Decided: nothing is left to watch.
+    unawaited(closePlayer());
+    setState(() => _done = team ? doubtSent : approved);
   }
 
-  bool _handle(ApiError e, ChecklistDraft draft) {
+  bool _handle(ApiError e, ApprovalDraft d) {
     if (leaveForQueue(context, e)) return true;
     switch (e.code) {
-      case 'validation':
+      case 'validation' when d.outcome == ApprovalOutcome.approve:
         setState(() {
           _refused = true;
-          _theme = null;
-          _band = null;
+          d
+            ..theme = null
+            ..band = null
+            ..change(d.topicPage);
         });
         return true;
       case 'checklist_refuses':
-        _toRefusal(draft);
+        _toRefusal(d);
         return true;
+      case 'checklist_band':
+        setState(() {
+          d
+            ..band = null
+            ..change(d.topicPage);
+        });
+        return false;
       case 'checklist_outdated':
         unawaited(_readChecklist());
         return false;
@@ -204,52 +280,50 @@ class _ApproveScreenState extends State<ApproveScreen> {
     return false;
   }
 
-  /// A video already in the app leaves it while the team decides a doubt;
-  /// one waiting for its first decision just keeps waiting.
+  /// A video already in the app leaves it while the team decides; one
+  /// waiting for its first decision just keeps waiting.
   bool get _revisit =>
       _video?.revisit == true || _video?.state == VideoState.approved;
 
   void _openCriteria() => AppScope.of(context).links.open(kCurationUrl);
 
-  void _pick(void Function() pick) {
-    _send.clearMessage();
-    setState(() {
-      _refused = false;
-      pick();
-    });
-  }
-
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _send,
-    builder: (context, _) => FieldLayout(
-      title: 'Aprovar',
-      onBack: () => context.go(
-        _done != null ? Routes.curation : Routes.review(widget.id),
-      ),
-      children: [
-        if (_video case final video?) ...[
-          VideoHeading(video),
-          const SizedBox(height: Space.xl),
-        ],
-        ...(switch (_done) {
-          final done? => [
-            Notice(done),
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _back();
+    },
+    child: ListenableBuilder(
+      listenable: _send,
+      builder: (context, _) => FieldLayout(
+        // A new page opens at its top, not where the last one was scrolled.
+        key: ValueKey<Object?>(_done ?? _draft?.page),
+        title: flowTitle,
+        onBack: _back,
+        children: [
+          if (_video case final video?) ...[
+            VideoHeading(video),
             const SizedBox(height: Space.xl),
-            PrimaryButton(
-              label: 'Voltar para a fila',
-              onPressed: () => context.go(Routes.curation),
-            ),
           ],
-          null => _form(),
-        }),
-      ],
+          ...(switch (_done) {
+            final done? => [
+              Notice(done),
+              const SizedBox(height: Space.xl),
+              PrimaryButton(
+                label: 'Voltar para a fila',
+                onPressed: () => context.go(Routes.curation),
+              ),
+            ],
+            null => _form(),
+          }),
+        ],
+      ),
     ),
   );
 
   List<Widget> _form() {
-    final draft = _draft;
-    if (draft == null) {
+    final d = _draft;
+    if (d == null) {
       if (!_checklistFailed) {
         return const [FamilyPlaceholder(label: 'Carregando as perguntas')];
       }
@@ -259,125 +333,309 @@ class _ApproveScreenState extends State<ApproveScreen> {
         PrimaryButton(label: 'Tentar de novo', onPressed: _readChecklist),
       ];
     }
+    final g = d.group;
+    if (g != null) return d.page == 0 ? _before(d, g) : _step(d, g);
+    return d.page == d.topicPage ? _topic(d) : _review(d);
+  }
+
+  /// The video, at the top of the first page and of every step.
+  List<Widget> _player() => [
+    KeyedSubtree(
+      key: _window,
+      child: playerWindow(failed: flowPlayerFailed),
+    ),
+    const SizedBox(height: Space.xl),
+  ];
+
+  Widget _line(String words) => Semantics(
+    liveRegion: true,
+    child: Text(words, style: Theme.of(context).textTheme.bodyLarge),
+  );
+
+  List<Widget> _questions(ApprovalDraft d, ChecklistGroup g) => [
+    for (final (i, item) in g.items.indexed) ...[
+      if (i > 0) const SizedBox(height: Space.xl),
+      AnswerChoice(
+        question: item.text,
+        value: d.answerOf(item),
+        // A tie to the channel is a fact the curator knows: no "Não sei".
+        unsure: item.rule != ChecklistRule.conflict,
+        onChanged: _idle ? (a) => _update(() => d.answer(item, a)) : null,
+      ),
+    ],
+  ];
+
+  /// The last send's error, the primary with its hint, and "Voltar".
+  List<Widget> _foot({
+    required String label,
+    required VoidCallback? onPressed,
+    String? hint,
+    bool back = true,
+  }) => [
+    const SizedBox(height: Space.xxl),
+    if (_send.message case final message?) ...[
+      ErrorNote(message),
+      const SizedBox(height: Space.lg),
+    ],
+    PrimaryButton(
+      label: label,
+      busy: _send.busy,
+      onPressed: _idle ? onPressed : null,
+    ),
+    if (hint != null)
+      SubmitHint(hint, visible: onPressed == null, reserve: true),
+    if (back) ...[
+      const SizedBox(height: Space.sm),
+      QuietAction(label: 'Voltar', onPressed: _back),
+    ],
+  ];
+
+  List<Widget> _before(ApprovalDraft d, ChecklistGroup g) {
     final text = Theme.of(context).textTheme;
-    final p = context.palette;
-    final idle = !_send.blocked;
-    final theme = _theme;
-    final band = _band;
-    final refusing = draft.refusing.isNotEmpty;
-    final barred = draft.youngestBarred && band == AgeBand.upTo4;
-    final choosing = !draft.conflict && !refusing;
-    final String label;
-    VoidCallback? action;
-    if (draft.conflict) {
-      label = 'Voltar para a fila';
-      action = () => context.go(Routes.curation);
-    } else if (refusing) {
-      label = 'Ir para a recusa';
-      action = idle ? () => _toRefusal(draft) : null;
-    } else {
-      label = draft.doubt ? 'Enviar dúvida' : 'Aprovar';
-      action =
-          idle &&
-              draft.complete &&
-              !draft.invalidReason &&
-              !barred &&
-              theme != null &&
-              band != null
-          ? () => _approve(draft, theme, band)
-          : null;
-    }
-    Widget line(String words) =>
-        Semantics(liveRegion: true, child: Text(words, style: text.bodyLarge));
     return [
-      Text(checklistLead, style: text.bodyLarge),
+      ..._player(),
+      Semantics(header: true, child: Text(g.title, style: text.titleMedium)),
+      const SizedBox(height: Space.md),
+      Text(
+        checkedByApp,
+        style: text.bodyMedium?.copyWith(color: context.palette.muted),
+      ),
       const SizedBox(height: Space.xl),
-      ChecklistForm(draft: draft, onChanged: idle ? _changed : null),
-      const SizedBox(height: Space.xxl),
-      if (draft.conflict) ...[
-        line(conflictLine),
-        const SizedBox(height: Space.lg),
-      ] else if (refusing) ...[
-        line(refusingLine),
-        const SizedBox(height: Space.lg),
-      ],
-      // Said whatever else is marked: the answer must be taken back.
-      if (draft.invalidReason) ...[
-        line(invalidReasonLine),
-        const SizedBox(height: Space.lg),
-      ],
-      if (choosing) ...[
-        Text('Tema', style: text.titleMedium),
-        if (_refused) ...[
-          const SizedBox(height: Space.xs),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              approvalRefused,
-              style: text.bodySmall?.copyWith(color: p.error),
-            ),
-          ),
-        ],
-        const SizedBox(height: Space.md),
-        for (final (i, t) in VideoTheme.values.indexed)
-          if (t != VideoTheme.unknown) ...[
-            if (i > 0) const SizedBox(height: Space.sm),
-            SelectableRow(
-              label: t.label,
-              selected: t == theme,
-              onTap: idle ? () => _pick(() => _theme = t) : null,
-            ),
-          ],
+      ..._questions(d, g),
+      if (d.conflict) ...[
         const SizedBox(height: Space.xl),
-        Text('A partir de', style: text.titleMedium),
-        const SizedBox(height: Space.xs),
-        Text(curationRule, style: text.bodyMedium),
-        Semantics(
-          link: true,
-          label: curationCriteriaLink,
-          excludeSemantics: true,
-          onTap: _openCriteria,
-          child: QuietAction(
-            label: curationCriteriaLink,
-            onPressed: _openCriteria,
-          ),
+        _line(conflictLine),
+        ..._foot(
+          label: 'Voltar para a fila',
+          onPressed: () => context.go(Routes.curation),
+          back: false,
         ),
-        const SizedBox(height: Space.md),
-        AgeBandChoice(
-          value: band,
-          onChanged: idle ? (b) => _pick(() => _band = b) : null,
+      ] else
+        ..._foot(
+          // Changed from the review, it goes back to the summary.
+          label: d.nextIsReview ? seeSummary : startQuestions,
+          onPressed: d.canGoOn ? _forward : null,
+          hint: stepHint,
         ),
-        if (barred) ...[const SizedBox(height: Space.sm), line(bandLine)],
-        if (draft.doubt) ...[
-          const SizedBox(height: Space.xl),
-          line(_revisit ? doubtRevisitLine : doubtLine),
-          const SizedBox(height: Space.md),
-          TextField(
-            controller: _note,
-            keyboardType: TextInputType.multiline,
-            textCapitalization: TextCapitalization.sentences,
-            minLines: 2,
-            maxLines: null,
-            maxLength: 500,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            decoration: const InputDecoration(
-              labelText: doubtNoteLabel,
-              alignLabelWithHint: true,
-            ),
-          ),
-        ],
-      ],
+    ];
+  }
+
+  List<Widget> _step(ApprovalDraft d, ChecklistGroup g) {
+    final text = Theme.of(context).textTheme;
+    final step = d.page;
+    final of = d.stepCount;
+    return [
+      ..._player(),
+      // Announced as the page changes: "Etapa 2 de 5, Linguagem e respeito".
+      Semantics(
+        container: true,
+        header: true,
+        liveRegion: true,
+        label: '${stepLabel(step, of)}, ${g.title}',
+        excludeSemantics: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            StepMarks(step: step, of: of, word: 'Etapa'),
+            const SizedBox(height: Space.sm),
+            Text(g.title, style: text.titleMedium),
+          ],
+        ),
+      ),
       const SizedBox(height: Space.xl),
-      if (_send.message case final message?) ...[
-        ErrorNote(message),
-        const SizedBox(height: Space.lg),
-      ],
-      PrimaryButton(label: label, busy: _send.busy, onPressed: action),
-      SubmitHint(
-        draft.complete ? approveHint : checklistHint,
-        visible: choosing && (!draft.complete || theme == null || band == null),
-        reserve: true,
+      OutlinedButton(
+        onPressed: _idle ? () => _update(() => d.noneOf(g)) : null,
+        child: const Text(noneHappens),
+      ),
+      const SizedBox(height: Space.md),
+      Text(
+        orOneByOne,
+        textAlign: TextAlign.center,
+        style: text.bodyMedium?.copyWith(color: context.palette.muted),
+      ),
+      const SizedBox(height: Space.xl),
+      ..._questions(d, g),
+      ..._foot(
+        label: d.nextIsTopic
+            ? chooseTopic
+            : d.nextIsReview
+            ? seeSummary
+            : nextStep,
+        onPressed: d.canGoOn ? _forward : null,
+        hint: stepHint,
       ),
     ];
+  }
+
+  List<Widget> _topic(ApprovalDraft d) {
+    final text = Theme.of(context).textTheme;
+    final barred = d.youngestBarred;
+    return [
+      Semantics(header: true, child: Text('Tema', style: text.titleMedium)),
+      if (_refused) ...[
+        const SizedBox(height: Space.xs),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            approvalRefused,
+            style: text.bodySmall?.copyWith(color: context.palette.error),
+          ),
+        ),
+      ],
+      const SizedBox(height: Space.md),
+      for (final (i, t) in VideoTheme.values.indexed)
+        if (t != VideoTheme.unknown) ...[
+          if (i > 0) const SizedBox(height: Space.sm),
+          SelectableRow(
+            label: t.label,
+            selected: t == d.theme,
+            onTap: _idle ? () => _update(() => d.theme = t) : null,
+          ),
+        ],
+      const SizedBox(height: Space.xl),
+      Text('A partir de', style: text.titleMedium),
+      const SizedBox(height: Space.xs),
+      Text(curationRule, style: text.bodyMedium),
+      Semantics(
+        link: true,
+        label: curationCriteriaLink,
+        excludeSemantics: true,
+        onTap: _openCriteria,
+        child: QuietAction(
+          label: curationCriteriaLink,
+          onPressed: _openCriteria,
+        ),
+      ),
+      const SizedBox(height: Space.md),
+      AgeBandChoice(
+        value: d.band,
+        disabled: barred ? const {AgeBand.upTo4} : const {},
+        onChanged: _idle ? (b) => _update(() => d.band = b) : null,
+      ),
+      if (barred) ...[
+        const SizedBox(height: Space.sm),
+        Text(fastPaceLine, style: text.bodyMedium),
+      ],
+      ..._foot(
+        label: seeSummary,
+        onPressed: d.canGoOn ? _forward : null,
+        hint: approveHint,
+      ),
+    ];
+  }
+
+  List<Widget> _review(ApprovalDraft d) {
+    final text = Theme.of(context).textTheme;
+    final outcome = d.outcome;
+    final team = outcome == ApprovalOutcome.team;
+    VoidCallback? changeTo(int page) =>
+        _idle ? () => _update(() => d.change(page)) : null;
+    return [
+      // Announced as the page opens, as a step's header is.
+      Semantics(
+        header: true,
+        liveRegion: true,
+        child: Text(reviewTitle, style: text.titleMedium),
+      ),
+      const SizedBox(height: Space.md),
+      for (final (i, g) in d.checklist.groups.indexed)
+        if (d.marked(g) case final marked)
+          _SummaryLine(
+            title: g.title,
+            lines: marked.isEmpty
+                ? const [allNo]
+                : [for (final (item, a) in marked) '${a.word}: ${item.text}'],
+            quiet: marked.isEmpty,
+            onChange: changeTo(i),
+          ),
+      if (outcome == ApprovalOutcome.approve)
+        _SummaryLine(
+          title: topicTitle,
+          lines: [
+            CurationWords.joined([?d.theme?.label, ?d.band?.label]),
+          ],
+          onChange: changeTo(d.topicPage),
+        ),
+      const SizedBox(height: Space.xl),
+      Text(differenceReminder, style: text.bodyMedium),
+      if (team) ...[
+        const SizedBox(height: Space.xl),
+        _line(_revisit ? doubtRevisitLine : doubtLine),
+        const SizedBox(height: Space.md),
+        TextField(
+          controller: _note,
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.sentences,
+          minLines: 2,
+          maxLines: null,
+          maxLength: 500,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          decoration: const InputDecoration(
+            labelText: doubtNoteLabel,
+            alignLabelWithHint: true,
+          ),
+        ),
+      ],
+      ..._foot(
+        label: switch (outcome) {
+          ApprovalOutcome.approve => approveLabel,
+          ApprovalOutcome.refuse => refuseLabel,
+          ApprovalOutcome.team => teamLabel,
+        },
+        onPressed: outcome == ApprovalOutcome.refuse
+            ? () => _toRefusal(d)
+            : () => _submit(d),
+      ),
+    ];
+  }
+}
+
+/// One line of the review: a step's title, what it answered other than
+/// "Não" (or, [quiet], "tudo Não"), and "mudar", which goes back to it.
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({
+    required this.title,
+    required this.lines,
+    required this.onChange,
+    this.quiet = false,
+  });
+
+  final String title;
+  final List<String> lines;
+  final VoidCallback? onChange;
+  final bool quiet;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final style = quiet
+        ? text.bodyMedium?.copyWith(color: context.palette.muted)
+        : text.bodyLarge;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: text.titleMedium),
+                const SizedBox(height: Space.xs),
+                for (final line in lines) Text(line, style: style),
+              ],
+            ),
+          ),
+          const SizedBox(width: Space.sm),
+          QuietAction(
+            label: changeLabel,
+            // The same word on every line: say which step it changes.
+            semanticsLabel: '$changeLabel: $title',
+            inline: true,
+            onPressed: onChange,
+          ),
+        ],
+      ),
+    );
   }
 }

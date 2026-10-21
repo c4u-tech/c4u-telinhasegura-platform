@@ -40,7 +40,7 @@ func TestApprovalAuditOverHTTP(t *testing.T) {
 	}
 	var roles []string
 	for _, x := range sample.Videos[0].Approvals {
-		if x.Decision != "approve" || len(x.Answers) != 25 {
+		if x.Decision != "approve" || len(x.Answers) != 23 {
 			t.Errorf("approval %+v", x)
 		}
 		roles = append(roles, x.DisplayRole)

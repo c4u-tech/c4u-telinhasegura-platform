@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/labels.dart';
@@ -163,6 +164,65 @@ void main() {
       expect(find.text(AgeBand.unknown.label), findsNothing);
       final modules = tester.widgetList<StateModule>(find.byType(StateModule));
       expect(modules.where((m) => m.filled), isEmpty);
+    });
+
+    testWidgets('a disabled band looks disabled: the outline tone at 32% '
+        'fill, its words at 60%; the others keep their tone', (tester) async {
+      await pumpIn(
+        tester,
+        AgeBandChoice(
+          value: null,
+          disabled: const {AgeBand.upTo4},
+          onChanged: (_) {},
+        ),
+      );
+
+      final p = tester.element(find.byType(AgeBandChoice)).palette;
+      Color? fill(String label) =>
+          (tester
+                      .widget<AnimatedContainer>(
+                        find
+                            .descendant(
+                              of: find.widgetWithText(SelectableRow, label),
+                              matching: find.byType(AnimatedContainer),
+                            )
+                            .first,
+                      )
+                      .decoration!
+                  as BoxDecoration)
+              .color;
+      Color? ink(String label) =>
+          tester.widget<Text>(find.text(label)).style?.color;
+      expect(fill(AgeBand.upTo4.label), p.outline.withValues(alpha: .32));
+      expect(ink(AgeBand.upTo4.label), p.text.withValues(alpha: .6));
+      expect(fill(AgeBand.from5To8.label), p.input);
+      expect(ink(AgeBand.from5To8.label), isNot(p.text.withValues(alpha: .6)));
+    });
+
+    testWidgets('a disabled band shows, reads as disabled and a tap leaves '
+        'it unchosen', (tester) async {
+      final semantics = tester.ensureSemantics();
+      AgeBand? chosen;
+      await pumpIn(
+        tester,
+        AgeBandChoice(
+          value: null,
+          disabled: const {AgeBand.upTo4},
+          onChanged: (b) => chosen = b,
+        ),
+      );
+
+      await tester.tap(find.text(AgeBand.upTo4.label));
+      await tester.pump();
+      expect(chosen, isNull);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel(AgeBand.upTo4.label)),
+        isSemantics(hasEnabledState: true, isEnabled: false),
+      );
+      await tester.tap(find.text(AgeBand.from5To8.label));
+      await tester.pump();
+      expect(chosen, AgeBand.from5To8);
+      semantics.dispose();
     });
 
     testWidgets('a tap chooses; each row is a labelled choice of one', (

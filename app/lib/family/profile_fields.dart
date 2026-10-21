@@ -148,6 +148,7 @@ class AgeBandChoice extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.adviseUnderTwo = false,
+    this.disabled = const {},
   });
 
   final AgeBand? value;
@@ -156,6 +157,10 @@ class AgeBandChoice extends StatefulWidget {
   /// On a child's profile, "2 a 4 anos" chosen shows [underTwoAdvice]
   /// under the rows. A curator choosing a video's band sees none.
   final bool adviseUnderTwo;
+
+  /// Bands shown but not offered: a curator's video whose pace rules out
+  /// the youngest.
+  final Set<AgeBand> disabled;
 
   @override
   State<AgeBandChoice> createState() => _AgeBandChoiceState();
@@ -185,7 +190,9 @@ class _AgeBandChoiceState extends State<AgeBandChoice> {
             SelectableRow(
               label: band.label,
               selected: band == value,
-              onTap: onChanged == null ? null : () => onChanged(band),
+              onTap: onChanged == null || widget.disabled.contains(band)
+                  ? null
+                  : () => onChanged(band),
             ),
           ],
         if (widget.adviseUnderTwo && value == AgeBand.upTo4) ...[
@@ -210,7 +217,8 @@ class _AgeBandChoiceState extends State<AgeBandChoice> {
 /// [height], cornered at the screen ratio of it. As a key ([asKey]) it stands
 /// as one of a row of choice keys, its module and words centred. A
 /// [toggle] row is a mark of its own, set and taken back by a tap: it reads
-/// as a checkbox, not as one of a group.
+/// as a checkbox, not as one of a group. Without [onTap] it waits
+/// (disabled): the outline tone at 32% fill, its words at 60%.
 class SelectableRow extends StatelessWidget {
   const SelectableRow({
     super.key,
@@ -248,6 +256,9 @@ class SelectableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final radius = height == 56 ? Radii.control : height * Radii.screenRatio;
+    final off = onTap == null;
+    final text = Theme.of(context).textTheme;
+    final dim = p.text.withValues(alpha: .6);
     return ChoiceTarget(
       label: label,
       selected: selected,
@@ -263,7 +274,7 @@ class SelectableRow extends StatelessWidget {
           vertical: Space.md,
         ),
         decoration: BoxDecoration(
-          color: p.input,
+          color: off ? p.outline.withValues(alpha: .32) : p.input,
           borderRadius: BorderRadius.circular(radius),
         ),
         // Painted over the content, not as the box's border, which would
@@ -286,21 +297,26 @@ class SelectableRow extends StatelessWidget {
               fit: asKey ? FlexFit.loose : FlexFit.tight,
               child: switch (detail) {
                 null => Text(
-                  text ?? label,
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  this.text ?? label,
+                  style: off
+                      ? text.bodyLarge?.copyWith(color: dim)
+                      : text.bodyLarge,
                 ),
                 final detail => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      text ?? label,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      this.text ?? label,
+                      style: off
+                          ? text.titleMedium?.copyWith(color: dim)
+                          : text.titleMedium,
                     ),
                     const SizedBox(height: Space.xs),
                     Text(
                       detail,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: p.muted),
+                      style: text.bodyMedium?.copyWith(
+                        color: off ? dim : p.muted,
+                      ),
                     ),
                   ],
                 ),

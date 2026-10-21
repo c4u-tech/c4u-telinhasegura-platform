@@ -41,26 +41,31 @@ void main() {
   test('the checklist parses into groups and questions', () async {
     final list = await CurationApi(build(ClientKind.mobile, contract).client)
         .checklist();
-    expect(list.version, '2026-10-20');
+    expect(list.version, '2026-10-21');
     expect(list.groups.map((g) => g.title), [
-      'Antes de assistir',
+      'Antes de começar',
       'Violência e medo',
       'Linguagem e respeito',
-      'Faixa',
+      'Consumo e publicidade',
+      'Saúde e segurança',
+      'Ritmo e canal',
     ]);
     expect(list.items.map((i) => i.id), [
-      'c01',
       'c25',
+      'c03',
       'c04',
       'c07',
-      'c21',
+      'c08',
+      'c15',
+      'c12',
       'c22',
+      'c23',
+      'c24',
     ]);
-    expect(list.item('c01')!.positive, isTrue);
-    expect(list.item('c21')!.rule, ChecklistRule.invalidReason);
     expect(list.item('c25')!.rule, ChecklistRule.conflict);
     expect(list.item('c99'), isNull);
     expect(ChecklistRule.parse('new_rule'), ChecklistRule.unknown);
+    expect(ChecklistRule.parse('invalid_reason'), ChecklistRule.unknown);
     expect(ChecklistAnswer.parse('maybe'), ChecklistAnswer.unknown);
   });
 
@@ -86,7 +91,7 @@ void main() {
     final doubt = held.doubts.single;
     expect(doubt.decision, ReviewDecision.doubt);
     expect(doubt.reason, 'Não sei se a tristeza pesa.');
-    expect(doubt.checklistVersion, '2026-10-20');
+    expect(doubt.checklistVersion, '2026-10-21');
     expect(doubt.answers!['c07'], ChecklistAnswer.appears);
     expect(doubt.answers!['c22'], ChecklistAnswer.doubt);
     expect(doubt.failedItems, isNull);
@@ -106,8 +111,8 @@ void main() {
     final list = Checklist.fromJson(checklistJson);
     final doubt = Review.fromJson(doubtJson);
     expect(CurationWords.marked(doubt, list), [
-      'Aparece: Algum personagem fica triste?',
-      'Tenho dúvida: Ritmo calmo?',
+      'Sim: Algum personagem fica triste?',
+      'Não sei: Tem ritmo agitado?',
     ]);
     expect(CurationWords.marked(Review.fromJson(rejectionJson), list), isEmpty);
     expect(
@@ -115,9 +120,6 @@ void main() {
       'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5 a 8 anos',
       reason: 'a doubt names the theme and band its curator chose',
     );
-    final c01 = list.item('c01')!;
-    expect(ChecklistAnswer.appears.label(c01), 'Não');
-    expect(ChecklistAnswer.ok.label(c01), 'Sim');
   });
 
   test('a held video carries the audit that held it', () {
@@ -185,7 +187,6 @@ void main() {
       'checklist_outdated',
       'checklist_refuses',
       'checklist_band',
-      'checklist_invalid_reason',
       'conflict_of_interest',
       'declaration_required',
       'declaration_outdated',
@@ -196,5 +197,12 @@ void main() {
       expect(words, isNot(Copy.genericRetry), reason: code);
       expect(words, isNot(contains('!')), reason: code);
     }
+    expect(
+      Copy.forError(
+        const ApiError(status: 422, code: 'checklist_invalid_reason'),
+      ),
+      Copy.genericRetry,
+      reason: 'the server no longer sends it',
+    );
   });
 }
