@@ -100,3 +100,33 @@ func TestDeleteKeepsTheReviewLedger(t *testing.T) {
 		t.Fatal("the erasure removed a video")
 	}
 }
+
+func TestExportCarriesTheCuratorTermsAndTheAnswers(t *testing.T) {
+	f := newFixture(t)
+	ana, bia, video := curationRows(f)
+	f.exec(`INSERT INTO curator_declarations (account_id, version, accepted_at) VALUES ($1::uuid, '2026-10-20', $2), ($3::uuid, '2026-10-20', $2)`,
+		ana, f.now, bia)
+	f.exec(`INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, reason, reviewed_at, checklist_version, checklist)
+		VALUES ($1::uuid, 2, $2::uuid, 'pedagogo', 'reject', 'Tem propaganda.', $3, '2026-10-20', '["c15"]')`, video, ana, f.now)
+
+	js := f.exportJSON(ana)
+	for _, want := range []string{
+		`"curator_declarations":[{"version":"2026-10-20","accepted_at":"2026-10-04T12:00:00Z"}]`,
+		`"checklist_version":"2026-10-20","checklist":["c15"]`,
+		`"checklist_version":null,"checklist":null`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("missing %s in %s", want, js)
+		}
+	}
+	if strings.Contains(js, bia) {
+		t.Fatal("the export carries another curator")
+	}
+	// The proof stays after the account is erased, with the identifier only.
+	if err := f.svc.DeleteAccount(ctx, ana, nil); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid`, ana); n != 1 {
+		t.Fatalf("declarations after the erasure: %d", n)
+	}
+}

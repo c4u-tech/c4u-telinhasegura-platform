@@ -57,3 +57,19 @@ func (s *Service) AcceptDeclaration(ctx context.Context, accountID, version stri
 	}
 	return Declaration{Version: version, Text: CuratorTermsText, Accepted: true}, nil
 }
+
+// declarationRetentionYears is how long an acceptance of the curator
+// terms is kept: as long as the security record, to answer for a
+// curator's decisions in a dispute.
+const declarationRetentionYears = 5
+
+// SweepDeclarations deletes the acceptances older than five years, except
+// a current curator's acceptance of the terms in force: their reviews
+// rest on it, and deleting it would lock them out. It is idempotent, so
+// every replica may run it.
+func (s *Service) SweepDeclarations(ctx context.Context) error {
+	_, err := s.d.Pool.Exec(ctx, `DELETE FROM curator_declarations d WHERE d.accepted_at < $1
+		AND NOT (d.version = $2 AND EXISTS (SELECT 1 FROM platform_roles p WHERE p.account_id = d.account_id AND p.role = 'curator'))`,
+		s.now().AddDate(-declarationRetentionYears, 0, 0), CuratorTermsVersion)
+	return err
+}

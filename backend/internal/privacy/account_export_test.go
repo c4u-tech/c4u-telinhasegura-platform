@@ -93,7 +93,7 @@ func TestExportShapeOfABareAccount(t *testing.T) {
 		`"format":"telinhasegura.export/1"`, `"generated_at":"2026-10-04T12:00:00Z"`,
 		`"email_verified_at":null`, `"has_password":false`,
 		`"linked_providers":[]`, `"sessions":[]`, `"access_log":[]`, `"events":[]`, `"family":null`,
-		`"platform_roles":[]`, `"suggestions":[]`, `"reviews":[]`,
+		`"platform_roles":[]`, `"curator_declarations":[]`, `"suggestions":[]`, `"reviews":[]`,
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("missing %s in %s", want, js)

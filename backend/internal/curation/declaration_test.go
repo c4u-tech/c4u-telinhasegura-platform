@@ -51,3 +51,32 @@ func TestCuratorDeclaration(t *testing.T) {
 		t.Fatalf("declarations after the role went: %d", n)
 	}
 }
+
+func TestSweepDeclarations(t *testing.T) {
+	f := newFixture(t)
+	bia := f.curator("bia@example.com", curation.MaePai)
+	caio := f.account("caio@example.com") // no longer a curator
+	old := f.now.AddDate(-5, 0, -1)
+	const insert = `INSERT INTO curator_declarations (account_id, version, accepted_at) VALUES ($1::uuid, $2, $3)`
+	f.exec(insert, bia, "2020-01-01", old)                      // superseded and old: goes
+	f.exec(insert, bia, curation.CuratorTermsVersion, old)      // in force for a curator: stays
+	f.exec(insert, caio, curation.CuratorTermsVersion, old)     // no role left: goes
+	f.exec(insert, caio, "2024-01-01", f.now.AddDate(-5, 0, 1)) // within five years: stays
+	if err := f.svc.SweepDeclarations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for q, want := range map[string]int{
+		`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-10-20'`: 1,
+		`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2020-01-01'`: 0,
+	} {
+		if n := f.count(q, bia); n != want {
+			t.Errorf("bia: %s = %d, want %d", q, n, want)
+		}
+	}
+	if n := f.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid`, caio); n != 1 {
+		t.Fatalf("caio keeps %d rows, want the recent one", n)
+	}
+	if n := f.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2024-01-01'`, caio); n != 1 {
+		t.Fatal("the recent declaration was swept")
+	}
+}

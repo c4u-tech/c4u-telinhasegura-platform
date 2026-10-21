@@ -88,3 +88,34 @@ func TestRevisitRejectionHolds(t *testing.T) {
 		t.Fatalf("held %+v %v", held, err)
 	}
 }
+
+// Every video in the catalogue is reviewed again under the list: a revisit
+// due now keeps the video visible until a review refuses it or doubts it.
+func TestARevisitUnderTheChecklistKeepsTheVideoUntilARefusal(t *testing.T) {
+	f := newFixture(t)
+	c1 := f.curator("c1@example.com", curation.MaePai)
+	c2 := f.curator("c2@example.com", curation.Pedagogo)
+	fam, _ := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	v := f.approvedVideo(ytID, f.now)
+	doubted := f.approvedVideo("doubtedvid1", f.now)
+
+	if items := f.queue(c1); len(items) != 2 || !items[0].Revisit || !items[1].Revisit {
+		t.Fatalf("revisit queue %+v", items)
+	}
+	if !f.shown(lia, v) || !f.shown(lia, doubted) {
+		t.Fatal("a video due for its revisit left the catalogue")
+	}
+	if state := f.review(c1, v, approve("bichos", family.Age5To8)); state != curation.Approved || !f.shown(lia, v) {
+		t.Fatalf("an approval in the revisit: %s", state)
+	}
+	if state := f.review(c2, v, reject("Tem publi no fim.")); state != curation.Held || f.shown(lia, v) {
+		t.Fatalf("a refusal in the revisit: %s", state)
+	}
+	if state := f.review(c1, doubted, approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c19": curation.AnswerDoubt})); state != curation.Held {
+		t.Fatalf("a doubt in the revisit: %s", state)
+	}
+	if _, why := f.state(doubted); why != curation.HeldByDoubt || f.shown(lia, doubted) {
+		t.Fatalf("a doubted revisit: %s", why)
+	}
+}
