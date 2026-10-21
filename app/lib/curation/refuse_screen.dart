@@ -17,6 +17,7 @@ import '../shell/services.dart';
 import 'curation.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'video_heading.dart';
+import 'words.dart' show differenceReminder;
 
 /// What a refusal does, said first.
 const refuseLead = 'Recusar tira o vídeo das prateleiras na mesma hora.';
@@ -44,10 +45,11 @@ const reasonMax = 500;
 const _countFrom = 400;
 
 /// `/curadoria/:id/recusar`: what a refusal does; every question that
-/// refuses, by group, to tick; an optional note of up to 500 characters; and the ordinary ink
-/// primary "Recusar" (the Quiet Loss Rule: never clay), waiting until one
-/// question is ticked. [items] arrive ticked from an approval that marked
-/// them. It sends the refusal once, then the done state back to the queue.
+/// refuses, by group, to tick; an optional note of up to 500 characters; and
+/// the ordinary ink primary "Recusar" (the Quiet Loss Rule: never clay),
+/// waiting until one question is ticked. [items] arrive ticked from an
+/// approval that marked them. It sends the refusal once, then the done state
+/// back to the queue.
 class RefuseScreen extends StatefulWidget {
   const RefuseScreen({
     super.key,
@@ -225,6 +227,8 @@ class _RefuseScreenState extends State<RefuseScreen> {
       Text(refuseLead, style: text.bodyLarge),
       const SizedBox(height: Space.lg),
       Text(refuseItemsLead, style: text.bodyLarge),
+      const SizedBox(height: Space.md),
+      Text(differenceReminder, style: text.bodyMedium),
       for (final g in list.groups)
         if (g.items.where((i) => i.rule == ChecklistRule.refuses).toList()
             case final items when items.isNotEmpty) ...[

@@ -9,6 +9,7 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/refuse_screen.dart';
+import 'package:telinha_segura/curation/words.dart' show differenceReminder;
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -96,6 +97,7 @@ void main() {
     await refusing(tester);
 
     expect(find.text(refuseItemsLead), findsOneWidget);
+    expect(find.text(differenceReminder), findsOneWidget);
     expect(item('Alguém bate de propósito?'), findsOneWidget);
     expect(item('Aparece promoção paga?'), findsOneWidget);
     expect(item('Falta começo, meio ou fim?'), findsOneWidget);

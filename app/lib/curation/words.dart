@@ -187,14 +187,15 @@ abstract final class CurationWords {
     };
   }
 
-  /// What a review marked, question by question in the list's order:
-  /// "Aparece: Alguém bate…", "Tenho dúvida: Ritmo calmo?". Nothing for a
-  /// review with every answer "ok" or none at all.
+  /// What a review answered other than "Não", question by question in the
+  /// list's order: "Sim: Alguém bate…", "Não sei: Tem ritmo agitado?".
+  /// Nothing for a review with every answer "Não" or none at all; a
+  /// question the current list no longer asks is left out.
   static List<String> marked(Review r, Checklist list) => [
     for (final item in list.items)
       if (r.answers?[item.id] case final a?
           when a != ChecklistAnswer.ok && a != ChecklistAnswer.unknown)
-        '${a.label(item)}: ${item.text}',
+        '${a.word}: ${item.text}',
   ];
 
   /// A held video's refusal: "Psicólogo(a): Tem um susto no fim."
@@ -216,17 +217,6 @@ abstract final class CurationWords {
     if (refusals > 0) refusals == 1 ? '1 recusa' : '$refusals recusas',
     if (reports > 0) reports == 1 ? '1 denúncia' : '$reports denúncias',
   ].join(dot);
-}
-
-/// A mark on a question, in words: "Aparece", "Não" (a question asked in
-/// the positive), "Tenho dúvida".
-extension ChecklistMarkLabel on ChecklistAnswer {
-  String label(ChecklistItem item) => switch (this) {
-    ChecklistAnswer.appears => item.positive ? 'Não' : 'Aparece',
-    ChecklistAnswer.doubt => 'Tenho dúvida',
-    ChecklistAnswer.ok => item.positive ? 'Sim' : 'Não aparece',
-    ChecklistAnswer.unknown => 'Sem resposta',
-  };
 }
 
 /// An answer in words. Every question asks whether something is in the

@@ -65,6 +65,7 @@ void main() {
     expect(list.item('c25')!.rule, ChecklistRule.conflict);
     expect(list.item('c99'), isNull);
     expect(ChecklistRule.parse('new_rule'), ChecklistRule.unknown);
+    expect(ChecklistRule.parse('invalid_reason'), ChecklistRule.unknown);
     expect(ChecklistAnswer.parse('maybe'), ChecklistAnswer.unknown);
   });
 
@@ -110,8 +111,8 @@ void main() {
     final list = Checklist.fromJson(checklistJson);
     final doubt = Review.fromJson(doubtJson);
     expect(CurationWords.marked(doubt, list), [
-      'Aparece: Algum personagem fica triste?',
-      'Tenho dúvida: Tem ritmo agitado?',
+      'Sim: Algum personagem fica triste?',
+      'Não sei: Tem ritmo agitado?',
     ]);
     expect(CurationWords.marked(Review.fromJson(rejectionJson), list), isEmpty);
     expect(
@@ -186,7 +187,6 @@ void main() {
       'checklist_outdated',
       'checklist_refuses',
       'checklist_band',
-      'checklist_invalid_reason',
       'conflict_of_interest',
       'declaration_required',
       'declaration_outdated',
@@ -197,5 +197,12 @@ void main() {
       expect(words, isNot(Copy.genericRetry), reason: code);
       expect(words, isNot(contains('!')), reason: code);
     }
+    expect(
+      Copy.forError(
+        const ApiError(status: 422, code: 'checklist_invalid_reason'),
+      ),
+      Copy.genericRetry,
+      reason: 'the server no longer sends it',
+    );
   });
 }

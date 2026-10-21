@@ -116,7 +116,7 @@ void main() {
       nb('Pedagogo(a) aprovou · Bichos · 5 a 8 anos'),
       nb('Mãe ou pai aprovou · Bichos · 5 a 8 anos'),
       nb('Cuidador(a) aprovou · Bichos · 5 a 8 anos'),
-      'Aparece: Tem ritmo agitado?',
+      'Sim: Tem ritmo agitado?',
       beforeTheList,
     ]) {
       expect(find.textContaining(line), findsOneWidget, reason: line);
@@ -132,7 +132,7 @@ void main() {
 
     for (final (role, marks) in [
       ('Pedagogo(a)', nothingMarked),
-      ('Mãe ou pai', 'Aparece: Tem ritmo agitado?'),
+      ('Mãe ou pai', 'Sim: Tem ritmo agitado?'),
       ('Cuidador(a)', beforeTheList),
     ]) {
       expect(
@@ -167,7 +167,7 @@ void main() {
 
     expect(find.text(marksFailed), findsNothing);
     expect(find.textContaining(nothingMarked), findsOneWidget);
-    expect(find.textContaining('Aparece: Tem ritmo agitado?'), findsOneWidget);
+    expect(find.textContaining('Sim: Tem ritmo agitado?'), findsOneWidget);
   });
 
   testWidgets('"De acordo" records once and goes back to the sample', (
