@@ -25,7 +25,16 @@ class GoogleIdTokens {
       throw StateError('On the web, Google signs in through its own button');
     }
     try {
-      return (await google.authenticate()).authentication.idToken;
+      final idToken = (await google.authenticate()).authentication.idToken;
+      // The server accepts each Google token once, and Android hands back
+      // the same cached token while the plugin stays signed in, so the next
+      // sign-in would be refused. Forget the account (without revoking
+      // access) so the next sign-in gets a fresh token. The token is already
+      // in hand, so a failure here must not fail this sign-in.
+      try {
+        await google.signOut();
+      } catch (_) {}
+      return idToken;
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) return null;
       rethrow;
