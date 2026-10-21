@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/audit_sample_screen.dart';
 import 'package:telinha_segura/curation/audit_video_screen.dart';
+import 'package:telinha_segura/family/confirm.dart' show reasonHint;
 import 'package:telinha_segura/family/widgets.dart';
 
 import '../access/harness.dart';
@@ -52,6 +53,7 @@ Future<Harness> auditing(
   WidgetTester tester, {
   List<Map<String, Object?>>? sample,
   FutureOr<http.Response> Function(http.Request)? verdict,
+  FutureOr<http.Response> Function()? checklist,
   String initial = '/moderacao/auditoria',
 }) async {
   final h =
@@ -62,6 +64,7 @@ Future<Harness> auditing(
               'videos': sample ?? [sampled],
             }),
             verdict: verdict,
+            checklist: checklist,
           ),
         )
         ..family = ownerFamily
@@ -115,6 +118,52 @@ void main() {
       expect(find.textContaining(line), findsOneWidget, reason: line);
     }
     expect(find.textContaining(nothingMarked), findsOneWidget);
+  });
+
+  testWidgets('each approval is announced with what it marked', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await auditing(tester);
+
+    await open(tester);
+
+    for (final (role, marks) in [
+      ('Pedagogo(a)', nothingMarked),
+      ('Mãe ou pai', 'Não: Ritmo calmo?'),
+      ('Cuidador(a)', beforeTheList),
+    ]) {
+      expect(
+        find.bySemanticsLabel(
+          RegExp(
+            '^${RegExp.escape(role)} aprovou.*${RegExp.escape(marks)}',
+            dotAll: true,
+          ),
+        ),
+        findsOneWidget,
+        reason: role,
+      );
+    }
+    semantics.dispose();
+  });
+
+  testWidgets('a failed read of the questions says so and retries', (
+    tester,
+  ) async {
+    var reads = 0;
+    await auditing(
+      tester,
+      checklist: () =>
+          ++reads == 1 ? problem(500, 'internal') : json(200, checklistJson),
+    );
+
+    await open(tester);
+
+    expect(find.text(marksFailed), findsOneWidget);
+    expect(find.textContaining(nothingMarked), findsNothing);
+    await tapOn(tester, find.widgetWithText(QuietAction, 'Tentar de novo'));
+
+    expect(find.text(marksFailed), findsNothing);
+    expect(find.textContaining(nothingMarked), findsOneWidget);
+    expect(find.textContaining('Não: Ritmo calmo?'), findsOneWidget);
   });
 
   testWidgets('"De acordo" records once and goes back to the sample', (
@@ -216,6 +265,55 @@ void main() {
 
     expect(h.location(tester), '/moderacao/auditoria');
     expect(find.text(auditOwn), findsOneWidget);
+  });
+
+  testWidgets('state_conflict goes back to the sample with a notice', (
+    tester,
+  ) async {
+    final h = await auditing(
+      tester,
+      verdict: (_) => problem(409, 'state_conflict'),
+    );
+
+    await open(tester);
+    await tapOn(tester, find.widgetWithText(FilledButton, 'De acordo'));
+
+    expect(h.location(tester), '/moderacao/auditoria');
+    expect(find.text(auditChanged), findsOneWidget);
+  });
+
+  testWidgets('a disagreement reason of one or two characters is not sent '
+      'and asks for 3 to 200', (tester) async {
+    final h = await auditing(tester);
+
+    await open(tester);
+    for (final short in ['a', ' ab ']) {
+      await tapOn(
+        tester,
+        find.descendant(
+          of: find.widgetWithText(QuietAction, 'Discordo'),
+          matching: find.byType(TextButton),
+        ),
+      );
+      await tester.enterText(find.widgetWithText(TextField, 'Motivo'), short);
+      await tester.pump();
+
+      expect(
+        tester.widget<FilledButton>(confirming('Discordo')).onPressed,
+        isNull,
+        reason: short,
+      );
+      expect(find.text(reasonHint), findsOneWidget, reason: short);
+      await tapOn(
+        tester,
+        find.descendant(
+          of: find.widgetWithText(QuietAction, 'Cancelar'),
+          matching: find.byType(TextButton),
+        ),
+      );
+    }
+
+    expect(verdicts(h), isEmpty);
   });
 
   testWidgets('opened without the sample (a reload) goes back to it', (

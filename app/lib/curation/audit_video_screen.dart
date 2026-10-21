@@ -23,6 +23,9 @@ import 'words.dart';
 const nothingMarked = 'Nada marcado';
 const beforeTheList = 'Aprovado antes da lista de perguntas';
 
+/// In the marks' place when the questions could not be read.
+const marksFailed = 'Não foi possível ler as respostas.';
+
 /// Back on the sample.
 const auditGone = 'Essa aprovação já foi conferida.';
 const auditOwn = 'Você revisou esse vídeo e não pode conferi\u2011lo.';
@@ -51,6 +54,7 @@ class _AuditVideoScreenState extends State<AuditVideoScreen> with AdultWindow {
   late final ReauthWrite _write;
   bool _started = false;
   Checklist? _checklist;
+  bool _checklistFailed = false;
 
   @override
   void didChangeDependencies() {
@@ -70,13 +74,16 @@ class _AuditVideoScreenState extends State<AuditVideoScreen> with AdultWindow {
   }
 
   /// The marks are worded with the list; without it the approvals still
-  /// show, by role.
+  /// show, by role, and a line says the answers could not be read.
   Future<void> _readChecklist() async {
+    if (!mounted) return;
+    setState(() => _checklistFailed = false);
     try {
       final list = await AppScope.of(context).curation.checklist();
       if (mounted) setState(() => _checklist = list);
     } on Object catch (e) {
-      if (mounted) takeLostRole(context, e);
+      if (!mounted || takeLostRole(context, e)) return;
+      setState(() => _checklistFailed = true);
     }
   }
 
@@ -177,13 +184,27 @@ class _AuditVideoScreenState extends State<AuditVideoScreen> with AdultWindow {
       Doors(
         children: [
           for (final r in c.approvals)
-            DoorRow(
-              title: CurationWords.review(r),
-              onTap: null,
-              child: Text(_marks(r), style: text.bodyMedium),
-            ),
+            if ((CurationWords.review(r), _marks(r)) case (
+              final who,
+              final marks,
+            ))
+              // The row reads as one: who approved, then what was marked.
+              DoorRow(
+                title: who,
+                semanticsLabel: marks.isEmpty ? who : '$who\n$marks',
+                onTap: null,
+                child: Text(marks, style: text.bodyMedium),
+              ),
         ],
       ),
+      if (_checklistFailed) ...[
+        const SizedBox(height: Space.md),
+        Semantics(
+          liveRegion: true,
+          child: Text(marksFailed, style: text.bodyLarge),
+        ),
+        QuietAction(label: 'Tentar de novo', onPressed: _readChecklist),
+      ],
       const SizedBox(height: Space.xl),
       playerWindow(failed: 'Esse vídeo não abriu aqui.'),
       const SizedBox(height: Space.xl),
