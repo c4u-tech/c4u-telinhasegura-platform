@@ -186,3 +186,44 @@ func TestReviewsUnderTheFormerListStayReadable(t *testing.T) {
 		t.Fatalf("former rejection %+v", rejection)
 	}
 }
+
+// The flow skips the theme and the band when the answers send the video
+// to the team: the moderator who publishes it chooses them.
+func TestADoubtMayLeaveTheThemeAndBandToTheModerator(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	doubt := map[string]curation.Answer{"c13": curation.AnswerDoubt}
+	for name, tc := range map[string]struct {
+		in   curation.ReviewInput
+		want error
+	}{
+		"an approval with neither":  {approve("", ""), curation.ErrValidation},
+		"a doubt with a theme only": {approveWith("bichos", "", doubt), curation.ErrValidation},
+		"a doubt with a band only":  {approveWith("", family.Age5To8, doubt), curation.ErrValidation},
+		"a Sim that refuses":        {approveWith("", "", map[string]curation.Answer{"c04": curation.AnswerAppears}), curation.ErrChecklistRefuses},
+	} {
+		if _, _, err := f.svc.Review(ctx, c, v, tc.in); !errors.Is(err, tc.want) {
+			t.Errorf("%s: %v, want %v", name, err, tc.want)
+		}
+	}
+	if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+		t.Fatalf("refused reviews were stored: %d rows", n)
+	}
+	in := approveWith("", "", map[string]curation.Answer{"c07": curation.AnswerAppears})
+	in.Note = "A tristeza é o tema."
+	f.now = f.now.Add(time.Minute)
+	r, state, err := f.svc.Review(ctx, c, v, in)
+	if err != nil || state != curation.Held || r.Decision != curation.Doubt || r.Theme != "" || r.MinAgeBand != "" {
+		t.Fatalf("doubt: %+v %s %v", r, state, err)
+	}
+	if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND decision = 'doubt'
+		AND theme IS NULL AND min_age_band IS NULL AND reason = 'A tristeza é o tema.'`, v); n != 1 {
+		t.Fatal("the doubt was not stored without a theme and a band")
+	}
+	list, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(list) != 1 || len(list[0].Doubts) != 1 || list[0].Doubts[0].Theme != "" ||
+		list[0].Doubts[0].MinAgeBand != "" {
+		t.Fatalf("held %+v %v", list, err)
+	}
+}

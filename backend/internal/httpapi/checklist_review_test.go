@@ -129,3 +129,39 @@ func TestRejectionWithItemsOverHTTP(t *testing.T) {
 		t.Fatalf("a rejection for a doubt question: %d %s", r.Code, r.Body)
 	}
 }
+
+func TestADoubtWithoutThemeOrBandOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
+	bare := func(changed map[string]string) map[string]any {
+		body := approvalWith("bichos", "5-8", changed)
+		delete(body, "theme")
+		delete(body, "min_age_band")
+		return body
+	}
+	if r := a.do(http.MethodPost, reviews, bare(nil), bearer(c1)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
+		t.Fatalf("an approval without theme and band: %d %q", r.Code, r.problemCode())
+	}
+	doubt := bare(map[string]string{"c13": "doubt"})
+	doubt["note"] = "Não sei se é perigoso."
+	r := a.do(http.MethodPost, reviews, doubt, bearer(c1)...)
+	got := decodeReview(t, r)
+	if got.VideoState != "held" || got.Review.Decision != "doubt" {
+		t.Fatalf("doubt %+v", got)
+	}
+	var raw struct {
+		Review struct {
+			Theme      *string `json:"theme"`
+			MinAgeBand *string `json:"min_age_band"`
+		} `json:"review"`
+	}
+	if err := json.Unmarshal(r.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if raw.Review.Theme != nil || raw.Review.MinAgeBand != nil {
+		t.Fatalf("theme %v band %v", raw.Review.Theme, raw.Review.MinAgeBand)
+	}
+}
