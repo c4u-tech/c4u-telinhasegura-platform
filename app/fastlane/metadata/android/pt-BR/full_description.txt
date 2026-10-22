@@ -1,0 +1,22 @@
+Telinha Segura é um app de vídeos infantis em que gente escolhe o que passa, não um algoritmo. Pais, cuidadores e pessoas que trabalham com crianças assistem a cada vídeo antes de ele chegar à telinha da sua família. É controle parental com curadoria de verdade.
+
+GENTE QUE VIU ANTES
+Cada vídeo é aprovado por pelo menos duas pessoas da curadoria, que respondem a um checklist sobre violência, linguagem, consumo, saúde e ritmo e indicam a partir de que idade ele serve. Os vídeos aprovados continuam sendo revistos. Se algo escapar, você denuncia o vídeo e ele sai da telinha da sua família na hora.
+
+UMA TELINHA COM FIM
+Nada de um vídeo emendando no outro. Os desenhos e vídeos infantis ficam em prateleiras por tema, e as prateleiras acabam. Quando o tempo de tela do dia termina, a telinha dorme, sem contagem regressiva na tela.
+
+VOCÊ NO CONTROLE
+• Um perfil para cada filho, com a faixa de idade certa, como 2 a 4 anos
+• Limite de tempo de tela e horário para cada um, e mais tempo quando você quiser
+• Só sai do modo criança quem sabe o PIN dos pais
+• O tablet da criança vinculado à sua família
+• As regras valem no nosso servidor, não só na tela
+
+O QUE PEDIMOS E O QUE NÃO FAZEMOS
+Da criança, pedimos só um apelido, um avatar e a faixa de idade. Não temos anúncios nossos, compras no app nem ferramentas de análise de uso. Os vídeos vêm do YouTube, e alguns podem exibir anúncios do próprio YouTube. O Telinha Segura é gratuito.
+
+QUEM FAZ
+O Telinha Segura nasceu no Brasil. Veja como a curadoria escolhe os vídeos em telinhasegura.coding4u.tech/curadoria e como cuidamos dos seus dados em telinhasegura.coding4u.tech/privacidade. Dúvidas: telinhasegura.coding4u.tech/suporte.
+
+Feito pela Coding4u.
