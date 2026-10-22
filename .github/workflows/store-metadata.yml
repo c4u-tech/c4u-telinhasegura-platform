@@ -1,8 +1,11 @@
 name: store-metadata
 
-# Sends the store listing texts kept in app/fastlane/metadata to Google Play
-# and the App Store, with the maintainer's approval. No build, no images,
-# no review submission: texts can change without a release.
+# Sends the store listing texts kept in app/fastlane/metadata, with the
+# maintainer's approval. No build, no images, no review submission. On Google
+# Play the texts go live at once; on the App Store they belong to the version
+# being prepared (the app version in pubspec.yaml) and reach users when that
+# version is released.
+
 on:
   workflow_dispatch: {}
 

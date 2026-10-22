@@ -196,6 +196,8 @@ lane :metadata do
     skip_upload_screenshots: true,
     skip_upload_changelogs: true
   )
+  # The texts attach to the pubspec version, which is created if it does not
+  # exist yet.
   upload_to_app_store(
     api_key: asc_api_key,
     app_identifier: APP_ID,
@@ -205,6 +207,7 @@ lane :metadata do
     skip_screenshots: true,
     submit_for_review: false,
     force: true,
+    run_precheck_before_submit: false,
     precheck_include_in_app_purchases: false
   )
 end

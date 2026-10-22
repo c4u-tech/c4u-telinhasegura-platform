@@ -75,8 +75,16 @@ func TestCIRunsFastlaneLanes(t *testing.T) {
 // Apple texts sit under metadata/ios so deliver never reads the Android
 // folder as a language.
 func TestMetadataLaneReadsBothFolders(t *testing.T) {
-	src := read(t, "app/fastlane/Fastfile")
-	for _, want := range []string{`"fastlane/metadata/ios"`, `"fastlane/metadata/android"`, "skip_binary_upload: true", "submit_for_review: false", "skip_screenshots: true", "skip_upload_aab: true"} {
+	full := read(t, "app/fastlane/Fastfile")
+	start := strings.Index(full, "lane :metadata do")
+	if start < 0 {
+		t.Fatal("Fastfile has no metadata lane")
+	}
+	src := full[start:]
+	if end := strings.Index(src, "\nend\n"); end >= 0 {
+		src = src[:end]
+	}
+	for _, want := range []string{`"fastlane/metadata/ios"`, `"fastlane/metadata/android"`, "skip_binary_upload: true", "submit_for_review: false", "skip_screenshots: true", "skip_upload_aab: true", "run_precheck_before_submit: false"} {
 		if !strings.Contains(src, want) {
 			t.Errorf("Fastfile metadata lane lacks %s", want)
 		}
