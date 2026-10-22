@@ -26,6 +26,17 @@ func metaText(t *testing.T, rel string) string {
 	return strings.TrimRight(string(b), "\n")
 }
 
+// rawText reads a file as the store receives it. Google Play takes the
+// file whole, so a trailing newline would become part of the title.
+func rawText(t *testing.T, rel string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(Root(), rel))
+	if err != nil {
+		t.Fatalf("%s: %v", rel, err)
+	}
+	return string(b)
+}
+
 // fold lowercases and strips accents, so "Vídeos" and "videos" compare equal.
 func fold(s string) string {
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
@@ -51,11 +62,23 @@ func TestStoreTextsFitTheirFields(t *testing.T) {
 	limits = append(limits, limit{a + "title.txt", 30}, limit{a + "short_description.txt", 80}, limit{a + "full_description.txt", 4000})
 	for _, l := range limits {
 		s := metaText(t, l.rel)
+		if strings.HasPrefix(l.rel, androidMeta) {
+			s = rawText(t, l.rel)
+		}
 		if strings.TrimSpace(s) == "" {
 			t.Errorf("%s is empty", l.rel)
 		}
 		if n := utf8.RuneCountInString(s); n > l.max {
 			t.Errorf("%s has %d characters, the field allows %d", l.rel, n, l.max)
+		}
+	}
+}
+
+func TestPlayTextsEndWithoutANewline(t *testing.T) {
+	for _, f := range []string{"title.txt", "short_description.txt", "full_description.txt"} {
+		rel := androidMeta + "/pt-BR/" + f
+		if s := rawText(t, rel); strings.HasSuffix(s, "\n") || strings.HasSuffix(s, "\r") {
+			t.Errorf("%s ends with a newline, which Google Play would keep", rel)
 		}
 	}
 }
