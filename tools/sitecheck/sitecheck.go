@@ -40,6 +40,14 @@ type Page struct {
 	Lang, Title string
 	Meta        map[string]string
 	H1          int
+	// Props are the <meta property> tags (Open Graph), by property.
+	Props map[string]string
+	// Canonical is the page's rel=canonical address: it names the page,
+	// it does not fetch anything, so it is not one of Loads.
+	Canonical string
+	// JSONLD are the raw bodies of <script type="application/ld+json">:
+	// structured data the browser never runs, so not inline scripts.
+	JSONLD []string
 	// Text is the visible text, whitespace collapsed.
 	Text string
 	// Hrefs are every anchor's href, HrefTexts its text, in order.
@@ -70,7 +78,7 @@ func LoadPage(urlPath string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Page{Meta: map[string]string{}}
+	p := &Page{Meta: map[string]string{}, Props: map[string]string{}}
 	var text, footer strings.Builder
 	var walk func(n *html.Node, inFooter, inHead bool)
 	walk = func(n *html.Node, inFooter, inHead bool) {
@@ -107,6 +115,9 @@ func LoadPage(urlPath string) (*Page, error) {
 				if a["name"] != "" {
 					p.Meta[a["name"]] = a["content"]
 				}
+				if a["property"] != "" {
+					p.Props[a["property"]] = a["content"]
+				}
 			case "h1":
 				p.H1++
 			case "footer":
@@ -118,6 +129,10 @@ func LoadPage(urlPath string) (*Page, error) {
 					p.FooterHrefs = append(p.FooterHrefs, a["href"])
 				}
 			case "script":
+				if a["type"] == "application/ld+json" {
+					p.JSONLD = append(p.JSONLD, innerText(n))
+					return
+				}
 				if a["src"] != "" {
 					p.Loads = append(p.Loads, a["src"])
 				} else if strings.TrimSpace(innerText(n)) != "" {
@@ -128,7 +143,9 @@ func LoadPage(urlPath string) (*Page, error) {
 				p.StyleElements++
 				return
 			case "link":
-				if a["href"] != "" {
+				if a["rel"] == "canonical" {
+					p.Canonical = a["href"]
+				} else if a["href"] != "" {
 					p.Loads = append(p.Loads, a["href"])
 				}
 			case "img", "source":
