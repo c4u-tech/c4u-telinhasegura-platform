@@ -59,18 +59,19 @@ the `store` workflow. The `store` workflow can also be dispatched manually from
 The `store` workflow builds the commit the tag names, only if that commit is on
 `prd`. It uploads the same build number to Play internal testing and TestFlight,
 then waits for approval in the `store-production` environment. With approval,
-the same build is promoted: Play production receives a 20% rollout; the App
-Store review process holds the phased release for manual approval before
-release.
+the same build is promoted: Play production starts at a 20% rollout, and the
+build is submitted for App Store review with a phased release. After Apple
+approves it, a maintainer releases it by hand in App Store Connect.
 
 The `rollout` workflow moves the Play rollout from `prd` with approval from the
 `store-production` environment. It can move the rollout to 50% of users, 100% of
 users, or halt it. It never waits behind a release that has approval pending.
 
-The store lanes live in `app/fastlane` and require Ruby 3.3 with `bundle install` in `app/`.
+The store lanes live in `app/fastlane` and require Ruby 3.3 with
+`bundle install` in `app/`.
 
-To find the next build number (one past the highest on either store), the lanes
-run `bundle exec fastlane build_number` (which prints it).
+A maintainer can print the next build number (one past the highest on either
+store) with `cd app && bundle exec fastlane build_number`.
 
 The workflows read these variables:
 - `PLAY_WIF_PROVIDER`: Workload identity provider for Play.
@@ -96,7 +97,7 @@ The `match` tool keeps the iOS distribution certificate and profiles in a
 private repository. CI reads it read-only.
 
 From a workstation, run `make release-android` or `make release-ios` with
-`BUILD_NUMBER`:
+`BUILD_NUMBER` set to the number the `build_number` lane prints:
 
 ```bash
 cd app && bundle exec fastlane build_number
