@@ -13,6 +13,7 @@ class StoreReleaseTest < Minitest::Test
   end
 
   def test_next_build_number_refuses_to_pass_the_play_ceiling
+    assert_equal 2_100_000_000, StoreRelease.next_build_number([2_099_999_999], nil)
     assert_raises(ArgumentError) { StoreRelease.next_build_number([2_100_000_000], nil) }
   end
 
@@ -33,14 +34,50 @@ class StoreReleaseTest < Minitest::Test
 
   def test_rollout_change
     assert_equal({ rollout: "0.5" }, StoreRelease.rollout_change("50"))
-    assert_equal({ release_status: "completed" }, StoreRelease.rollout_change("100"))
-    assert_equal({ release_status: "halted" }, StoreRelease.rollout_change("halt"))
+    # A fraction of 1 is what makes supply complete the release.
+    assert_equal({ rollout: "1" }, StoreRelease.rollout_change("100"))
+    assert_equal({ release_status: "halted", rollout: "0.2" }, StoreRelease.rollout_change("halt", 0.2))
+    assert_equal({ release_status: "halted", rollout: "0.5" }, StoreRelease.rollout_change("halt", "0.5"))
     assert_raises(ArgumentError) { StoreRelease.rollout_change("75") }
+  end
+
+  def test_rollout_change_needs_the_current_fraction_to_halt
+    assert_raises(ArgumentError) { StoreRelease.rollout_change("halt") }
+    assert_raises(ArgumentError) { StoreRelease.rollout_change("halt", "") }
+  end
+
+  def test_rollout_change_cannot_be_altered_by_a_caller
+    change = StoreRelease.rollout_change("50")
+    begin
+      change[:rollout] << "9"
+      change[:release_status] = "halted"
+    rescue RuntimeError
+      nil
+    end
+    assert_equal({ rollout: "0.5" }, StoreRelease.rollout_change("50"))
+  end
+
+  Release = Struct.new(:status, :user_fraction, :version_codes)
+
+  def test_in_progress_release_finds_the_staged_rollout
+    releases = [
+      Release.new("completed", nil, ["40"]),
+      Release.new("inProgress", 0.2, ["41", "42"]),
+    ]
+    assert_equal({ version_code: 42, fraction: 0.2 }, StoreRelease.in_progress_release(releases))
+  end
+
+  def test_in_progress_release_is_nil_without_a_staged_rollout
+    assert_nil StoreRelease.in_progress_release([Release.new("completed", nil, ["40"])])
+    assert_nil StoreRelease.in_progress_release([Release.new("halted", 0.2, ["41"])])
+    assert_nil StoreRelease.in_progress_release([])
+    assert_nil StoreRelease.in_progress_release(nil)
   end
 
   def test_release_status
     assert_equal "completed", StoreRelease.release_status(nil)
     assert_equal "completed", StoreRelease.release_status("")
+    assert_equal "completed", StoreRelease.release_status("completed")
     assert_equal "draft", StoreRelease.release_status("draft")
     assert_raises(ArgumentError) { StoreRelease.release_status("inProgress") }
   end

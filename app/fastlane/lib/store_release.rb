@@ -25,14 +25,28 @@ module StoreRelease
     match[1]
   end
 
-  ROLLOUT_STEPS = {
-    "50" => { rollout: "0.5" },
-    "100" => { release_status: "completed" },
-    "halt" => { release_status: "halted" },
-  }.freeze
+  # Without a new binary, supply only touches a track when it is given a
+  # rollout fraction: 1 completes the release, and halting must restate
+  # the fraction the release is at. Each call builds a fresh hash so a
+  # caller cannot change what the next call returns.
+  def rollout_change(step, current_fraction = nil)
+    case step
+    when "50" then { rollout: "0.5" }
+    when "100" then { rollout: "1" }
+    when "halt"
+      raise ArgumentError, "halting needs the current rollout fraction" if current_fraction.to_s.empty?
+      { release_status: "halted", rollout: current_fraction.to_s }
+    else
+      raise ArgumentError, "unknown rollout step #{step.inspect}"
+    end
+  end
 
-  def rollout_change(step)
-    ROLLOUT_STEPS.fetch(step) { raise ArgumentError, "unknown rollout step #{step.inspect}" }
+  # The staged rollout a step can move: the in-progress release, its
+  # highest version code (Play returns them as strings) and its fraction.
+  def in_progress_release(releases)
+    release = Array(releases).find { |r| r.status == "inProgress" }
+    return nil unless release
+    { version_code: release.version_codes.map(&:to_i).max, fraction: release.user_fraction }
   end
 
   # An app never published on Play only accepts draft releases, so the

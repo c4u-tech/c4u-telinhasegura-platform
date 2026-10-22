@@ -2,6 +2,9 @@ require_relative "lib/store_release"
 require "plist"
 require "tmpdir"
 
+# Store runs report nothing to fastlane's usage statistics.
+opt_out_usage
+
 # Lanes run with app/fastlane as the working directory; Flutter commands
 # run from app/.
 APP_DIR = File.expand_path("..", __dir__)
@@ -15,6 +18,27 @@ end
 
 def play_codes(track)
   google_play_track_version_codes(package_name: APP_ID, track: track, json_key: play_credentials)
+end
+
+# Every track that can hold a build; Play refuses a version code it has
+# seen on any of them, and an empty track reads as [].
+PLAY_TRACKS = %w[internal alpha beta production].freeze
+
+# The production releases as Play reports them, read in an edit that is
+# thrown away afterwards.
+def play_production_releases
+  require "supply"
+  require "supply/options"
+  require "supply/client"
+  Supply.config = FastlaneCore::Configuration.create(
+    Supply::Options.available_options,
+    { package_name: APP_ID, json_key: play_credentials },
+  )
+  client = Supply::Client.make_from_config
+  client.begin_edit(package_name: APP_ID)
+  client.track_releases("production")
+ensure
+  client.abort_current_edit if client && client.current_edit
 end
 
 def asc_api_key
@@ -46,7 +70,7 @@ end
 
 desc "Print the next build number (one past the highest on either store)"
 lane :build_number do
-  n = StoreRelease.next_build_number(play_codes("internal") + play_codes("production"), testflight_latest(asc_api_key))
+  n = StoreRelease.next_build_number(PLAY_TRACKS.flat_map { |t| play_codes(t) }, testflight_latest(asc_api_key))
   File.write(ENV["GITHUB_OUTPUT"], "number=#{n}\n", mode: "a") if ENV["GITHUB_OUTPUT"]
   UI.message("Next build number: #{n}")
   n
@@ -143,17 +167,16 @@ end
 
 desc "Move the Play production rollout: step:50, step:100 or step:halt"
 lane :android_rollout do |options|
-  change = StoreRelease.rollout_change(options.fetch(:step).to_s)
-  current = play_codes("production").max
-  UI.user_error!("Play production has no release to move") unless current
+  live = StoreRelease.in_progress_release(play_production_releases)
+  UI.user_error!("Play production has no staged rollout in progress to move") unless live
   upload_to_play_store(
     package_name: APP_ID,
     json_key: play_credentials,
     track: "production",
-    version_code: current,
+    version_code: live[:version_code],
     skip_upload_aab: true,
     skip_upload_apk: true,
-    **change,
+    **StoreRelease.rollout_change(options.fetch(:step).to_s, live[:fraction]),
     **no_listing_changes,
   )
 end
