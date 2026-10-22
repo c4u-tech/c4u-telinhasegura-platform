@@ -1,0 +1,47 @@
+name: rollout
+
+# Moves the Play production rollout of the current release: to half the
+# users, to everyone, or halted. Runs from prd with the maintainer's
+# approval, like the promotion that started it.
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: Rollout step
+        type: choice
+        options: ["50", "100", "halt"]
+        required: true
+
+permissions: {}
+
+# Its own group: a halt must never wait behind another release's pending approval.
+concurrency:
+  group: store-rollout
+  cancel-in-progress: false
+
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    environment: store-production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Refuse a run off prd
+        env:
+          REF: ${{ github.ref }}
+        run: '[ "$REF" = refs/heads/prd ] || { echo "rollout: runs only from prd (got $REF)" >&2; exit 1; }'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+      - name: Move the Play rollout
+        working-directory: app
+        env:
+          STEP: ${{ inputs.step }}
+        run: bundle exec fastlane android_rollout "step:$STEP"

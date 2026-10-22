@@ -77,8 +77,8 @@ func TestReleaseJobsAskOnlyForContentsAndPullRequests(t *testing.T) {
 			t.Errorf("job %s permissions = %v, want %v", name, got, want)
 		}
 	}
-	if len(jobs) != 2 {
-		t.Errorf("jobs = %d, want exactly release and back-merge", len(jobs))
+	if len(jobs) != 3 {
+		t.Errorf("jobs = %d, want release, back-merge and store", len(jobs))
 	}
 }
 
@@ -112,6 +112,12 @@ func TestReleaseJobRunsReleasePleaseOnPrd(t *testing.T) {
 	}
 	if got := Dig(job, "outputs", "releases_created"); got != "${{ steps.release.outputs.releases_created }}" {
 		t.Errorf("release outputs.releases_created = %v", got)
+	}
+	if got := Dig(job, "outputs", "app_release_created"); got != "${{ steps.release.outputs['app--release_created'] }}" {
+		t.Errorf("release outputs.app_release_created = %v", got)
+	}
+	if got := Dig(job, "outputs", "app_tag"); got != "${{ steps.release.outputs['app--tag_name'] }}" {
+		t.Errorf("release outputs.app_tag = %v", got)
 	}
 }
 
@@ -176,5 +182,50 @@ func TestReleaseJobsMintTheTokenFromAGitHubApp(t *testing.T) {
 		if got := Dig(step, "with"); !reflect.DeepEqual(got, want) {
 			t.Errorf("job %s: with = %v, want %v", name, got, want)
 		}
+	}
+}
+
+// A new app version goes to the stores with the tag release-please just
+// made; calling the workflow does not depend on which token made the tag.
+func TestReleaseCallsStoreForANewAppVersion(t *testing.T) {
+	wf := mustYAML(t, ".github/workflows/release.yml")
+	job := Dig(wf, "jobs", "store")
+	if got := strs(t, Dig(job, "needs")); !reflect.DeepEqual(got, []string{"release"}) {
+		t.Errorf("store needs %v, want [release]", got)
+	}
+	if got := Dig(job, "if"); got != "${{ needs.release.outputs.app_release_created == 'true' }}" {
+		t.Errorf("store if = %v", got)
+	}
+	if got := Dig(job, "uses"); got != "./.github/workflows/store.yml" {
+		t.Errorf("store uses %v", got)
+	}
+	if got := Dig(job, "with", "tag"); got != "${{ needs.release.outputs.app_tag }}" {
+		t.Errorf("store with.tag = %v", got)
+	}
+	// The store secrets belong to environments, which the called jobs
+	// resolve themselves, so nothing is passed down.
+	if _, ok := job.(map[string]any)["secrets"]; ok {
+		t.Errorf("store secrets = %v, want no secrets key", Dig(job, "secrets"))
+	}
+	if got := Dig(job, "permissions"); !reflect.DeepEqual(got, map[string]any{"contents": "read", "id-token": "write"}) {
+		t.Errorf("store permissions = %v", got)
+	}
+}
+
+// Only the release and back-merge jobs queue behind each other: the store
+// job may wait days for approval and must not hold back later prd pushes.
+func TestReleaseConcurrencyCoversOnlyTheReleaseAndBackMergeJobs(t *testing.T) {
+	wf := mustYAML(t, ".github/workflows/release.yml")
+	if got, ok := wf["concurrency"]; ok {
+		t.Errorf("workflow-level concurrency = %v, want none", got)
+	}
+	want := map[string]any{"group": "release", "cancel-in-progress": false}
+	for _, name := range []string{"release", "back-merge"} {
+		if got := Dig(wf, "jobs", name, "concurrency"); !reflect.DeepEqual(got, want) {
+			t.Errorf("job %s concurrency = %v, want %v", name, got, want)
+		}
+	}
+	if got := Dig(wf, "jobs", "store", "concurrency"); got != nil {
+		t.Errorf("store job concurrency = %v, want none", got)
 	}
 }
