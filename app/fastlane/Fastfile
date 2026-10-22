@@ -176,16 +176,19 @@ end
 
 desc "Send the store texts (no binary, no images, no review submission)"
 lane :metadata do
-  # supply looks up a release on the track before it sends listing texts,
-  # even with every upload skipped; naming the newest production build keeps
-  # that lookup unambiguous while a staged rollout holds two releases.
-  codes = play_production_releases.flat_map { |release| release.version_codes || [] }.map(&:to_i)
-  UI.user_error!("Play production has no release to attach the listing texts to") if codes.empty?
+  # supply looks up a release on a track before it sends listing texts, even
+  # with every upload skipped. Anchor on production once it has a release,
+  # otherwise on internal (the first texts go out before the first rollout).
+  begin
+    track, code = StoreRelease.listing_anchor(play_codes("production"), play_codes("internal"))
+  rescue ArgumentError => e
+    UI.user_error!(e.message)
+  end
   upload_to_play_store(
     package_name: APP_ID,
     json_key: play_credentials,
-    track: "production",
-    version_code: codes.max,
+    track: track,
+    version_code: code,
     metadata_path: File.join(APP_DIR, "fastlane/metadata/android"),
     skip_upload_aab: true,
     skip_upload_apk: true,
