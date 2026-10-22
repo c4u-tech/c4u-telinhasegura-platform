@@ -15,6 +15,15 @@ func TestStoreMetadataIsManualFromPrdWithApproval(t *testing.T) {
 	if top, ok := Dig(wf, "permissions").(map[string]any); !ok || len(top) != 0 {
 		t.Errorf("top-level permissions = %v, want {}", Dig(wf, "permissions"))
 	}
+	// Google Play allows one edit at a time, so the texts queue behind a
+	// store release, and neither cancels the other.
+	release := mustYAML(t, ".github/workflows/store.yml")
+	if got, want := Dig(wf, "concurrency", "group"), Dig(release, "concurrency", "group"); got == nil || got != want {
+		t.Errorf("concurrency group = %v, want the store release's %v", got, want)
+	}
+	if Dig(wf, "concurrency", "cancel-in-progress") != false {
+		t.Error("a store texts run must never be cancelled by another")
+	}
 	jobs, _ := Dig(wf, "jobs").(map[string]any)
 	if len(jobs) != 1 {
 		t.Fatalf("jobs = %d, want 1", len(jobs))

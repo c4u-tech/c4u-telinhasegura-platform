@@ -11,8 +11,9 @@ on:
 
 permissions: {}
 
+# The same queue as the store release: Google Play allows one edit at a time.
 concurrency:
-  group: store-metadata
+  group: store
   cancel-in-progress: false
 
 jobs:
