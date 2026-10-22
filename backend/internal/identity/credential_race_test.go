@@ -14,7 +14,7 @@ import (
 
 // The clear_password link evicts a squatter. These tests land it in the
 // middle of a squatter's in-flight request and check that nothing the
-// squatter started survives it (final review C1).
+// squatter started survives it.
 
 func (f *fixture) credentialVersion(id string) int64 {
 	f.t.Helper()

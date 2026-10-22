@@ -1,0 +1,7 @@
+# Distribution certificates and profiles live encrypted in a private
+# repository; its address and keys come from the environment.
+git_url(ENV.fetch("MATCH_GIT_URL", ""))
+storage_mode("git")
+type("appstore")
+app_identifier(["tech.coding4u.telinhasegura"])
+readonly(true)
