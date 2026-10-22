@@ -133,10 +133,22 @@ jobs:
       - working-directory: tools/dco
         run: go run . --head ${{ github.event.pull_request.head.sha }} origin/dev origin/stg origin/prd
 
+  # The store lanes load with their pinned gems; nothing talks to a store.
+  fastlane:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - run: bundle exec fastlane lanes
+        working-directory: app
+
   # The one required check for branch protection. It aggregates every job so
   # a skipped job cannot pass as a success.
   ci-ok:
-    needs: [check, pr-title, dco, images]
+    needs: [check, pr-title, dco, images, fastlane]
     if: always()
     runs-on: ubuntu-latest
     steps:

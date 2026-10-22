@@ -2,27 +2,31 @@ name: release
 
 # Versioned releases per component on the production branch.
 # release-please keeps one release PR per component open on prd; merging it
-# tags app-vX.Y.Z or backend-vX.Y.Z. The back-merge lives here rather than
-# in a workflow triggered by the release, because events caused by the
-# default GITHUB_TOKEN start no new workflow run.
+# tags app-vX.Y.Z or backend-vX.Y.Z. An app release also starts the store
+# workflow. The back-merge lives here rather than in a workflow triggered
+# by the release, because events caused by the default GITHUB_TOKEN start
+# no new workflow run.
 on:
   push:
     branches: [prd]
 
 permissions: {}
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
+# Concurrency is per job, not per workflow: the store job can wait days for
+# approval, and later prd pushes must still cut releases and back-merge.
 jobs:
   release:
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
+      app_release_created: ${{ steps.release.outputs['app--release_created'] }}
+      app_tag: ${{ steps.release.outputs['app--tag_name'] }}
     steps:
       # The App's token, when RELEASE_APP_CLIENT_ID is set, lets the release PR
       # start CI (the default token's PRs do not) and makes
@@ -46,6 +50,9 @@ jobs:
   back-merge:
     needs: [release]
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -63,3 +70,16 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: sh scripts/back-merge.sh
+
+  # A new app version goes to Play internal testing and TestFlight; the
+  # store workflow holds the production step for the maintainer. Its jobs
+  # read the store secrets from their own environments.
+  store:
+    needs: [release]
+    if: ${{ needs.release.outputs.app_release_created == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/store.yml
+    with:
+      tag: ${{ needs.release.outputs.app_tag }}
