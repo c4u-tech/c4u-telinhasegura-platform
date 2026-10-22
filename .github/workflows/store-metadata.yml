@@ -1,0 +1,42 @@
+name: store-metadata
+
+# Sends the store listing texts kept in app/fastlane/metadata to Google Play
+# and the App Store, with the maintainer's approval. No build, no images,
+# no review submission: texts can change without a release.
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: store-metadata
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    environment: store-production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Refuse a run off prd
+        env:
+          REF: ${{ github.ref }}
+        run: '[ "$REF" = refs/heads/prd ] || { echo "store-metadata: runs only from prd (got $REF)" >&2; exit 1; }'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+      - name: Send the store texts
+        working-directory: app
+        env:
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: bundle exec fastlane metadata

@@ -174,6 +174,38 @@ lane :ios_submit do |options|
   )
 end
 
+desc "Send the store texts (no binary, no images, no review submission)"
+lane :metadata do
+  # supply looks up a release on the track before it sends listing texts,
+  # even with every upload skipped; naming the newest production build keeps
+  # that lookup unambiguous while a staged rollout holds two releases.
+  codes = play_production_releases.flat_map { |release| release.version_codes || [] }.map(&:to_i)
+  UI.user_error!("Play production has no release to attach the listing texts to") if codes.empty?
+  upload_to_play_store(
+    package_name: APP_ID,
+    json_key: play_credentials,
+    track: "production",
+    version_code: codes.max,
+    metadata_path: File.join(APP_DIR, "fastlane/metadata/android"),
+    skip_upload_aab: true,
+    skip_upload_apk: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true,
+    skip_upload_changelogs: true
+  )
+  upload_to_app_store(
+    api_key: asc_api_key,
+    app_identifier: APP_ID,
+    app_version: StoreRelease.version_name(File.read(File.join(APP_DIR, "pubspec.yaml"))),
+    metadata_path: File.join(APP_DIR, "fastlane/metadata/ios"),
+    skip_binary_upload: true,
+    skip_screenshots: true,
+    submit_for_review: false,
+    force: true,
+    precheck_include_in_app_purchases: false
+  )
+end
+
 desc "Move the Play production rollout: step:50, step:100 or step:halt"
 lane :android_rollout do |options|
   live = StoreRelease.in_progress_release(play_production_releases)

@@ -18,7 +18,7 @@ func TestFastfileDefinesTheStoreLanes(t *testing.T) {
 		got = append(got, m[1])
 	}
 	sort.Strings(got)
-	want := []string{"android_internal", "android_promote", "android_rollout", "build_number", "ios_submit", "ios_testflight"}
+	want := []string{"android_internal", "android_promote", "android_rollout", "build_number", "ios_submit", "ios_testflight", "metadata"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("lanes = %v, want %v", got, want)
 	}
@@ -69,5 +69,16 @@ func TestCIRunsFastlaneLanes(t *testing.T) {
 	}
 	if !found {
 		t.Error("ci fastlane job must run `bundle exec fastlane lanes` in app")
+	}
+}
+
+// Apple texts sit under metadata/ios so deliver never reads the Android
+// folder as a language.
+func TestMetadataLaneReadsBothFolders(t *testing.T) {
+	src := read(t, "app/fastlane/Fastfile")
+	for _, want := range []string{`"fastlane/metadata/ios"`, `"fastlane/metadata/android"`, "skip_binary_upload: true", "submit_for_review: false", "skip_screenshots: true", "skip_upload_aab: true"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("Fastfile metadata lane lacks %s", want)
+		}
 	}
 }
