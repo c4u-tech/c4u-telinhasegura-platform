@@ -33,21 +33,32 @@ jobs:
       id-token: write
     outputs:
       build_number: ${{ steps.number.outputs.number }}
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
       - name: Refuse anything but an app release tag on prd
         env:
           TAG: ${{ inputs.tag }}
           REF: ${{ github.ref }}
         run: |
-          case "$TAG" in
-            app-v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "store: not an app release tag: $TAG" >&2; exit 1 ;;
-          esac
-          case "$TAG" in *[!a-z0-9.-]*) echo "store: unexpected characters in $TAG" >&2; exit 1 ;; esac
+          printf '%s' "$TAG" | grep -Eq '^app-v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "store: not an app release tag: $TAG" >&2; exit 1; }
           [ "$REF" = refs/heads/prd ] || { echo "store: runs only from prd (got $REF)" >&2; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
+      # A tag can point at a commit nobody reviewed, or be moved between
+      # jobs. Resolve it once, require it to be on prd, and let every other
+      # job build exactly this commit.
+      - id: commit
+        name: Resolve the tag and prove it is on prd
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          git fetch origin prd
+          sha=$(git rev-parse --verify "refs/tags/$TAG^{commit}")
+          git merge-base --is-ancestor "$sha" origin/prd || { echo "store: $TAG is not on prd" >&2; exit 1; }
+          git checkout --detach "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
@@ -75,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.version.outputs.sha }}
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -119,11 +130,10 @@ jobs:
     environment: store-beta
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.version.outputs.sha }}
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
@@ -154,7 +164,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.version.outputs.sha }}
       - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
         with:
           working-directory: app

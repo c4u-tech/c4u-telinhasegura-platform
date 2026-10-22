@@ -46,9 +46,13 @@ func TestStorePermissionsAreMinimal(t *testing.T) {
 	if top, ok := Dig(wf, "permissions").(map[string]any); !ok || len(top) != 0 {
 		t.Errorf("top-level permissions = %v, want {}", Dig(wf, "permissions"))
 	}
-	want := map[string]any{"contents": "read", "id-token": "write"}
 	jobs, _ := Dig(wf, "jobs").(map[string]any)
 	for name := range jobs {
+		want := map[string]any{"contents": "read", "id-token": "write"}
+		if name == "ios" {
+			// ios never authenticates to Google.
+			want = map[string]any{"contents": "read"}
+		}
 		if got := Dig(jobs, name, "permissions"); !reflect.DeepEqual(got, want) {
 			t.Errorf("job %s permissions = %v, want %v", name, got, want)
 		}
@@ -66,7 +70,7 @@ func TestStoreGuardsTheTagAndTheBranchFirst(t *testing.T) {
 	}
 	g := steps[0]
 	run, _ := Dig(g, "run").(string)
-	for _, want := range []string{`"$TAG"`, "app-v", "refs/heads/prd", "exit 1"} {
+	for _, want := range []string{`"$TAG"`, `^app-v[0-9]+\.[0-9]+\.[0-9]+$`, "refs/heads/prd", "exit 1"} {
 		if !strings.Contains(run, want) {
 			t.Errorf("guard script lacks %q:\n%s", want, run)
 		}
@@ -88,13 +92,41 @@ func TestStoreNeverInterpolatesIntoScripts(t *testing.T) {
 	}
 }
 
-// Every job builds or acts on the tagged commit, not the tip of prd.
-func TestStoreChecksOutTheTag(t *testing.T) {
+// The tag is resolved once, proven to be on prd, and every job then uses
+// that one commit.
+func TestStoreBuildsTheOneCommitTheTagNamedOnPrd(t *testing.T) {
 	jobs, _ := Dig(storeWF(t), "jobs").(map[string]any)
-	for name, job := range jobs {
-		co := stepUsing(t, job, "actions/checkout@")
-		if Dig(co, "with", "ref") != "${{ inputs.tag }}" {
-			t.Errorf("job %s checks out %v, want the tag", name, Dig(co, "with", "ref"))
+	co := stepUsing(t, jobs["version"], "actions/checkout@")
+	if Dig(co, "with", "fetch-depth") != 0 || Dig(co, "with", "ref") != nil {
+		t.Errorf("version checkout with = %v, want fetch-depth 0 and no ref", Dig(co, "with"))
+	}
+	steps, _ := Dig(jobs, "version", "steps").([]any)
+	var found bool
+	for _, s := range steps {
+		if Dig(s, "id") != "commit" {
+			continue
+		}
+		found = true
+		run, _ := Dig(s, "run").(string)
+		for _, want := range []string{"refs/tags/$TAG^{commit}", "merge-base --is-ancestor", "origin/prd"} {
+			if !strings.Contains(run, want) {
+				t.Errorf("commit step lacks %q:\n%s", want, run)
+			}
+		}
+		if Dig(s, "env", "TAG") != "${{ inputs.tag }}" {
+			t.Errorf("commit step env = %v", Dig(s, "env"))
+		}
+	}
+	if !found {
+		t.Error("version has no commit step")
+	}
+	if got := Dig(jobs, "version", "outputs", "sha"); got != "${{ steps.commit.outputs.sha }}" {
+		t.Errorf("version outputs.sha = %v", got)
+	}
+	for _, name := range []string{"android", "ios", "production"} {
+		co := stepUsing(t, jobs[name], "actions/checkout@")
+		if Dig(co, "with", "ref") != "${{ needs.version.outputs.sha }}" {
+			t.Errorf("job %s checks out %v, want the resolved commit", name, Dig(co, "with", "ref"))
 		}
 	}
 }
