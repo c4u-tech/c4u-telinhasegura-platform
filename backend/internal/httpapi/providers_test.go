@@ -132,7 +132,7 @@ func TestReauthWithAProviderToken(t *testing.T) {
 }
 
 // A squatter's password sign-in that passed its check before the victim's
-// clear_password link must not leave a session behind (final review C1).
+// clear_password link must not leave a session behind.
 func TestAPasswordSignInThatLosesToAClearKeepsNoSession(t *testing.T) {
 	a := newAPI(t)
 	a.signUpVerified("ana@gmail.com")

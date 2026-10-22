@@ -150,7 +150,7 @@ func TestBackMergeRunsOnEveryPrdPush(t *testing.T) {
 	}
 }
 
-// Final review F1: release-please commits as the token's identity, so the
+// release-please commits as the token's identity, so the
 // token must come from a GitHub App (<app>[bot], exempt from the dco check),
 // never from a personal access token.
 func TestReleaseJobsMintTheTokenFromAGitHubApp(t *testing.T) {
