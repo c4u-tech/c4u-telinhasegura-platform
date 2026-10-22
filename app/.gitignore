@@ -53,6 +53,7 @@ app.*.map.json
 /config/local.json
 
 # fastlane run output
+/fastlane/README.md
 /fastlane/report.xml
 /fastlane/Preview.html
 /fastlane/screenshots/
