@@ -202,10 +202,10 @@ func TestReleaseCallsStoreForANewAppVersion(t *testing.T) {
 	if got := Dig(job, "with", "tag"); got != "${{ needs.release.outputs.app_tag }}" {
 		t.Errorf("store with.tag = %v", got)
 	}
-	// The store secrets belong to environments, which the called jobs
-	// resolve themselves, so nothing is passed down.
-	if _, ok := job.(map[string]any)["secrets"]; ok {
-		t.Errorf("store secrets = %v, want no secrets key", Dig(job, "secrets"))
+	// The store secrets live in environments, and a called workflow's jobs
+	// receive environment secrets only when the caller inherits secrets.
+	if Dig(job, "secrets") != "inherit" {
+		t.Errorf("store secrets = %v, want inherit", Dig(job, "secrets"))
 	}
 	if got := Dig(job, "permissions"); !reflect.DeepEqual(got, map[string]any{"contents": "read", "id-token": "write"}) {
 		t.Errorf("store permissions = %v", got)
