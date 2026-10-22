@@ -1,0 +1,175 @@
+name: store
+
+# Builds the app version a release tag names and hands that one build to
+# Play internal testing and TestFlight. With the maintainer's approval
+# (the store-production environment), the same build goes to production
+# on both stores: what testers ran is what ships.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: App release tag, such as app-v1.2.3
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: App release tag, such as app-v1.2.3
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: store
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    environment: store-beta
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      build_number: ${{ steps.number.outputs.number }}
+    steps:
+      - name: Refuse anything but an app release tag on prd
+        env:
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+        run: |
+          case "$TAG" in
+            app-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "store: not an app release tag: $TAG" >&2; exit 1 ;;
+          esac
+          case "$TAG" in *[!a-z0-9.-]*) echo "store: unexpected characters in $TAG" >&2; exit 1 ;; esac
+          [ "$REF" = refs/heads/prd ] || { echo "store: runs only from prd (got $REF)" >&2; exit 1; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - id: number
+        name: Next build number on both stores
+        working-directory: app
+        env:
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: bundle exec fastlane build_number
+
+  android:
+    needs: [version]
+    runs-on: ubuntu-latest
+    environment: store-beta
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+      - name: Decode the upload key
+        env:
+          ANDROID_UPLOAD_KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+      - name: Upload to Play internal testing
+        working-directory: app
+        env:
+          BUILD_NUMBER: ${{ needs.version.outputs.build_number }}
+          PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/upload.jks"
+          bundle exec fastlane android_internal "build_number:$BUILD_NUMBER"
+      - name: Remove the upload key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"
+
+  ios:
+    needs: [version]
+    runs-on: macos-26
+    environment: store-beta
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - name: Upload to TestFlight
+        working-directory: app
+        env:
+          BUILD_NUMBER: ${{ needs.version.outputs.build_number }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_PRIVATE_KEY: ${{ secrets.MATCH_GIT_PRIVATE_KEY }}
+        run: bundle exec fastlane ios_testflight "build_number:$BUILD_NUMBER"
+
+  production:
+    needs: [version, android, ios]
+    runs-on: ubuntu-latest
+    environment: store-production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          working-directory: app
+          bundler-cache: true
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+      - name: Promote on Play and submit to App Review
+        working-directory: app
+        env:
+          BUILD_NUMBER: ${{ needs.version.outputs.build_number }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          bundle exec fastlane android_promote "build_number:$BUILD_NUMBER"
+          bundle exec fastlane ios_submit "build_number:$BUILD_NUMBER"

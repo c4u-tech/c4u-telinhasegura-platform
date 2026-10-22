@@ -9,7 +9,8 @@ import (
 )
 
 // Every workflow, present and future, passes actionlint: expression
-// types, job references, runner labels and shell scripts.
+// types, job references and runner labels. Shell scripts are not checked,
+// so the result is the same on every machine.
 func TestWorkflowsPassActionlint(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join(Root(), ".github", "workflows", "*.yml"))
 	if err != nil || len(files) == 0 {
