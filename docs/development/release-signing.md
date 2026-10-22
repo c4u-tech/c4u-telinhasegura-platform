@@ -49,3 +49,46 @@ Lost upload key: Play Console, "Request upload key reset".
    App ID `tech.coding4u.telinhasegura`) and set `APPLE_TEAM_ID`,
    `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY` on the API before
    `APPLE_CLIENT_IDS`.
+
+## Store releases
+
+An app release (the `app-vX.Y.Z` tag release-please makes on `prd`) triggers
+the `store` workflow. It builds one version and uploads it to both Play internal
+testing and TestFlight with the same build number, then waits for approval in
+the `store-production` environment before promoting that same build to
+production.
+
+The `rollout` workflow moves the Play rollout percentages and runs manually
+from `prd`.
+
+The store lanes live in `app/fastlane` and require Ruby 3.3 with `bundle
+install` in `app/`.
+
+The workflows read these variables:
+- `PLAY_WIF_PROVIDER`: Workload identity provider for Play.
+- `PLAY_SERVICE_ACCOUNT`: Service account email for Play.
+- `ASC_KEY_ID`: App Store Connect key ID.
+- `ASC_ISSUER_ID`: App Store Connect issuer ID.
+- `MATCH_GIT_URL`: Private repository for iOS certificates and profiles.
+- `PLAY_RELEASE_STATUS`: Play app release status.
+
+And these secrets:
+- `ASC_KEY_P8`: App Store Connect private key.
+- `MATCH_PASSWORD`: Password for the private match repository.
+- `MATCH_GIT_PRIVATE_KEY`: Private key to read the match repository.
+- `ANDROID_UPLOAD_KEYSTORE_B64`: Upload keystore base64-encoded.
+- `ANDROID_KEYSTORE_PASSWORD`: Upload keystore password.
+- `ANDROID_KEY_ALIAS`: Upload key alias.
+- `ANDROID_KEY_PASSWORD`: Upload key password.
+
+The `match` tool keeps the iOS distribution certificate and profiles in a
+private repository. CI reads it read-only.
+
+From a workstation, run `make release-android` or `make release-ios` with
+`BUILD_NUMBER` set to the build number (obtained from the lanes):
+
+```bash
+cd app && bundle exec fastlane build_number
+make release-android BUILD_NUMBER=123
+make release-ios BUILD_NUMBER=123
+```

@@ -53,7 +53,7 @@ ANDROID_DEVICE ?= emulator
 IOS_DEVICE ?=
 LOCAL_DEFINES := --dart-define-from-file=config/local.json
 
-.PHONY: doctor emulators api run-android run-ios build-android build-ios
+.PHONY: doctor emulators api run-android run-ios build-android build-ios release-android release-ios
 
 doctor:
 	@sh scripts/doctor.sh
@@ -88,3 +88,9 @@ build-ios:
 	@case "$(ENV)" in stg|prd) ;; *) echo "ENV must be stg or prd (got '$(ENV)')" >&2; exit 2 ;; esac
 	@cd app && dart run tool/check_app_env.dart config/$(ENV).json
 	@cd app && flutter build ios --release --no-codesign --dart-define-from-file=config/$(ENV).json
+
+# The store lanes the release workflow runs, from a workstation. Needs the
+# store credentials in the environment (docs/development/release-signing.md).
+release-android release-ios:
+	@[ -n "$(BUILD_NUMBER)" ] || { echo "BUILD_NUMBER is required (cd app && bundle exec fastlane build_number)" >&2; exit 2; }
+	@cd app && bundle exec fastlane $(if $(filter release-android,$@),android_internal,ios_testflight) "build_number:$(BUILD_NUMBER)"
