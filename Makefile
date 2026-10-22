@@ -5,9 +5,9 @@
 GO_MODULES := $(sort $(dir $(shell git ls-files -co --exclude-standard -- go.mod '*/go.mod')))
 DART_PACKAGES := $(sort $(dir $(shell git ls-files -co --exclude-standard -- pubspec.yaml '*/pubspec.yaml')))
 
-.PHONY: check fast go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test
+.PHONY: check fast go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test
 
-check: go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test
+check: go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test
 
 # The fast subset to run while working: format and static analysis, no tests.
 fast: go-fmt go-vet dart-fmt dart-analyze
@@ -39,6 +39,13 @@ dart-test:
 		b=$$(grep -rl "@TestOn('browser')" test 2>/dev/null); \
 		if [ -n "$$b" ]; then flutter test --platform chrome $$b || exit 1; fi) \
 		|| exit 1; done
+
+# The store lanes' pure helpers, and a syntax check of every lane file.
+# Plain Ruby with minitest: no gems, so it runs wherever Ruby does.
+ruby-test:
+	@ruby app/fastlane/test/store_release_test.rb || exit 1
+	@for f in $$(git ls-files -co --exclude-standard -- 'app/fastlane/*file' 'app/fastlane/*.rb' 'app/fastlane/**/*.rb'); do \
+	  ruby -c "$$f" >/dev/null || exit 1; done
 
 # Mobile development (docs/development/mobile.md). None of these is a gate.
 AVD ?= Medium_Phone_API_37.0
