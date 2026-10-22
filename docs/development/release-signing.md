@@ -52,17 +52,25 @@ Lost upload key: Play Console, "Request upload key reset".
 
 ## Store releases
 
-An app release (the `app-vX.Y.Z` tag release-please makes on `prd`) triggers
-the `store` workflow. It builds one version and uploads it to both Play internal
-testing and TestFlight with the same build number, then waits for approval in
-the `store-production` environment before promoting that same build to
-production.
+Release-please cuts an app version on `prd` (tag `app-vX.Y.Z`), which triggers
+the `store` workflow. The `store` workflow can also be dispatched manually from
+`prd` with an existing `app-vX.Y.Z` tag.
 
-The `rollout` workflow moves the Play rollout percentages and runs manually
-from `prd`.
+The `store` workflow builds the commit the tag names, only if that commit is on
+`prd`. It uploads the same build number to Play internal testing and TestFlight,
+then waits for approval in the `store-production` environment. With approval,
+the same build is promoted: Play production receives a 20% rollout; the App
+Store review process holds the phased release for manual approval before
+release.
 
-The store lanes live in `app/fastlane` and require Ruby 3.3 with `bundle
-install` in `app/`.
+The `rollout` workflow moves the Play rollout from `prd` with approval from the
+`store-production` environment. It can move the rollout to 50% of users, 100% of
+users, or halt it. It never waits behind a release that has approval pending.
+
+The store lanes live in `app/fastlane` and require Ruby 3.3 with `bundle install` in `app/`.
+
+To find the next build number (one past the highest on either store), the lanes
+run `bundle exec fastlane build_number` (which prints it).
 
 The workflows read these variables:
 - `PLAY_WIF_PROVIDER`: Workload identity provider for Play.
@@ -70,7 +78,7 @@ The workflows read these variables:
 - `ASC_KEY_ID`: App Store Connect key ID.
 - `ASC_ISSUER_ID`: App Store Connect issuer ID.
 - `MATCH_GIT_URL`: Private repository for iOS certificates and profiles.
-- `PLAY_RELEASE_STATUS`: Play app release status.
+- `PLAY_RELEASE_STATUS`: Play app release status (`completed` by default; `draft` while the Play app has never been published).
 
 And these secrets:
 - `ASC_KEY_P8`: App Store Connect private key.
@@ -81,11 +89,14 @@ And these secrets:
 - `ANDROID_KEY_ALIAS`: Upload key alias.
 - `ANDROID_KEY_PASSWORD`: Upload key password.
 
+Play access uses workload identity: a short-lived token per run, with no stored
+key.
+
 The `match` tool keeps the iOS distribution certificate and profiles in a
 private repository. CI reads it read-only.
 
 From a workstation, run `make release-android` or `make release-ios` with
-`BUILD_NUMBER` set to the build number (obtained from the lanes):
+`BUILD_NUMBER`:
 
 ```bash
 cd app && bundle exec fastlane build_number
