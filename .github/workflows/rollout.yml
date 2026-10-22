@@ -14,8 +14,9 @@ on:
 
 permissions: {}
 
+# Its own group: a halt must never wait behind another release's pending approval.
 concurrency:
-  group: store
+  group: store-rollout
   cancel-in-progress: false
 
 jobs:

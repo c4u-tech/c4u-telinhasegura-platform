@@ -18,6 +18,12 @@ func TestRolloutIsManualWithThreeSteps(t *testing.T) {
 	if top, ok := Dig(wf, "permissions").(map[string]any); !ok || len(top) != 0 {
 		t.Errorf("top-level permissions = %v, want {}", Dig(wf, "permissions"))
 	}
+	if got := Dig(wf, "concurrency", "group"); got != "store-rollout" {
+		t.Errorf("concurrency group = %v, want store-rollout", got)
+	}
+	if got := Dig(wf, "concurrency", "cancel-in-progress"); got != false {
+		t.Errorf("cancel-in-progress = %v, want false", got)
+	}
 	jobs, _ := Dig(wf, "jobs").(map[string]any)
 	if len(jobs) != 1 {
 		t.Fatalf("jobs = %d, want 1", len(jobs))
