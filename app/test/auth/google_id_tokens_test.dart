@@ -3,17 +3,20 @@ import 'package:google_sign_in_platform_interface/google_sign_in_platform_interf
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:telinha_segura/auth/google_id_tokens.dart';
 
-/// A Google plugin that hands back [token] (or cancels, or fails) and
-/// counts how often the signed-in state is cleared or revoked.
+/// A Google plugin that hands back a token (or cancels) and records the
+/// nonce each sign-in was set up with.
 class _FakeGoogle extends GoogleSignInPlatform with MockPlatformInterfaceMixin {
-  _FakeGoogle({this.canceled = false, this.signOutFails = false});
+  _FakeGoogle({this.canceled = false});
 
   final bool canceled;
-  final bool signOutFails;
   final calls = <String>[];
+  final nonces = <String?>[];
 
   @override
-  Future<void> init(InitParameters params) async {}
+  Future<void> init(InitParameters params) async {
+    calls.add('init');
+    nonces.add(params.nonce);
+  }
 
   @override
   Future<AuthenticationResults?>? attemptLightweightAuthentication(
@@ -55,7 +58,6 @@ class _FakeGoogle extends GoogleSignInPlatform with MockPlatformInterfaceMixin {
   @override
   Future<void> signOut(SignOutParams params) async {
     calls.add('signOut');
-    if (signOutFails) throw StateError('plugin is gone');
   }
 
   @override
@@ -70,24 +72,26 @@ GoogleIdTokens _tokens(_FakeGoogle fake) {
 }
 
 void main() {
-  test('returns the token, then clears the signed-in state', () async {
-    final fake = _FakeGoogle();
+  test(
+    'sets up each sign-in with a new nonce, so Google mints a new token',
+    () async {
+      final fake = _FakeGoogle();
+      final tokens = _tokens(fake);
 
-    expect(await _tokens(fake).obtain(), 'id-tok');
-    expect(fake.calls, ['authenticate', 'signOut']);
-  });
+      expect(await tokens.obtain(), 'id-tok');
+      expect(await tokens.obtain(), 'id-tok');
+
+      expect(fake.calls, ['init', 'authenticate', 'init', 'authenticate']);
+      expect(fake.nonces, everyElement(isNotNull));
+      expect(fake.nonces.first, isNot(fake.nonces.last));
+      expect(fake.nonces.first!.length, greaterThanOrEqualTo(22));
+    },
+  );
 
   test('a canceled sign-in yields null', () async {
     final fake = _FakeGoogle(canceled: true);
 
     expect(await _tokens(fake).obtain(), isNull);
-    expect(fake.calls, ['authenticate']);
-  });
-
-  test('a failing sign-out still returns the token', () async {
-    final fake = _FakeGoogle(signOutFails: true);
-
-    expect(await _tokens(fake).obtain(), 'id-tok');
-    expect(fake.calls, ['authenticate', 'signOut']);
+    expect(fake.calls, ['init', 'authenticate']);
   });
 }
