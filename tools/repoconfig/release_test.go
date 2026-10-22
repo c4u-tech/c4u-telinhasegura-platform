@@ -202,10 +202,30 @@ func TestReleaseCallsStoreForANewAppVersion(t *testing.T) {
 	if got := Dig(job, "with", "tag"); got != "${{ needs.release.outputs.app_tag }}" {
 		t.Errorf("store with.tag = %v", got)
 	}
-	if Dig(job, "secrets") != "inherit" {
-		t.Errorf("store secrets = %v, want inherit", Dig(job, "secrets"))
+	// The store secrets belong to environments, which the called jobs
+	// resolve themselves, so nothing is passed down.
+	if _, ok := job.(map[string]any)["secrets"]; ok {
+		t.Errorf("store secrets = %v, want no secrets key", Dig(job, "secrets"))
 	}
 	if got := Dig(job, "permissions"); !reflect.DeepEqual(got, map[string]any{"contents": "read", "id-token": "write"}) {
 		t.Errorf("store permissions = %v", got)
+	}
+}
+
+// Only the release and back-merge jobs queue behind each other: the store
+// job may wait days for approval and must not hold back later prd pushes.
+func TestReleaseConcurrencyCoversOnlyTheReleaseAndBackMergeJobs(t *testing.T) {
+	wf := mustYAML(t, ".github/workflows/release.yml")
+	if got, ok := wf["concurrency"]; ok {
+		t.Errorf("workflow-level concurrency = %v, want none", got)
+	}
+	want := map[string]any{"group": "release", "cancel-in-progress": false}
+	for _, name := range []string{"release", "back-merge"} {
+		if got := Dig(wf, "jobs", name, "concurrency"); !reflect.DeepEqual(got, want) {
+			t.Errorf("job %s concurrency = %v, want %v", name, got, want)
+		}
+	}
+	if got := Dig(wf, "jobs", "store", "concurrency"); got != nil {
+		t.Errorf("store job concurrency = %v, want none", got)
 	}
 }

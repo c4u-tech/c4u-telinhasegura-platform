@@ -12,13 +12,14 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
+# Concurrency is per job, not per workflow: the store job can wait days for
+# approval, and later prd pushes must still cut releases and back-merge.
 jobs:
   release:
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -49,6 +50,9 @@ jobs:
   back-merge:
     needs: [release]
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -68,7 +72,8 @@ jobs:
         run: sh scripts/back-merge.sh
 
   # A new app version goes to Play internal testing and TestFlight; the
-  # store workflow holds the production step for the maintainer.
+  # store workflow holds the production step for the maintainer. Its jobs
+  # read the store secrets from their own environments.
   store:
     needs: [release]
     if: ${{ needs.release.outputs.app_release_created == 'true' }}
@@ -78,4 +83,3 @@ jobs:
     uses: ./.github/workflows/store.yml
     with:
       tag: ${{ needs.release.outputs.app_tag }}
-    secrets: inherit
