@@ -1,8 +1,12 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
-/// google_sign_in 7.x: `initialize` runs once per app run. On mobile the
-/// token comes from `authenticate`. On the web it comes from Google's
+/// google_sign_in 7.x. On mobile the token comes from `authenticate`, and
+/// `initialize` runs before each sign-in (see [obtain]). On the web
+/// `initialize` runs once ([ready]) and the token comes from Google's
 /// rendered button through `GoogleWebSignIn` (google_web_sign_in.dart),
 /// whose stream the screen owns.
 class GoogleIdTokens {
@@ -18,26 +22,31 @@ class GoogleIdTokens {
     serverClientId: kIsWeb || serverClientId.isEmpty ? null : serverClientId,
   );
 
+  /// Signs in on mobile. Each call sets the plugin up again with a new
+  /// nonce: Google's Android service caches the token it issued and hands
+  /// the same one back for about an hour, and the server accepts each token
+  /// once, so a repeat sign-in would be refused. A token bound to a new
+  /// nonce is always a new token.
   Future<String?> obtain() async {
-    await ready();
     final google = GoogleSignIn.instance;
     if (!google.supportsAuthenticate()) {
       throw StateError('On the web, Google signs in through its own button');
     }
+    await google.initialize(
+      clientId: clientId.isEmpty ? null : clientId,
+      serverClientId: serverClientId.isEmpty ? null : serverClientId,
+      nonce: _newNonce(),
+    );
     try {
-      final idToken = (await google.authenticate()).authentication.idToken;
-      // The server accepts each Google token once, and Android hands back
-      // the same cached token while the plugin stays signed in, so the next
-      // sign-in would be refused. Forget the account (without revoking
-      // access) so the next sign-in gets a fresh token. The token is already
-      // in hand, so a failure here must not fail this sign-in.
-      try {
-        await google.signOut();
-      } catch (_) {}
-      return idToken;
+      return (await google.authenticate()).authentication.idToken;
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) return null;
       rethrow;
     }
   }
+}
+
+String _newNonce() {
+  final random = Random.secure();
+  return base64UrlEncode(List<int>.generate(16, (_) => random.nextInt(256)));
 }
