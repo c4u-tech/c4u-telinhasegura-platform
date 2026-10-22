@@ -66,6 +66,8 @@ approves it, a maintainer releases it by hand in App Store Connect.
 The `rollout` workflow moves the Play rollout from `prd` with approval from the
 `store-production` environment. It can move the rollout to 50% of users, 100% of
 users, or halt it. It never waits behind a release that has approval pending.
+A halted rollout is resumed in Play Console; the `rollout` workflow only moves
+a rollout that is in progress.
 
 The store lanes live in `app/fastlane` and require Ruby 3.3 with
 `bundle install` in `app/`.
@@ -104,3 +106,7 @@ cd app && bundle exec fastlane build_number
 make release-android BUILD_NUMBER=123
 make release-ios BUILD_NUMBER=123
 ```
+
+`make release-ios` switches the iOS project to manual signing with the
+distribution profile. Restore it afterwards with
+`git checkout app/ios/Runner.xcodeproj`.
