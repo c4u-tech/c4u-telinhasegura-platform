@@ -1,3 +1,5 @@
+# Pure helpers for the store lanes, kept apart from fastlane so they can be
+# tested without network access or store credentials.
 module StoreRelease
   module_function
 

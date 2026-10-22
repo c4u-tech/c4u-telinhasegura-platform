@@ -1,0 +1,159 @@
+require_relative "lib/store_release"
+require "plist"
+require "tmpdir"
+
+# Lanes run with app/fastlane as the working directory; Flutter commands
+# run from app/.
+APP_DIR = File.expand_path("..", __dir__)
+APP_ID = "tech.coding4u.telinhasegura"
+
+# Workload identity: the auth step writes a short-lived credentials file
+# and exports its path; no long-lived key is stored anywhere.
+def play_credentials
+  ENV.fetch("GOOGLE_APPLICATION_CREDENTIALS")
+end
+
+def play_codes(track)
+  google_play_track_version_codes(package_name: APP_ID, track: track, json_key: play_credentials)
+end
+
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("ASC_KEY_ID"),
+    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    key_content: ENV.fetch("ASC_KEY_P8"),
+  )
+end
+
+def testflight_latest(api_key)
+  latest_testflight_build_number(api_key: api_key, app_identifier: APP_ID, initial_build_number: 0)
+end
+
+def build_number_option(options)
+  Integer(options.fetch(:build_number))
+end
+
+def flutter_build(*args)
+  Dir.chdir(APP_DIR) do
+    sh("dart", "run", "tool/check_app_env.dart", "config/prd.json")
+    sh("flutter", "build", *args, "--release", "--dart-define-from-file=config/prd.json")
+  end
+end
+
+def no_listing_changes
+  { skip_upload_metadata: true, skip_upload_changelogs: true, skip_upload_images: true, skip_upload_screenshots: true }
+end
+
+desc "Print the next build number (one past the highest on either store)"
+lane :build_number do
+  n = StoreRelease.next_build_number(play_codes("internal") + play_codes("production"), testflight_latest(asc_api_key))
+  File.write(ENV["GITHUB_OUTPUT"], "number=#{n}\n", mode: "a") if ENV["GITHUB_OUTPUT"]
+  UI.message("Next build number: #{n}")
+  n
+end
+
+desc "Build the production app bundle and upload it to Play internal testing"
+lane :android_internal do |options|
+  n = build_number_option(options)
+  if StoreRelease.already_uploaded?(play_codes("internal"), n)
+    UI.important("Build #{n} is already on Play internal testing; skipping the upload.")
+    next
+  end
+  flutter_build("appbundle", "--build-number=#{n}")
+  upload_to_play_store(
+    package_name: APP_ID,
+    json_key: play_credentials,
+    track: "internal",
+    release_status: StoreRelease.release_status(ENV["PLAY_RELEASE_STATUS"]),
+    aab: File.join(APP_DIR, "build/app/outputs/bundle/release/app-release.aab"),
+    **no_listing_changes,
+  )
+end
+
+desc "Build the production IPA and upload it to TestFlight"
+lane :ios_testflight do |options|
+  n = build_number_option(options)
+  api_key = asc_api_key
+  if testflight_latest(api_key) >= n
+    UI.important("Build #{n} is already on TestFlight; skipping the upload.")
+    next
+  end
+  setup_ci if ENV["CI"]
+  match(api_key: api_key, readonly: true)
+  profile = ENV.fetch("sigh_#{APP_ID}_appstore_profile-name")
+  team = ENV.fetch("sigh_#{APP_ID}_appstore_team-id")
+  update_code_signing_settings(
+    path: File.join(APP_DIR, "ios/Runner.xcodeproj"),
+    use_automatic_signing: false,
+    targets: ["Runner"],
+    build_configurations: ["Release"],
+    team_id: team,
+    code_sign_identity: "Apple Distribution",
+    profile_name: profile,
+  )
+  export = File.join(Dir.mktmpdir, "ExportOptions.plist")
+  File.write(export, {
+    "method" => "app-store-connect",
+    "teamID" => team,
+    "signingStyle" => "manual",
+    "provisioningProfiles" => { APP_ID => profile },
+  }.to_plist)
+  flutter_build("ipa", "--build-number=#{n}", "--export-options-plist=#{export}")
+  upload_to_testflight(
+    api_key: api_key,
+    ipa: Dir[File.join(APP_DIR, "build/ios/ipa/*.ipa")].first,
+    skip_waiting_for_build_processing: true,
+    distribute_external: false,
+  )
+end
+
+desc "Promote the build on Play internal testing to production, staged"
+lane :android_promote do |options|
+  upload_to_play_store(
+    package_name: APP_ID,
+    json_key: play_credentials,
+    track: "internal",
+    track_promote_to: "production",
+    version_code: build_number_option(options),
+    rollout: "0.2",
+    skip_upload_aab: true,
+    skip_upload_apk: true,
+    **no_listing_changes,
+  )
+end
+
+desc "Submit the TestFlight build for App Store review, phased and held"
+lane :ios_submit do |options|
+  upload_to_app_store(
+    api_key: asc_api_key,
+    app_identifier: APP_ID,
+    app_version: StoreRelease.version_name(File.read(File.join(APP_DIR, "pubspec.yaml"))),
+    build_number: build_number_option(options).to_s,
+    skip_binary_upload: true,
+    skip_metadata: true,
+    skip_screenshots: true,
+    submit_for_review: true,
+    automatic_release: false,
+    phased_release: true,
+    force: true,
+    precheck_include_in_app_purchases: false,
+    submission_information: { add_id_info_uses_idfa: false },
+  )
+end
+
+desc "Move the Play production rollout: step:50, step:100 or step:halt"
+lane :android_rollout do |options|
+  change = StoreRelease.rollout_change(options.fetch(:step).to_s)
+  current = play_codes("production").max
+  UI.user_error!("Play production has no release to move") unless current
+  upload_to_play_store(
+    package_name: APP_ID,
+    json_key: play_credentials,
+    track: "production",
+    version_code: current,
+    skip_upload_aab: true,
+    skip_upload_apk: true,
+    **change,
+    **no_listing_changes,
+  )
+end

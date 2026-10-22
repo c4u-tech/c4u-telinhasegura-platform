@@ -59,12 +59,12 @@ func TestCIRunsOnEveryEnvironmentBranch(t *testing.T) {
 	}
 }
 
-// The title lint, the DCO and the image job all feed the one required
+// The title lint, the DCO, the image job and the fastlane check all feed the one required
 // check.
 func TestCIOKAggregatesEveryJob(t *testing.T) {
 	ci := mustYAML(t, ".github/workflows/ci.yml")
-	if got := strs(t, Dig(ci, "jobs", "ci-ok", "needs")); !reflect.DeepEqual(got, []string{"check", "pr-title", "dco", "images"}) {
-		t.Errorf("ci-ok needs %v, want [check pr-title dco images]", got)
+	if got := strs(t, Dig(ci, "jobs", "ci-ok", "needs")); !reflect.DeepEqual(got, []string{"check", "pr-title", "dco", "images", "fastlane"}) {
+		t.Errorf("ci-ok needs %v, want [check pr-title dco images fastlane]", got)
 	}
 	if got := Dig(ci, "jobs", "ci-ok", "if"); got != "always()" {
 		t.Errorf("ci-ok if = %v, want always()", got)
