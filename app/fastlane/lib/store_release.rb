@@ -1,5 +1,6 @@
-# Pure helpers for the store lanes, kept apart from fastlane so they can be
-# tested without network access or store credentials.
+# Helpers for the store lanes, kept apart from fastlane so they can be
+# tested without network access or store credentials; store objects are
+# passed in.
 module StoreRelease
   module_function
 
@@ -55,5 +56,28 @@ module StoreRelease
     status = value.to_s.empty? ? "completed" : value
     raise ArgumentError, "unknown Play release status #{value.inspect}" unless %w[completed draft].include?(status)
     status
+  end
+
+  # deliver sets the release type and the phased release only while it
+  # uploads metadata, which the submit lane skips, so the version is
+  # prepared here first: once approved it waits for a maintainer to
+  # release it, then reaches users over the phased release. The app is a
+  # Spaceship::ConnectAPI::App; ensure_version! creates the version when
+  # App Store Connect does not have it yet.
+  def hold_and_phase(app, version_string, platform: "IOS")
+    app.ensure_version!(version_string, platform: platform)
+    version = app.get_edit_app_store_version(platform: platform)
+    unless version && version.version_string == version_string
+      raise ArgumentError, "App Store Connect has no editable version #{version_string}"
+    end
+    version.update(attributes: { releaseType: "MANUAL" })
+    phased = begin
+      version.fetch_app_store_version_phased_release
+    rescue StandardError
+      # App Store Connect answers with an error when there is none.
+      nil
+    end
+    version.create_app_store_version_phased_release(attributes: { phasedReleaseState: "INACTIVE" }) unless phased
+    version
   end
 end

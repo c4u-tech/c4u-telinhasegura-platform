@@ -81,4 +81,67 @@ class StoreReleaseTest < Minitest::Test
     assert_equal "draft", StoreRelease.release_status("draft")
     assert_raises(ArgumentError) { StoreRelease.release_status("inProgress") }
   end
+
+  class FakeVersion
+    attr_reader :version_string, :calls
+
+    def initialize(version_string, phased)
+      @version_string = version_string
+      @phased = phased
+      @calls = []
+    end
+
+    def update(attributes:)
+      @calls << [:update, attributes]
+    end
+
+    def fetch_app_store_version_phased_release
+      raise "no data" unless @phased
+      @phased
+    end
+
+    def create_app_store_version_phased_release(attributes:)
+      @calls << [:create_phased_release, attributes]
+    end
+  end
+
+  class FakeApp
+    attr_reader :calls
+
+    def initialize(version)
+      @version = version
+      @calls = []
+    end
+
+    def ensure_version!(version_string, platform:)
+      @calls << [:ensure_version!, version_string, platform]
+    end
+
+    def get_edit_app_store_version(platform:)
+      @calls << [:get_edit_app_store_version, platform]
+      @version
+    end
+  end
+
+  def test_hold_and_phase_prepares_the_version_before_submission
+    version = FakeVersion.new("1.2.0", nil)
+    app = FakeApp.new(version)
+    StoreRelease.hold_and_phase(app, "1.2.0")
+    assert_equal [[:ensure_version!, "1.2.0", "IOS"], [:get_edit_app_store_version, "IOS"]], app.calls
+    assert_equal [
+      [:update, { releaseType: "MANUAL" }],
+      [:create_phased_release, { phasedReleaseState: "INACTIVE" }],
+    ], version.calls
+  end
+
+  def test_hold_and_phase_keeps_an_existing_phased_release
+    version = FakeVersion.new("1.2.0", Object.new)
+    StoreRelease.hold_and_phase(FakeApp.new(version), "1.2.0")
+    assert_equal [[:update, { releaseType: "MANUAL" }]], version.calls
+  end
+
+  def test_hold_and_phase_refuses_another_version
+    assert_raises(ArgumentError) { StoreRelease.hold_and_phase(FakeApp.new(FakeVersion.new("1.1.0", nil)), "1.2.0") }
+    assert_raises(ArgumentError) { StoreRelease.hold_and_phase(FakeApp.new(nil), "1.2.0") }
+  end
 end
