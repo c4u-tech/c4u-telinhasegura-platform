@@ -518,8 +518,23 @@ func TestRobotsAndSitemapListThePublicPages(t *testing.T) {
 	}
 }
 
-// Structured data names who makes the app and what it is, and never claims
-// a rating the app does not have.
+// Any structured data block, on any page, is valid JSON and never claims a
+// rating or review the app does not have.
+func TestStructuredDataParsesAndClaimsNoRating(t *testing.T) {
+	for path, p := range mustPages(t) {
+		for _, raw := range p.JSONLD {
+			if strings.Contains(raw, "aggregateRating") || strings.Contains(raw, "review") {
+				t.Errorf("%s: structured data claims ratings or reviews", path)
+			}
+			var v any
+			if err := json.Unmarshal([]byte(raw), &v); err != nil {
+				t.Errorf("%s: JSON-LD does not parse: %v", path, err)
+			}
+		}
+	}
+}
+
+// Structured data names who makes the app and what it is.
 func TestHomeDescribesTheAppAndItsMaker(t *testing.T) {
 	p, err := LoadPage("/")
 	if err != nil {
@@ -527,9 +542,6 @@ func TestHomeDescribesTheAppAndItsMaker(t *testing.T) {
 	}
 	types := map[string]map[string]any{}
 	for _, raw := range p.JSONLD {
-		if strings.Contains(raw, "aggregateRating") || strings.Contains(raw, "review") {
-			t.Error("structured data claims ratings or reviews")
-		}
 		var v map[string]any
 		if err := json.Unmarshal([]byte(raw), &v); err != nil {
 			t.Fatalf("JSON-LD does not parse: %v", err)
@@ -546,11 +558,17 @@ func TestHomeDescribesTheAppAndItsMaker(t *testing.T) {
 			t.Errorf("JSON-LD lacks %s", typ)
 		}
 	}
-	if o := types["Organization"]; o != nil && (o["name"] != "Coding4u" || o["legalName"] != "Coding For You Tecnologia Ltda") {
-		t.Errorf("Organization = %v", o)
+	if o := types["Organization"]; o != nil {
+		if o["name"] != "Coding4u" || o["legalName"] != "Coding For You Tecnologia Ltda" {
+			t.Errorf("Organization = %v", o)
+		}
+		// The app's icon is not the company's mark.
+		if o["logo"] != nil {
+			t.Errorf("Organization logo = %v, want none", o["logo"])
+		}
 	}
 	if a := types["MobileApplication"]; a != nil {
-		if a["name"] != "Telinha Segura" || a["operatingSystem"] != "Android, iOS" {
+		if a["name"] != "Telinha Segura" || a["operatingSystem"] != "Android, iOS" || a["url"] != canonicalFor("/") {
 			t.Errorf("MobileApplication = %v", a)
 		}
 		offers, _ := a["offers"].(map[string]any)
