@@ -110,10 +110,13 @@ func TestAppStoreKeywordsAreClean(t *testing.T) {
 }
 
 var (
-	bareNoAds  = regexp.MustCompile(`(?i)sem an[uú]ncios(\s+nossos)?`)
-	freeWord   = regexp.MustCompile(`(?i)\b(gr[aá]tis|gratuit[oa]s?|de gra[cç]a)\b`)
-	kidsWord   = regexp.MustCompile(`(?i)\b(para crian[cç]as|infantil|infantis)\b`)
-	proofWords = regexp.MustCompile(`(?i)(milh[oõ]es|mil fam[ií]lias|mais de \d|★|estrelas|avalia[cç][aã]o \d|downloads)`)
+	bareNoAds = regexp.MustCompile(`(?i)sem an[uú]ncios(\s+nossos)?`)
+	freeWord  = regexp.MustCompile(`(?i)\b(gr[aá]tis|gratuit[oa]s?|de gra[cç]a|free)\b`)
+	kidsWord  = regexp.MustCompile(`(?i)\b(para crian[cç]as|infantil|infantis)\b`)
+	// The English kids wording the App Store bars in visible fields; the
+	// hidden keyword field may still carry "kids" and "children".
+	kidsWordEN = regexp.MustCompile(`(?i)\b(for kids|for children|kids'|children's)`)
+	proofWords = regexp.MustCompile(`(?i)(milh[oõ]es|milhares|mil fam[ií]lias|mais de mil|mais de \d|thousands of|millions of|★|estrelas|avalia[cç][aã]o \d|downloads)`)
 )
 
 func TestStoreTextsKeepTheCopyRules(t *testing.T) {
@@ -154,8 +157,11 @@ func TestStoreTextsKeepTheCopyRules(t *testing.T) {
 	for _, loc := range []string{"pt-BR", "en-GB"} {
 		for _, f := range appleVisible {
 			rel := iosMeta + "/" + loc + "/" + f
-			if kidsWord.MatchString(metaText(t, rel)) {
-				t.Errorf("%s: the App Store bars %q outside the Kids category", rel, kidsWord.FindString(metaText(t, rel)))
+			s := metaText(t, rel)
+			for _, re := range []*regexp.Regexp{kidsWord, kidsWordEN} {
+				if re.MatchString(s) {
+					t.Errorf("%s: the App Store bars %q outside the Kids category", rel, re.FindString(s))
+				}
 			}
 		}
 	}
