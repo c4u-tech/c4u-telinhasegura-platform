@@ -141,7 +141,7 @@ lane :android_promote do |options|
     track: "internal",
     track_promote_to: "production",
     version_code: build_number_option(options),
-    rollout: "0.2",
+    **StoreRelease.promotion(play_production_releases),
     skip_upload_aab: true,
     skip_upload_apk: true,
     **no_listing_changes,
