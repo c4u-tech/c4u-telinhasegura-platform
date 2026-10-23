@@ -5,7 +5,7 @@
 GO_MODULES := $(sort $(dir $(shell git ls-files -co --exclude-standard -- go.mod '*/go.mod')))
 DART_PACKAGES := $(sort $(dir $(shell git ls-files -co --exclude-standard -- pubspec.yaml '*/pubspec.yaml')))
 
-.PHONY: check fast go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test store-screens-raw
+.PHONY: check fast go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test store-screens-raw store-screens
 
 check: go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test
 
@@ -44,6 +44,9 @@ dart-test:
 # frames the stores receive. A tool, not a gate (needs Chrome and macOS sips).
 store-screens-raw:
 	@cd app && rm -rf build/store_screens/raw && flutter test --tags store_screens test/store_screens || exit 1
+
+store-screens: store-screens-raw
+	@bash app/store_screens/compose.sh || exit 1
 
 # The store lanes' pure helpers, and a syntax check of every lane file.
 # Plain Ruby with minitest: no gems, so it runs wherever Ruby does.

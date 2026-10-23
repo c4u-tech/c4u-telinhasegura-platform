@@ -15,6 +15,9 @@ func TestCheckSkipsTheStoreScreenCapture(t *testing.T) {
 	if !strings.Contains(mk, "store-screens-raw:") {
 		t.Error("Makefile needs the store-screens-raw target")
 	}
+	if !strings.Contains(mk, "store-screens:") {
+		t.Error("Makefile needs the store-screens target")
+	}
 	if !strings.Contains(read(t, "app/test/store_screens/store_screens_test.dart"), "@Tags(['store_screens'])") {
 		t.Error("the capture test must carry @Tags(['store_screens'])")
 	}

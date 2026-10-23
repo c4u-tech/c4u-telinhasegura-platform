@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Telinha Segura: store screenshot frame</title>
+  <!--
+    One store screenshot: a caption over a real screen of the app that runs
+    off the bottom edge. compose.sh renders it with headless Chrome, sized
+    and filled by the query string:
+
+      w, h     canvas size in pixels (the store size)
+      caption  the line above the screen
+      shot     file URL of the raw capture of the screen
+
+    Every measure is a proportion of the canvas, so one layout serves the
+    phone, the tablet and the iPad sizes.
+  -->
+  <style>
+    @font-face {
+      font-family: "Bricolage Grotesque";
+      src: url("../../site/public/fonts/bricolage-grotesque.woff2") format("woff2");
+      font-weight: 300 800;
+    }
+
+    :root {
+      --ink: #1E5B66;
+      --cream: #FBF6EC;
+    }
+
+    html,
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    .frame {
+      position: relative;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    h1 {
+      position: absolute;
+      margin: 0;
+      text-align: center;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.015em;
+      color: var(--cream);
+      text-wrap: balance;
+    }
+
+    img {
+      position: absolute;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <h1></h1>
+    <img alt="">
+  </div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const w = Number(q.get("w"));
+    const h = Number(q.get("h"));
+    // Tablets are squarer than phones: a narrower screen and a caption set
+    // in a narrower measure keep the same balance on the wider canvas. The
+    // caption stays larger than any text inside the screen, which on the
+    // wide layouts carries its own large brand panel.
+    const tablet = h / w < 1.7;
+
+    const frame = document.querySelector(".frame");
+    const title = document.querySelector("h1");
+    const shot = document.querySelector("img");
+
+    document.body.style.width = frame.style.width = w + "px";
+    document.body.style.height = frame.style.height = h + "px";
+
+    const pad = 0.07 * w;
+    title.textContent = q.get("caption");
+    const side = tablet ? 0.12 * w : pad;
+    title.style.left = title.style.right = side + "px";
+    title.style.fontSize = (tablet ? 0.058 : 0.064) * w + "px";
+
+    const shotW = (tablet ? 0.80 : 0.84) * w;
+    shot.style.width = shotW + "px";
+    shot.style.left = (w - shotW) / 2 + "px";
+    shot.style.borderRadius = 0.04 * w + "px";
+    // A faint cream rim keeps the edge of an ink-coloured screen (kid mode,
+    // the brand panel) from melting into the ground.
+    shot.style.boxShadow = `0 0 0 ${0.005 * w}px rgba(251, 246, 236, .22), ` +
+      `0 ${0.02 * w}px ${0.06 * w}px rgba(15, 42, 48, .35)`;
+
+    function layout() {
+      const shotH = shotW * shot.naturalHeight / shot.naturalWidth;
+      const top = 0.08 * h;
+      const gap = 0.04 * h;
+      const captionH = title.getBoundingClientRect().height;
+      let shotTop = top + captionH + gap;
+      // The screen must visibly run off the bottom edge. When the caption
+      // is short and the screen squat, push the screen down so at least its
+      // rounded bottom corners are cut, and centre the caption in the room
+      // above.
+      const minCut = 0.03 * shotH;
+      if (shotTop + shotH < h + minCut) {
+        shotTop = h + minCut - shotH;
+      }
+      const captionTop = Math.max(top, (shotTop - gap - captionH) / 2 + top / 2);
+      title.style.top = captionTop + "px";
+      shot.style.top = shotTop + "px";
+    }
+
+    shot.addEventListener("load", () => document.fonts.ready.then(layout));
+    shot.src = q.get("shot");
+  </script>
+</body>
+</html>
