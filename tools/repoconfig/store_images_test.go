@@ -98,7 +98,8 @@ func playShapeProblem(w, h int) string {
 }
 
 // deliver uploads every image in the App Store folder, so a stray file
-// there would reach the store.
+// there would reach the store. Hidden files, such as the .DS_Store Finder
+// leaves, are neither uploaded nor committed.
 func TestAppStoreFolderHoldsOnlyTheScreenshots(t *testing.T) {
 	dir := "app/fastlane/screenshots/ios/pt-BR"
 	entries, err := os.ReadDir(filepath.Join(Root(), dir))
@@ -107,6 +108,9 @@ func TestAppStoreFolderHoldsOnlyTheScreenshots(t *testing.T) {
 	}
 	re := regexp.MustCompile(`^\d\d_(iphone61|ipad13)\.jpg$`)
 	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
 		if !re.MatchString(e.Name()) {
 			t.Errorf("%s/%s: only NN_iphone61.jpg and NN_ipad13.jpg belong here", dir, e.Name())
 		}
