@@ -111,6 +111,13 @@ func (s Store) invalidateTokens(ctx context.Context, accountID string, p tokenPu
 	return err
 }
 
+// deleteTokensExpiredBefore deletes every email token, used or not, that
+// expired before cutoff.
+func (s Store) deleteTokensExpiredBefore(ctx context.Context, cutoff time.Time) error {
+	_, err := s.Pool.Exec(ctx, `DELETE FROM email_tokens WHERE expires_at < $1`, cutoff)
+	return err
+}
+
 // recordSignInFailure counts a failure and sets the back-off from the
 // incremented counter in one statement, so concurrent failures cannot write
 // a stale, shorter block: from the 5th failure on the block doubles

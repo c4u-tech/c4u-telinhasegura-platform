@@ -284,3 +284,18 @@ func (s *Service) accept(ctx context.Context, accountID string,
 	s.d.Audit.Record(ctx, accountID, audit.InvitationAccepted)
 	return f, nil
 }
+
+// keepEndedInvitation is how long an invitation that can no longer be
+// accepted (it expired, or was revoked) keeps the invitee's address: long
+// enough to answer someone who asks about a link they just received, and
+// no longer, since nothing else reads it.
+const keepEndedInvitation = 30 * 24 * time.Hour
+
+// SweepInvitations deletes the invitations never accepted that expired, or
+// were revoked, more than 30 days ago. Accepted ones are left alone. It is
+// idempotent, so every replica may run it.
+func (s *Service) SweepInvitations(ctx context.Context) error {
+	_, err := s.d.Pool.Exec(ctx, `DELETE FROM family_invitations
+		WHERE accepted_at IS NULL AND (expires_at < $1 OR revoked_at < $1)`, s.now().Add(-keepEndedInvitation))
+	return err
+}
