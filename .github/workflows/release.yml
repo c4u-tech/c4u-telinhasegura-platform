@@ -73,7 +73,8 @@ jobs:
 
   # A new app version goes to Play internal testing and TestFlight; the
   # store workflow holds the production step for the maintainer. Its jobs
-  # read the store secrets from their own environments.
+  # read the store secrets from their own environments, which a called
+  # workflow only receives when the caller inherits secrets.
   store:
     needs: [release]
     if: ${{ needs.release.outputs.app_release_created == 'true' }}
@@ -83,3 +84,4 @@ jobs:
     uses: ./.github/workflows/store.yml
     with:
       tag: ${{ needs.release.outputs.app_tag }}
+    secrets: inherit

@@ -1,0 +1,5 @@
+# Every crawler may read this site: search engines and AI assistants alike.
+User-agent: *
+Allow: /
+
+Sitemap: https://telinhasegura.coding4u.tech/sitemap.xml

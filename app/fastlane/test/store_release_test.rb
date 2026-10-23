@@ -140,6 +140,20 @@ class StoreReleaseTest < Minitest::Test
     assert_equal [[:update, { releaseType: "MANUAL" }]], version.calls
   end
 
+  def test_listing_anchor_prefers_production
+    assert_equal ["production", 5], StoreRelease.listing_anchor([3, 5], [9])
+  end
+
+  def test_listing_anchor_falls_back_to_internal_before_the_first_production_release
+    assert_equal ["internal", 2], StoreRelease.listing_anchor([], [1, 2])
+    assert_equal ["internal", 2], StoreRelease.listing_anchor(nil, [2])
+  end
+
+  def test_listing_anchor_refuses_when_no_track_has_a_release
+    assert_raises(ArgumentError) { StoreRelease.listing_anchor([], []) }
+    assert_raises(ArgumentError) { StoreRelease.listing_anchor(nil, nil) }
+  end
+
   def test_hold_and_phase_refuses_another_version
     assert_raises(ArgumentError) { StoreRelease.hold_and_phase(FakeApp.new(FakeVersion.new("1.1.0", nil)), "1.2.0") }
     assert_raises(ArgumentError) { StoreRelease.hold_and_phase(FakeApp.new(nil), "1.2.0") }
