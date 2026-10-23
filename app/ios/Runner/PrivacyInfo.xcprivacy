@@ -14,6 +14,18 @@
 	<array>
 			<dict>
 				<key>NSPrivacyCollectedDataType</key>
+				<string>NSPrivacyCollectedDataTypeName</string>
+				<key>NSPrivacyCollectedDataTypeLinked</key>
+				<true/>
+				<key>NSPrivacyCollectedDataTypeTracking</key>
+				<false/>
+				<key>NSPrivacyCollectedDataTypePurposes</key>
+				<array>
+					<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				</array>
+			</dict>
+			<dict>
+				<key>NSPrivacyCollectedDataType</key>
 				<string>NSPrivacyCollectedDataTypeEmailAddress</string>
 				<key>NSPrivacyCollectedDataTypeLinked</key>
 				<true/>
@@ -27,6 +39,18 @@
 			<dict>
 				<key>NSPrivacyCollectedDataType</key>
 				<string>NSPrivacyCollectedDataTypeUserID</string>
+				<key>NSPrivacyCollectedDataTypeLinked</key>
+				<true/>
+				<key>NSPrivacyCollectedDataTypeTracking</key>
+				<false/>
+				<key>NSPrivacyCollectedDataTypePurposes</key>
+				<array>
+					<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				</array>
+			</dict>
+			<dict>
+				<key>NSPrivacyCollectedDataType</key>
+				<string>NSPrivacyCollectedDataTypeDeviceID</string>
 				<key>NSPrivacyCollectedDataTypeLinked</key>
 				<true/>
 				<key>NSPrivacyCollectedDataTypeTracking</key>
@@ -58,6 +82,32 @@
 				<key>NSPrivacyCollectedDataTypePurposes</key>
 				<array>
 					<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				</array>
+			</dict>
+			<dict>
+				<key>NSPrivacyCollectedDataType</key>
+				<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+				<key>NSPrivacyCollectedDataTypeLinked</key>
+				<true/>
+				<key>NSPrivacyCollectedDataTypeTracking</key>
+				<false/>
+				<key>NSPrivacyCollectedDataTypePurposes</key>
+				<array>
+					<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				</array>
+			</dict>
+			<!-- The embedded YouTube player may show its own ads, which are not
+			     personalized and never tied to an account. -->
+			<dict>
+				<key>NSPrivacyCollectedDataType</key>
+				<string>NSPrivacyCollectedDataTypeAdvertisingData</string>
+				<key>NSPrivacyCollectedDataTypeLinked</key>
+				<false/>
+				<key>NSPrivacyCollectedDataTypeTracking</key>
+				<false/>
+				<key>NSPrivacyCollectedDataTypePurposes</key>
+				<array>
+					<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
 				</array>
 			</dict>
 	</array>
