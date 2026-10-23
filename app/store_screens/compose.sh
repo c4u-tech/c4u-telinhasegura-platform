@@ -25,9 +25,12 @@ trap 'rm -rf "$tmp"' EXIT
 out="$tmp/out"
 
 # profile, store width, store height, output path with NN in place of the frame.
-# Play takes only 9:16 screenshots, so its tablet set is 1440x2560.
+# Play takes only 9:16 screenshots, so its tablet sets are 9:16 as well: the
+# 7-inch set is 1080x1920 and the 10-inch set 1440x2560, both composed from
+# the same tablet capture.
 profiles=(
   "android_phone 1080 1920 $play/phoneScreenshots/NN.jpg"
+  "android_tablet10 1080 1920 $play/sevenInchScreenshots/NN.jpg"
   "android_tablet10 1440 2560 $play/tenInchScreenshots/NN.jpg"
   "iphone61 1179 2556 $ios/NN_iphone61.jpg"
   "ipad13 2064 2752 $ios/NN_ipad13.jpg"
@@ -130,8 +133,10 @@ done
 
 # All good: a frame dropped from captions.tsv must not linger in the stores,
 # so the old outputs go before the new ones move in.
-mkdir -p "$play/phoneScreenshots" "$play/tenInchScreenshots" "$ios"
-rm -f "$play"/phoneScreenshots/*.jpg "$play"/tenInchScreenshots/*.jpg \
+mkdir -p "$play/phoneScreenshots" "$play/sevenInchScreenshots" \
+  "$play/tenInchScreenshots" "$ios"
+rm -f "$play"/phoneScreenshots/*.jpg "$play"/sevenInchScreenshots/*.jpg \
+  "$play"/tenInchScreenshots/*.jpg \
   "$ios"/*_iphone61.jpg "$ios"/*_ipad13.jpg "$play/featureGraphic.jpg"
 for entry in "${written[@]}"; do
   read -r file _ <<<"$entry"
