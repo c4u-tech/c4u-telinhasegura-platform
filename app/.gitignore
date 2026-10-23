@@ -56,6 +56,9 @@ app.*.map.json
 /fastlane/README.md
 /fastlane/report.xml
 /fastlane/Preview.html
-/fastlane/screenshots/
+/fastlane/screenshots/*
+!/fastlane/screenshots/ios/
+/fastlane/screenshots/**/*_framed.*
+/fastlane/screenshots/**/screenshots.html
 /fastlane/test_output/
 /vendor/bundle/

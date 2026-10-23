@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Telinha Segura: store screenshot frame</title>
+  <!--
+    One store screenshot: a caption over a real screen of the app that runs
+    off the bottom edge. compose.sh renders it with headless Chrome, sized
+    and filled by the query string:
+
+      w, h     canvas size in pixels (the store size)
+      caption  the line above the screen
+      shot     file URL of the raw capture of the screen
+      crop     optional "x0,y0,x1": the part of the capture to show, as
+               fractions of its width and height; it runs to the bottom of
+               the capture, and the default "0,0,1" shows all of it
+
+    Every measure is a proportion of the canvas, so one layout serves the
+    phone, the tablet and the iPad sizes. The crop only zooms into the real
+    capture, so a frame can show the part of the screen its caption is about.
+    If the brand font or the capture fails to fill the frame, the page stays
+    blank, so the render is caught instead of shipping a fallback.
+  -->
+  <style>
+    @font-face {
+      font-family: "Bricolage Grotesque";
+      src: url("../../site/public/fonts/bricolage-grotesque.woff2") format("woff2");
+      font-weight: 300 800;
+    }
+
+    :root {
+      --ink: #1E5B66;
+      --cream: #FBF6EC;
+    }
+
+    html,
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    .frame {
+      position: relative;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    h1 {
+      position: absolute;
+      margin: 0;
+      text-align: center;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.015em;
+      color: var(--cream);
+      text-wrap: balance;
+    }
+
+    .screen {
+      position: absolute;
+      overflow: hidden;
+    }
+
+    .screen img {
+      position: absolute;
+      display: block;
+      max-width: none;
+    }
+
+    .blank > * {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <h1></h1>
+    <div class="screen"><img alt=""></div>
+  </div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const w = Number(q.get("w"));
+    const h = Number(q.get("h"));
+    const [x0, y0, x1] = (q.get("crop") || "0,0,1").split(",").map(Number);
+    // Tablets are squarer than phones: a narrower screen and a caption set
+    // in a narrower measure keep the same balance on the wider canvas. The
+    // Play tablet set is 9:16 like the phones, so it takes the phone measures.
+    const tablet = h / w < 1.7;
+
+    const frame = document.querySelector(".frame");
+    const title = document.querySelector("h1");
+    const screen = document.querySelector(".screen");
+    const shot = document.querySelector("img");
+
+    document.body.style.width = frame.style.width = w + "px";
+    document.body.style.height = frame.style.height = h + "px";
+
+    title.textContent = q.get("caption");
+    const side = (tablet ? 0.12 : 0.07) * w;
+    title.style.left = title.style.right = side + "px";
+    title.style.fontSize = (tablet ? 0.058 : 0.064) * w + "px";
+
+    const cardW = (tablet ? 0.80 : 0.84) * w;
+    screen.style.width = cardW + "px";
+    screen.style.left = (w - cardW) / 2 + "px";
+    screen.style.borderRadius = 0.04 * w + "px";
+    // A faint cream rim keeps the edge of an ink-coloured screen (kid mode)
+    // from melting into the ground.
+    screen.style.boxShadow = `0 0 0 ${0.005 * w}px rgba(251, 246, 236, .22), ` +
+      `0 ${0.02 * w}px ${0.06 * w}px rgba(15, 42, 48, .35)`;
+
+    function fail() {
+      frame.classList.add("blank");
+    }
+
+    function layout() {
+      const brand = '700 10px "Bricolage Grotesque"';
+      const loaded = [...document.fonts].some(
+        (f) => f.family.includes("Bricolage Grotesque") && f.status === "loaded");
+      if (!loaded || !document.fonts.check(brand)) {
+        return fail();
+      }
+      const top = 0.08 * h;
+      const gap = 0.04 * h;
+      // The card runs past the bottom edge, so its lower corners are cut.
+      const cut = 0.03 * h;
+      title.style.top = top + "px";
+      const cardTop = top + title.getBoundingClientRect().height + gap;
+      const cardH = h - cardTop + cut;
+      const imgW = cardW / (x1 - x0);
+      const imgH = imgW * shot.naturalHeight / shot.naturalWidth;
+      // The capture must fill the card down past the edge; a crop that
+      // leaves a gap would show the ground under the screen.
+      if ((1 - y0) * imgH < cardH) {
+        return fail();
+      }
+      screen.style.top = cardTop + "px";
+      screen.style.height = cardH + "px";
+      shot.style.width = imgW + "px";
+      shot.style.left = -x0 * imgW + "px";
+      shot.style.top = -y0 * imgH + "px";
+    }
+
+    shot.addEventListener("error", fail);
+    shot.addEventListener("load", () =>
+      document.fonts.load('700 10px "Bricolage Grotesque"')
+        .then(() => document.fonts.ready)
+        .then(layout, fail));
+    shot.src = q.get("shot");
+  </script>
+</body>
+</html>
