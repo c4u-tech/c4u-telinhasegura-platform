@@ -1,0 +1,3 @@
+tags:
+  store_screens:
+    # Renders store screenshots to files; run with `make store-screens`.

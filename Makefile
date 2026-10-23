@@ -5,7 +5,7 @@
 GO_MODULES := $(sort $(dir $(shell git ls-files -co --exclude-standard -- go.mod '*/go.mod')))
 DART_PACKAGES := $(sort $(dir $(shell git ls-files -co --exclude-standard -- pubspec.yaml '*/pubspec.yaml')))
 
-.PHONY: check fast go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test
+.PHONY: check fast go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test store-screens-raw
 
 check: go-fmt go-vet go-test go-build dart-fmt dart-analyze dart-test ruby-test
 
@@ -35,10 +35,15 @@ dart-analyze:
 
 # Tests marked @TestOn('browser') also run in Chrome: the VM run skips them.
 dart-test:
-	@for p in $(DART_PACKAGES); do (cd $$p || exit 1; flutter test || exit 1; \
+	@for p in $(DART_PACKAGES); do (cd $$p || exit 1; flutter test --exclude-tags store_screens || exit 1; \
 		b=$$(grep -rl "@TestOn('browser')" test 2>/dev/null); \
 		if [ -n "$$b" ]; then flutter test --platform chrome $$b || exit 1; fi) \
 		|| exit 1; done
+
+# Store screenshots from the real app: raw captures, then the composed
+# frames the stores receive. A tool, not a gate (needs Chrome and macOS sips).
+store-screens-raw:
+	@cd app && rm -rf build/store_screens/raw && flutter test --tags store_screens test/store_screens || exit 1
 
 # The store lanes' pure helpers, and a syntax check of every lane file.
 # Plain Ruby with minitest: no gems, so it runs wherever Ruby does.
