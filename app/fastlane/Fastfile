@@ -174,8 +174,11 @@ lane :ios_submit do |options|
   )
 end
 
-desc "Send the store texts (no binary, no images, no review submission)"
-lane :metadata do
+desc "Send the store texts, and the images with images:true (no binary, no review submission)"
+lane :metadata do |options|
+  # Images are heavy and replace what the stores show, so they go only when
+  # asked: fastlane metadata images:true
+  images = options[:images].to_s == "true"
   # supply looks up a release on a track before it sends listing texts, even
   # with every upload skipped. Anchor on production once it has a release,
   # otherwise on internal (the first texts go out before the first rollout).
@@ -192,8 +195,8 @@ lane :metadata do
     metadata_path: File.join(APP_DIR, "fastlane/metadata/android"),
     skip_upload_aab: true,
     skip_upload_apk: true,
-    skip_upload_images: true,
-    skip_upload_screenshots: true,
+    skip_upload_images: !images,
+    skip_upload_screenshots: !images,
     skip_upload_changelogs: true
   )
   # The texts attach to the pubspec version, which is created if it does not
@@ -204,7 +207,9 @@ lane :metadata do
     app_version: StoreRelease.version_name(File.read(File.join(APP_DIR, "pubspec.yaml"))),
     metadata_path: File.join(APP_DIR, "fastlane/metadata/ios"),
     skip_binary_upload: true,
-    skip_screenshots: true,
+    skip_screenshots: !images,
+    screenshots_path: File.join(APP_DIR, "fastlane/screenshots/ios"),
+    overwrite_screenshots: true,
     submit_for_review: false,
     force: true,
     run_precheck_before_submit: false,

@@ -24,6 +24,9 @@ func TestStoreMetadataIsManualFromPrdWithApproval(t *testing.T) {
 	if Dig(wf, "concurrency", "cancel-in-progress") != false {
 		t.Error("a store texts run must never be cancelled by another")
 	}
+	if Dig(wf, "on", "workflow_dispatch", "inputs", "images", "type") != "boolean" || Dig(wf, "on", "workflow_dispatch", "inputs", "images", "default") != false {
+		t.Errorf("the images input must be a boolean defaulting to false: %v", Dig(wf, "on", "workflow_dispatch", "inputs"))
+	}
 	jobs, _ := Dig(wf, "jobs").(map[string]any)
 	if len(jobs) != 1 {
 		t.Fatalf("jobs = %d, want 1", len(jobs))
@@ -48,6 +51,12 @@ func TestStoreMetadataIsManualFromPrdWithApproval(t *testing.T) {
 			}
 			if strings.Contains(r, "bundle exec fastlane metadata") {
 				ran = true
+				if Dig(s, "env", "IMAGES") != "${{ inputs.images }}" {
+					t.Errorf("metadata step env IMAGES = %v, want the images input", Dig(s, "env", "IMAGES"))
+				}
+				if !strings.Contains(r, `"images:$IMAGES"`) {
+					t.Errorf("metadata step run = %q, want it to pass \"images:$IMAGES\"", r)
+				}
 				for k, v := range map[string]string{"ASC_KEY_ID": "${{ vars.ASC_KEY_ID }}", "ASC_ISSUER_ID": "${{ vars.ASC_ISSUER_ID }}", "ASC_KEY_P8": "${{ secrets.ASC_KEY_P8 }}"} {
 					if Dig(s, "env", k) != v {
 						t.Errorf("metadata step env %s = %v, want %s", k, Dig(s, "env", k), v)
