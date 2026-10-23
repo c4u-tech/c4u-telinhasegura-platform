@@ -50,10 +50,12 @@ class Frame {
 
 final outDir = Directory('build/store_screens/raw');
 
-/// Two fictional children: Lia (fox, 5 to 8) and Téo (owl, up to 4).
+/// Three fictional children: Lia (fox, 5 to 8), Téo (owl, up to 4) and
+/// Bia (cat, 9 to 12).
 final demoFamily = familyWith([
   minorJson('m1', 'Lia'),
   minorJson('m2', 'Téo', avatar: 'owl', ageBand: 'ate-4'),
+  minorJson('m3', 'Bia', avatar: 'cat', ageBand: '9-12'),
 ]);
 
 /// The part of a capture a frame shows, as fractions of the capture: from
@@ -195,18 +197,22 @@ void main() {
       await h.pump(tester, initial: '/crianca/sair', size: size);
     }),
     // One row per child, the age band in words.
-    Frame('04', ['5 a 8 anos', '2 a 4 anos'], (tester, size) async {
+    Frame('04', ['5 a 8 anos', '2 a 4 anos', 'Bia'], (tester, size) async {
       final h = Harness(signedIn: true, api: catalogApi())..family = demoFamily;
       await h.pump(tester, initial: '/familia/videos', size: size);
     }),
     // The devices linked to each child.
-    Frame('07', ['Tablet da Lia', 'Celular do Téo'], (tester, size) async {
+    Frame('07', ['Tablet da Lia', 'Celular do Téo', 'Tablet da Bia'], (
+      tester,
+      size,
+    ) async {
       final h = Harness(signedIn: true, api: (_) => http.Response('', 204))
         ..family = demoFamily
         ..pinSet = true;
       h.linkedDevices = [
         device('d1', 'Tablet da Lia', 'm1'),
         device('d2', 'Celular do Téo', 'm2', daysAgo: 1),
+        device('d3', 'Tablet da Bia', 'm3'),
       ];
       unawaited(h.services.familyModel.load());
       await h.pump(tester, initial: '/modo-crianca/aparelhos', size: size);
