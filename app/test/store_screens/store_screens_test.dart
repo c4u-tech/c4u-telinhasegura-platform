@@ -148,7 +148,13 @@ Future<void> capture(WidgetTester tester, Profile p, Frame f) async {
   }
   await tester.runAsync(() async {
     final layer = tester.binding.renderViews.first.debugLayer! as OffsetLayer;
-    final image = await layer.toImage(viewport, pixelRatio: p.dpr);
+    // The frame enlarges its crop to the card's width, so the capture is
+    // rendered that much denser: the shown part keeps at least the device's
+    // pixel density and its text stays sharp.
+    final image = await layer.toImage(
+      viewport,
+      pixelRatio: p.dpr / (crop.x1 - crop.x0),
+    );
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     final file = File('${outDir.path}/${p.name}/${f.number}.png')
       ..createSync(recursive: true);

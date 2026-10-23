@@ -85,7 +85,8 @@
     const h = Number(q.get("h"));
     const [x0, y0, x1] = (q.get("crop") || "0,0,1").split(",").map(Number);
     // Tablets are squarer than phones: a narrower screen and a caption set
-    // in a narrower measure keep the same balance on the wider canvas.
+    // in a narrower measure keep the same balance on the wider canvas. The
+    // Play tablet set is 9:16 like the phones, so it takes the phone measures.
     const tablet = h / w < 1.7;
 
     const frame = document.querySelector(".frame");

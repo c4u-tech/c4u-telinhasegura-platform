@@ -1,6 +1,7 @@
 package repoconfig
 
 import (
+	"fmt"
 	"image/jpeg"
 	"os"
 	"path/filepath"
@@ -13,13 +14,17 @@ import (
 type imageSet struct {
 	name, dir, pattern string
 	w, h, min, max     int
+	// Play takes screenshots only in a 9:16 or 16:9 shape, 1080 to 7680
+	// pixels on each side.
+	play bool
 }
 
 var imageSets = []imageSet{
-	{"Play phone", "app/fastlane/metadata/android/pt-BR/images/phoneScreenshots", `^(\d\d)\.jpg$`, 1080, 1920, 2, 8},
-	{"Play 10-inch tablet", "app/fastlane/metadata/android/pt-BR/images/tenInchScreenshots", `^(\d\d)\.jpg$`, 1600, 2560, 2, 8},
-	{"App Store iPhone 6.1-inch", "app/fastlane/screenshots/ios/pt-BR", `^(\d\d)_iphone61\.jpg$`, 1179, 2556, 1, 10},
-	{"App Store iPad 13-inch", "app/fastlane/screenshots/ios/pt-BR", `^(\d\d)_ipad13\.jpg$`, 2064, 2752, 1, 10},
+	{"Play phone", "app/fastlane/metadata/android/pt-BR/images/phoneScreenshots", `^(\d\d)\.jpg$`, 1080, 1920, 2, 8, true},
+	// Play shows an app on tablets only with at least four tablet images.
+	{"Play 10-inch tablet", "app/fastlane/metadata/android/pt-BR/images/tenInchScreenshots", `^(\d\d)\.jpg$`, 1440, 2560, 4, 8, true},
+	{"App Store iPhone 6.1-inch", "app/fastlane/screenshots/ios/pt-BR", `^(\d\d)_iphone61\.jpg$`, 1179, 2556, 1, 10, false},
+	{"App Store iPad 13-inch", "app/fastlane/screenshots/ios/pt-BR", `^(\d\d)_ipad13\.jpg$`, 2064, 2752, 1, 10, false},
 }
 
 func frameNumbers(t *testing.T, s imageSet) []string {
@@ -69,8 +74,27 @@ func TestStoreScreenshotsHaveTheStoreSizes(t *testing.T) {
 			if cfg.Width != s.w || cfg.Height != s.h {
 				t.Errorf("%s/%s is %dx%d, want %dx%d", s.name, e.Name(), cfg.Width, cfg.Height, s.w, s.h)
 			}
+			if s.play {
+				if msg := playShapeProblem(cfg.Width, cfg.Height); msg != "" {
+					t.Errorf("%s/%s: %s", s.name, e.Name(), msg)
+				}
+			}
 		}
 	}
+}
+
+// playShapeProblem says why Play would refuse a screenshot of this size, or
+// returns "" when it takes it.
+func playShapeProblem(w, h int) string {
+	for _, side := range []int{w, h} {
+		if side < 1080 || side > 7680 {
+			return fmt.Sprintf("%dx%d: Play takes 1080 to 7680 pixels per side", w, h)
+		}
+	}
+	if w*16 != h*9 && w*9 != h*16 {
+		return fmt.Sprintf("%dx%d: Play takes only 9:16 or 16:9", w, h)
+	}
+	return ""
 }
 
 // deliver uploads every image in the App Store folder, so a stray file
