@@ -142,31 +142,51 @@ var (
 	proofWords = regexp.MustCompile(`(?i)(milh[oõ]es|milhares|mil fam[ií]lias|mais de mil|mais de \d|thousands of|millions of|★|estrelas|avalia[cç][aã]o \d|downloads)`)
 )
 
+// copyRuleViolations lists the broken copy rules of one text. apple adds the
+// App Store rule for visible fields: no wording aimed at kids outside the
+// Kids category, in Portuguese and English.
+func copyRuleViolations(text string, apple bool) []string {
+	var out []string
+	if strings.Contains(text, "!") {
+		out = append(out, "no exclamation marks")
+	}
+	for _, m := range bareNoAds.FindAllStringSubmatch(text, -1) {
+		if m[1] == "" {
+			out = append(out, "\""+m[0]+"\" must read \"sem anúncios nossos\"")
+		}
+	}
+	if proofWords.MatchString(text) {
+		out = append(out, "no user numbers, ratings or testimonials ("+proofWords.FindString(text)+")")
+	}
+	if apple {
+		for _, re := range []*regexp.Regexp{kidsWord, kidsWordEN} {
+			if re.MatchString(text) {
+				out = append(out, "the App Store bars \""+re.FindString(text)+"\" outside the Kids category")
+			}
+		}
+	}
+	return out
+}
+
 func TestStoreTextsKeepTheCopyRules(t *testing.T) {
 	descriptions := map[string]bool{
 		iosMeta + "/pt-BR/description.txt": true, iosMeta + "/en-GB/description.txt": true,
 		androidMeta + "/pt-BR/full_description.txt": true,
 	}
-	appleVisible := []string{"name.txt", "subtitle.txt", "promotional_text.txt", "description.txt"}
+	appleVisible := map[string]bool{}
 	var all []string
 	for _, loc := range []string{"pt-BR", "en-GB"} {
 		for _, f := range []string{"name.txt", "subtitle.txt", "keywords.txt", "promotional_text.txt", "description.txt"} {
-			all = append(all, iosMeta+"/"+loc+"/"+f)
+			rel := iosMeta + "/" + loc + "/" + f
+			all = append(all, rel)
+			appleVisible[rel] = f != "keywords.txt"
 		}
 	}
 	all = append(all, androidMeta+"/pt-BR/title.txt", androidMeta+"/pt-BR/short_description.txt", androidMeta+"/pt-BR/full_description.txt")
 	for _, rel := range all {
 		s := metaText(t, rel)
-		if strings.Contains(s, "!") {
-			t.Errorf("%s: no exclamation marks", rel)
-		}
-		for _, m := range bareNoAds.FindAllStringSubmatch(s, -1) {
-			if m[1] == "" {
-				t.Errorf("%s: %q must read \"sem anúncios nossos\"", rel, m[0])
-			}
-		}
-		if proofWords.MatchString(s) {
-			t.Errorf("%s: no user numbers, ratings or testimonials (%q)", rel, proofWords.FindString(s))
+		for _, v := range copyRuleViolations(s, appleVisible[rel]) {
+			t.Errorf("%s: %s", rel, v)
 		}
 		if !descriptions[rel] {
 			if strings.Contains(strings.ToLower(s), "youtube") {
@@ -174,17 +194,6 @@ func TestStoreTextsKeepTheCopyRules(t *testing.T) {
 			}
 			if freeWord.MatchString(s) {
 				t.Errorf("%s: price only in the long descriptions", rel)
-			}
-		}
-	}
-	for _, loc := range []string{"pt-BR", "en-GB"} {
-		for _, f := range appleVisible {
-			rel := iosMeta + "/" + loc + "/" + f
-			s := metaText(t, rel)
-			for _, re := range []*regexp.Regexp{kidsWord, kidsWordEN} {
-				if re.MatchString(s) {
-					t.Errorf("%s: the App Store bars %q outside the Kids category", rel, re.FindString(s))
-				}
 			}
 		}
 	}
