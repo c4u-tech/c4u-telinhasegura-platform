@@ -315,3 +315,41 @@ func TestTokenThrottle(t *testing.T) {
 		t.Fatalf("11th: %v", err)
 	}
 }
+
+func TestSweepInvitationsDeletesEndedOnesThirtyDaysLater(t *testing.T) {
+	f := newFixture(t)
+	ana := f.owner("ana@example.com")
+	var familyID string
+	if err := f.pool.QueryRow(ctx, `SELECT family_id::text FROM family_members WHERE account_id = $1::uuid`, ana).Scan(&familyID); err != nil {
+		t.Fatal(err)
+	}
+	day, m := 24*time.Hour, time.Minute
+	seed := func(email string, expires time.Time, accepted, revoked any) {
+		t.Helper()
+		if _, err := f.pool.Exec(ctx, `INSERT INTO family_invitations (token_hash, family_id, email, invited_by, created_at, expires_at, accepted_at, revoked_at)
+			VALUES ($1, $2::uuid, $3, $4::uuid, $5, $6, $7, $8)`,
+			[]byte(email), familyID, email, ana, expires.Add(-7*day), expires, accepted, revoked); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seed("expired-30d@example.com", f.now.Add(-30*day-m), nil, nil)
+	seed("revoked-30d@example.com", f.now.Add(-20*day), nil, f.now.Add(-30*day-m))
+	seed("expired-29d@example.com", f.now.Add(-29*day), nil, nil)
+	seed("revoked-29d@example.com", f.now.Add(5*day), nil, f.now.Add(-29*day))
+	seed("pending@example.com", f.now.Add(day), nil, nil)
+	seed("accepted@example.com", f.now.Add(-90*day), f.now.Add(-95*day), nil)
+
+	if err := f.svc.SweepInvitations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{"expired-30d@example.com", "revoked-30d@example.com"} {
+		if f.count(`SELECT count(*) FROM family_invitations WHERE email = $1`, gone) != 0 {
+			t.Errorf("%s: kept", gone)
+		}
+	}
+	for _, kept := range []string{"expired-29d@example.com", "revoked-29d@example.com", "pending@example.com", "accepted@example.com"} {
+		if f.count(`SELECT count(*) FROM family_invitations WHERE email = $1`, kept) != 1 {
+			t.Errorf("%s: deleted", kept)
+		}
+	}
+}
