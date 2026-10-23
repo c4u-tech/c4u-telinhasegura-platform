@@ -113,7 +113,9 @@ void main() {
     });
 
     test(
-      'the privacy manifest declares no tracking and the data collected',
+      // The collected data types, each with its purposes, are checked
+      // entry by entry in tools/repoconfig.
+      'the privacy manifest declares no tracking and ships in the bundle',
       () {
         final xml = _read('ios/Runner/PrivacyInfo.xcprivacy');
         expect(
@@ -124,20 +126,6 @@ void main() {
           RegExp(r'<key>NSPrivacyTrackingDomains</key>\s*<array/>')
               .hasMatch(xml),
           isTrue,
-        );
-        for (final type in [
-          'NSPrivacyCollectedDataTypeEmailAddress',
-          'NSPrivacyCollectedDataTypeUserID',
-          'NSPrivacyCollectedDataTypeOtherUserContent',
-          'NSPrivacyCollectedDataTypeProductInteraction',
-        ]) {
-          expect(xml, contains(type));
-        }
-        expect(
-          xml,
-          isNot(
-            contains('NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising'),
-          ),
         );
         expect(
           _read('ios/Runner.xcodeproj/project.pbxproj'),
