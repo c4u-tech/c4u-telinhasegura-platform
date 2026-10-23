@@ -13,3 +13,8 @@ indent_style = tab
 
 [Makefile]
 indent_style = tab
+
+# Google Play takes these files whole, so a final newline would become part
+# of the listing.
+[app/fastlane/metadata/android/**.txt]
+insert_final_newline = false

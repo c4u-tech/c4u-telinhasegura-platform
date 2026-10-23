@@ -1,7 +1,9 @@
 package sitecheck
 
 import (
+	"encoding/json"
 	"fmt"
+	"image/png"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -424,6 +426,154 @@ func TestLegalPagesShowTheTermsVersion(t *testing.T) {
 	for _, path := range []string{"/privacidade", "/termos"} {
 		if !strings.Contains(pages[path].Text, want) {
 			t.Errorf("%s does not show %q", path, want)
+		}
+	}
+}
+
+const siteOrigin = "https://telinhasegura.coding4u.tech"
+
+func canonicalFor(path string) string {
+	if path == "/" {
+		return siteOrigin + "/"
+	}
+	return siteOrigin + path
+}
+
+// Every public page previews well when shared (WhatsApp reads Open Graph)
+// and names its one address.
+func TestEveryPublicPageHasItsPreviewAndAddress(t *testing.T) {
+	for _, path := range pagePaths {
+		p, err := LoadPage(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.Canonical != canonicalFor(path) {
+			t.Errorf("%s: canonical = %q, want %q", path, p.Canonical, canonicalFor(path))
+		}
+		want := map[string]string{
+			"og:url": canonicalFor(path), "og:locale": "pt_BR", "og:site_name": "Telinha Segura",
+			"og:image": siteOrigin + "/og/telinha-segura.png", "og:image:width": "1200", "og:image:height": "630",
+		}
+		for k, v := range want {
+			if p.Props[k] != v {
+				t.Errorf("%s: %s = %q, want %q", path, k, p.Props[k], v)
+			}
+		}
+		for _, k := range []string{"og:title", "og:description", "og:type", "og:image:alt"} {
+			if strings.TrimSpace(p.Props[k]) == "" {
+				t.Errorf("%s: no %s", path, k)
+			}
+		}
+		if p.Meta["twitter:card"] != "summary_large_image" {
+			t.Errorf("%s: twitter:card = %q", path, p.Meta["twitter:card"])
+		}
+	}
+}
+
+func TestPreviewImageIsTheSizeSharesExpect(t *testing.T) {
+	f, err := os.Open(filepath.Join(Root(), "site", "public", "og", "telinha-segura.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	if st.Size() > 600*1024 {
+		t.Errorf("preview image is %d bytes, keep it under 600 KB", st.Size())
+	}
+	cfg, err := png.DecodeConfig(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Width != 1200 || cfg.Height != 630 {
+		t.Errorf("preview image is %dx%d, want 1200x630", cfg.Width, cfg.Height)
+	}
+}
+
+func TestRobotsAndSitemapListThePublicPages(t *testing.T) {
+	robots, err := os.ReadFile(filepath.Join(Root(), "site", "public", "robots.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := string(robots)
+	if !strings.Contains(r, "User-agent: *") || !strings.Contains(r, "Allow: /") || !strings.Contains(r, "Sitemap: "+siteOrigin+"/sitemap.xml") {
+		t.Errorf("robots.txt must allow every crawler and name the sitemap:\n%s", r)
+	}
+	if strings.Contains(r, "Disallow: /\n") {
+		t.Error("robots.txt must not block the site")
+	}
+	sm, err := os.ReadFile(filepath.Join(Root(), "site", "public", "sitemap.xml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range pagePaths {
+		if !strings.Contains(string(sm), "<loc>"+canonicalFor(path)+"</loc>") {
+			t.Errorf("sitemap lacks %s", canonicalFor(path))
+		}
+	}
+	if strings.Contains(string(sm), "404") {
+		t.Error("sitemap lists the 404 page")
+	}
+	if n := strings.Count(string(sm), "<lastmod>"); n != len(pagePaths) {
+		t.Errorf("sitemap has %d lastmod, want %d", n, len(pagePaths))
+	}
+}
+
+// Any structured data block, on any page, is valid JSON and never claims a
+// rating or review the app does not have.
+func TestStructuredDataParsesAndClaimsNoRating(t *testing.T) {
+	for path, p := range mustPages(t) {
+		for _, raw := range p.JSONLD {
+			if strings.Contains(raw, "aggregateRating") || strings.Contains(raw, "review") {
+				t.Errorf("%s: structured data claims ratings or reviews", path)
+			}
+			var v any
+			if err := json.Unmarshal([]byte(raw), &v); err != nil {
+				t.Errorf("%s: JSON-LD does not parse: %v", path, err)
+			}
+		}
+	}
+}
+
+// Structured data names who makes the app and what it is.
+func TestHomeDescribesTheAppAndItsMaker(t *testing.T) {
+	p, err := LoadPage("/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	types := map[string]map[string]any{}
+	for _, raw := range p.JSONLD {
+		var v map[string]any
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			t.Fatalf("JSON-LD does not parse: %v", err)
+		}
+		if graph, ok := v["@graph"].([]any); ok {
+			for _, g := range graph {
+				m := g.(map[string]any)
+				types[fmt.Sprint(m["@type"])] = m
+			}
+		}
+	}
+	for _, typ := range []string{"Organization", "WebSite", "MobileApplication"} {
+		if types[typ] == nil {
+			t.Errorf("JSON-LD lacks %s", typ)
+		}
+	}
+	if o := types["Organization"]; o != nil {
+		if o["name"] != "Coding4u" || o["legalName"] != "Coding For You Tecnologia Ltda" {
+			t.Errorf("Organization = %v", o)
+		}
+		// The app's icon is not the company's mark.
+		if o["logo"] != nil {
+			t.Errorf("Organization logo = %v, want none", o["logo"])
+		}
+	}
+	if a := types["MobileApplication"]; a != nil {
+		if a["name"] != "Telinha Segura" || a["operatingSystem"] != "Android, iOS" || a["url"] != canonicalFor("/") {
+			t.Errorf("MobileApplication = %v", a)
+		}
+		offers, _ := a["offers"].(map[string]any)
+		if offers["price"] != "0" || offers["priceCurrency"] != "BRL" {
+			t.Errorf("MobileApplication offers = %v", offers)
 		}
 	}
 }

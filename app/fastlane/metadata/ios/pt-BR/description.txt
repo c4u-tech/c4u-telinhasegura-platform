@@ -1,0 +1,23 @@
+No Telinha Segura, os vídeos que seu filho assiste são escolhidos por gente, não por algoritmo. Pais, cuidadores e pessoas que trabalham com crianças assistem a cada vídeo antes de ele chegar à telinha da sua família.
+
+GENTE QUE VIU ANTES
+Cada vídeo passa por pelo menos duas pessoas antes de entrar. A curadoria responde a uma lista de perguntas sobre violência, linguagem, consumo e publicidade, saúde e ritmo, e diz a partir de que idade o vídeo serve. Na dúvida, quem decide é a equipe da Coding4u, e o vídeo fica fora da telinha até lá. Os vídeos aprovados continuam sendo revistos. Se algo escapar, você denuncia, e o vídeo sai da telinha na hora.
+
+UMA TELINHA COM FIM
+Nada de vídeo atrás de vídeo sem parar. Os vídeos ficam em prateleiras por tema, e as prateleiras acabam. Nos pacotinhos, uma pausa separa um vídeo do outro, e o último termina com um “Fim”. Quando o tempo do dia acaba, a telinha dorme, sem cronômetro à vista.
+
+VOCÊ NO CONTROLE
+• Um perfil para cada criança, na faixa de idade dela, como 2 a 4 anos
+• Limite diário de tempo de tela e horário para cada uma, e mais tempo quando você quiser
+• Só sai do modo criança quem sabe o PIN dos pais
+• Até um link dentro de um vídeo pede o PIN antes de abrir
+• O celular ou o tablet da criança vinculado à sua família
+• As regras valem no nosso servidor, não só no aparelho
+
+O QUE PEDIMOS E O QUE NÃO FAZEMOS
+Da criança, pedimos só um apelido, um avatar e a faixa de idade: nada de foto, nome completo ou data de nascimento. Guardamos o que ela assiste para contar o tempo de tela e mostrar a você. Não temos anúncios nossos, compras no app nem ferramentas de análise. Os vídeos vêm do YouTube, e alguns podem exibir anúncios do próprio YouTube. O Telinha Segura é gratuito.
+
+QUEM FAZ
+O Telinha Segura nasceu no Brasil. Veja como a curadoria escolhe os vídeos em telinhasegura.coding4u.tech/curadoria e como cuidamos dos seus dados em telinhasegura.coding4u.tech/privacidade. Dúvidas: telinhasegura.coding4u.tech/suporte.
+
+Feito pela Coding4u.
