@@ -64,6 +64,40 @@ func TestDevicesHideIdleExpired(t *testing.T) {
 	}
 }
 
+func TestSweepDevicesDeletesTheIdleExpired(t *testing.T) {
+	f := newFixture(t)
+	owner := f.owner("ana@example.com")
+	lia := f.minor(owner, "Lia")
+	f.withPIN(owner)
+	for range 3 {
+		f.linked(owner, lia)
+	}
+	list, err := f.svc.Devices(ctx, owner)
+	if err != nil || len(list) != 3 {
+		t.Fatalf("list %+v %v", list, err)
+	}
+	idle := 180 * 24 * time.Hour
+	f.seenAt(list[0].ID, f.now.Add(-idle-time.Second))
+	f.seenAt(list[1].ID, f.now.Add(-idle))
+	f.seenAt(list[2].ID, f.now.Add(-time.Hour))
+
+	if err := f.svc.SweepDevices(ctx); err != nil {
+		t.Fatal(err)
+	}
+	exists := func(id string) bool {
+		return f.count(`SELECT count(*) FROM devices WHERE id = $1::uuid`, id) == 1
+	}
+	if exists(list[0].ID) {
+		t.Error("a device idle past 180 days was kept")
+	}
+	if !exists(list[1].ID) {
+		t.Error("a device idle exactly 180 days was deleted")
+	}
+	if !exists(list[2].ID) {
+		t.Error("a device in use was deleted")
+	}
+}
+
 func TestProfilesAndSwitch(t *testing.T) {
 	f := newFixture(t)
 	owner := f.owner("ana@example.com")

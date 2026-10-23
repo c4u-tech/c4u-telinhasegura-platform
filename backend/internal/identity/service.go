@@ -132,6 +132,21 @@ func (s *Service) ConfirmEmail(ctx context.Context, token string) error {
 	return nil
 }
 
+// keepExpiredToken is how long an email token stays after it expires.
+// The message that carried it is worth sending only until the token
+// expires, and a message that ended unsent keeps its recipient for seven
+// days more; deleting an account finds that message through the new
+// address on its email-change tokens, so the tokens must outlive it.
+const keepExpiredToken = 7 * 24 * time.Hour
+
+// SweepEmailTokens deletes the email tokens, used or not, that expired
+// more than seven days ago, and with them the new address an email change
+// asked for. A token is single-use and short-lived, so nothing reads it
+// after that. It is idempotent, so every replica may run it.
+func (s *Service) SweepEmailTokens(ctx context.Context) error {
+	return s.d.Store.deleteTokensExpiredBefore(ctx, s.d.Now().Add(-keepExpiredToken))
+}
+
 func (s *Service) sendVerification(ctx context.Context, accountID, email string) error {
 	token, err := s.issueToken(ctx, accountID, purposeVerify, "", verifyTTL)
 	if err != nil {

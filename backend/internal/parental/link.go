@@ -144,3 +144,12 @@ func (s *Service) AuthenticateDevice(ctx context.Context, token string) (Princip
 	}
 	return p, nil
 }
+
+// SweepDevices deletes the devices idle for over 180 days. Such a device
+// can no longer sign in and no list shows it, so its name and dates go at
+// once rather than waiting for it to call again, which it may never do.
+// It is idempotent, so every replica may run it.
+func (s *Service) SweepDevices(ctx context.Context) error {
+	_, err := s.d.Pool.Exec(ctx, `DELETE FROM devices WHERE last_seen_at < $1`, s.now().Add(-deviceIdle))
+	return err
+}
