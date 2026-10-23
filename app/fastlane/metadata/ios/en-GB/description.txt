@@ -1,0 +1,23 @@
+With Telinha Segura, the videos your child watches are chosen by people, not by an algorithm. Parents, carers and people who work with children watch every video before it reaches your family's screen.
+
+PEOPLE WATCHED IT FIRST
+Every video is seen by at least two people before it goes in. The review team answers a set of questions on violence, language, consumerism and advertising, health and pace, and sets the youngest age the video suits. When in doubt, the Coding4u team decides, and the video stays off the screen until then. Approved videos are reviewed again over time. If something slips through, you report it and it comes off your family's screen straight away.
+
+A SCREEN THAT ENDS
+No endless stream of videos. Videos sit on themed shelves, and the shelves end. In a pacotinho (a small bundle), a short pause comes between videos and the last one ends with “Fim”. When the day's time is up, the screen goes to sleep, with no countdown ticking away.
+
+YOU'RE IN CONTROL
+• A profile for each child, in their age band, such as 2 to 4 years
+• A daily time limit and viewing hours for each child, and more time whenever you choose
+• Only someone who knows the parents' PIN can leave child mode
+• Even a link inside a video asks for the PIN before it opens
+• Your child's phone or tablet linked to your family
+• The rules are enforced on our server, not just on the device
+
+WHAT WE ASK FOR AND WHAT WE DON'T DO
+For each child we ask only for a nickname, an avatar and an age band: no photo, full name or date of birth. We keep a record of what they watch to count screen time and show it to you. There are no ads of our own, no in-app purchases and no analytics tools. Videos come from YouTube, and some may show YouTube's own ads. Telinha Segura is free.
+
+WHO MAKES IT
+Telinha Segura is made in Brazil, and the app is in Brazilian Portuguese. See how the review team chooses videos at telinhasegura.coding4u.tech/curadoria and how we look after your data at telinhasegura.coding4u.tech/privacidade. Questions? Visit telinhasegura.coding4u.tech/suporte.
+
+Made by Coding4u.

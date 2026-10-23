@@ -20,6 +20,16 @@ module StoreRelease
     Array(codes).include?(n)
   end
 
+  # The track and version code Play needs to find a release before it takes
+  # listing texts: production once it has a release, else internal.
+  def listing_anchor(production_codes, internal_codes)
+    prod = Array(production_codes)
+    return ["production", prod.max] unless prod.empty?
+    internal = Array(internal_codes)
+    return ["internal", internal.max] unless internal.empty?
+    raise ArgumentError, "no release on production or internal to attach the listing texts to"
+  end
+
   def version_name(pubspec_text)
     match = pubspec_text.match(/^version:\s*(\d+\.\d+\.\d+)/)
     raise ArgumentError, "pubspec.yaml has no version" unless match
