@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.2.0...app-v0.3.0) (2026-10-23)
+
+
+### Features
+
+* lead the App Store listing with the parent ([#55](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/55)) ([e06f0b9](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/e06f0b9adf87d201b12187a6a0460dd581553ed2))
+* store listing texts and site link previews ([#47](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/47)) ([f83352e](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/f83352ed0966bb39c789fa799cfe3d1e600881f6))
+* store screenshots and the Play feature graphic from the real app ([#51](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/51)) ([9c9b3f6](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/9c9b3f6394333031b432b05b009b6e49da503745))
+
+
+### Bug Fixes
+
+* delete ended invitations, idle devices and expired email tokens ([#54](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/54)) ([937a660](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/937a660a6db499ffa1799ada24f267232b739a23))
+
 ## [0.2.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.1.1...app-v0.2.0) (2026-10-22)
 
 
