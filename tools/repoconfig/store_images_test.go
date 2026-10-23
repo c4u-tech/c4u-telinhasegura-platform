@@ -3,6 +3,7 @@ package repoconfig
 import (
 	"fmt"
 	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,6 +24,7 @@ var imageSets = []imageSet{
 	{"Play phone", "app/fastlane/metadata/android/pt-BR/images/phoneScreenshots", `^(\d\d)\.jpg$`, 1080, 1920, 2, 8, true},
 	// Play shows an app on tablets only with at least four tablet images.
 	{"Play 10-inch tablet", "app/fastlane/metadata/android/pt-BR/images/tenInchScreenshots", `^(\d\d)\.jpg$`, 1440, 2560, 4, 8, true},
+	{"Play 7-inch tablet", "app/fastlane/metadata/android/pt-BR/images/sevenInchScreenshots", `^(\d\d)\.jpg$`, 1080, 1920, 4, 8, true},
 	{"App Store iPhone 6.1-inch", "app/fastlane/screenshots/ios/pt-BR", `^(\d\d)_iphone61\.jpg$`, 1179, 2556, 1, 10, false},
 	{"App Store iPad 13-inch", "app/fastlane/screenshots/ios/pt-BR", `^(\d\d)_ipad13\.jpg$`, 2064, 2752, 1, 10, false},
 }
@@ -170,5 +172,30 @@ func TestFeatureGraphicIsThePlaySize(t *testing.T) {
 	}
 	if cfg.Width != 1024 || cfg.Height != 500 {
 		t.Errorf("feature graphic is %dx%d, want 1024x500", cfg.Width, cfg.Height)
+	}
+}
+
+// Play shows the listing with a high-resolution icon: a 512x512 PNG of at
+// most 1 MB.
+func TestPlayIconIsThePlaySize(t *testing.T) {
+	path := filepath.Join(Root(), "app/fastlane/metadata/android/pt-BR/images/icon.png")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() > 1<<20 {
+		t.Errorf("icon is %d bytes, Play takes at most 1 MB", info.Size())
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	cfg, err := png.DecodeConfig(f)
+	if err != nil {
+		t.Fatalf("icon is not a PNG: %v", err)
+	}
+	if cfg.Width != 512 || cfg.Height != 512 {
+		t.Errorf("icon is %dx%d, want 512x512", cfg.Width, cfg.Height)
 	}
 }
