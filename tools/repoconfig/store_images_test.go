@@ -48,7 +48,10 @@ func TestStoreScreenshotsHaveTheStoreSizes(t *testing.T) {
 			t.Errorf("%s: %d images, the store takes %d to %d", s.name, len(nums), s.min, s.max)
 		}
 		re := regexp.MustCompile(s.pattern)
-		entries, _ := os.ReadDir(filepath.Join(Root(), s.dir))
+		entries, err := os.ReadDir(filepath.Join(Root(), s.dir))
+		if err != nil {
+			t.Fatalf("%s: %v", s.name, err)
+		}
 		for _, e := range entries {
 			if !re.MatchString(e.Name()) {
 				continue
@@ -66,6 +69,22 @@ func TestStoreScreenshotsHaveTheStoreSizes(t *testing.T) {
 			if cfg.Width != s.w || cfg.Height != s.h {
 				t.Errorf("%s/%s is %dx%d, want %dx%d", s.name, e.Name(), cfg.Width, cfg.Height, s.w, s.h)
 			}
+		}
+	}
+}
+
+// deliver uploads every image in the App Store folder, so a stray file
+// there would reach the store.
+func TestAppStoreFolderHoldsOnlyTheScreenshots(t *testing.T) {
+	dir := "app/fastlane/screenshots/ios/pt-BR"
+	entries, err := os.ReadDir(filepath.Join(Root(), dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(`^\d\d_(iphone61|ipad13)\.jpg$`)
+	for _, e := range entries {
+		if !re.MatchString(e.Name()) {
+			t.Errorf("%s/%s: only NN_iphone61.jpg and NN_ipad13.jpg belong here", dir, e.Name())
 		}
 	}
 }
