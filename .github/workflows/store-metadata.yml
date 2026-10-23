@@ -1,13 +1,19 @@
 name: store-metadata
 
 # Sends the store listing texts kept in app/fastlane/metadata, with the
-# maintainer's approval. No build, no images, no review submission. On Google
-# Play the texts go live at once; on the App Store they belong to the version
-# being prepared (the app version in pubspec.yaml) and reach users when that
-# version is released.
+# maintainer's approval, and the screenshots and the Play feature graphic too
+# when the images box is ticked (they replace the ones the stores show). No
+# build, no review submission. On Google Play the texts go live at once; on
+# the App Store they belong to the version being prepared (the app version in
+# pubspec.yaml) and reach users when that version is released.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      images:
+        description: Send the screenshots and the feature graphic too
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -40,7 +46,8 @@ jobs:
       - name: Send the store texts
         working-directory: app
         env:
+          IMAGES: ${{ inputs.images }}
           ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: bundle exec fastlane metadata
+        run: bundle exec fastlane metadata "images:$IMAGES"
