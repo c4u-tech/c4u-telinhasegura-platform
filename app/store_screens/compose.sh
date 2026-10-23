@@ -2,12 +2,14 @@
 # Composes the store images from the raw captures of the app: each frame is
 # frame.html (a caption over the real screen) rendered by headless Chrome at
 # the exact store size, then saved as JPEG; the Play feature graphic is
-# feature.html at 1024x500. Run from the repository root, after
-# `make store-screens-raw` has written app/build/store_screens/raw.
+# feature.html at 1024x500. Runs from the repository root wherever it is
+# started, after `make store-screens-raw` has written
+# app/build/store_screens/raw.
 #
 # Everything is rendered and checked in a temporary folder first; the
 # committed images are replaced only when every check passes.
 set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
 
 chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 here="app/store_screens"
