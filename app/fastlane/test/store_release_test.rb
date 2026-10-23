@@ -74,6 +74,19 @@ class StoreReleaseTest < Minitest::Test
     assert_nil StoreRelease.in_progress_release(nil)
   end
 
+  def test_promotion_releases_in_full_on_an_app_never_published
+    # Play refuses a staged rollout until the app's first release is out.
+    assert_equal({ release_status: "completed" }, StoreRelease.promotion([]))
+    assert_equal({ release_status: "completed" }, StoreRelease.promotion(nil))
+    assert_equal({ release_status: "completed" }, StoreRelease.promotion([Release.new("draft", nil, ["40"])]))
+  end
+
+  def test_promotion_stages_once_the_app_has_been_published
+    %w[completed inProgress halted].each do |status|
+      assert_equal({ rollout: "0.2" }, StoreRelease.promotion([Release.new(status, nil, ["40"])]), status)
+    end
+  end
+
   def test_release_status
     assert_equal "completed", StoreRelease.release_status(nil)
     assert_equal "completed", StoreRelease.release_status("")

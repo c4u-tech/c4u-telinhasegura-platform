@@ -60,6 +60,14 @@ module StoreRelease
     { version_code: release.version_codes.map(&:to_i).max, fraction: release.user_fraction }
   end
 
+  # How a build goes to Play production. Play refuses a staged rollout on an
+  # app that has never been published, so the first release goes out in
+  # full; once production has had a release, each one starts at 20%.
+  def promotion(production_releases)
+    published = Array(production_releases).any? { |r| %w[completed inProgress halted].include?(r.status) }
+    published ? { rollout: "0.2" } : { release_status: "completed" }
+  end
+
   # An app never published on Play only accepts draft releases, so the
   # status of the internal release can be overridden until it is.
   def release_status(value)
