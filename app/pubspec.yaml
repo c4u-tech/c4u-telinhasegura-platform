@@ -1,7 +1,7 @@
 name: telinha_segura
 description: "Telinha Segura: vídeos escolhidos por quem cuida de crianças."
 publish_to: 'none'
-version: 0.2.0+3
+version: 0.3.0+4
 
 environment:
   sdk: ^3.13.5
