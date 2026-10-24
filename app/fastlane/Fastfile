@@ -162,12 +162,15 @@ lane :ios_submit do |options|
   UI.user_error!("App Store Connect has no app #{APP_ID}") unless app
   StoreRelease.hold_and_phase(app, version, platform: Spaceship::ConnectAPI::Platform::IOS)
   # Metadata stays as it is in App Store Connect; this step only picks the
-  # build and submits it.
+  # build and submits it. The paths still matter: deliver refuses to start
+  # when its default folder holds the "ios" and "android" folders.
   upload_to_app_store(
     api_key: api_key,
     app_identifier: APP_ID,
     app_version: version,
     build_number: build_number_option(options).to_s,
+    metadata_path: File.join(APP_DIR, "fastlane/metadata/ios"),
+    screenshots_path: File.join(APP_DIR, "fastlane/screenshots/ios"),
     skip_binary_upload: true,
     skip_metadata: true,
     skip_screenshots: true,
