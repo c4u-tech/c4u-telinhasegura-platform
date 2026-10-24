@@ -135,17 +135,21 @@ end
 
 desc "Promote the build on Play internal testing to production, staged"
 lane :android_promote do |options|
+  promotion = StoreRelease.promotion(play_production_releases)
   upload_to_play_store(
     package_name: APP_ID,
     json_key: play_credentials,
     track: "internal",
     track_promote_to: "production",
     version_code: build_number_option(options),
-    **StoreRelease.promotion(play_production_releases),
+    **promotion,
     skip_upload_aab: true,
     skip_upload_apk: true,
     **no_listing_changes,
   )
+  if promotion[:release_status] == "draft"
+    UI.important("Play production release left as a draft: send it for review in Play Console (Production > Edit release > Review release).")
+  end
 end
 
 desc "Submit the TestFlight build for App Store review, phased and held"
