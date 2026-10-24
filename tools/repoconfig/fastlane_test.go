@@ -116,3 +116,22 @@ func TestMetadataLaneSendsImagesOnlyOnRequest(t *testing.T) {
 		}
 	}
 }
+
+var deliverCall = regexp.MustCompile(`(?s)upload_to_app_store\((.*?)\n\s*\)`)
+
+// fastlane/metadata holds both platforms, and deliver refuses to start when
+// its default metadata folder has an "ios" or "android" folder in it, even
+// with skip_metadata. Every deliver call must point at the iOS folders.
+func TestEveryDeliverCallPointsAtTheIOSFolders(t *testing.T) {
+	calls := deliverCall.FindAllStringSubmatch(read(t, "app/fastlane/Fastfile"), -1)
+	if len(calls) == 0 {
+		t.Fatal("Fastfile has no upload_to_app_store call")
+	}
+	for i, c := range calls {
+		for _, want := range []string{`metadata_path: File.join(APP_DIR, "fastlane/metadata/ios")`, `screenshots_path: File.join(APP_DIR, "fastlane/screenshots/ios")`} {
+			if !strings.Contains(c[1], want) {
+				t.Errorf("upload_to_app_store call %d lacks %s", i+1, want)
+			}
+		}
+	}
+}
