@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.3.0...app-v0.4.0) (2026-10-23)
+
+
+### Features
+
+* add the Play high-res icon and 7-inch tablet screenshots ([#60](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/60)) ([7185a7b](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/7185a7b3430e6ca709588758e69c7f429d42b67a))
+
+
+### Bug Fixes
+
+* **store:** release the first Play production build in full ([#64](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/64)) ([291b403](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/291b40355b55f18bd06de1b683790edbfa846f17))
+
 ## [0.3.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.2.0...app-v0.3.0) (2026-10-23)
 
 
