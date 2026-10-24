@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.4.0...app-v0.4.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **store:** leave the first Play production release as a draft ([#69](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/69)) ([e1da5e3](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/e1da5e3f34e8847bab019ec39db80fe5f9d1eabc))
+
 ## [0.4.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.3.0...app-v0.4.0) (2026-10-23)
 
 
