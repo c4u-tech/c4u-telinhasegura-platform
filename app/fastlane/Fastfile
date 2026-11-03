@@ -9,6 +9,11 @@ opt_out_usage
 # run from app/.
 APP_DIR = File.expand_path("..", __dir__)
 APP_ID = "tech.coding4u.telinhasegura"
+# The share extension ships inside the iOS app and is signed with its own
+# App Store profile.
+SHARE_EXTENSION_ID = "#{APP_ID}.ShareExtension"
+# Each Xcode target of the iOS app, by the bundle id it signs.
+IOS_TARGETS = { APP_ID => "Runner", SHARE_EXTENSION_ID => "ShareExtension" }.freeze
 
 # Workload identity: the auth step writes a short-lived credentials file
 # and exports its path; no long-lived key is stored anywhere.
@@ -103,24 +108,26 @@ lane :ios_testflight do |options|
     next
   end
   setup_ci if ENV["CI"]
-  match(api_key: api_key, readonly: true)
-  profile = ENV.fetch("sigh_#{APP_ID}_appstore_profile-name")
+  match(api_key: api_key, readonly: true, app_identifier: IOS_TARGETS.keys)
+  profiles = StoreRelease.appstore_profiles(IOS_TARGETS.keys, ENV)
   team = ENV.fetch("sigh_#{APP_ID}_appstore_team-id")
-  update_code_signing_settings(
-    path: File.join(APP_DIR, "ios/Runner.xcodeproj"),
-    use_automatic_signing: false,
-    targets: ["Runner"],
-    build_configurations: ["Release"],
-    team_id: team,
-    code_sign_identity: "Apple Distribution",
-    profile_name: profile,
-  )
+  IOS_TARGETS.each do |id, target|
+    update_code_signing_settings(
+      path: File.join(APP_DIR, "ios/Runner.xcodeproj"),
+      use_automatic_signing: false,
+      targets: [target],
+      build_configurations: ["Release"],
+      team_id: team,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profiles.fetch(id),
+    )
+  end
   export = File.join(Dir.mktmpdir, "ExportOptions.plist")
   File.write(export, {
     "method" => "app-store-connect",
     "teamID" => team,
     "signingStyle" => "manual",
-    "provisioningProfiles" => { APP_ID => profile },
+    "provisioningProfiles" => profiles,
   }.to_plist)
   flutter_build("ipa", "--build-number=#{n}", "--export-options-plist=#{export}")
   ipa = Dir[File.join(APP_DIR, "build/ios/ipa/*.ipa")].first
