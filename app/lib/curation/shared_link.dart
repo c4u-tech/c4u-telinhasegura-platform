@@ -1,9 +1,12 @@
 /// The hosts a shared video link may come from.
 const _youtubeHosts = {
   'youtu.be',
+  'www.youtu.be',
   'youtube.com',
   'www.youtube.com',
   'm.youtube.com',
+  'youtube-nocookie.com',
+  'www.youtube-nocookie.com',
 };
 
 /// The longest shared text read; anything longer is not a share from the

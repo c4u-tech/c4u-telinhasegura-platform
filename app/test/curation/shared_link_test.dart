@@ -14,6 +14,18 @@ void main() {
         'https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30',
       ),
       (
+        'https://www.youtu.be/dQw4w9WgXcQ?si=x',
+        'https://www.youtu.be/dQw4w9WgXcQ',
+      ),
+      (
+        'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+        'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+      ),
+      (
+        'https://youtube-nocookie.com/embed/dQw4w9WgXcQ',
+        'https://youtube-nocookie.com/embed/dQw4w9WgXcQ',
+      ),
+      (
         'veja https://example.com/a e https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       ),
