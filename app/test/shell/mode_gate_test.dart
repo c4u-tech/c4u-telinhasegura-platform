@@ -10,6 +10,7 @@ import 'package:telinha_segura/kid_mode/pin_gate_screen.dart';
 import 'package:telinha_segura/kid_mode/redeem_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/parental/kid_mode_mark.dart';
+import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/splash.dart';
 
 import '../access/harness.dart';
@@ -201,6 +202,21 @@ void main() {
           _ => '/crianca',
         },
     });
+  });
+
+  testWidgets('a share in a shared kid session lands on the child home', (
+    tester,
+  ) async {
+    final h = sharedKid();
+    await h.pump(tester, initial: '/');
+
+    final target = Routes.fromDeepLink(
+      Uri.parse('telinhasegura://sugerir?texto=https://youtu.be/dQw4w9WgXcQ'),
+    );
+    router(tester).go(target!);
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), Routes.kidHome);
   });
 
   testWidgets('a linked device reaches only /crianca, /crianca/sair and '

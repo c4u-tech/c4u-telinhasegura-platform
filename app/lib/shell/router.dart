@@ -69,6 +69,7 @@ import '../curation/member_screen.dart' show MemberScreen;
 import '../curation/team_screen.dart';
 import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
+import '../curation/shared_link.dart';
 import '../curation/approve_screen.dart';
 import '../curation/curation.dart' show AuditCandidate, HeldVideo, Video;
 import '../curation/publish_doubt_screen.dart';
@@ -322,7 +323,13 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         path: Routes.suggestions,
         builder: (_, _) => const SuggestionsScreen(),
         routes: [
-          GoRoute(path: 'nova', builder: (_, _) => const NewSuggestionScreen()),
+          GoRoute(
+            path: 'nova',
+            // The query is outside input: it is checked again here.
+            builder: (_, state) => NewSuggestionScreen(
+              initialLink: youtubeLinkIn(state.uri.queryParameters['link']),
+            ),
+          ),
         ],
       ),
       GoRoute(

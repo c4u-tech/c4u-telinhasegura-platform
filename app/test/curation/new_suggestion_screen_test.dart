@@ -51,6 +51,35 @@ http.Response refused(String reason) =>
     problem(422, 'video_refused', extra: {'reason': reason});
 
 void main() {
+  testWidgets('a shared link fills the field and waits for the primary', (
+    tester,
+  ) async {
+    final h = await form(
+      tester,
+      suggest: (_) => json(201, pendingJson),
+      initial: '/sugestoes/nova?link=https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ',
+    );
+
+    expect(tester.widget<TextField>(field).controller?.text, link);
+    expect(primary(tester).onPressed, isNotNull);
+    expect(posts(h), isEmpty);
+
+    await tester.ensureVisible(find.byType(PrimaryButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PrimaryButton));
+    await tester.pumpAndSettle();
+    expect(posts(h), hasLength(1));
+  });
+
+  testWidgets('a link that is not YouTube leaves the field empty', (
+    tester,
+  ) async {
+    await form(tester, initial: '/sugestoes/nova?link=javascript%3Aalert(1)');
+
+    expect(tester.widget<TextField>(field).controller?.text, isEmpty);
+    expect(find.text(linkHint), findsOneWidget);
+  });
+
   testWidgets('one link field for a URL, without autocorrect, and the '
       'primary waits with its hint while it is empty', (tester) async {
     await form(tester);
