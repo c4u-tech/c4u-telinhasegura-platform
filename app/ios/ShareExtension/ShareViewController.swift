@@ -75,22 +75,32 @@ class ShareViewController: UIViewController {
       // back exactly the shared text rather than a "+" turned into a space.
       components.percentEncodedQueryItems = [URLQueryItem(name: "texto", value: value)]
     }
-    if let target = components.url {
-      openInApp(target)
+    guard let target = components.url else {
+      finish()
+      return
     }
+    openInApp(target) { [weak self] in self?.finish() }
+  }
+
+  private func finish() {
     extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
   }
 
   /// An extension cannot reach the shared application object directly, so
-  /// the application is found by walking up the responder chain.
-  private func openInApp(_ url: URL) {
+  /// the application is found by walking up the responder chain. `done` runs
+  /// once the system has handled the open, or at once when there is no
+  /// application to open it, so the sheet is never left hanging.
+  private func openInApp(_ url: URL, done: @escaping () -> Void) {
     var responder: UIResponder? = self
     while let current = responder {
       if let application = current as? UIApplication {
-        application.open(url, options: [:], completionHandler: nil)
+        application.open(url, options: [:]) { _ in
+          DispatchQueue.main.async(execute: done)
+        }
         return
       }
       responder = current.next
     }
+    done()
   }
 }
