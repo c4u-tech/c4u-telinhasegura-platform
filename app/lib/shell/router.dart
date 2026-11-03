@@ -108,8 +108,8 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
       mode,
     ]),
     redirect: (context, state) {
-      // The QR's link first becomes its route; the gate below then
-      // decides on it like on any path.
+      // A deep link (the QR's or a share's) first becomes its route; the
+      // gate below then decides on it like on any path.
       if (Routes.fromDeepLink(state.uri) case final to?) return to;
       final path = state.matchedLocation;
       // The mode decides before the session does.

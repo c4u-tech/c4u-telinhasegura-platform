@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(PrimaryButton));
     await tester.pumpAndSettle();
-    expect(posts(h), hasLength(1));
+    expect(posts(h), ['POST /v1/suggestions {"url":"$link"}']);
   });
 
   testWidgets('a link that is not YouTube leaves the field empty', (
