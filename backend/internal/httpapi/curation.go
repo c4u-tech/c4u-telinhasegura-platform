@@ -96,6 +96,58 @@ func (s *Server) suggest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, videoBody(v))
 }
 
+// searchHitBody is one YouTube hit a guardian could suggest; refusal and
+// state are null when empty.
+type searchHitBody struct {
+	YouTubeID       string  `json:"youtube_id"`
+	Title           string  `json:"title"`
+	ChannelTitle    string  `json:"channel_title"`
+	DurationSeconds int     `json:"duration_seconds"`
+	Suggestible     bool    `json:"suggestible"`
+	Refusal         *string `json:"refusal"`
+	State           *string `json:"state"`
+}
+
+func (s *Server) searchSuggestions(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Q string `json:"q"`
+	}
+	if err := decode(w, r, &in); err != nil {
+		s.fail(w, err)
+		return
+	}
+	found, err := s.Curation.Search(r.Context(), current(r).AccountID, in.Q)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	out := make([]searchHitBody, 0, len(found))
+	for _, f := range found {
+		h := searchHitBody{
+			YouTubeID: f.ID, Title: f.Title, ChannelTitle: f.ChannelTitle,
+			DurationSeconds: int(f.Duration / time.Second), Suggestible: f.Refusal == "",
+		}
+		if f.Refusal != "" {
+			h.Refusal = &f.Refusal
+		}
+		if f.State != "" {
+			st := string(f.State)
+			h.State = &st
+		}
+		out = append(out, h)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"results": out})
+}
+
+func (s *Server) searchThumb(w http.ResponseWriter, r *http.Request) {
+	b, err := s.Curation.SearchThumbnail(r.Context(), r.PathValue("youtube_id"))
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeThumb(w, b)
+}
+
 func (s *Server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	list, err := s.Curation.Suggestions(r.Context(), current(r).AccountID)
 	if err != nil {

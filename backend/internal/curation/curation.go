@@ -2,13 +2,14 @@
 // suggestion, review rounds, publication, revisits, the admin's and the
 // moderators' decisions, and pacotinhos. The platform roles belong to staff: curation
 // only reads platform_roles, inside its own transactions and in the
-// suggestion-limit check (isCurator in suggest.go): the read seam.
+// suggestion- and search-limit checks (isCurator in suggest.go): the read seam.
 // Like parental and privacy, it runs its own SQL, including the account
 // reads it needs.
 package curation
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -83,6 +84,9 @@ var (
 	ErrConflictOfInterest  = errors.New("curation: the curator has a tie to the channel")
 
 	ErrThumbnailUnavailable = errors.New("curation: the thumbnail could not be fetched")
+
+	ErrSearchUnavailable = errors.New("curation: search is unavailable")
+	ErrSearchQuota       = fmt.Errorf("%w: quota exhausted", ErrSearchUnavailable)
 )
 
 // RefusedError refuses a suggested video, with its reason.
@@ -100,12 +104,24 @@ type PackInvalidError struct{ Reason string }
 
 func (e *PackInvalidError) Error() string { return "curation: pack invalid: " + e.Reason }
 
+// SearchUnavailableError refuses a search that YouTube cannot answer now.
+// RetryAfter is the wait until the quota day turns, or 0 when no wait is
+// known (no key, or any other failure).
+type SearchUnavailableError struct{ RetryAfter time.Duration }
+
+func (e *SearchUnavailableError) Error() string { return "curation: search is unavailable" }
+
+func (e *SearchUnavailableError) Unwrap() error { return ErrSearchUnavailable }
+
 type Deps struct {
 	Pool              *pgxpool.Pool
 	Audit             audit.Recorder
 	Now               func() time.Time
 	Source            VideoSource        // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
 	Thumbs            ThumbSource        // YouTube's image host, no key
+	Search            SearchSource       // nil while YOUTUBE_API_KEY is empty: a search answers 503
+	SearchLimiter     *ratelimit.Limiter // 20 searches per guardian per 24 h, keyed by account
+	SearchBudget      *ratelimit.Daily   // search.list calls per YouTube quota day, for every account
 	SuggestLimiter    *ratelimit.Limiter // 10 suggestion calls per guardian per 24 h, keyed by account
 	ReportLimiter     *ratelimit.Limiter // 20 report calls per account per 24 h
 	ReportThreshold   int                // distinct families' reports that hold a video
@@ -120,9 +136,16 @@ type Deps struct {
 	Log               *slog.Logger       // source failures, never the key or the link
 }
 
-type Service struct{ d Deps }
+type Service struct {
+	d      Deps
+	search *searchCache // recent searches' YouTube answers, shared by every account
+}
 
-func NewService(d Deps) *Service { return &Service{d: d} }
+func NewService(d Deps) *Service {
+	s := &Service{d: d}
+	s.search = newSearchCache(24*time.Hour, 500, s.now)
+	return s
+}
 
 // now is the clock at the precision Postgres stores, in UTC.
 func (s *Service) now() time.Time { return s.d.Now().Truncate(time.Microsecond).UTC() }

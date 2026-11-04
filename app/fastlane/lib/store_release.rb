@@ -99,4 +99,11 @@ module StoreRelease
     version.create_app_store_version_phased_release(attributes: { phasedReleaseState: "INACTIVE" }) unless phased
     version
   end
+
+  # match exports the App Store profile it installed for each bundle id as
+  # sigh_<id>_appstore_profile-name; every id in the app needs one, so a
+  # missing profile stops the lane before the build.
+  def appstore_profiles(bundle_ids, env)
+    bundle_ids.to_h { |id| [id, env.fetch("sigh_#{id}_appstore_profile-name")] }
+  end
 end

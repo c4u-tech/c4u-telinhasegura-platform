@@ -165,6 +165,8 @@ func (s *Server) routes() []route {
 		staffRoute("POST /v1/staff/mfa/challenge", s.mfaChallenge),
 		{Route: Route{Pattern: "POST /v1/staff/mfa/recovery-codes", Kind: StaffRoute}, h: s.regenerateRecoveryCodes, reauth: true, elevated: true},
 		guardian("POST /v1/suggestions", s.suggest),
+		guardian("POST /v1/suggestions/search", s.searchSuggestions),
+		guardian("GET /v1/suggestions/thumbs/{youtube_id}", s.searchThumb),
 		guardian("GET /v1/suggestions", s.listSuggestions),
 		guardian("GET /v1/family/minors/{id}/catalog", s.minorCatalog),
 		guardian("PUT /v1/family/minors/{id}/hidden/{video}", s.hide),

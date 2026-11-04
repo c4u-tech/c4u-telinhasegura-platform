@@ -36,7 +36,8 @@ import '../curation/curation_api_test.dart'
     show rejectionJson, reviewJson, videoJson;
 import '../curation/fixtures.dart';
 import '../curation/appoint_screen_test.dart' as staffing;
-import '../curation/new_suggestion_screen_test.dart' show send;
+import '../curation/new_suggestion_screen_test.dart'
+    show row, search, send, threeHits;
 import '../curation/refuse_screen_test.dart' show refuse;
 import '../account/delete_account_screen_test.dart'
     show memberFamily, ownerAloneFamily;
@@ -1663,6 +1664,38 @@ final suggestionScreens =
         '/sugestoes/nova',
         suggestionApi(suggest: (_) => json(200, videoJson)),
         send,
+      ),
+      'suggest, results': (
+        '/sugestoes/nova',
+        suggestionApi(search: (_) => searchAnswer(threeHits)),
+        search,
+      ),
+      'suggest, no results': (
+        '/sugestoes/nova',
+        suggestionApi(search: (_) => searchAnswer([])),
+        search,
+      ),
+      'suggest, search out for the day': (
+        '/sugestoes/nova',
+        suggestionApi(
+          search: (_) => problem(
+            503,
+            'search_unavailable',
+            headers: {'retry-after': '600'},
+          ),
+        ),
+        search,
+      ),
+      'suggest, confirmation': (
+        '/sugestoes/nova',
+        suggestionApi(search: (_) => searchAnswer(threeHits)),
+        (tester) async {
+          await search(tester);
+          await tester.ensureVisible(row('Pintinho amarelinho'));
+          await tester.pumpAndSettle();
+          await tester.tap(row('Pintinho amarelinho'));
+          await tester.pumpAndSettle();
+        },
       ),
     };
 

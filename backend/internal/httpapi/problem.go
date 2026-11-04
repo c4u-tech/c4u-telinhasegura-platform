@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
@@ -143,6 +144,7 @@ var curationProblems = []struct {
 	{curation.ErrOwnReview, http.StatusConflict, "own_review"},
 	{curation.ErrVideoNotAllowed, http.StatusForbidden, "video_not_allowed"},
 	{curation.ErrProfileGone, http.StatusGone, "profile_gone"},
+	{curation.ErrSearchUnavailable, http.StatusServiceUnavailable, "search_unavailable"},
 	{curation.ErrThumbnailUnavailable, http.StatusServiceUnavailable, "thumbnail_unavailable"},
 	{curation.ErrChecklistOutdated, http.StatusConflict, "checklist_outdated"},
 	{curation.ErrChecklistRefuses, http.StatusUnprocessableEntity, "checklist_refuses"},
@@ -214,6 +216,15 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 	var curThrottled *curation.ThrottledError
 	if errors.As(err, &curThrottled) {
 		writeRateLimited(w, curThrottled.RetryAfter)
+		return
+	}
+	var noSearch *curation.SearchUnavailableError
+	if errors.As(err, &noSearch) {
+		p := newProblem(http.StatusServiceUnavailable, "search_unavailable")
+		if noSearch.RetryAfter > 0 {
+			p.RetryAfter = int((noSearch.RetryAfter + time.Second - 1) / time.Second)
+		}
+		writeProblem(w, p)
 		return
 	}
 	var staffThrottled *staff.ThrottledError
