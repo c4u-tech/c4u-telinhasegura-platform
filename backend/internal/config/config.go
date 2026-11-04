@@ -29,6 +29,7 @@ type Config struct {
 	MailDir                 string
 	HIBPEnabled             bool
 	YouTubeAPIKey           string // empty: a suggestion needing YouTube answers 503
+	YouTubeSearchDailyLimit int    // search.list calls per Pacific day
 	CurationMinApprovals    int
 	CurationMaxDuration     time.Duration
 	CurationRevisitDays     int
@@ -94,6 +95,9 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if c.TrustedProxies, err = clientip.ParseList(getenv("TRUSTED_PROXIES")); err != nil {
 		return Config{}, fmt.Errorf("config: TRUSTED_PROXIES: %w", err)
+	}
+	if c.YouTubeSearchDailyLimit, err = intSetting(getenv, "YOUTUBE_SEARCH_DAILY_LIMIT", 95, 1, math.MaxInt32); err != nil {
+		return Config{}, err
 	}
 	if c.CurationMinApprovals, err = intSetting(getenv, "CURATION_MIN_APPROVALS", 2, 1, math.MaxInt32); err != nil {
 		return Config{}, err
