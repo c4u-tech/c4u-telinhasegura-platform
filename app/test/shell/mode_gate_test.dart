@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -149,6 +150,43 @@ void main() {
       expect(find.byType(Splash), findsNothing);
       expect(find.byType(FamilyHomeScreen), findsOneWidget);
       // The home's own reads wait out the same delay.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a link the platform pushes during the splash opens once '
+        'the mode settles', (tester) async {
+      // iOS delivers a cold-start link as a push after the first frame,
+      // while the splash still stands in for the router.
+      final h = Harness(
+        kind: ClientKind.mobile,
+        signedIn: true,
+        sessionDelay: const Duration(seconds: 1),
+      )..family = ownerFamily;
+      await tester.pumpWidget(h.app());
+      expect(find.byType(Splash), findsOneWidget);
+
+      const codec = JSONMethodCodec();
+      ByteData? reply;
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/navigation',
+        codec.encodeMethodCall(
+          const MethodCall('pushRouteInformation', {
+            'location': 'telinhasegura://sugerir?texto=V%C3%ADdeo%20https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ',
+          }),
+        ),
+        (data) => reply = data,
+      );
+      expect(codec.decodeEnvelope(reply!), isTrue);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(
+        h.location(tester),
+        '/sugestoes/nova?link=https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ',
+      );
+      // The screens' own reads wait out the same delay.
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
     });
