@@ -8,6 +8,7 @@ import '../kid/shelves.dart' show ThumbnailLoader;
 import '../kid_mode/kid_mode_door.dart' show StateLine;
 import 'curation.dart';
 import 'search_result.dart';
+import 'suggestion_words.dart';
 import 'words.dart';
 
 /// Over the results: they are YouTube's, said in words rather than a logo.
@@ -88,7 +89,8 @@ class SearchResults extends StatelessWidget {
   }
 }
 
-/// One hit: the thumbnail as a cue, the title in at most two lines,
+/// One hit: the thumbnail as a cue, the title in at most two lines (four,
+/// without the thumbnail, at large text),
 /// "Canal · 3 min" muted, then where it stands on its own line. Read as
 /// one label, "título, canal, duração, estado".
 class SearchResultRow extends StatelessWidget {
@@ -109,16 +111,21 @@ class SearchResultRow extends StatelessWidget {
     final muted = Theme.of(context).textTheme.bodyMedium
         ?.copyWith(color: context.palette.muted);
     final state = resultState(r);
+    // At large text the picture would leave the title a word per line: the
+    // row is read by its words, so the picture goes.
+    final large = largeText(context);
     return DoorRow(
       title: r.title,
-      titleMaxLines: 2,
+      titleMaxLines: large ? 4 : 2,
       semanticsLabel: [
         r.title,
         r.channelTitle,
         resultLength(r),
         ?state,
       ].join(', '),
-      leading: VideoThumb(videoId: r.youtubeId, thumbnail: thumbnail),
+      leading: large
+          ? null
+          : VideoThumb(videoId: r.youtubeId, thumbnail: thumbnail),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

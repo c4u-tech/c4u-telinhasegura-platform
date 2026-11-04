@@ -2,6 +2,8 @@
 /// informal "você", no exclamation marks.
 library;
 
+import 'package:flutter/widgets.dart';
+
 /// Under the primary while the field is empty (disabled with a hint).
 const emptyHint = 'Busque pelo título ou cole o link de um vídeo do YouTube.';
 
@@ -35,3 +37,12 @@ const searchNow =
 
 /// After "Colar link" found no YouTube link to paste.
 const noClipboardLink = 'A área de transferência não tem um link do YouTube.';
+
+/// From this text scale the screen makes room for words: "Colar link"
+/// stands under the field, and result rows drop their thumbnail so titles
+/// take the whole column.
+const largeTextFrom = 1.5;
+
+/// Whether the text scale in force is [largeTextFrom] or more.
+bool largeText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(1) >= largeTextFrom;

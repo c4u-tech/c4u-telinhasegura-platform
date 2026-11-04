@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +14,7 @@ import 'package:telinha_segura/curation/suggestion_confirmation.dart';
 import 'package:telinha_segura/curation/suggestion_words.dart';
 import 'package:telinha_segura/curation/words.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/catalog/video_row.dart' show VideoThumb;
 import 'package:telinha_segura/kid/shelves.dart' show HollowThumbnail;
 
 import '../access/harness.dart';
@@ -443,6 +445,60 @@ void main() {
       );
     });
 
+    testWidgets('the label always stands above the field', (tester) async {
+      await form(tester);
+
+      expect(
+        tester.widget<TextField>(field).decoration?.floatingLabelBehavior,
+        FloatingLabelBehavior.always,
+      );
+    });
+
+    testWidgets('with results the hint gives back its space', (tester) async {
+      await form(tester, search: (_) => searchAnswer(threeHits));
+      expect(
+        tester.widget<SubmitHint>(find.byType(SubmitHint)).reserve,
+        isTrue,
+      );
+
+      await search(tester);
+
+      expect(
+        tester.widget<SubmitHint>(find.byType(SubmitHint)).reserve,
+        isFalse,
+      );
+    });
+
+    testWidgets('a thumbnail that failed is asked again where it shows next', (
+      tester,
+    ) async {
+      var asked = 0;
+      final h = await form(
+        tester,
+        search: (_) => searchAnswer(threeHits),
+        thumb: (id) => id == 'ccccccccccc' && asked++ == 0
+            ? http.Response('', 503)
+            : http.Response.bytes([1, 2, 3], 200),
+      );
+      await search(tester);
+      await tester.ensureVisible(row('Pintinho dançante'));
+      await tester.pumpAndSettle();
+      await tester.tap(row('Pintinho dançante'));
+      await tester.pumpAndSettle();
+
+      expect(
+        h.actions.where((c) => c == 'GET /v1/suggestions/thumbs/ccccccccccc'),
+        hasLength(2),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(SuggestionConfirmation),
+          matching: find.byType(Image),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('the count is announced when results arrive', (tester) async {
       await form(tester, search: (_) => searchAnswer(threeHits));
 
@@ -806,6 +862,50 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(SuggestionConfirmation), findsOneWidget);
+    });
+
+    testWidgets('rows give the title the whole column: no thumbnail, the '
+        'title whole', (tester) async {
+      // The test font sets every glyph a full em wide: beside a thumbnail
+      // this title would run past two lines.
+      const long = 'Pintinho dançante';
+      await form(
+        tester,
+        search: (_) => searchAnswer([searchJson('aaaaaaaaaaa', long)]),
+        size: const Size(360, 640),
+        textScale: 2,
+      );
+      await search(tester);
+
+      final r = row(long);
+      expect(
+        find.descendant(of: r, matching: find.byType(VideoThumb)),
+        findsNothing,
+      );
+      final title = tester.renderObject<RenderParagraph>(
+        find.descendant(of: r, matching: find.text(long)),
+      );
+      expect(title.didExceedMaxLines, isFalse);
+    });
+
+    testWidgets('typed words wrap, and the keyboard action still searches', (
+      tester,
+    ) async {
+      final h = await form(
+        tester,
+        search: (_) => searchAnswer(threeHits),
+        size: const Size(360, 640),
+        textScale: 2,
+      );
+
+      final input = tester.widget<TextField>(field);
+      expect(input.maxLines, isNull);
+      expect(input.textInputAction, TextInputAction.search);
+      await tester.enterText(field, 'pintinho amarelinho');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(searches(h), hasLength(1));
     });
 
     testWidgets('"Colar link" keeps a 48 dp target', (tester) async {

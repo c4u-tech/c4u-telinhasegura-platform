@@ -22,10 +22,6 @@ import 'suggestion_confirmation.dart';
 import 'suggestion_words.dart';
 import 'words.dart';
 
-/// From this text scale "Colar link" stands under the field rather than
-/// beside it, so the field keeps room for its words.
-const _pasteUnderFrom = 1.5;
-
 /// `/sugestoes/nova`: one field that takes either a YouTube link or words
 /// from a title. A link is sent once, then the done state says whether the
 /// suggestion created the video or found it already with the curators.
@@ -109,10 +105,20 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
 
   bool get _searchable => _length >= searchMin && _length <= searchMax;
 
-  Future<Uint8List> _thumb(String youtubeId) => _thumbs.putIfAbsent(
-    youtubeId,
-    () => AppScope.of(context).curation.searchThumbnail(youtubeId),
-  );
+  /// A hit's thumbnail, read once and shared by its row and its
+  /// confirmation; one that failed is forgotten, so the next place it
+  /// shows asks again.
+  Future<Uint8List> _thumb(String youtubeId) =>
+      _thumbs.putIfAbsent(youtubeId, () {
+        final bytes = AppScope.of(context).curation.searchThumbnail(youtubeId);
+        bytes.then(
+          (_) {},
+          onError: (Object _) {
+            _thumbs.remove(youtubeId);
+          },
+        );
+        return bytes;
+      });
 
   Future<void> _sendLink() async {
     final url = _link;
@@ -273,12 +279,17 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
         busy: work.busy,
         onPressed: action,
       ),
-      SubmitHint(hint ?? emptyHint, visible: hint != null, reserve: true),
+      // Under results the hint gives back its space, so more of them show.
+      SubmitHint(
+        hint ?? emptyHint,
+        visible: hint != null,
+        reserve: results == null && !_search.busy,
+      ),
       if (_search.busy) ...[
-        const SizedBox(height: Space.xxl),
+        const SizedBox(height: Space.xl),
         const FamilyPlaceholder(label: 'Buscando no YouTube'),
       ] else if (results != null) ...[
-        const SizedBox(height: Space.xxl),
+        const SizedBox(height: Space.xl),
         SearchResults(results: results, thumbnail: _thumb, onPick: _pick),
       ],
     ];
@@ -287,20 +298,30 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
   /// The field and, beside it (under it at large text), the quiet "Colar
   /// link", which reads the clipboard only when tapped.
   Widget _fieldWithPaste({required bool isLink}) {
+    final under = largeText(context);
     final input = TextField(
       controller: _field,
       keyboardType: TextInputType.text,
       autocorrect: false,
       enableSuggestions: false,
       textInputAction: isLink ? TextInputAction.send : TextInputAction.search,
+      // At large text the words wrap rather than scroll out of sight; the
+      // keyboard's action still searches or sends.
+      minLines: 1,
+      maxLines: under ? null : 1,
       onSubmitted: (_) => _action?.call(),
       decoration: InputDecoration(
-        labelText: 'Busque pelo título ou cole o link',
+        // Always above the field, so it never shortens to fit inside.
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        label: const Text(
+          'Busque pelo título ou cole o link',
+          softWrap: true,
+          maxLines: 2,
+        ),
         errorText: _fieldError,
         errorMaxLines: 4,
       ),
     );
-    final under = MediaQuery.textScalerOf(context).scale(1) >= _pasteUnderFrom;
     final paste = QuietAction(
       label: 'Colar link',
       onPressed: _paste,
