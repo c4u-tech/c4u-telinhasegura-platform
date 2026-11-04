@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.4.1...app-v0.5.0) (2026-11-04)
+
+
+### Features
+
+* **api:** search YouTube for videos to suggest ([#79](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/79)) ([4cd4911](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/4cd49116d0d5accf02687a6f0ed334c4cbd2c4b6))
+* **app:** search YouTube from the suggestion screen ([#80](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/80)) ([67dc2d0](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/67dc2d08be7b319c80629c8255f3aee6598c79b0))
+* **app:** suggest a video from the share sheet ([#78](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/78)) ([24ac8bf](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/24ac8bfd9e4bef61cc20051542bac72d77cdf9a4))
+
+
+### Bug Fixes
+
+* **ios:** declare Brazilian Portuguese as the app language ([#77](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/77)) ([1ecfe81](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/1ecfe81bdf5f57dbd45d8161171a302737e31093))
+* **store:** point the App Store submission at the iOS metadata folder ([#75](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/75)) ([e3762f2](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/e3762f2b587c86f47114ecef71e1d6d7754094e7))
+
 ## [0.4.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.4.0...app-v0.4.1) (2026-10-24)
 
 
