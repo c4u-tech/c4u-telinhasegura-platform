@@ -39,13 +39,42 @@ Map<String, Object?> suggestionJson(
 FutureOr<http.Response> Function(http.Request) suggestionApi({
   FutureOr<http.Response> Function()? suggestions,
   FutureOr<http.Response> Function(http.Request)? suggest,
+  FutureOr<http.Response> Function(http.Request)? search,
+  FutureOr<http.Response> Function(String youtubeId)? thumb,
 }) =>
     (req) => switch ('${req.method} ${req.url.path}') {
       'GET /v1/suggestions' =>
         suggestions?.call() ?? json(200, {'suggestions': <Object>[]}),
       'POST /v1/suggestions' => suggest?.call(req) ?? json(201, pendingJson),
+      'POST /v1/suggestions/search' =>
+        search?.call(req) ?? json(200, {'results': <Object>[]}),
+      final call when call.startsWith('GET /v1/suggestions/thumbs/') =>
+        thumb?.call(req.url.pathSegments.last) ?? http.Response('', 404),
       _ => http.Response('', 204),
     };
+
+/// One title-search hit as the wire carries it: a fresh, suggestible video
+/// three minutes long unless said otherwise.
+Map<String, Object?> searchJson(
+  String youtubeId,
+  String title, {
+  String channel = 'Canal Bichos',
+  int seconds = 180,
+  String? refusal,
+  String? state,
+}) => {
+  'youtube_id': youtubeId,
+  'title': title,
+  'channel_title': channel,
+  'duration_seconds': seconds,
+  'suggestible': refusal == null,
+  'refusal': refusal,
+  'state': state,
+};
+
+/// A search answer listing [results] in the order given.
+http.Response searchAnswer(List<Map<String, Object?>> results) =>
+    json(200, {'results': results});
 
 /// One queued video as the wire carries it: pending, round 1, 4 minutes
 /// long unless said otherwise.

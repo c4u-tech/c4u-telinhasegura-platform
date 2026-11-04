@@ -1,33 +1,40 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../access/submission.dart';
 import '../access/widgets.dart';
 import '../auth/api_error.dart';
 import '../design/field_layout.dart';
+import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'curation.dart';
+import 'search_result.dart';
+import 'search_results.dart';
+import 'shared_link.dart';
+import 'suggestion_confirmation.dart';
+import 'suggestion_words.dart';
 import 'words.dart';
 
-/// Under the primary while the field is empty (disabled with
-/// a hint).
-const linkHint = 'Cole acima o link de um vídeo do YouTube.';
+/// From this text scale "Colar link" stands under the field rather than
+/// beside it, so the field keeps room for its words.
+const _pasteUnderFrom = 1.5;
 
-/// `invalid_link` (and `validation`), on the field.
-const invalidLink = 'Esse link não é de um vídeo do YouTube.';
-
-/// `video_source_unavailable`: YouTube did not answer the server.
-const sourceUnavailable =
-    'Não conseguimos consultar o YouTube agora. Tente de novo em alguns '
-    'minutos.';
-
-/// `/sugestoes/nova`: one YouTube link, sent once, then the done state
-/// saying whether the suggestion created the video or found it already
-/// with the curators. A refused video or a
-/// link that is no video is worded on the field; a rate limit counts
-/// down; anything else is the error note, and the primary tries again.
+/// `/sugestoes/nova`: one field that takes either a YouTube link or words
+/// from a title. A link is sent once, then the done state says whether the
+/// suggestion created the video or found it already with the curators.
+/// Words search YouTube, on request only, and list what came back; a hit
+/// is confirmed on its own screen before it is sent. Searching and sending
+/// fail apart: a search's limit or outage never stops a link. A refused
+/// video or a link that is no video is worded on the field; a rate limit
+/// counts down; anything else is the error note, and the primary tries
+/// again.
 class NewSuggestionScreen extends StatefulWidget {
   const NewSuggestionScreen({super.key, this.initialLink});
 
@@ -40,9 +47,23 @@ class NewSuggestionScreen extends StatefulWidget {
 }
 
 class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
-  final _link = TextEditingController();
+  final _field = TextEditingController();
   final _send = Submission();
+  final _search = Submission();
+  final _thumbs = <String, Future<Uint8List>>{};
+  late String _lastText;
   String? _fieldError;
+
+  /// Why the last search failed, when the server said YouTube's search is
+  /// out: for the day ([searchDaily]) or for now ([searchNow]).
+  String? _unavailable;
+
+  /// The last search's results, kept while the words change until the next
+  /// search; null before any.
+  List<SearchResult>? _results;
+
+  /// Whether "Colar link" just found no link.
+  bool _nothingToPaste = false;
 
   /// Set once sent: whether this suggestion created the video.
   bool? _created;
@@ -51,25 +72,51 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
   void initState() {
     super.initState();
     // Before the listener, so the prefill clears nothing.
-    _link.text = widget.initialLink ?? '';
-    _link.addListener(() {
-      _send.clearMessage();
-      setState(() => _fieldError = null);
-    });
+    _field.text = widget.initialLink ?? '';
+    _lastText = _field.text;
+    _field.addListener(_edited);
   }
 
   @override
   void dispose() {
-    _link.dispose();
+    _field.dispose();
     _send.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  String get _url => _link.text.trim();
+  /// New words take back what was said about the old ones; moving the
+  /// cursor does not.
+  void _edited() {
+    if (_field.text == _lastText) return;
+    _lastText = _field.text;
+    _send.clearMessage();
+    _search.clearMessage();
+    setState(() {
+      _fieldError = null;
+      _unavailable = null;
+      _nothingToPaste = false;
+    });
+  }
 
-  Future<void> _submit() async {
-    final url = _url;
-    if (url.isEmpty) return;
+  String get _text => _field.text.trim();
+
+  /// The YouTube link the field holds, if it holds one.
+  String? get _link => youtubeLinkIn(_text);
+
+  /// The words' length as a search counts it: inner spaces collapsed.
+  int get _length => _text.split(RegExp(r'\s+')).join(' ').runes.length;
+
+  bool get _searchable => _length >= searchMin && _length <= searchMax;
+
+  Future<Uint8List> _thumb(String youtubeId) => _thumbs.putIfAbsent(
+    youtubeId,
+    () => AppScope.of(context).curation.searchThumbnail(youtubeId),
+  );
+
+  Future<void> _sendLink() async {
+    final url = _link;
+    if (url == null) return;
     final api = AppScope.of(context).curation;
     late bool created;
     final ok = await _send.run(
@@ -92,9 +139,76 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
     return true;
   }
 
+  Future<void> _runSearch() async {
+    if (!_searchable) return;
+    final q = _text;
+    final api = AppScope.of(context).curation;
+    final view = View.of(context);
+    setState(() {
+      _unavailable = null;
+      _results = null;
+    });
+    late List<SearchResult> found;
+    final ok = await _search.run(
+      () async => found = await api.search(q),
+      handle: _onSearchOut,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _results = found);
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        view,
+        found.isEmpty ? noResults : foundWords(found.length),
+        TextDirection.ltr,
+      ),
+    );
+  }
+
+  /// YouTube's search being out is worded by whether it waits for the
+  /// next day.
+  bool _onSearchOut(ApiError e) {
+    if (e.code != 'search_unavailable') return false;
+    setState(
+      () => _unavailable = e.retryAfter != null ? searchDaily : searchNow,
+    );
+    return true;
+  }
+
+  Future<void> _paste() async {
+    String? held;
+    try {
+      held = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    } on Object {
+      held = null;
+    }
+    if (!mounted) return;
+    final found = youtubeLinkIn(held);
+    if (found == null) {
+      setState(() => _nothingToPaste = true);
+      return;
+    }
+    _field.value = TextEditingValue(
+      text: found,
+      selection: TextSelection.collapsed(offset: found.length),
+    );
+  }
+
+  Future<void> _pick(SearchResult result) async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SuggestionConfirmation(
+          result: result,
+          thumbnail: _thumb,
+          send: _send,
+        ),
+      ),
+    );
+    if (created != null && mounted) setState(() => _created = created);
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _send,
+    listenable: Listenable.merge([_send, _search]),
     builder: (context, _) => FieldLayout(
       title: 'Sugerir um vídeo',
       onBack: () => context.go(Routes.suggestions),
@@ -116,38 +230,102 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
     ),
   );
 
+  /// What the primary and the keyboard's action do for the words in the
+  /// field now: send a link, search, or nothing yet.
+  VoidCallback? get _action => _link != null
+      ? (_send.blocked ? null : _sendLink)
+      : (_searchable && !_search.blocked ? _runSearch : null);
+
   List<Widget> _form() {
-    final empty = _url.isEmpty;
-    // A failed send's note stands until the link changes: the primary is
-    // then its retry. A countdown waits instead.
-    final retry = _send.message != null && !_send.blocked;
+    final isLink = _link != null;
+    final work = isLink ? _send : _search;
+    // A failed request's note stands until the words change: the primary
+    // is then its retry. A countdown waits instead.
+    final note = isLink ? _send.message : _search.message ?? _unavailable;
+    final retry =
+        (work.message != null && !work.blocked) ||
+        (!isLink && _unavailable == searchNow);
+    final hint = switch (_length) {
+      _ when isLink => null,
+      0 => emptyHint,
+      < searchMin => shortHint,
+      > searchMax => longHint,
+      _ => null,
+    };
+    final action = _action;
+    final muted = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(color: context.palette.muted);
+    final results = _results;
     return [
-      TextField(
-        controller: _link,
-        keyboardType: TextInputType.url,
-        autocorrect: false,
-        enableSuggestions: false,
-        textInputAction: TextInputAction.send,
-        onSubmitted: (_) {
-          if (!_send.blocked) _submit();
-        },
-        decoration: InputDecoration(
-          labelText: 'Link do YouTube',
-          errorText: _fieldError,
-          errorMaxLines: 4,
-        ),
-      ),
-      const SizedBox(height: Space.xl),
-      if (_send.message case final message?) ...[
-        ErrorNote(message),
-        const SizedBox(height: Space.lg),
+      _fieldWithPaste(isLink: isLink),
+      if (_nothingToPaste) ...[
+        const SizedBox(height: Space.sm),
+        Semantics(liveRegion: true, child: Text(noClipboardLink, style: muted)),
       ],
+      const SizedBox(height: Space.xl),
+      if (note != null) ...[ErrorNote(note), const SizedBox(height: Space.lg)],
       PrimaryButton(
-        label: retry ? 'Tentar de novo' : 'Enviar sugestão',
-        busy: _send.busy,
-        onPressed: empty || _send.blocked ? null : _submit,
+        label: retry
+            ? 'Tentar de novo'
+            : isLink
+            ? 'Enviar sugestão'
+            : 'Buscar',
+        busy: work.busy,
+        onPressed: action,
       ),
-      SubmitHint(linkHint, visible: empty, reserve: true),
+      SubmitHint(hint ?? emptyHint, visible: hint != null, reserve: true),
+      if (_search.busy) ...[
+        const SizedBox(height: Space.xxl),
+        const FamilyPlaceholder(label: 'Buscando no YouTube'),
+      ] else if (results != null) ...[
+        const SizedBox(height: Space.xxl),
+        SearchResults(results: results, thumbnail: _thumb, onPick: _pick),
+      ],
     ];
+  }
+
+  /// The field and, beside it (under it at large text), the quiet "Colar
+  /// link", which reads the clipboard only when tapped.
+  Widget _fieldWithPaste({required bool isLink}) {
+    final input = TextField(
+      controller: _field,
+      keyboardType: TextInputType.text,
+      autocorrect: false,
+      enableSuggestions: false,
+      textInputAction: isLink ? TextInputAction.send : TextInputAction.search,
+      onSubmitted: (_) => _action?.call(),
+      decoration: InputDecoration(
+        labelText: 'Busque pelo título ou cole o link',
+        errorText: _fieldError,
+        errorMaxLines: 4,
+      ),
+    );
+    final under = MediaQuery.textScalerOf(context).scale(1) >= _pasteUnderFrom;
+    final paste = QuietAction(
+      label: 'Colar link',
+      onPressed: _paste,
+      inline: !under,
+    );
+    if (under) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          input,
+          const SizedBox(height: Space.xs),
+          paste,
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: input),
+        const SizedBox(width: Space.sm),
+        Padding(
+          padding: const EdgeInsets.only(top: Space.xs),
+          child: paste,
+        ),
+      ],
+    );
   }
 }
