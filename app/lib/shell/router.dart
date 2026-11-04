@@ -69,6 +69,7 @@ import '../curation/member_screen.dart' show MemberScreen;
 import '../curation/team_screen.dart';
 import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
+import '../curation/shared_link.dart';
 import '../curation/approve_screen.dart';
 import '../curation/curation.dart' show AuditCandidate, HeldVideo, Video;
 import '../curation/publish_doubt_screen.dart';
@@ -107,8 +108,8 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
       mode,
     ]),
     redirect: (context, state) {
-      // The QR's link first becomes its route; the gate below then
-      // decides on it like on any path.
+      // A deep link (the QR's or a share's) first becomes its route; the
+      // gate below then decides on it like on any path.
       if (Routes.fromDeepLink(state.uri) case final to?) return to;
       final path = state.matchedLocation;
       // The mode decides before the session does.
@@ -322,7 +323,13 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         path: Routes.suggestions,
         builder: (_, _) => const SuggestionsScreen(),
         routes: [
-          GoRoute(path: 'nova', builder: (_, _) => const NewSuggestionScreen()),
+          GoRoute(
+            path: 'nova',
+            // The query is outside input: it is checked again here.
+            builder: (_, state) => NewSuggestionScreen(
+              initialLink: youtubeLinkIn(state.uri.queryParameters['link']),
+            ),
+          ),
         ],
       ),
       GoRoute(

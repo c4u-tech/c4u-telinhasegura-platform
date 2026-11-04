@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -24,7 +25,8 @@ class TelinhaSeguraApp extends StatefulWidget {
   State<TelinhaSeguraApp> createState() => _TelinhaSeguraAppState();
 }
 
-class _TelinhaSeguraAppState extends State<TelinhaSeguraApp> {
+class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
+    with WidgetsBindingObserver {
   late final GoRouter _router = buildRouter(
     widget.services,
     initialLocation: widget.initialLocation,
@@ -33,10 +35,39 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp> {
   /// The mode's start-up read failed: the splash offers a retry.
   final _restoreFailed = ValueNotifier(false);
 
+  /// A link the platform pushed while the splash stood in for the router.
+  /// iOS delivers the link that launched the app this way, right after the
+  /// first frame; nothing would take it before the mode is known.
+  RouteInformation? _heldLink;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.services.appMode.addListener(_releaseHeldLink);
     unawaited(_restore());
+  }
+
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation info) {
+    if (widget.services.appMode.mode != null) {
+      return SynchronousFuture(false); // the router takes it
+    }
+    _heldLink = info;
+    return SynchronousFuture(true);
+  }
+
+  /// Hands the held link to the router once it is mounted, the frame after
+  /// the mode settles, as if the platform pushed it then.
+  void _releaseHeldLink() {
+    if (_heldLink == null || widget.services.appMode.mode == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final link = _heldLink;
+      _heldLink = null;
+      if (link != null && mounted) {
+        _router.routeInformationProvider.didPushRouteInformation(link);
+      }
+    });
   }
 
   /// The session first, then the mode it decides.
@@ -56,6 +87,8 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.services.appMode.removeListener(_releaseHeldLink);
     _router.dispose();
     _restoreFailed.dispose();
     super.dispose();

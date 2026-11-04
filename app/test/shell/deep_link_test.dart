@@ -33,4 +33,52 @@ void main() {
       });
     }
   });
+
+  group('the share link maps onto /sugestoes/nova', () {
+    test('with a YouTube URL', () {
+      final mapped = Uri.parse(
+        Routes.fromDeepLink(
+          Uri.parse(
+            'telinhasegura://sugerir?texto='
+            '${Uri.encodeQueryComponent('Título https://youtu.be/dQw4w9WgXcQ?si=a')}',
+          ),
+        )!,
+      );
+      expect(mapped.path, '/sugestoes/nova');
+      expect(mapped.queryParameters, {'link': 'https://youtu.be/dQw4w9WgXcQ'});
+    });
+    test('with the text as the native side encodes it', () {
+      final texto = Uri.encodeComponent(
+        'Ação + diversão & #1 https://youtu.be/dQw4w9WgXcQ?si=a',
+      );
+      final mapped = Uri.parse(
+        Routes.fromDeepLink(Uri.parse('telinhasegura://sugerir?texto=$texto'))!,
+      );
+      expect(mapped.path, '/sugestoes/nova');
+      expect(mapped.queryParameters, {'link': 'https://youtu.be/dQw4w9WgXcQ'});
+    });
+    test(
+      'without one',
+      () => expect(
+        Routes.fromDeepLink(Uri.parse('telinhasegura://sugerir?texto=oi')),
+        '/sugestoes/nova',
+      ),
+    );
+    test(
+      'bare',
+      () => expect(
+        Routes.fromDeepLink(Uri.parse('telinhasegura://sugerir')),
+        '/sugestoes/nova',
+      ),
+    );
+    for (final other in [
+      'telinhasegura://sugerir/mais?texto=x',
+      'https://sugerir?texto=x',
+    ]) {
+      test(
+        '$other is not the link',
+        () => expect(Routes.fromDeepLink(Uri.parse(other)), isNull),
+      );
+    }
+  });
 }

@@ -29,7 +29,11 @@ const sourceUnavailable =
 /// link that is no video is worded on the field; a rate limit counts
 /// down; anything else is the error note, and the primary tries again.
 class NewSuggestionScreen extends StatefulWidget {
-  const NewSuggestionScreen({super.key});
+  const NewSuggestionScreen({super.key, this.initialLink});
+
+  /// A link that arrived by sharing: it fills the field, and nothing is
+  /// sent until the guardian taps the primary.
+  final String? initialLink;
 
   @override
   State<NewSuggestionScreen> createState() => _NewSuggestionScreenState();
@@ -46,6 +50,8 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
   @override
   void initState() {
     super.initState();
+    // Before the listener, so the prefill clears nothing.
+    _link.text = widget.initialLink ?? '';
     _link.addListener(() {
       _send.clearMessage();
       setState(() => _fieldError = null);

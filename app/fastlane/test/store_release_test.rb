@@ -172,4 +172,20 @@ class StoreReleaseTest < Minitest::Test
     assert_raises(ArgumentError) { StoreRelease.hold_and_phase(FakeApp.new(FakeVersion.new("1.1.0", nil)), "1.2.0") }
     assert_raises(ArgumentError) { StoreRelease.hold_and_phase(FakeApp.new(nil), "1.2.0") }
   end
+
+  def test_appstore_profiles_maps_each_bundle_id_to_the_profile_match_installed
+    env = {
+      "sigh_app.id_appstore_profile-name" => "match AppStore app.id",
+      "sigh_app.id.Share_appstore_profile-name" => "match AppStore app.id.Share",
+    }
+    assert_equal(
+      { "app.id" => "match AppStore app.id", "app.id.Share" => "match AppStore app.id.Share" },
+      StoreRelease.appstore_profiles(["app.id", "app.id.Share"], env),
+    )
+  end
+
+  def test_appstore_profiles_refuses_a_bundle_id_without_a_profile
+    env = { "sigh_app.id_appstore_profile-name" => "match AppStore app.id" }
+    assert_raises(KeyError) { StoreRelease.appstore_profiles(["app.id", "app.id.Share"], env) }
+  end
 end

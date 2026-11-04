@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,7 @@ import 'package:telinha_segura/kid_mode/pin_gate_screen.dart';
 import 'package:telinha_segura/kid_mode/redeem_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/parental/kid_mode_mark.dart';
+import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/splash.dart';
 
 import '../access/harness.dart';
@@ -152,6 +154,43 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('a link the platform pushes during the splash opens once '
+        'the mode settles', (tester) async {
+      // iOS delivers a cold-start link as a push after the first frame,
+      // while the splash still stands in for the router.
+      final h = Harness(
+        kind: ClientKind.mobile,
+        signedIn: true,
+        sessionDelay: const Duration(seconds: 1),
+      )..family = ownerFamily;
+      await tester.pumpWidget(h.app());
+      expect(find.byType(Splash), findsOneWidget);
+
+      const codec = JSONMethodCodec();
+      ByteData? reply;
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/navigation',
+        codec.encodeMethodCall(
+          const MethodCall('pushRouteInformation', {
+            'location': 'telinhasegura://sugerir?texto=V%C3%ADdeo%20https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ',
+          }),
+        ),
+        (data) => reply = data,
+      );
+      expect(codec.decodeEnvelope(reply!), isTrue);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(
+        h.location(tester),
+        '/sugestoes/nova?link=https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ',
+      );
+      // The screens' own reads wait out the same delay.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('a failed restore offers "Tentar de novo", which restores '
         'again', (tester) async {
       final h = Harness(kind: ClientKind.mobile, signedIn: true)
@@ -201,6 +240,21 @@ void main() {
           _ => '/crianca',
         },
     });
+  });
+
+  testWidgets('a share in a shared kid session lands on the child home', (
+    tester,
+  ) async {
+    final h = sharedKid();
+    await h.pump(tester, initial: '/');
+
+    final target = Routes.fromDeepLink(
+      Uri.parse('telinhasegura://sugerir?texto=https://youtu.be/dQw4w9WgXcQ'),
+    );
+    router(tester).go(target!);
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), Routes.kidHome);
   });
 
   testWidgets('a linked device reaches only /crianca, /crianca/sair and '
