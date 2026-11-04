@@ -138,12 +138,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
         with:
           working-directory: app
           bundler-cache: true
       - run: bundle exec fastlane lanes
         working-directory: app
+      # An app release PR cuts a version for the stores: every locale's
+      # release notes must be rewritten since the last app release, so the
+      # stores never get the previous version's text, or none at all.
+      - name: Release notes written for this app version
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--branches--prd--components--app')
+        run: |
+          last=$(git tag --list 'app-v*' --sort=-v:refname | head -n1)
+          [ -n "$last" ] || { echo "no earlier app release tag"; exit 0; }
+          ruby app/fastlane/check_release_notes.rb "$last"
 
   # The one required check for branch protection. It aggregates every job so
   # a skipped job cannot pass as a success.

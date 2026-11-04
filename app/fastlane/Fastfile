@@ -73,6 +73,16 @@ def no_listing_changes
   { skip_upload_metadata: true, skip_upload_changelogs: true, skip_upload_images: true, skip_upload_screenshots: true }
 end
 
+# Only the release notes (changelogs/default.txt per locale) go with a new
+# build; promotion carries the release, notes included, to production.
+def release_notes_only
+  {
+    **no_listing_changes,
+    skip_upload_changelogs: false,
+    metadata_path: File.join(APP_DIR, "fastlane/metadata/android"),
+  }
+end
+
 desc "Print the next build number (one past the highest on either store)"
 lane :build_number do
   n = StoreRelease.next_build_number(PLAY_TRACKS.flat_map { |t| play_codes(t) }, testflight_latest(asc_api_key))
@@ -95,7 +105,7 @@ lane :android_internal do |options|
     track: "internal",
     release_status: StoreRelease.release_status(ENV["PLAY_RELEASE_STATUS"]),
     aab: File.join(APP_DIR, "build/app/outputs/bundle/release/app-release.aab"),
-    **no_listing_changes,
+    **release_notes_only,
   )
 end
 
@@ -167,10 +177,16 @@ lane :ios_submit do |options|
   Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api_key)
   app = Spaceship::ConnectAPI::App.find(APP_ID)
   UI.user_error!("App Store Connect has no app #{APP_ID}") unless app
-  StoreRelease.hold_and_phase(app, version, platform: Spaceship::ConnectAPI::Platform::IOS)
-  # Metadata stays as it is in App Store Connect; this step only picks the
-  # build and submits it. The paths still matter: deliver refuses to start
-  # when its default folder holds the "ios" and "android" folders.
+  edit = StoreRelease.hold_and_phase(app, version, platform: Spaceship::ConnectAPI::Platform::IOS)
+  begin
+    StoreRelease.write_whats_new(edit, StoreRelease.ios_release_notes(File.join(APP_DIR, "fastlane/metadata/ios")))
+  rescue ArgumentError => e
+    UI.user_error!(e.message)
+  end
+  # The rest of the metadata stays as it is in App Store Connect; this step
+  # only picks the build and submits it. The paths still matter: deliver
+  # refuses to start when its default folder holds the "ios" and "android"
+  # folders.
   upload_to_app_store(
     api_key: api_key,
     app_identifier: APP_ID,
