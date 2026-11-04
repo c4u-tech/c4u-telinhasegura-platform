@@ -23,6 +23,9 @@ var ctx = context.Background()
 
 var saoPaulo, _ = time.LoadLocation("America/Sao_Paulo")
 
+// losAngeles is the zone of YouTube's quota day.
+var losAngeles, _ = time.LoadLocation("America/Los_Angeles")
+
 type fixture struct {
 	t      *testing.T
 	svc    *curation.Service
@@ -32,6 +35,7 @@ type fixture struct {
 	audit  *audittest.Recorder
 	source *curationtest.Fake
 	thumbs *curationtest.Thumbs
+	search *curationtest.Search
 	logs   *bytes.Buffer // every log line of the service
 	now    time.Time
 }
@@ -43,6 +47,7 @@ func newFixture(t *testing.T) *fixture {
 		audit:  &audittest.Recorder{},
 		source: &curationtest.Fake{},
 		thumbs: &curationtest.Thumbs{},
+		search: &curationtest.Search{},
 		logs:   &bytes.Buffer{},
 		now:    time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC),
 	}
@@ -53,6 +58,9 @@ func newFixture(t *testing.T) *fixture {
 		Now:               clock,
 		Source:            f.source,
 		Thumbs:            f.thumbs,
+		Search:            f.search,
+		SearchLimiter:     ratelimit.New(20, 24*time.Hour, clock),
+		SearchBudget:      ratelimit.NewDaily(95, losAngeles, clock),
 		SuggestLimiter:    ratelimit.New(10, 24*time.Hour, clock),
 		ReportLimiter:     ratelimit.New(20, 24*time.Hour, clock),
 		ReportThreshold:   3,
