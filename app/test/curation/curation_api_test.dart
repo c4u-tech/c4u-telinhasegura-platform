@@ -35,6 +35,29 @@ final pendingJson = {
   'review_due_at': null,
 };
 
+const searchJson = {
+  'results': [
+    {
+      'youtube_id': 'dQw4w9WgXcQ',
+      'title': 'Baby Shark',
+      'channel_title': 'Canal Baby Shark',
+      'duration_seconds': 300,
+      'suggestible': true,
+      'refusal': null,
+      'state': null,
+    },
+    {
+      'youtube_id': 'abcdefghijk',
+      'title': 'Not for kids',
+      'channel_title': 'Other',
+      'duration_seconds': 60,
+      'suggestible': false,
+      'refusal': 'not_for_kids',
+      'state': 'pending',
+    },
+  ],
+};
+
 const reviewJson = {
   'display_role': 'pedagogo',
   'decision': 'approve',
@@ -56,6 +79,7 @@ const rejectionJson = {
 http.Response contract(http.Request req) =>
     switch ('${req.method} ${req.url.path}') {
       'POST /v1/suggestions' => json(201, pendingJson),
+      'POST /v1/suggestions/search' => json(200, searchJson),
       'GET /v1/suggestions' => json(200, {
         'suggestions': [
           {
@@ -123,6 +147,8 @@ void main() {
       failedItems: ['c04'],
       note: 'Muito barulhento',
     );
+    await api.search('baby shark');
+    await api.searchThumbnail('dQw4w9WgXcQ');
     expect(t.calls, [
       'POST /v1/suggestions {"url":"https://youtu.be/dQw4w9WgXcQ"}',
       'GET /v1/suggestions',
@@ -132,6 +158,8 @@ void main() {
       'GET /v1/curation/videos/v1',
       'POST /v1/curation/videos/v1/reviews {"decision":"approve","theme":"bichos","min_age_band":"5-8","checklist_version":"2026-10-20","answers":{"c01":"ok","c04":"doubt"},"note":"Não sei."}',
       'POST /v1/curation/videos/v1/reviews {"decision":"reject","checklist_version":"2026-10-20","failed_items":["c04"],"note":"Muito barulhento"}',
+      'POST /v1/suggestions/search {"q":"baby shark"}',
+      'GET /v1/suggestions/thumbs/dQw4w9WgXcQ',
     ]);
   });
 
@@ -183,6 +211,48 @@ void main() {
       ),
       VideoState.approved,
     );
+  });
+
+  test('search results parse with null refusal and state', () async {
+    final api = CurationApi(build(ClientKind.mobile, contract).client);
+    final results = await api.search('baby shark');
+    expect(results, hasLength(2));
+    expect(results[0].youtubeId, 'dQw4w9WgXcQ');
+    expect(results[0].title, 'Baby Shark');
+    expect(results[0].channelTitle, 'Canal Baby Shark');
+    expect(results[0].durationSeconds, 300);
+    expect(results[0].suggestible, isTrue);
+    expect(results[0].refusal, isNull);
+    expect(results[0].state, isNull);
+    expect(results[1].suggestible, isFalse);
+    expect(results[1].refusal, 'not_for_kids');
+    expect(results[1].state, 'pending');
+  });
+
+  test('search errors surface as ApiError', () async {
+    for (final (status, code) in [
+      (503, 'search_unavailable'),
+      (429, 'rate_limited'),
+    ]) {
+      final api = CurationApi(
+        build(
+          ClientKind.mobile,
+          (_) => problem(status, code, headers: {'retry-after': '3600'}),
+        ).client,
+      );
+      await expectLater(
+        api.search('x'),
+        throwsA(
+          isA<ApiError>()
+              .having((e) => e.code, 'code', code)
+              .having(
+                (e) => e.retryAfter,
+                'retryAfter',
+                const Duration(seconds: 3600),
+              ),
+        ),
+      );
+    }
   });
 
   test('every problem code surfaces as an ApiError', () async {

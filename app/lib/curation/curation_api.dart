@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../auth/api_client.dart';
 import '../family/family.dart' show AgeBand;
 import 'curation.dart';
 import 'pack.dart';
+import 'search_result.dart';
 
 /// The curation contract, one method per route.
 /// Problems surface as `ApiError`; a `video_refused` carries its
@@ -59,6 +61,28 @@ class CurationApi {
       created: r.statusCode == 201,
     );
   }
+
+  /// Searches YouTube by title for videos to suggest. Problems: `validation`
+  /// for an empty or oversized query, `rate_limited` with its wait, and
+  /// `search_unavailable`, which carries a wait only when the day's budget
+  /// is spent.
+  Future<List<SearchResult>> search(String q) async => [
+    for (final r
+        in (await _json(
+              'POST',
+              '/v1/suggestions/search',
+              body: {'q': q},
+            ))['results']
+            as List<dynamic>)
+      SearchResult.fromJson(r as Map<String, dynamic>),
+  ];
+
+  /// A search result's thumbnail as JPEG bytes, through the session.
+  Future<Uint8List> searchThumbnail(String youtubeId) async =>
+      (await _client.sendResponse(
+        'GET',
+        '/v1/suggestions/thumbs/${_id(youtubeId)}',
+      )).bodyBytes;
 
   Future<List<Suggestion>> suggestions() async => [
     for (final s

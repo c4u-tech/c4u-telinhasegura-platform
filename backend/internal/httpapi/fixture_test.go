@@ -34,6 +34,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// pacific is the zone of YouTube's quota day.
+var pacific, _ = time.LoadLocation("America/Los_Angeles")
+
 const goodPassword = "uma senha longa o bastante"
 
 type api struct {
@@ -51,6 +54,7 @@ type api struct {
 	team    *staff.Service
 	st      *screentime.Service
 	videos  *curationtest.Fake
+	search  *curationtest.Search
 	thumbs  *curationtest.Thumbs
 	audit   *hookedAudit
 	// onAudit runs once, on the next audit event of its kind, so a test
@@ -139,6 +143,7 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 	})
 	a.videos = &curationtest.Fake{}
 	a.thumbs = &curationtest.Thumbs{}
+	a.search = &curationtest.Search{}
 	a.cur = curation.NewService(curation.Deps{
 		Pool:              pool,
 		Audit:             auditRec,
@@ -149,6 +154,9 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		MaxDuration:       20 * time.Minute,
 		RevisitAfter:      180 * 24 * time.Hour,
 		Thumbs:            a.thumbs,
+		Search:            a.search,
+		SearchLimiter:     ratelimit.New(20, 24*time.Hour, clock),
+		SearchBudget:      ratelimit.NewDaily(95, pacific, clock),
 		ShelfSize:         12,
 		PackMaxDuration:   20 * time.Minute,
 		PackRowSize:       6,
