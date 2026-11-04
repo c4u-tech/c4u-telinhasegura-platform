@@ -1,4 +1,5 @@
 import '../auth/auth_api.dart' show PlatformRole;
+import '../curation/shared_link.dart';
 
 /// The app's routes.
 /// `/verificar-email`, `/esqueci-a-senha`, `/redefinir-senha` and
@@ -152,18 +153,30 @@ abstract final class Routes {
     return uri.toString();
   }
 
-  /// The link a guardian's QR opens, `telinhasegura://vincular?codigo=`,
-  /// as the route it stands for: its host is `vincular`
-  /// and its path empty, so it matches no route as it comes. Null for any
-  /// other location. The mode gate then decides, as for the path form.
+  /// The two links the app opens from outside, as the route each stands for:
+  /// the guardian's QR, `telinhasegura://vincular?codigo=`, and a share from
+  /// the YouTube app, `telinhasegura://sugerir?texto=` (the shared text, from
+  /// which the video link is taken). The host names the link and the path is
+  /// empty, so neither matches a route as it comes. Null for any other
+  /// location. The mode gate then decides, as for the path form.
   static String? fromDeepLink(Uri uri) {
-    if (uri.scheme != linkScheme || uri.host != 'vincular') return null;
+    if (uri.scheme != linkScheme) return null;
     if (uri.path.isNotEmpty && uri.path != '/') return null;
-    final code = uri.queryParameters['codigo'];
-    return Uri(
-      path: redeem,
-      queryParameters: code == null ? null : {'codigo': code},
-    ).toString();
+    switch (uri.host) {
+      case 'vincular':
+        final code = uri.queryParameters['codigo'];
+        return Uri(
+          path: redeem,
+          queryParameters: code == null ? null : {'codigo': code},
+        ).toString();
+      case 'sugerir':
+        final link = youtubeLinkIn(uri.queryParameters['texto']);
+        return Uri(
+          path: newSuggestion,
+          queryParameters: link == null ? null : {'link': link},
+        ).toString();
+    }
+    return null;
   }
 
   /// Registered on Android and iOS only (AndroidManifest.xml, Info.plist).

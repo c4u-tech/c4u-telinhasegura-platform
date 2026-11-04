@@ -174,6 +174,23 @@ func serve(log *slog.Logger) error {
 			Key:     cfg.YouTubeAPIKey,
 		}
 	}
+	var search curation.SearchSource // nil while YOUTUBE_API_KEY is empty: a search answers 503
+	if cfg.YouTubeAPIKey != "" {
+		search = curation.YouTubeSearch{
+			Client: &http.Client{
+				Timeout: 5 * time.Second,
+				// The key rides in the query: never follow a redirect off-host.
+				CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+			},
+			BaseURL: curation.YouTubeSearchURL,
+			Key:     cfg.YouTubeAPIKey,
+		}
+	}
+	// YouTube's quota day ends at midnight Pacific time.
+	pacific, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		return fmt.Errorf("load the quota day's time zone: %w", err)
+	}
 	thumbs := curation.YouTubeThumbs{
 		Client: &http.Client{
 			Timeout: 5 * time.Second,
@@ -187,6 +204,9 @@ func serve(log *slog.Logger) error {
 		Audit:             auditStore,
 		Now:               now,
 		Source:            videos,
+		Search:            search,
+		SearchLimiter:     ratelimit.New(20, 24*time.Hour, now),
+		SearchBudget:      ratelimit.NewDaily(cfg.YouTubeSearchDailyLimit, pacific, now),
 		SuggestLimiter:    ratelimit.New(10, 24*time.Hour, now),
 		MinApprovals:      cfg.CurationMinApprovals,
 		MaxDuration:       cfg.CurationMaxDuration,

@@ -52,6 +52,7 @@ func TestLoadAppliesDefaultsAndSplitsOrigins(t *testing.T) {
 		AllowedOrigins:          []string{"https://app.test", "http://localhost:5000"},
 		MailDir:                 "tmp/mail",
 		HIBPEnabled:             true,
+		YouTubeSearchDailyLimit: 95,
 		CurationMinApprovals:    2,
 		CurationMaxDuration:     20 * time.Minute,
 		CurationRevisitDays:     180,
@@ -393,5 +394,20 @@ func TestLoadRequiresTheAppleKeyWithApple(t *testing.T) {
 	c, err := config.Load(env(apple(nil)))
 	if err != nil || c.AppleKey == nil || c.AppleTeamID != "TEAM123456" || c.AppleKeyID != "KEY1234567" {
 		t.Fatalf("good key: %v %+v", err, c)
+	}
+}
+
+func TestLoadReadsTheSearchDailyLimit(t *testing.T) {
+	for in, want := range map[string]int{"": 95, "40": 40} {
+		c, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "YOUTUBE_SEARCH_DAILY_LIMIT": in}))
+		if err != nil || c.YouTubeSearchDailyLimit != want {
+			t.Errorf("%q: %d %v", in, c.YouTubeSearchDailyLimit, err)
+		}
+	}
+	for _, v := range []string{"0", "-1", "x"} {
+		_, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "YOUTUBE_SEARCH_DAILY_LIMIT": v}))
+		if err == nil || !strings.Contains(err.Error(), "YOUTUBE_SEARCH_DAILY_LIMIT") {
+			t.Errorf("%q: %v", v, err)
+		}
 	}
 }

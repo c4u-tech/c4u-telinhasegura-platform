@@ -71,6 +71,8 @@ Curation:
 - `YOUTUBE_API_KEY`: the YouTube Data API key; while empty, a suggestion
   that needs a YouTube call answers `503 video_source_unavailable` (Shorts
   links and videos already stored are still answered). Never logged.
+- `YOUTUBE_SEARCH_DAILY_LIMIT`: the most YouTube searches made per day
+  (default `95`); a positive integer.
 - `CURATION_MIN_APPROVALS` (default 2), `CURATION_MAX_DURATION`
   (default `20m`) and `CURATION_REVISIT_DAYS` (default 180).
 - `CATALOG_SHELF_SIZE` (default 12, at most 50): videos per theme on a
