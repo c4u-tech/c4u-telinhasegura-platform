@@ -4,6 +4,9 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+/// The field's label: it takes a title's words or a link.
+const fieldLabel = 'Busque pelo título ou cole o link';
+
 /// Under the primary while the field is empty (disabled with a hint).
 const emptyHint = 'Busque pelo título ou cole o link de um vídeo do YouTube.';
 

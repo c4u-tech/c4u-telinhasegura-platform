@@ -41,8 +41,8 @@ Future<Harness> form(
   return h;
 }
 
-Finder get field =>
-    find.widgetWithText(TextField, 'Busque pelo título ou cole o link');
+/// The one field on the screen (its label stands above it at large text).
+Finder get field => find.byType(TextField);
 
 PrimaryButton primary(WidgetTester tester) =>
     tester.widget<PrimaryButton>(find.byType(PrimaryButton));
@@ -886,6 +886,45 @@ void main() {
         find.descendant(of: r, matching: find.text(long)),
       );
       expect(title.didExceedMaxLines, isFalse);
+    });
+
+    testWidgets('the label stands whole above the field, and the field is '
+        'read with it once', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await form(tester, size: const Size(360, 640), textScale: 2);
+
+      final label = find.text(fieldLabel);
+      expect(label, findsOneWidget);
+      expect(
+        find.descendant(of: field, matching: label),
+        findsNothing,
+        reason: 'no floating label inside the outline',
+      );
+      expect(
+        tester.getRect(label).bottom,
+        lessThanOrEqualTo(tester.getRect(field).top),
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+        isFalse,
+      );
+      expect(
+        tester.getSemantics(field),
+        isSemantics(label: fieldLabel, isTextField: true),
+      );
+      expect(find.bySemanticsLabel(fieldLabel), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('at ordinary text the label floats on the field', (
+      tester,
+    ) async {
+      await form(tester);
+
+      expect(
+        find.descendant(of: field, matching: find.text(fieldLabel)),
+        findsOneWidget,
+      );
     });
 
     testWidgets('typed words wrap, and the keyboard action still searches', (

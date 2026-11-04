@@ -311,13 +311,10 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
       maxLines: under ? null : 1,
       onSubmitted: (_) => _action?.call(),
       decoration: InputDecoration(
-        // Always above the field, so it never shortens to fit inside.
+        // Always above the field, so it never shortens to fit inside; at
+        // large text it stands on its own line over the field instead.
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        label: const Text(
-          'Busque pelo título ou cole o link',
-          softWrap: true,
-          maxLines: 2,
-        ),
+        label: under ? null : const Text(fieldLabel),
         errorText: _fieldError,
         errorMaxLines: 4,
       ),
@@ -331,7 +328,22 @@ class _NewSuggestionScreenState extends State<NewSuggestionScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          input,
+          // Merged, the label is read once, as the field's own.
+          MergeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  fieldLabel,
+                  style: Theme.of(context)
+                      .inputDecorationTheme
+                      .floatingLabelStyle,
+                ),
+                const SizedBox(height: Space.sm),
+                input,
+              ],
+            ),
+          ),
           const SizedBox(height: Space.xs),
           paste,
         ],
