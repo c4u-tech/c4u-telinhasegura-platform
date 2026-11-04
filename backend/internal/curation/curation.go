@@ -9,6 +9,7 @@ package curation
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -83,6 +84,9 @@ var (
 	ErrConflictOfInterest  = errors.New("curation: the curator has a tie to the channel")
 
 	ErrThumbnailUnavailable = errors.New("curation: the thumbnail could not be fetched")
+
+	ErrSearchUnavailable = errors.New("curation: search is unavailable")
+	ErrSearchQuota       = fmt.Errorf("%w: quota exhausted", ErrSearchUnavailable)
 )
 
 // RefusedError refuses a suggested video, with its reason.
