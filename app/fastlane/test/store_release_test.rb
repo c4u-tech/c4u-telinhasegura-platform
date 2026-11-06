@@ -1,4 +1,6 @@
+require "fileutils"
 require "minitest/autorun"
+require "tmpdir"
 require_relative "../lib/store_release"
 
 class StoreReleaseTest < Minitest::Test
@@ -187,5 +189,124 @@ class StoreReleaseTest < Minitest::Test
   def test_appstore_profiles_refuses_a_bundle_id_without_a_profile
     env = { "sigh_app.id_appstore_profile-name" => "match AppStore app.id" }
     assert_raises(KeyError) { StoreRelease.appstore_profiles(["app.id", "app.id.Share"], env) }
+  end
+
+  # A metadata folder as fastlane lays it out: one folder per locale for
+  # each store, plus loose files that are not locales.
+  def with_metadata(files)
+    Dir.mktmpdir do |dir|
+      files.each do |path, text|
+        full = File.join(dir, path)
+        FileUtils.mkdir_p(File.dirname(full))
+        File.write(full, text)
+      end
+      yield dir
+    end
+  end
+
+  def test_release_notes_files_lists_one_file_per_store_locale
+    layout = {
+      "ios/pt-BR/name.txt" => "x", "ios/en-GB/name.txt" => "x", "ios/primary_category.txt" => "x",
+      "android/pt-BR/title.txt" => "x",
+    }
+    with_metadata(layout) do |dir|
+      assert_equal [
+        ["android/pt-BR/changelogs/default.txt", 500],
+        ["ios/en-GB/release_notes.txt", 4000],
+        ["ios/pt-BR/release_notes.txt", 4000],
+      ], StoreRelease.release_notes_files(dir)
+    end
+  end
+
+  def test_release_notes_problems_is_empty_when_every_note_is_written_and_changed
+    with_metadata(
+      "ios/pt-BR/release_notes.txt" => "Novidades\n",
+      "android/pt-BR/changelogs/default.txt" => "Novidades\n",
+    ) do |dir|
+      changed = ["ios/pt-BR/release_notes.txt", "android/pt-BR/changelogs/default.txt"]
+      assert_empty StoreRelease.release_notes_problems(dir, changed: changed)
+      assert_empty StoreRelease.release_notes_problems(dir)
+    end
+  end
+
+  def test_release_notes_problems_names_a_missing_or_blank_note
+    with_metadata("ios/pt-BR/release_notes.txt" => "  \n", "ios/en-GB/name.txt" => "x") do |dir|
+      problems = StoreRelease.release_notes_problems(dir)
+      assert_equal 2, problems.size
+      assert(problems.any? { |p| p.include?("ios/en-GB/release_notes.txt") && p.include?("missing") })
+      assert(problems.any? { |p| p.include?("ios/pt-BR/release_notes.txt") && p.include?("empty") })
+    end
+  end
+
+  def test_release_notes_problems_names_a_note_over_the_store_limit
+    with_metadata("android/pt-BR/changelogs/default.txt" => "a" * 501) do |dir|
+      problems = StoreRelease.release_notes_problems(dir)
+      assert_equal 1, problems.size
+      assert_includes problems.first, "501"
+      assert_includes problems.first, "500"
+    end
+  end
+
+  def test_release_notes_problems_names_a_note_left_from_the_last_release
+    with_metadata(
+      "ios/pt-BR/release_notes.txt" => "Novidades\n",
+      "android/pt-BR/changelogs/default.txt" => "Novidades\n",
+    ) do |dir|
+      problems = StoreRelease.release_notes_problems(dir, changed: ["ios/pt-BR/release_notes.txt"])
+      assert_equal 1, problems.size
+      assert_includes problems.first, "android/pt-BR/changelogs/default.txt"
+      assert_includes problems.first, "last release"
+    end
+  end
+
+  def test_ios_release_notes_reads_each_locale_trimmed
+    with_metadata(
+      "ios/pt-BR/release_notes.txt" => "\nNovidades\n\n",
+      "ios/en-GB/release_notes.txt" => "What's new\n",
+      "ios/primary_category.txt" => "x",
+    ) do |dir|
+      assert_equal({ "en-GB" => "What's new", "pt-BR" => "Novidades" }, StoreRelease.ios_release_notes(File.join(dir, "ios")))
+    end
+  end
+
+  class FakeLocalization
+    attr_reader :locale, :updates
+
+    def initialize(locale)
+      @locale = locale
+      @updates = []
+    end
+
+    def update(attributes:)
+      @updates << attributes
+    end
+  end
+
+  class FakeLocalizedVersion
+    def initialize(localizations)
+      @localizations = localizations
+    end
+
+    def get_app_store_version_localizations
+      @localizations
+    end
+  end
+
+  def test_write_whats_new_sets_the_notes_on_every_store_locale
+    pt = FakeLocalization.new("pt-BR")
+    en = FakeLocalization.new("en-GB")
+    StoreRelease.write_whats_new(FakeLocalizedVersion.new([pt, en]), { "pt-BR" => "Novidades", "en-GB" => "What's new" })
+    assert_equal [{ whatsNew: "Novidades" }], pt.updates
+    assert_equal [{ whatsNew: "What's new" }], en.updates
+  end
+
+  def test_write_whats_new_refuses_a_store_locale_without_notes_before_writing_any
+    pt = FakeLocalization.new("pt-BR")
+    en = FakeLocalization.new("en-GB")
+    error = assert_raises(ArgumentError) do
+      StoreRelease.write_whats_new(FakeLocalizedVersion.new([pt, en]), { "pt-BR" => "Novidades" })
+    end
+    assert_includes error.message, "en-GB"
+    assert_empty pt.updates
   end
 end

@@ -105,7 +105,7 @@ func TestPagesLoadOnlyTheirOwnFiles(t *testing.T) {
 func TestLinksResolveAndLeaveOnlyForKnownPlaces(t *testing.T) {
 	pages := mustPages(t)
 	allowed := []string{AppURL, RepoURL, "mailto:" + SupportEmail, "mailto:" + PrivacyEmail, "mailto:" + CurationEmail,
-		"mailto:" + ReportEmail, GooglePrivacyURL, YouTubeTermsURL, RepoURL + "/blob/"}
+		"mailto:" + ReportEmail, GooglePrivacyURL, YouTubeTermsURL, RepoURL + "/blob/", PlayStoreURL, AppStoreURL}
 	for path, p := range pages {
 		for _, href := range p.Hrefs {
 			u, err := url.Parse(href)
@@ -141,29 +141,34 @@ func TestLinksResolveAndLeaveOnlyForKnownPlaces(t *testing.T) {
 	}
 }
 
-func TestLandingOpensTheWebAppAndNamesTheStoresAsComing(t *testing.T) {
+// Both offers on the landing, the letterhead's and the signature's, lead
+// with the two store badges and keep the web app as the quieter way in.
+func TestLandingOffersTheStoresAndTheWebApp(t *testing.T) {
 	p := mustPages(t)["/"]
-	n := 0
-	for i, href := range p.Hrefs {
-		if href == AppURL && p.HrefTexts[i] == "Usar no navegador" {
-			n++
+	count := func(want, text string) int {
+		n := 0
+		for i, href := range p.Hrefs {
+			if href == want && (text == "" || p.HrefTexts[i] == text) {
+				n++
+			}
+		}
+		return n
+	}
+	for _, store := range []string{PlayStoreURL, AppStoreURL} {
+		if n := count(store, ""); n != 2 {
+			t.Errorf("the landing links %s %d times, want 2", store, n)
 		}
 	}
-	if n < 2 {
-		t.Errorf("the landing carries %d \"Usar no navegador\" links to the web app, want 2", n)
+	if n := count(AppURL, "ou use no navegador"); n != 2 {
+		t.Errorf("the landing carries %d \"ou use no navegador\" links to the web app, want 2", n)
 	}
-	for _, store := range []string{"Google Play", "App Store"} {
-		if !strings.Contains(p.Text, store) {
-			t.Errorf("the landing does not name %s", store)
+	for _, alt := range []string{"Disponível no Google Play", "Baixar na App Store"} {
+		if !strings.Contains(p.Text, alt) {
+			t.Errorf("no store badge reads %q", alt)
 		}
 	}
-	if !strings.Contains(p.Text, "em breve") {
-		t.Error("the landing does not say the stores are coming")
-	}
-	for _, href := range p.Hrefs {
-		if strings.Contains(href, "play.google.com") || strings.Contains(href, "apps.apple.com") {
-			t.Errorf("the landing links a store: %s", href)
-		}
+	if strings.Contains(p.Text, "em breve") {
+		t.Error("the landing still says the stores are coming")
 	}
 }
 
@@ -570,6 +575,10 @@ func TestHomeDescribesTheAppAndItsMaker(t *testing.T) {
 	if a := types["MobileApplication"]; a != nil {
 		if a["name"] != "Telinha Segura" || a["operatingSystem"] != "Android, iOS" || a["url"] != canonicalFor("/") {
 			t.Errorf("MobileApplication = %v", a)
+		}
+		// The store pages are the same app, so search engines can join them.
+		if fmt.Sprint(a["sameAs"]) != fmt.Sprint([]any{PlayStoreURL, AppStoreURL}) {
+			t.Errorf("MobileApplication sameAs = %v, want both store pages", a["sameAs"])
 		}
 		offers, _ := a["offers"].(map[string]any)
 		if offers["price"] != "0" || offers["priceCurrency"] != "BRL" {

@@ -52,6 +52,7 @@ store-screens: store-screens-raw
 # Plain Ruby with minitest: no gems, so it runs wherever Ruby does.
 ruby-test:
 	@ruby app/fastlane/test/store_release_test.rb || exit 1
+	@ruby app/fastlane/check_release_notes.rb >/dev/null || exit 1
 	@for f in $$(git ls-files -co --exclude-standard -- 'app/fastlane/*file' 'app/fastlane/*.rb' 'app/fastlane/**/*.rb'); do \
 	  ruby -c "$$f" >/dev/null || exit 1; done
 
