@@ -17,6 +17,12 @@ and never runs; it must parse and claim no rating or review.
   `pyftsubset --unicodes=U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD --layout-features='*' --flavor=woff2`);
   `OFL.txt` is its licence.
 - **Brand:** `public/brand/` and the favicons are copies of `brand/`.
+- **Store badges:** `public/stores/` holds the stores' official pt-BR
+  badges: Apple's "Baixar na App Store" SVG from Apple's marketing tools,
+  and Google's "Disponível no Google Play" PNG from
+  play.google.com/intl/pt-BR/badges with only its transparent margin
+  trimmed off. Both show at the same height, with a quarter of it between
+  them, as the stores' badge guidelines ask.
 - **Link preview:** `public/og/telinha-segura.png`, the image a shared link
   shows, is rendered from `og/card.html`, which is not served. After editing
   the card, render it at 1200x630 with headless Chrome:

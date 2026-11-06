@@ -24,6 +24,9 @@ const (
 	// The policies the YouTube API Services terms ask the pages to link.
 	GooglePrivacyURL = "https://www.google.com/policies/privacy"
 	YouTubeTermsURL  = "https://www.youtube.com/t/terms"
+	// The app's pages on the two stores.
+	PlayStoreURL = "https://play.google.com/store/apps/details?id=tech.coding4u.telinhasegura"
+	AppStoreURL  = "https://apps.apple.com/br/app/telinha-segura-family-videos/id6823356416"
 )
 
 // Root is the repository root, two levels above this package.

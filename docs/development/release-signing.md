@@ -63,6 +63,27 @@ the same build is promoted: Play production starts at a 20% rollout, and the
 build is submitted for App Store review with a phased release. After Apple
 approves it, a maintainer releases it by hand in App Store Connect.
 
+### Release notes
+
+Each app version ships with "what's new" text written for its users, one file
+per store locale:
+- App Store: `app/fastlane/metadata/ios/<locale>/release_notes.txt` (up to 4000
+  characters).
+- Play: `app/fastlane/metadata/android/<locale>/changelogs/default.txt` (up to
+  500 characters).
+
+Rewrite them in the same PR to `dev` as the change they describe, or in any PR
+before the release. The Play notes go up with the build to internal testing,
+and the promotion carries them to production. The App Store notes are written
+to the version just before it is submitted for review, because App Store
+Connect refuses to review an update without them. The rest of the store
+listing is left as it is.
+
+`make check` requires a note for every locale, within the store's limit. On
+the app release PR, CI also requires every note to have changed since the
+previous `app-v*` tag. If that check fails, merge the new notes into `dev` and
+promote them; release-please then updates the release PR.
+
 The `rollout` workflow moves the Play rollout from `prd` with approval from the
 `store-production` environment. It can move the rollout to 50% of users, 100% of
 users, or halt it. It never waits behind a release that has approval pending.

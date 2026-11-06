@@ -100,6 +100,58 @@ module StoreRelease
     version
   end
 
+  # The longest "what's new" text each store takes.
+  IOS_RELEASE_NOTES_LIMIT = 4000
+  PLAY_RELEASE_NOTES_LIMIT = 500
+
+  def locale_dirs(dir)
+    return [] unless File.directory?(dir)
+    Dir.children(dir).select { |f| File.directory?(File.join(dir, f)) && !f.start_with?(".") }.sort
+  end
+
+  # The release notes each store locale needs, as paths relative to the
+  # metadata folder with the store's length limit: release_notes.txt for App
+  # Store Connect, changelogs/default.txt for Play.
+  def release_notes_files(metadata_dir)
+    android = locale_dirs(File.join(metadata_dir, "android")).map do |l|
+      ["android/#{l}/changelogs/default.txt", PLAY_RELEASE_NOTES_LIMIT]
+    end
+    ios = locale_dirs(File.join(metadata_dir, "ios")).map { |l| ["ios/#{l}/release_notes.txt", IOS_RELEASE_NOTES_LIMIT] }
+    android + ios
+  end
+
+  # What stops these release notes from going to the stores: a missing or
+  # empty note, one over the store's limit, or, when the paths changed since
+  # the last release are given, one still carrying that release's text.
+  def release_notes_problems(metadata_dir, changed: nil)
+    release_notes_files(metadata_dir).filter_map do |path, limit|
+      full = File.join(metadata_dir, path)
+      next "#{path} is missing" unless File.file?(full)
+      text = File.read(full, encoding: "UTF-8").strip
+      next "#{path} is empty" if text.empty?
+      next "#{path} has #{text.length} characters; the store takes at most #{limit}" if text.length > limit
+      next "#{path} is unchanged since the last release" if changed && !changed.include?(path)
+    end
+  end
+
+  # The App Store release notes by locale, read from metadata/ios.
+  def ios_release_notes(ios_metadata_dir)
+    locale_dirs(ios_metadata_dir).to_h do |l|
+      path = File.join(ios_metadata_dir, l, "release_notes.txt")
+      [l, File.file?(path) ? File.read(path, encoding: "UTF-8").strip : ""]
+    end
+  end
+
+  # App Store Connect refuses to review an update whose locales lack "what's
+  # new", and the submit lane leaves the rest of the metadata alone, so only
+  # this field is written. Every locale is checked before any is written.
+  def write_whats_new(version, notes_by_locale)
+    localizations = version.get_app_store_version_localizations
+    missing = localizations.map(&:locale).select { |l| notes_by_locale[l].to_s.strip.empty? }
+    raise ArgumentError, "no release notes for #{missing.join(', ')}" unless missing.empty?
+    localizations.each { |loc| loc.update(attributes: { whatsNew: notes_by_locale.fetch(loc.locale) }) }
+  end
+
   # match exports the App Store profile it installed for each bundle id as
   # sigh_<id>_appstore_profile-name; every id in the app needs one, so a
   # missing profile stops the lane before the build.
