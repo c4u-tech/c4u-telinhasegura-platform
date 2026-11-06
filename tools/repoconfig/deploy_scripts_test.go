@@ -219,14 +219,21 @@ esac
 exit 1
 `
 
+var (
+	digestA = "sha256:" + strings.Repeat("a", 64)
+	digestB = "sha256:" + strings.Repeat("b", 64)
+	digestC = "sha256:" + strings.Repeat("c", 64)
+	digest0 = "sha256:" + strings.Repeat("0", 64)
+)
+
 func TestDeployPlanSkipsWhatIsAlreadyDeployed(t *testing.T) {
 	repo := "ghcr.io/c4u-tech/telinhasegura-"
 	digests := strings.Join([]string{
-		repo + "api:" + sha + "=sha256:aaaa",
-		repo + "api:deployed-prd=sha256:aaaa",
-		repo + "web:" + sha + "=sha256:bbbb",
-		repo + "web:deployed-prd=sha256:0000",
-		repo + "site:" + sha + "=sha256:cccc",
+		repo + "api:" + sha + "=" + digestA,
+		repo + "api:deployed-prd=" + digestA,
+		repo + "web:" + sha + "=" + digestB,
+		repo + "web:deployed-prd=" + digest0,
+		repo + "site:" + sha + "=" + digestC,
 	}, " ")
 	out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
 		map[string]string{"FAKE_DIGESTS": digests}, "prd", sha, "api", "web", "site")
@@ -240,7 +247,7 @@ func TestDeployPlanSkipsWhatIsAlreadyDeployed(t *testing.T) {
 
 func TestDeployPlanFailsWhenTheImageIsMissing(t *testing.T) {
 	out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
-		map[string]string{"FAKE_DIGESTS": "ghcr.io/c4u-tech/telinhasegura-api:" + sha + "=sha256:aaaa"},
+		map[string]string{"FAKE_DIGESTS": "ghcr.io/c4u-tech/telinhasegura-api:" + sha + "=" + digestA},
 		"stg", sha, "api", "web")
 	if err == nil {
 		t.Fatalf("planned with web missing: %q", out)
@@ -254,7 +261,7 @@ func TestDeployPlanFailsWhenTheImageIsMissing(t *testing.T) {
 }
 
 func TestDeployPlanRefusesBadInput(t *testing.T) {
-	for _, args := range [][]string{{"dev", sha, "api"}, {"prd", "main", "api"}, {"prd", sha, "db"}, {"prd", sha}, {"record", "dev", "ghcr.io/c4u-tech/telinhasegura-api@sha256:1111"}, {"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api:latest"}} {
+	for _, args := range [][]string{{"dev", sha, "api"}, {"prd", "main", "api"}, {"prd", sha, "db"}, {"prd", sha}, {"record", "dev", "ghcr.io/c4u-tech/telinhasegura-api@" + digestA}, {"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api@sha256:1111"}, {"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api:latest"}} {
 		_, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools}, nil, args...)
 		if err == nil {
 			t.Errorf("%v passed", args)
@@ -267,12 +274,32 @@ func TestDeployPlanRefusesBadInput(t *testing.T) {
 
 func TestDeployPlanRecordTagsTheDeployedDigest(t *testing.T) {
 	_, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools}, nil,
-		"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api@sha256:1111")
+		"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api@"+digestA)
 	if err != nil {
 		t.Fatalf("record: %v\n%s", err, log)
 	}
-	want := "docker buildx imagetools create --tag ghcr.io/c4u-tech/telinhasegura-api:deployed-prd ghcr.io/c4u-tech/telinhasegura-api@sha256:1111"
+	want := "docker buildx imagetools create --tag ghcr.io/c4u-tech/telinhasegura-api:deployed-prd ghcr.io/c4u-tech/telinhasegura-api@" + digestA
 	if !strings.Contains(log, want) {
 		t.Errorf("log lacks %q:\n%s", want, log)
+	}
+}
+
+// An inspect answer that is not a digest never counts as a match: on the
+// image to deploy it is an error, on the deployed tag it means deploy.
+func TestDeployPlanTrustsOnlyRealDigests(t *testing.T) {
+	repo := "ghcr.io/c4u-tech/telinhasegura-"
+	for _, junk := range []string{"novalue", "sha256:1111", "sha256:" + strings.Repeat("g", 64)} {
+		out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+			map[string]string{"FAKE_DIGESTS": repo + "api:" + sha + "=" + junk + " " + repo + "api:deployed-prd=" + junk},
+			"prd", sha, "api")
+		if err == nil || out != "" {
+			t.Errorf("planned %q from a %q digest\n%s", out, junk, log)
+		}
+		out, log, err = runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+			map[string]string{"FAKE_DIGESTS": repo + "api:" + sha + "=" + digestA + " " + repo + "api:deployed-prd=" + junk},
+			"prd", sha, "api")
+		if err != nil || strings.TrimSpace(out) != "api" {
+			t.Errorf("deployed tag %q: plan %q, %v; want api\n%s", junk, out, err, log)
+		}
 	}
 }

@@ -29,7 +29,7 @@ if [ "${1:-}" = record ]; then
   pinned="$3"
   case "$pinned" in *"
 "*) fail "image must be a single line" ;; esac
-  printf '%s' "$pinned" | grep -Eq "^$registry/telinhasegura-(api|web|site|backup)@sha256:[0-9a-f]+\$" ||
+  printf '%s' "$pinned" | grep -Eq "^$registry/telinhasegura-(api|web|site|backup)@sha256:[0-9a-f]{64}\$" ||
     fail "image must be $registry/telinhasegura-<component>@sha256:<digest> (got '$pinned')"
   repo="${pinned%@*}"
   docker buildx imagetools create --tag "$repo:deployed-$2" "$pinned"
@@ -48,14 +48,21 @@ for c in "$@"; do
   case "$c" in api | web | site | backup) ;; *) fail "unknown component '$c'" ;; esac
 done
 
+# Prints a ref's manifest digest, or fails when the registry has no such
+# ref or answers anything that is not a sha256 digest.
 digest() {
-  docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "$1"
+  d="$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "$1")" || return 1
+  printf '%s' "$d" | grep -Eq '^sha256:[0-9a-f]{64}$' || {
+    echo "deploy-plan: $1 has no sha256 digest (got '$d')" >&2
+    return 1
+  }
+  echo "$d"
 }
 plan=""
 for c in "$@"; do
   repo="$registry/telinhasegura-$c"
-  want="$(digest "$repo:$ref")" && [ -n "$want" ] || fail "$repo:$ref does not exist"
-  # No deployed tag yet (or one that cannot be read) means deploy.
+  want="$(digest "$repo:$ref")" || fail "$repo:$ref does not exist or has no digest"
+  # No deployed tag yet, or one without a readable digest, means deploy.
   have="$(digest "$repo:deployed-$target" 2>/dev/null || true)"
   [ "$want" = "$have" ] || plan="${plan:+$plan }$c"
 done

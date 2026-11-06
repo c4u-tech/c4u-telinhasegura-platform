@@ -229,6 +229,14 @@ func TestDeployRecordsOnlyAfterVerify(t *testing.T) {
 			if got := Dig(s, "env", "COMPONENTS"); got != "${{ steps.plan.outputs.components || inputs.components }}" {
 				t.Errorf("record env.COMPONENTS = %v", got)
 			}
+			// The default success() keeps a failed deploy or verify from
+			// being recorded.
+			cond, _ := s["if"].(string)
+			for _, bad := range []string{"always()", "failure()", "cancelled()"} {
+				if strings.Contains(cond, bad) {
+					t.Errorf("record if %q contains %s", cond, bad)
+				}
+			}
 		}
 		if isDeployOrVerify(s) && s["continue-on-error"] != nil {
 			t.Errorf("step %v may fail without stopping the record", s["name"])
