@@ -44,9 +44,9 @@ func digestRepo(t *testing.T) string {
 	return dir
 }
 
-func imageDigest(t *testing.T, dir, ctx string) (string, string, error) {
+func imageDigest(t *testing.T, dir, ctx string, rev ...string) (string, string, error) {
 	t.Helper()
-	cmd := exec.Command("sh", filepath.Join(Root(), "scripts", "image-digest.sh"), ctx)
+	cmd := exec.Command("sh", append([]string{filepath.Join(Root(), "scripts", "image-digest.sh"), ctx}, rev...)...)
 	cmd.Dir = dir
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -54,9 +54,9 @@ func imageDigest(t *testing.T, dir, ctx string) (string, string, error) {
 	return strings.TrimSpace(string(out)), stderr.String(), err
 }
 
-func mustDigest(t *testing.T, dir, ctx string) string {
+func mustDigest(t *testing.T, dir, ctx string, rev ...string) string {
 	t.Helper()
-	d, stderr, err := imageDigest(t, dir, ctx)
+	d, stderr, err := imageDigest(t, dir, ctx, rev...)
 	if err != nil {
 		t.Fatalf("image-digest %s: %v\n%s", ctx, err, stderr)
 	}
@@ -174,5 +174,47 @@ func TestImageDigestCatchesGitLSFilesErrors(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "ls-files failed") {
 		t.Errorf("stderr %q; want message naming ls-files failure", stderr)
+	}
+}
+
+// A pull request compares the digest at two commits without checking
+// either out, so the digest of a commit must equal the digest of the same
+// files staged.
+func TestImageDigestAtARevisionMatchesTheIndex(t *testing.T) {
+	dir := digestRepo(t)
+	git(t, dir, "commit", "-m", "first")
+	first := mustDigest(t, dir, "svc")
+	if got := mustDigest(t, dir, "svc", "HEAD"); got != first {
+		t.Fatalf("digest at HEAD %s, of the index %s", got, first)
+	}
+	tree(t, dir, map[string]string{"svc/main.go": "package main // changed\n"})
+	git(t, dir, "commit", "-am", "second")
+	if got := mustDigest(t, dir, "svc"); got == first {
+		t.Fatal("changing svc/main.go left the digest unchanged")
+	}
+	if got := mustDigest(t, dir, "svc", "HEAD~1"); got != first {
+		t.Errorf("digest at HEAD~1 %s, want the first commit's %s", got, first)
+	}
+}
+
+// The exclusions come from the .dockerignore of the revision asked for,
+// not from the one checked out.
+func TestImageDigestAtARevisionReadsThatRevisionsDockerignore(t *testing.T) {
+	dir := digestRepo(t)
+	git(t, dir, "commit", "-m", "first")
+	first := mustDigest(t, dir, "svc", "HEAD")
+	tree(t, dir, map[string]string{"svc/.dockerignore": "\n"})
+	git(t, dir, "commit", "-am", "second")
+	if got := mustDigest(t, dir, "svc", "HEAD~1"); got != first {
+		t.Errorf("digest at HEAD~1 %s, want %s", got, first)
+	}
+}
+
+func TestImageDigestAtARevisionFailsWithoutTheContext(t *testing.T) {
+	dir := digestRepo(t)
+	git(t, dir, "commit", "-m", "first")
+	_, stderr, err := imageDigest(t, dir, "nope", "HEAD")
+	if err == nil || !strings.Contains(stderr, "nope") {
+		t.Errorf("err %v, stderr %q; want a failure naming the context", err, stderr)
 	}
 }
