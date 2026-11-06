@@ -199,3 +199,80 @@ func TestDeployVerifyRefusesAnUnknownEnvironment(t *testing.T) {
 		t.Error("verified an environment that does not exist")
 	}
 }
+
+// fakeImagetools answers `docker buildx imagetools inspect --format <f>
+// <ref>` with the digest $FAKE_DIGESTS pairs (ref=digest) give that ref,
+// failing like a missing tag otherwise, and logs every call.
+const fakeImagetools = `#!/bin/sh
+echo "docker $*" >> "$FAKE_LOG"
+[ "$1 $2" = "buildx imagetools" ] || exit 1
+case "$3" in
+  inspect)
+    for ref; do :; done
+    for pair in $FAKE_DIGESTS; do
+      [ "${pair%%=*}" = "$ref" ] && { echo "${pair#*=}"; exit 0; }
+    done
+    echo "$ref: not found" >&2
+    exit 1 ;;
+  create) exit 0 ;;
+esac
+exit 1
+`
+
+func TestDeployPlanSkipsWhatIsAlreadyDeployed(t *testing.T) {
+	repo := "ghcr.io/c4u-tech/telinhasegura-"
+	digests := strings.Join([]string{
+		repo + "api:" + sha + "=sha256:aaaa",
+		repo + "api:deployed-prd=sha256:aaaa",
+		repo + "web:" + sha + "=sha256:bbbb",
+		repo + "web:deployed-prd=sha256:0000",
+		repo + "site:" + sha + "=sha256:cccc",
+	}, " ")
+	out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+		map[string]string{"FAKE_DIGESTS": digests}, "prd", sha, "api", "web", "site")
+	if err != nil {
+		t.Fatalf("plan: %v\n%s", err, log)
+	}
+	if strings.TrimSpace(out) != "web site" {
+		t.Errorf("plan = %q, want \"web site\"\n%s", out, log)
+	}
+}
+
+func TestDeployPlanFailsWhenTheImageIsMissing(t *testing.T) {
+	out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+		map[string]string{"FAKE_DIGESTS": "ghcr.io/c4u-tech/telinhasegura-api:" + sha + "=sha256:aaaa"},
+		"stg", sha, "api", "web")
+	if err == nil {
+		t.Fatalf("planned with web missing: %q", out)
+	}
+	if out != "" {
+		t.Errorf("printed a plan on failure: %q", out)
+	}
+	if !strings.Contains(log, "telinhasegura-web:"+sha) {
+		t.Errorf("the error does not name the missing image:\n%s", log)
+	}
+}
+
+func TestDeployPlanRefusesBadInput(t *testing.T) {
+	for _, args := range [][]string{{"dev", sha, "api"}, {"prd", "main", "api"}, {"prd", sha, "db"}, {"prd", sha}, {"record", "dev", "ghcr.io/c4u-tech/telinhasegura-api@sha256:1111"}, {"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api:latest"}} {
+		_, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools}, nil, args...)
+		if err == nil {
+			t.Errorf("%v passed", args)
+		}
+		if strings.Contains(log, "docker ") {
+			t.Errorf("%v reached the registry:\n%s", args, log)
+		}
+	}
+}
+
+func TestDeployPlanRecordTagsTheDeployedDigest(t *testing.T) {
+	_, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools}, nil,
+		"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api@sha256:1111")
+	if err != nil {
+		t.Fatalf("record: %v\n%s", err, log)
+	}
+	want := "docker buildx imagetools create --tag ghcr.io/c4u-tech/telinhasegura-api:deployed-prd ghcr.io/c4u-tech/telinhasegura-api@sha256:1111"
+	if !strings.Contains(log, want) {
+		t.Errorf("log lacks %q:\n%s", want, log)
+	}
+}

@@ -25,6 +25,9 @@ func TestDeployFollowsCIOKOnEnvironmentPushes(t *testing.T) {
 	if got := Dig(job, "with", "components"); got != "${{ github.ref_name == 'prd' && 'api web site backup' || 'api web site' }}" {
 		t.Errorf("deploy with.components = %v", got)
 	}
+	if got := Dig(job, "with", "changed-only"); got != true {
+		t.Errorf("deploy with.changed-only = %v, want true", got)
+	}
 	if Dig(job, "secrets") != "inherit" {
 		t.Errorf("deploy secrets = %v, want inherit", Dig(job, "secrets"))
 	}
@@ -109,8 +112,8 @@ func TestDeployDeploysEachAppInOrderWithItsOwnToken(t *testing.T) {
 // No script injection: inputs reach scripts only through env.
 func TestDeployRunStepsNeverInterpolateInputs(t *testing.T) {
 	d := mustYAML(t, ".github/workflows/deploy.yml")
-	if got := Dig(d, "jobs", "deploy", "permissions"); !reflect.DeepEqual(got, map[string]any{"contents": "read", "packages": "read"}) {
-		t.Errorf("deploy permissions %v, want contents and packages read", got)
+	if got := Dig(d, "jobs", "deploy", "permissions"); !reflect.DeepEqual(got, map[string]any{"contents": "read", "packages": "write"}) {
+		t.Errorf("deploy permissions %v, want contents read and packages write", got)
 	}
 	steps, _ := Dig(d, "jobs", "deploy", "steps").([]any)
 	for _, s := range steps {
@@ -145,5 +148,115 @@ func TestDeployGuardsMissingSecretsBeforeCapRover(t *testing.T) {
 	}
 	if guard < 0 || first < 0 || guard > first {
 		t.Errorf("guard step at %d, first caprover step at %d; the guard must come first", guard, first)
+	}
+}
+
+// The condition every step that deploys, verifies or records carries: a
+// changed-only run with nothing changed does none of them.
+const somethingToDeploy = "(!inputs.changed-only || steps.plan.outputs.components != '')"
+
+func deploySteps(t *testing.T) []map[string]any {
+	t.Helper()
+	d := mustYAML(t, ".github/workflows/deploy.yml")
+	steps, _ := Dig(d, "jobs", "deploy", "steps").([]any)
+	var out []map[string]any
+	for _, s := range steps {
+		out = append(out, s.(map[string]any))
+	}
+	return out
+}
+
+// An automatic deploy can skip the components whose image is the one the
+// environment already runs; a manual run deploys what it is told.
+func TestDeployCanSkipUnchangedComponents(t *testing.T) {
+	d := mustYAML(t, ".github/workflows/deploy.yml")
+	in := Dig(d, "on", "workflow_call", "inputs", "changed-only")
+	if Dig(in, "type") != "boolean" || Dig(in, "default") != false {
+		t.Errorf("workflow_call input changed-only = %v, want boolean defaulting to false", in)
+	}
+	if Dig(d, "on", "workflow_dispatch", "inputs", "changed-only") != nil {
+		t.Error("a manual run must deploy what it is told; changed-only is for callers only")
+	}
+	var plan, images map[string]any
+	for _, s := range deploySteps(t) {
+		switch s["id"] {
+		case "plan":
+			plan = s
+		case "images":
+			images = s
+		}
+	}
+	if plan == nil || images == nil {
+		t.Fatalf("deploy.yml lacks the plan or images step")
+	}
+	if cond, _ := plan["if"].(string); !strings.Contains(cond, "inputs.changed-only") {
+		t.Errorf("plan runs when changed-only is off: if %q", cond)
+	}
+	if run, _ := plan["run"].(string); !strings.Contains(run, "scripts/deploy-plan.sh") {
+		t.Errorf("plan does not run deploy-plan.sh: %q", run)
+	}
+	if got := Dig(images, "env", "COMPONENTS"); got != "${{ steps.plan.outputs.components || inputs.components }}" {
+		t.Errorf("images env.COMPONENTS = %v", got)
+	}
+	if run, _ := images["run"].(string); !strings.Contains(run, "$COMPONENTS") {
+		t.Errorf("images does not resolve $COMPONENTS: %q", run)
+	}
+}
+
+func isDeployOrVerify(s map[string]any) bool {
+	uses, _ := s["uses"].(string)
+	return strings.HasPrefix(uses, "caprover/deploy-from-github@") || s["name"] == "Verify what was deployed"
+}
+
+func isRecord(s map[string]any) bool {
+	run, _ := s["run"].(string)
+	return strings.Contains(run, "deploy-plan.sh record")
+}
+
+// The environment's deployed tag moves only once the deploy is verified.
+func TestDeployRecordsOnlyAfterVerify(t *testing.T) {
+	verify, record := -1, -1
+	for i, s := range deploySteps(t) {
+		if s["name"] == "Verify what was deployed" {
+			verify = i
+		}
+		if isRecord(s) {
+			record = i
+			run := s["run"].(string)
+			if !strings.Contains(run, "for c in $COMPONENTS") || !strings.Contains(run, `"$TARGET"`) {
+				t.Errorf("record does not tag each deployed component for $TARGET:\n%s", run)
+			}
+			if got := Dig(s, "env", "COMPONENTS"); got != "${{ steps.plan.outputs.components || inputs.components }}" {
+				t.Errorf("record env.COMPONENTS = %v", got)
+			}
+		}
+		if isDeployOrVerify(s) && s["continue-on-error"] != nil {
+			t.Errorf("step %v may fail without stopping the record", s["name"])
+		}
+	}
+	if verify < 0 || record < 0 || record < verify {
+		t.Errorf("verify at %d, record at %d; the record must come after the verify", verify, record)
+	}
+	d := mustYAML(t, ".github/workflows/deploy.yml")
+	if got := Dig(d, "jobs", "deploy", "permissions", "packages"); got != "write" {
+		t.Errorf("deploy packages permission %v, want write (it moves the deployed tag)", got)
+	}
+}
+
+func TestDeployWithNothingChangedSkipsCapRover(t *testing.T) {
+	notice := false
+	for _, s := range deploySteps(t) {
+		cond, _ := s["if"].(string)
+		if isDeployOrVerify(s) || isRecord(s) || s["id"] == "images" {
+			if !strings.Contains(cond, somethingToDeploy) {
+				t.Errorf("step %v runs with nothing to deploy: if %q", s["name"], cond)
+			}
+		}
+		if run, _ := s["run"].(string); strings.Contains(run, "Nothing changed since the last deploy to $TARGET.") {
+			notice = strings.Contains(cond, "steps.plan.outputs.components == ''") && strings.Contains(run, "GITHUB_STEP_SUMMARY") && strings.Contains(run, "::notice::")
+		}
+	}
+	if !notice {
+		t.Error("no step tells the summary that nothing changed")
 	}
 }

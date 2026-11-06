@@ -187,6 +187,10 @@ func TestImagesPushOnlyFromEnvironmentBranches(t *testing.T) {
 
 // Only the job that pushes may write packages.
 func TestOnlyTheImagesJobWritesPackages(t *testing.T) {
+	ci := mustYAML(t, ".github/workflows/ci.yml")
+	if got := Dig(ci, "jobs", "deploy", "permissions"); !reflect.DeepEqual(got, map[string]any{"contents": "read", "packages": "write"}) {
+		t.Errorf("ci.yml deploy permissions %v, want contents read and packages write", got)
+	}
 	files, _ := filepath.Glob(filepath.Join(Root(), ".github", "workflows", "*.yml"))
 	for _, f := range files {
 		rel, _ := filepath.Rel(Root(), f)
@@ -196,7 +200,11 @@ func TestOnlyTheImagesJobWritesPackages(t *testing.T) {
 		}
 		jobs, _ := Dig(wf, "jobs").(map[string]any)
 		for name, job := range jobs {
-			if Dig(job, "permissions", "packages") == "write" && (rel != ".github/workflows/ci.yml" || name != "images") {
+			// The images job publishes; the deploy job, and ci.yml's job
+			// that calls it, move the tag naming what an environment runs.
+			writer := (rel == ".github/workflows/ci.yml" && (name == "images" || name == "deploy")) ||
+				(rel == ".github/workflows/deploy.yml" && name == "deploy")
+			if Dig(job, "permissions", "packages") == "write" && !writer {
 				t.Errorf("%s job %s may write packages", rel, name)
 			}
 		}

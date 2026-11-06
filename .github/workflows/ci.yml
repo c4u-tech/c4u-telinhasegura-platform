@@ -238,11 +238,14 @@ jobs:
     if: ${{ !cancelled() && needs.ci-ok.result == 'success' && github.event_name == 'push' && (github.ref_name == 'stg' || github.ref_name == 'prd') }}
     permissions:
       contents: read
-      packages: read
+      # The deploy moves each environment's deployed-<env> tag.
+      packages: write
     uses: ./.github/workflows/deploy.yml
     with:
       environment: ${{ github.ref_name }}
       ref: ${{ github.sha }}
       # Staging never auto-deploys the backup app.
       components: ${{ github.ref_name == 'prd' && 'api web site backup' || 'api web site' }}
+      # Leave out the components whose image the environment already runs.
+      changed-only: true
     secrets: inherit
