@@ -7,7 +7,22 @@
   "packages": {
     "app": {
       "release-type": "dart",
-      "component": "app"
+      "component": "app",
+      "exclude-paths": [
+        "app/fastlane",
+        "app/test",
+        "app/store_screens",
+        "app/tool",
+        "app/deploy",
+        "app/Dockerfile",
+        "app/.dockerignore",
+        "app/Gemfile",
+        "app/Gemfile.lock",
+        "app/.ruby-version",
+        "app/analysis_options.yaml",
+        "app/dart_test.yaml",
+        "app/README.md"
+      ]
     },
     "backend": {
       "release-type": "go",
