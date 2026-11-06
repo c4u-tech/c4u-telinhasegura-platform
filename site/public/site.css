@@ -29,9 +29,6 @@
 
   --field: var(--ink);
   --on-field: var(--cream);
-  --on-field-muted: #d3e2e3;
-  --field-action: var(--cream);
-  --on-field-action: var(--dark);
   --field-focus: var(--cream);
 
   --xs: 4px;
@@ -221,15 +218,6 @@ a:hover {
   font-family: inherit;
 }
 
-.button--on-field {
-  background: var(--field-action);
-  color: var(--on-field-action);
-}
-
-.button--on-field:hover {
-  background: #fffdf8;
-}
-
 .button--primary {
   background: var(--ink);
   color: var(--cream);
@@ -260,11 +248,30 @@ a:hover {
   }
 }
 
+/* The stores' own badges, untouched: same height, a quarter of it apart,
+   as both stores' badge guidelines ask. */
 .stores {
-  margin: 0;
-  color: var(--on-field-muted);
-  font-size: 0.9375rem;
-  line-height: 1.45;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg);
+}
+
+.store {
+  display: block;
+  border-radius: 9px;
+}
+
+.store img {
+  display: block;
+  height: 52px;
+  width: auto;
+}
+
+.web-link {
+  display: inline-block;
+  padding: 10px 0;
+  font-size: 1rem;
+  font-weight: 560;
 }
 
 @media (min-width: 840px) {
@@ -298,6 +305,10 @@ a:hover {
     align-self: end;
     justify-items: end;
     text-align: right;
+  }
+
+  .stores {
+    justify-content: flex-end;
   }
 }
 
@@ -481,10 +492,6 @@ strong {
   margin-top: var(--xl);
 }
 
-.signature .stores {
-  color: var(--muted);
-}
-
 @media (min-width: 840px) {
   .column {
     padding-top: var(--xxxl);
@@ -502,6 +509,10 @@ strong {
   .signature .offer {
     justify-items: start;
     text-align: left;
+  }
+
+  .signature .stores {
+    justify-content: flex-start;
   }
 }
 
