@@ -21,25 +21,26 @@ func affectedRepo(t *testing.T) string {
 	dir := t.TempDir()
 	git(t, dir, "init")
 	tree(t, dir, map[string]string{
-		"backend/go.mod":           "module backend\n",
-		"backend/main.go":          "package main\n",
-		"backend/Dockerfile":       "FROM scratch\n",
-		"tools/sitecheck/go.mod":   "module sitecheck\n",
-		"tools/repoconfig/go.mod":  "module repoconfig\n",
-		"tools/dco/go.mod":         "module dco\n",
-		"app/pubspec.yaml":         "name: app\n",
-		"app/lib/a.dart":           "void main() {}\n",
-		"app/fastlane/Fastfile":    "lane :x do\nend\n",
-		"app/.dockerignore":        string(dockerignore),
-		"app/Dockerfile":           "FROM scratch\n",
-		"site/public/index.html":   "<p>hi</p>\n",
-		"site/Dockerfile":          "FROM scratch\n",
-		"deploy/backup/Dockerfile": "FROM scratch\n",
-		"docs/x.md":                "# x\n",
-		"Makefile":                 "check:\n",
-		"scripts/s.sh":             "#!/bin/sh\n",
-		".github/workflows/ci.yml": "name: ci\n",
-		".github/CODEOWNERS":       "* @someone\n",
+		"backend/go.mod":                     "module backend\n",
+		"backend/main.go":                    "package main\n",
+		"backend/internal/identity/terms.go": "package identity\n",
+		"backend/Dockerfile":                 "FROM scratch\n",
+		"tools/sitecheck/go.mod":             "module sitecheck\n",
+		"tools/repoconfig/go.mod":            "module repoconfig\n",
+		"tools/dco/go.mod":                   "module dco\n",
+		"app/pubspec.yaml":                   "name: app\n",
+		"app/lib/a.dart":                     "void main() {}\n",
+		"app/fastlane/Fastfile":              "lane :x do\nend\n",
+		"app/.dockerignore":                  string(dockerignore),
+		"app/Dockerfile":                     "FROM scratch\n",
+		"site/public/index.html":             "<p>hi</p>\n",
+		"site/Dockerfile":                    "FROM scratch\n",
+		"deploy/backup/Dockerfile":           "FROM scratch\n",
+		"docs/x.md":                          "# x\n",
+		"Makefile":                           "check:\n",
+		"scripts/s.sh":                       "#!/bin/sh\n",
+		".github/workflows/ci.yml":           "name: ci\n",
+		".github/CODEOWNERS":                 "* @someone\n",
 	})
 	git(t, dir, "add", "-A")
 	git(t, dir, "commit", "-m", "start")
@@ -101,6 +102,13 @@ func TestAffectedSiteOnly(t *testing.T) {
 	dir := affectedRepo(t)
 	change(t, dir, "site/public/index.html")
 	wantAffected(t, affectedBetweenDevAndHead(t, dir), "tools/repoconfig/ tools/sitecheck/", "", "false", "site", "false")
+}
+
+// The site's legal pages show the terms version the backend defines.
+func TestAffectedTermsVersionAlsoChecksTheSite(t *testing.T) {
+	dir := affectedRepo(t)
+	change(t, dir, "backend/internal/identity/terms.go")
+	wantAffected(t, affectedBetweenDevAndHead(t, dir), "backend/ tools/repoconfig/ tools/sitecheck/", "", "false", "api backup", "false")
 }
 
 // The backup image's smoke test runs against the API image.

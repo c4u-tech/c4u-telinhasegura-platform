@@ -84,6 +84,9 @@ if [ "$full" = false ]; then
 go tools/sitecheck/"; continue ;;
       app/fastlane/* | app/Gemfile* | app/.ruby-version) ruby=true; continue ;;
       deploy/backup/*) continue ;;
+      # The site's legal pages show this version, so the site check reads it.
+      backend/internal/identity/terms.go) hits="$hits
+go tools/sitecheck/" ;;
     esac
     o="$(owner "$p")"
     if [ -n "$o" ]; then
