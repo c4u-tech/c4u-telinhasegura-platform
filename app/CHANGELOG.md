@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.5.0...app-v0.5.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **store:** send the release notes with every app release ([#87](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/87)) ([d51202c](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/d51202c092ed3ee2735ddee339dea9a27ac9510f))
+
 ## [0.5.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.4.1...app-v0.5.0) (2026-11-04)
 
 
