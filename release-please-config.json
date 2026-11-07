@@ -7,7 +7,14 @@
   "packages": {
     "app": {
       "release-type": "dart",
-      "component": "app"
+      "component": "app",
+      "exclude-paths": [
+        "app/fastlane",
+        "app/test",
+        "app/store_screens",
+        "app/tool",
+        "app/deploy"
+      ]
     },
     "backend": {
       "release-type": "go",

@@ -199,3 +199,107 @@ func TestDeployVerifyRefusesAnUnknownEnvironment(t *testing.T) {
 		t.Error("verified an environment that does not exist")
 	}
 }
+
+// fakeImagetools answers `docker buildx imagetools inspect --format <f>
+// <ref>` with the digest $FAKE_DIGESTS pairs (ref=digest) give that ref,
+// failing like a missing tag otherwise, and logs every call.
+const fakeImagetools = `#!/bin/sh
+echo "docker $*" >> "$FAKE_LOG"
+[ "$1 $2" = "buildx imagetools" ] || exit 1
+case "$3" in
+  inspect)
+    for ref; do :; done
+    for pair in $FAKE_DIGESTS; do
+      [ "${pair%%=*}" = "$ref" ] && { echo "${pair#*=}"; exit 0; }
+    done
+    echo "$ref: not found" >&2
+    exit 1 ;;
+  create) exit 0 ;;
+esac
+exit 1
+`
+
+var (
+	digestA = "sha256:" + strings.Repeat("a", 64)
+	digestB = "sha256:" + strings.Repeat("b", 64)
+	digestC = "sha256:" + strings.Repeat("c", 64)
+	digest0 = "sha256:" + strings.Repeat("0", 64)
+)
+
+func TestDeployPlanSkipsWhatIsAlreadyDeployed(t *testing.T) {
+	repo := "ghcr.io/c4u-tech/telinhasegura-"
+	digests := strings.Join([]string{
+		repo + "api:" + sha + "=" + digestA,
+		repo + "api:deployed-prd=" + digestA,
+		repo + "web:" + sha + "=" + digestB,
+		repo + "web:deployed-prd=" + digest0,
+		repo + "site:" + sha + "=" + digestC,
+	}, " ")
+	out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+		map[string]string{"FAKE_DIGESTS": digests}, "prd", sha, "api", "web", "site")
+	if err != nil {
+		t.Fatalf("plan: %v\n%s", err, log)
+	}
+	if strings.TrimSpace(out) != "web site" {
+		t.Errorf("plan = %q, want \"web site\"\n%s", out, log)
+	}
+}
+
+func TestDeployPlanFailsWhenTheImageIsMissing(t *testing.T) {
+	out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+		map[string]string{"FAKE_DIGESTS": "ghcr.io/c4u-tech/telinhasegura-api:" + sha + "=" + digestA},
+		"stg", sha, "api", "web")
+	if err == nil {
+		t.Fatalf("planned with web missing: %q", out)
+	}
+	if out != "" {
+		t.Errorf("printed a plan on failure: %q", out)
+	}
+	if !strings.Contains(log, "telinhasegura-web:"+sha) {
+		t.Errorf("the error does not name the missing image:\n%s", log)
+	}
+}
+
+func TestDeployPlanRefusesBadInput(t *testing.T) {
+	for _, args := range [][]string{{"dev", sha, "api"}, {"prd", "main", "api"}, {"prd", sha, "db"}, {"prd", sha}, {"record", "dev", "ghcr.io/c4u-tech/telinhasegura-api@" + digestA}, {"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api@sha256:1111"}, {"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api:latest"}} {
+		_, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools}, nil, args...)
+		if err == nil {
+			t.Errorf("%v passed", args)
+		}
+		if strings.Contains(log, "docker ") {
+			t.Errorf("%v reached the registry:\n%s", args, log)
+		}
+	}
+}
+
+func TestDeployPlanRecordTagsTheDeployedDigest(t *testing.T) {
+	_, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools}, nil,
+		"record", "prd", "ghcr.io/c4u-tech/telinhasegura-api@"+digestA)
+	if err != nil {
+		t.Fatalf("record: %v\n%s", err, log)
+	}
+	want := "docker buildx imagetools create --tag ghcr.io/c4u-tech/telinhasegura-api:deployed-prd ghcr.io/c4u-tech/telinhasegura-api@" + digestA
+	if !strings.Contains(log, want) {
+		t.Errorf("log lacks %q:\n%s", want, log)
+	}
+}
+
+// An inspect answer that is not a digest never counts as a match: on the
+// image to deploy it is an error, on the deployed tag it means deploy.
+func TestDeployPlanTrustsOnlyRealDigests(t *testing.T) {
+	repo := "ghcr.io/c4u-tech/telinhasegura-"
+	for _, junk := range []string{"novalue", "sha256:1111", "sha256:" + strings.Repeat("g", 64)} {
+		out, log, err := runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+			map[string]string{"FAKE_DIGESTS": repo + "api:" + sha + "=" + junk + " " + repo + "api:deployed-prd=" + junk},
+			"prd", sha, "api")
+		if err == nil || out != "" {
+			t.Errorf("planned %q from a %q digest\n%s", out, junk, log)
+		}
+		out, log, err = runScript(t, "deploy-plan.sh", map[string]string{"docker": fakeImagetools},
+			map[string]string{"FAKE_DIGESTS": repo + "api:" + sha + "=" + digestA + " " + repo + "api:deployed-prd=" + junk},
+			"prd", sha, "api")
+		if err != nil || strings.TrimSpace(out) != "api" {
+			t.Errorf("deployed tag %q: plan %q, %v; want api\n%s", junk, out, err, log)
+		}
+	}
+}
