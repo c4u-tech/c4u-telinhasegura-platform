@@ -6,3 +6,6 @@ config
 .dart_tool
 README.md
 .DS_Store
+fastlane
+Gemfile*
+.ruby-version
