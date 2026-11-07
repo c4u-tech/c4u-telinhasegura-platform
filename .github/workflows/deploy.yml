@@ -4,6 +4,11 @@ name: deploy
 # calls it after ci-ok on a push to stg or prd; run it by hand to roll back to any published commit SHA
 # or input digest. It never builds. An environment deploys only while its
 # variable (DEPLOY_STG, DEPLOY_PRD) is "true".
+#
+# Each verified deploy tags the images it deployed deployed-<env>. With
+# changed-only, a caller deploys only the components whose image differs
+# from that tag. A manual run deploys what it is told and moves the tag
+# too, so a rollback holds until that component changes again.
 on:
   workflow_call:
     inputs:
@@ -16,6 +21,9 @@ on:
       components:
         type: string
         default: api web site backup
+      changed-only:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       environment:
@@ -39,7 +47,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      packages: read
+      # Moves the deployed-<env> tag once a deploy is verified.
+      packages: write
     concurrency:
       group: deploy-${{ inputs.environment }}
       cancel-in-progress: false
@@ -47,7 +56,6 @@ jobs:
       ENABLED: ${{ (inputs.environment == 'stg' && vars.DEPLOY_STG == 'true') || (inputs.environment == 'prd' && vars.DEPLOY_PRD == 'true') }}
       TARGET: ${{ inputs.environment }}
       REF: ${{ inputs.ref }}
-      COMPONENTS: ${{ inputs.components }}
     steps:
       - name: Skip while the environment is off
         if: env.ENABLED != 'true'
@@ -63,18 +71,38 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: plan
+        name: Leave out what the environment already runs
+        if: env.ENABLED == 'true' && inputs.changed-only
+        env:
+          COMPONENTS: ${{ inputs.components }}
+        # COMPONENTS is a word list, split on purpose; deploy-plan.sh
+        # rejects anything that is not api, web, site or backup. The
+        # assignment fails the step when an image is missing.
+        run: |
+          list="$(sh scripts/deploy-plan.sh "$TARGET" "$REF" $COMPONENTS)"
+          echo "components=$list" >> "$GITHUB_OUTPUT"
+      - name: Nothing to deploy
+        if: env.ENABLED == 'true' && inputs.changed-only && steps.plan.outputs.components == ''
+        run: |
+          msg="Nothing changed since the last deploy to $TARGET."
+          echo "::notice::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
       - id: images
         name: Resolve every image before deploying any
-        if: env.ENABLED == 'true'
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '')
+        env:
+          COMPONENTS: ${{ steps.plan.outputs.components || inputs.components }}
         # COMPONENTS is a word list, split on purpose; resolve-images.sh
         # rejects anything that is not api, web, site or backup.
         run: sh scripts/resolve-images.sh "$REF" $COMPONENTS >> "$GITHUB_OUTPUT"
       - name: Require every secret this deploy uses
-        if: env.ENABLED == 'true'
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '')
         # The per-app token expressions below fall back to the other
         # environment's token when the secret is empty, so check here, by
         # name. Secrets reach the script only through env.
         env:
+          COMPONENTS: ${{ steps.plan.outputs.components || inputs.components }}
           CAPROVER_URL: ${{ secrets.CAPROVER_URL }}
           PRD_CAPROVER_API_TOKEN: ${{ secrets.PRD_CAPROVER_API_TOKEN }}
           STG_CAPROVER_API_TOKEN: ${{ secrets.STG_CAPROVER_API_TOKEN }}
@@ -98,36 +126,53 @@ jobs:
             exit 1
           fi
       - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
-        if: env.ENABLED == 'true' && steps.images.outputs.api != ''
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '') && steps.images.outputs.api != ''
         with:
           server: ${{ secrets.CAPROVER_URL }}
           app: telinhasegura-api-${{ inputs.environment }}
           token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_API_TOKEN || secrets.STG_CAPROVER_API_TOKEN }}
           image: ${{ steps.images.outputs.api }}
       - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
-        if: env.ENABLED == 'true' && steps.images.outputs.web != ''
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '') && steps.images.outputs.web != ''
         with:
           server: ${{ secrets.CAPROVER_URL }}
           app: telinhasegura-web-${{ inputs.environment }}
           token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_WEB_TOKEN || secrets.STG_CAPROVER_WEB_TOKEN }}
           image: ${{ steps.images.outputs.web }}
       - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
-        if: env.ENABLED == 'true' && steps.images.outputs.site != ''
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '') && steps.images.outputs.site != ''
         with:
           server: ${{ secrets.CAPROVER_URL }}
           app: telinhasegura-site-${{ inputs.environment }}
           token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_SITE_TOKEN || secrets.STG_CAPROVER_SITE_TOKEN }}
           image: ${{ steps.images.outputs.site }}
       - uses: caprover/deploy-from-github@058a3e0d8fb21bfc0ce207b79b1fc757d765a009 # v2.0.0
-        if: env.ENABLED == 'true' && steps.images.outputs.backup != ''
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '') && steps.images.outputs.backup != ''
         with:
           server: ${{ secrets.CAPROVER_URL }}
           app: telinhasegura-backup-${{ inputs.environment }}
           token: ${{ inputs.environment == 'prd' && secrets.PRD_CAPROVER_BACKUP_TOKEN || secrets.STG_CAPROVER_BACKUP_TOKEN }}
           image: ${{ steps.images.outputs.backup }}
       - name: Verify what was deployed
-        if: env.ENABLED == 'true'
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '')
         env:
+          COMPONENTS: ${{ steps.plan.outputs.components || inputs.components }}
           API_REVISION: ${{ steps.images.outputs.api_revision }}
         # COMPONENTS is a validated word list (resolve-images.sh ran first).
         run: sh scripts/deploy-verify.sh "$TARGET" "$API_REVISION" $COMPONENTS
+      - name: Record what was deployed
+        if: env.ENABLED == 'true' && (!inputs.changed-only || steps.plan.outputs.components != '')
+        env:
+          COMPONENTS: ${{ steps.plan.outputs.components || inputs.components }}
+          API_IMAGE: ${{ steps.images.outputs.api }}
+          WEB_IMAGE: ${{ steps.images.outputs.web }}
+          SITE_IMAGE: ${{ steps.images.outputs.site }}
+          BACKUP_IMAGE: ${{ steps.images.outputs.backup }}
+        # Runs only after the verify passed. Each tag names the digest that
+        # was deployed, not whatever the ref points at now.
+        run: |
+          for c in $COMPONENTS; do
+            name="$(echo "$c" | tr '[:lower:]' '[:upper:]')_IMAGE"
+            eval "pinned=\${$name:-}"
+            sh scripts/deploy-plan.sh record "$TARGET" "$pinned"
+          done
