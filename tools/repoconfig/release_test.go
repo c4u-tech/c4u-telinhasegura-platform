@@ -48,6 +48,22 @@ func TestReleasePleaseHasAnAppAndABackendComponent(t *testing.T) {
 	}
 }
 
+// These folders hold tooling and tests that never ship in the installed app,
+// so commits touching only them must not cut an app release.
+func TestAppReleasesIgnoreTheAppsTooling(t *testing.T) {
+	cfg := mustJSON(t, "release-please-config.json")
+	pkgs, _ := cfg["packages"].(map[string]any)
+	want := []string{
+		"app/fastlane", "app/test", "app/store_screens", "app/tool", "app/deploy",
+	}
+	if got := strs(t, Dig(pkgs, "app", "exclude-paths")); !reflect.DeepEqual(got, want) {
+		t.Errorf("app exclude-paths = %v, want %v", got, want)
+	}
+	if got := Dig(pkgs, "backend", "exclude-paths"); got != nil {
+		t.Errorf("backend exclude-paths = %v, want none", got)
+	}
+}
+
 var semver = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func TestReleaseWorkflowRunsOnPushesToPrdOnly(t *testing.T) {

@@ -15,9 +15,39 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # CI is a thin mirror of the check command: it runs exactly what a
-  # developer runs, so "green here" and "green there" mean the same thing.
+  # What the change touches: the Go modules, Dart packages, Ruby tooling and
+  # images the other jobs check. A pull request counts what it adds since it
+  # left its base branch; a push counts everything.
+  affected:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.affected.outputs.go }}
+      dart: ${{ steps.affected.outputs.dart }}
+      ruby: ${{ steps.affected.outputs.ruby }}
+      images: ${{ steps.affected.outputs.images }}
+      full: ${{ steps.affected.outputs.full }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            sh scripts/affected.sh "$BASE" "$HEAD" >> "$GITHUB_OUTPUT"
+          else
+            sh scripts/affected.sh --all >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
+  # CI is a thin mirror of the check command: it runs what a developer runs,
+  # so "green here" and "green there" mean the same thing. A push runs the
+  # whole gate; a pull request runs the same targets over the modules it
+  # touches.
   check:
+    needs: [affected]
     runs-on: ubuntu-latest
     # Postgres for the backend's integration tests (dbtest).
     services:
@@ -37,18 +67,39 @@ jobs:
         with:
           go-version: "1.27"
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        if: needs.affected.outputs.dart != ''
         with:
           channel: stable
           flutter-version: 3.47.6
-      - run: make check
+      - name: Check
+        env:
+          GO: ${{ needs.affected.outputs.go }}
+          DART: ${{ needs.affected.outputs.dart }}
+          RUBY: ${{ needs.affected.outputs.ruby }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+            make check
+            exit
+          fi
+          targets="go-fmt go-vet go-test go-build"
+          if [ -n "$DART" ]; then
+            targets="$targets dart-fmt dart-analyze dart-test"
+          fi
+          if [ "$RUBY" = true ]; then
+            targets="$targets ruby-test"
+          fi
+          # Word splitting is wanted: each target is its own argument.
+          # shellcheck disable=SC2086
+          make $targets GO_MODULES="$GO" DART_PACKAGES="$DART"
 
   # One image per component. Pull requests build and smoke-test them; pushes
   # to stg and prd also publish them to GHCR, reusing an image whose build
   # inputs are unchanged. Pushes to dev skip it: the PR already ran it. It
   # waits for check so a red commit's images never reach GHCR, at the cost
-  # of PR wall time.
+  # of PR wall time. A component whose build inputs the change leaves alone
+  # skips every step.
   images:
-    needs: [check]
+    needs: [affected, check]
     if: github.event_name == 'pull_request' || github.ref_name == 'stg' || github.ref_name == 'prd'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -70,37 +121,38 @@ jobs:
           --health-timeout 5s --health-retries 10
     env:
       PUSH: ${{ github.event_name == 'push' && (github.ref_name == 'stg' || github.ref_name == 'prd') }}
+      RUN: ${{ contains(needs.affected.outputs.images, matrix.component) }}
       COMPONENT: ${{ matrix.component }}
       REVISION: ${{ github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        if: env.PUSH == 'true'
+        if: env.RUN == 'true' && env.PUSH == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: reuse
         name: Reuse an image with the same build inputs
-        if: env.PUSH == 'true'
+        if: env.RUN == 'true' && env.PUSH == 'true'
         run: |
           result="$(sh scripts/publish-image.sh reuse "$COMPONENT" "$REVISION")"
           echo "result=$result" >> "$GITHUB_OUTPUT"
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        if: matrix.component == 'web' && steps.reuse.outputs.result != 'reused'
+        if: env.RUN == 'true' && matrix.component == 'web' && steps.reuse.outputs.result != 'reused'
         with:
           channel: stable
           flutter-version: 3.47.6
       - name: Build
-        if: steps.reuse.outputs.result != 'reused'
+        if: env.RUN == 'true' && steps.reuse.outputs.result != 'reused'
         run: sh scripts/publish-image.sh build "$COMPONENT" "$REVISION"
       - name: Smoke test
-        if: steps.reuse.outputs.result != 'reused'
+        if: env.RUN == 'true' && steps.reuse.outputs.result != 'reused'
         env:
           DATABASE_URL: postgres://postgres:postgres@host.docker.internal:5432/postgres?sslmode=disable
         run: sh scripts/smoke.sh "$COMPONENT" "telinhasegura-$COMPONENT:smoke" "$REVISION"
       - name: Push
-        if: env.PUSH == 'true' && steps.reuse.outputs.result != 'reused'
+        if: env.RUN == 'true' && env.PUSH == 'true' && steps.reuse.outputs.result != 'reused'
         run: sh scripts/publish-image.sh push "$COMPONENT" "$REVISION"
 
   # With squash-merge the PR title becomes the commit message, so the title
@@ -134,7 +186,11 @@ jobs:
         run: go run . --head ${{ github.event.pull_request.head.sha }} origin/dev origin/stg origin/prd
 
   # The store lanes load with their pinned gems; nothing talks to a store.
+  # They are checked when their Ruby changes, and always on the app release
+  # pull request, whose release notes they verify.
   fastlane:
+    needs: [affected]
+    if: ${{ needs.affected.outputs.ruby == 'true' || startsWith(github.head_ref, 'release-please--branches--prd--components--app') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -160,7 +216,7 @@ jobs:
   # The one required check for branch protection. It aggregates every job so
   # a skipped job cannot pass as a success.
   ci-ok:
-    needs: [check, pr-title, dco, images, fastlane]
+    needs: [affected, check, pr-title, dco, images, fastlane]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -182,11 +238,14 @@ jobs:
     if: ${{ !cancelled() && needs.ci-ok.result == 'success' && github.event_name == 'push' && (github.ref_name == 'stg' || github.ref_name == 'prd') }}
     permissions:
       contents: read
-      packages: read
+      # The deploy moves each environment's deployed-<env> tag.
+      packages: write
     uses: ./.github/workflows/deploy.yml
     with:
       environment: ${{ github.ref_name }}
       ref: ${{ github.sha }}
       # Staging never auto-deploys the backup app.
       components: ${{ github.ref_name == 'prd' && 'api web site backup' || 'api web site' }}
+      # Leave out the components whose image the environment already runs.
+      changed-only: true
     secrets: inherit

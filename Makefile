@@ -1,4 +1,5 @@
-# The full gate is `make check`: CI runs exactly this, and it is the done bar.
+# The full gate is `make check`, the done bar. Pushes to dev, stg and prd run
+# it whole; a pull request runs the same targets for the modules it touches.
 # Modules are discovered, not listed: every go.mod is a Go module and every
 # pubspec.yaml a Dart/Flutter package, wherever the layout puts them. Files
 # git ignores (build output, tool caches) are not searched.
