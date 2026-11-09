@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.2.0...backend-v0.2.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **backend:** update go-jose to v4.1.9 ([#95](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/95)) ([f1df460](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/f1df46091c1596adc7a3b3a2e42a2d85375ef439))
+
 ## [0.2.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.1.2...backend-v0.2.0) (2026-11-04)
 
 
