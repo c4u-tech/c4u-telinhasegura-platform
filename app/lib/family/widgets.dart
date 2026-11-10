@@ -66,7 +66,9 @@ class CapacityRow extends StatelessWidget {
 /// announced. [titleMaxLines] caps a long title (a video's), ending it
 /// with an ellipsis; the semantics label still says it whole. A
 /// [trailing] figure (a count) stands at the row's end, before the
-/// chevron, centred on the row.
+/// chevron, centred on the row. [selected] marks the row whose item stands
+/// open beside its list: the chosen stroke over the row, read as
+/// selected.
 class DoorRow extends StatefulWidget {
   const DoorRow({
     super.key,
@@ -80,9 +82,14 @@ class DoorRow extends StatefulWidget {
     this.titleMaxLines,
     this.link = false,
     this.trailing,
+    this.selected = false,
   });
 
+  /// The chosen stroke, on a [selected] row.
+  static const chosenKey = Key('door-row-chosen');
+
   final String title;
+  final bool selected;
 
   /// Whether [onTap] opens a page outside the app: the row then reads as
   /// a link rather than a button.
@@ -187,29 +194,58 @@ class _DoorRowState extends State<DoorRow> {
         child: row,
       );
     }
+    final target = DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: ShapeDecoration(
+        shape: shape.copyWith(side: ring ?? BorderSide.none),
+      ),
+      child: InkWell(
+        onTap: widget.busy ? null : onTap,
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        customBorder: shape,
+        focusColor: Colors.transparent,
+        hoverColor: p.outline.withValues(alpha: .08),
+        highlightColor: p.outline.withValues(alpha: .12),
+        splashColor: p.outline.withValues(alpha: .12),
+        child: row,
+      ),
+    );
     return Semantics(
       container: true,
       button: !widget.link,
       link: widget.link,
       enabled: !widget.busy,
+      // Only a chosen row states it, so every other row reads as before.
+      selected: widget.selected ? true : null,
       liveRegion: error != null,
       label: label,
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: ShapeDecoration(
-          shape: shape.copyWith(side: ring ?? BorderSide.none),
-        ),
-        child: InkWell(
-          onTap: widget.busy ? null : onTap,
-          onFocusChange: (focused) => setState(() => _focused = focused),
-          customBorder: shape,
-          focusColor: Colors.transparent,
-          hoverColor: p.outline.withValues(alpha: .08),
-          highlightColor: p.outline.withValues(alpha: .12),
-          splashColor: p.outline.withValues(alpha: .12),
-          child: row,
-        ),
-      ),
+      child: widget.selected
+          // Painted over the row, as a chosen choice's stroke is, so
+          // choosing moves nothing; it stands a step outside the row's
+          // edges so the title never touches it.
+          ? Stack(
+              clipBehavior: Clip.none,
+              children: [
+                target,
+                Positioned(
+                  left: -Space.md,
+                  right: -Space.md,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      key: DoorRow.chosenKey,
+                      decoration: ShapeDecoration(
+                        shape: shape.copyWith(
+                          side: BorderSide(color: p.action, width: 2.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : target,
     );
   }
 }

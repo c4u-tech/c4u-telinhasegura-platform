@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../access/widgets.dart';
+import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/widgets.dart';
@@ -47,6 +48,7 @@ class _KidModeDoorState extends State<KidModeDoor> {
       };
       return DoorRow(
         title: 'Modo criança',
+        selected: ShellFrame.isChosen(context, Routes.kidMode),
         semanticsLabel: ['Modo criança', ...lines].join(', '),
         onTap: () => context.go(Routes.kidMode),
         child: switch (status) {

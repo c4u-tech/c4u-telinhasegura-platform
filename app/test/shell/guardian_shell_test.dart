@@ -14,7 +14,10 @@ import '../design/pump.dart' show brandAssets;
 import '../family/fixtures.dart';
 
 const phone = Size(390, 844);
-const wide = Size(1280, 800);
+
+/// A wide window below the list-detail threshold: the rail beside one
+/// column (the panes have their own tests).
+const wide = Size(1000, 800);
 
 /// The app at [path] for a signed-in member of the owner's family, with
 /// the platform [roles] given.
@@ -382,11 +385,12 @@ void main() {
         anchor ??= title;
         expect(title, anchor, reason: path);
       }
-      // Top and start, not centred in the space beside the rail.
+      // At the top, the column centred in the space beside the rail.
+      const rail = ShellSizes.railInset + ShellSizes.railWidth;
       expect(anchor!.dy, lessThan(200));
       expect(
         anchor.dx,
-        ShellSizes.railInset + ShellSizes.railWidth + Space.xxxl,
+        rail + (wide.width - rail - FieldSizes.columnMaxWidth) / 2,
       );
     });
 

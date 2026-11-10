@@ -814,7 +814,9 @@ final adultScreens =
       'adults, leave confirmation': (
         '/familia/responsaveis',
         guardianFamily,
-        (tester) => tapOn(tester, find.text('Sair da família')),
+        // On a large window the family's list beside it has its own
+        // "Sair da família"; the screen's is the last.
+        (tester) => tapOn(tester, find.text('Sair da família').last),
       ),
       'invitations': ('/familia/convites', ownerFamily, null),
       'invitations, none': (

@@ -239,6 +239,7 @@ class _StaffRootScreenState extends State<StaffRootScreen> {
     final figure = waiting?.figure;
     return DoorRow(
       title: title,
+      selected: ShellFrame.isChosen(context, path),
       semanticsLabel: [title, ?waiting?.spoken].join(', '),
       onTap: () => context.go(path),
       trailing: figure == null
@@ -259,6 +260,9 @@ class _StaffRootScreenState extends State<StaffRootScreen> {
     );
   }
 
-  DoorRow _tool(String title, String path) =>
-      DoorRow(title: title, onTap: () => context.go(path));
+  DoorRow _tool(String title, String path) => DoorRow(
+    title: title,
+    selected: ShellFrame.isChosen(context, path),
+    onTap: () => context.go(path),
+  );
 }

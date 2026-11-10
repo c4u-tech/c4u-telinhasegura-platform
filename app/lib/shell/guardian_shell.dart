@@ -11,6 +11,7 @@ import '../design/tokens.dart';
 import '../design/wordmark.dart';
 import '../family/family_model.dart';
 import '../parental/app_mode.dart';
+import 'list_detail.dart';
 import 'routes.dart';
 import 'services.dart';
 
@@ -49,13 +50,23 @@ enum Destination {
 /// ready: the ink rail beside every screen on a wide window, the bar under
 /// the four roots on a narrow one. Before that (no family yet, the email
 /// to confirm, the first read), while suspended, or with the terms
-/// pending, the screen stands alone as it always has.
+/// pending, the screen stands alone as it always has. On a large window
+/// a place of several items ([lists]) shows its list beside the item it
+/// opened, the screens of the path standing in the detail.
 class GuardianShell extends StatefulWidget {
-  const GuardianShell({super.key, required this.path, required this.child});
+  const GuardianShell({
+    super.key,
+    required this.path,
+    required this.child,
+    this.lists = const {},
+  });
 
   /// The location's path, which decides the selected destination.
   final String path;
   final Widget child;
+
+  /// Each place's root, shown as the list on a large window.
+  final Map<Destination, Widget> lists;
 
   @override
   State<GuardianShell> createState() => _GuardianShellState();
@@ -114,6 +125,39 @@ class _GuardianShellState extends State<GuardianShell> {
       return LayoutBuilder(
         builder: (context, box) {
           if (box.maxWidth >= FieldSizes.wideBreakpoint) {
+            final list = widget.lists[current];
+            final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+            final room =
+                box.maxWidth - ShellSizes.railInset - ShellSizes.railWidth;
+            // At a text size the window cannot hold beside a list, the
+            // place falls back to one column.
+            final split =
+                list != null &&
+                box.maxWidth >= ShellSizes.listDetailBreakpoint &&
+                ListDetail.fits(room, scale) &&
+                !Panes.isFocus(widget.path);
+            final area = split
+                ? ListDetail(
+                    listWidth: ListDetail.listWidthAt(scale),
+                    list: ShellFrame(
+                      rail: true,
+                      rises: _rises,
+                      pane: Pane.list,
+                      chosen: Panes.itemOf(
+                        widget.path,
+                        _services.familyModel.roles,
+                      ),
+                      child: KeyedSubtree(key: ValueKey(current), child: list),
+                    ),
+                    detail: ShellFrame(
+                      rail: true,
+                      rises: _rises,
+                      pane: Pane.detail,
+                      paneRoot: Panes.isPaneRoot,
+                      child: content,
+                    ),
+                  )
+                : ShellFrame(rail: true, rises: _rises, child: content);
             return Material(
               color: context.palette.ground,
               child: Row(
@@ -132,11 +176,7 @@ class _GuardianShellState extends State<GuardianShell> {
                     child: MediaQuery.removePadding(
                       context: context,
                       removeLeft: true,
-                      child: ShellFrame(
-                        rail: true,
-                        rises: _rises,
-                        child: content,
-                      ),
+                      child: area,
                     ),
                   ),
                 ],

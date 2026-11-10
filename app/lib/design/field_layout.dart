@@ -23,6 +23,18 @@ const promiseLine =
     'Cada vídeo daqui passa pelo olhar de pais, cuidadores e profissionais '
     'antes de chegar a uma criança.';
 
+/// Where a framed screen stands beside the rail.
+enum Pane {
+  /// Alone in the space beside the rail, its column centred there.
+  single,
+
+  /// The list of a place's items, at the start of a large window.
+  list,
+
+  /// The item the list opened, beside the list.
+  detail,
+}
+
 /// Marks the screens the guardian's navigation frames. With [rail], the
 /// ink rail stands beside them and is their ink field, so a screen draws
 /// no field of its own. A destination's root reads it to know that the
@@ -32,6 +44,9 @@ class ShellFrame extends InheritedWidget {
     super.key,
     required this.rail,
     required this.rises,
+    this.pane = Pane.single,
+    this.chosen,
+    this.paneRoot,
     required super.child,
   });
 
@@ -41,12 +56,33 @@ class ShellFrame extends InheritedWidget {
   /// head rises for them, since it is the field's head.
   final ValueNotifier<int> rises;
 
+  /// Where the screens stand beside the rail.
+  final Pane pane;
+
+  /// In the list pane, the path of the item the detail shows.
+  final String? chosen;
+
+  /// In the detail pane, whether a page (named by its route's path
+  /// pattern) is an item's first level: the list beside it is the way
+  /// elsewhere, so it shows no back control.
+  final bool Function(String pattern)? paneRoot;
+
   static ShellFrame? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ShellFrame>();
 
+  /// Whether the list pane's row opening [item] is the one shown beside it.
+  static bool isChosen(BuildContext context, String item) {
+    final frame = maybeOf(context);
+    return frame != null && frame.pane == Pane.list && frame.chosen == item;
+  }
+
   @override
   bool updateShouldNotify(ShellFrame old) =>
-      old.rail != rail || old.rises != rises;
+      old.rail != rail ||
+      old.rises != rises ||
+      old.pane != pane ||
+      old.chosen != chosen ||
+      old.paneRoot != paneRoot;
 }
 
 /// The access surface's frame. The flat ink field is the Espiadinha's
@@ -98,6 +134,29 @@ class FieldLayout extends StatelessWidget {
   /// Plays "o sol sobe" once: the confirmations.
   final bool rise;
 
+  /// The width a column can take in a screen [width] wide: the screen
+  /// less the side padding its place gives the column.
+  static double roomIn(BuildContext context, double width) {
+    final frame = ShellFrame.maybeOf(context);
+    final sides = frame == null || !frame.rail
+        ? 2 * Space.xl
+        : _RailFramed.padding(frame.pane).horizontal;
+    return width - sides;
+  }
+
+  /// Whether this screen is the first level of the detail pane's item,
+  /// read from its page's path pattern (never from the router's state,
+  /// which a page being redirected away cannot resolve).
+  static bool _atPaneRoot(BuildContext context, ShellFrame frame) {
+    final paneRoot = frame.paneRoot;
+    if (frame.pane != Pane.detail || paneRoot == null) return false;
+    final key = ModalRoute.of(context)?.settings;
+    return switch (key) {
+      Page(key: ValueKey<String>(:final value)) => paneRoot(value),
+      _ => false,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     // At large text sizes the hero would push the task below the fold:
@@ -118,9 +177,10 @@ class FieldLayout extends StatelessWidget {
     if (frame != null && frame.rail) {
       return _RailFramed(
         task: task,
-        onBack: onBack,
+        onBack: _atPaneRoot(context, frame) ? null : onBack,
         rise: rise,
         rises: frame.rises,
+        pane: frame.pane,
       );
     }
     return Scaffold(
@@ -210,21 +270,47 @@ class FieldLayout extends StatelessWidget {
 }
 
 /// A screen beside the ink rail: the rail is its field. Every column
-/// starts at one place, top and start of the content area, so the title
-/// stays put as the destinations change; a task's back control stands at
-/// the column's start right above it, in a slot a root keeps empty.
+/// stands at one place, at the top of the content area and centred in it
+/// (or at the start of its pane, beside a list), so the title stays put
+/// as the destinations change; a task's back control stands at the
+/// column's start right above it, in a slot a root keeps empty.
 class _RailFramed extends StatefulWidget {
   const _RailFramed({
     required this.task,
     required this.onBack,
     required this.rise,
     required this.rises,
+    required this.pane,
   });
 
   final Widget task;
   final VoidCallback? onBack;
   final bool rise;
   final ValueNotifier<int> rises;
+  final Pane pane;
+
+  /// The space around the column in each place beside the rail.
+  static EdgeInsetsDirectional padding(Pane pane) => switch (pane) {
+    Pane.single => const EdgeInsetsDirectional.fromSTEB(
+      Space.xxxl,
+      Space.xxl,
+      Space.xxxl,
+      Space.xxxl,
+    ),
+    // The list's pane is narrow: its doors take most of it.
+    Pane.list => const EdgeInsetsDirectional.fromSTEB(
+      Space.xl,
+      Space.xxl,
+      Space.xl,
+      Space.xxxl,
+    ),
+    Pane.detail => const EdgeInsetsDirectional.fromSTEB(
+      Space.xxxl,
+      Space.xxl,
+      Space.xl,
+      Space.xxxl,
+    ),
+  };
 
   @override
   State<_RailFramed> createState() => _RailFramedState();
@@ -256,14 +342,11 @@ class _RailFramedState extends State<_RailFramed> {
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsetsDirectional.fromSTEB(
-          Space.xxxl,
-          Space.xxl,
-          Space.xl,
-          Space.xxxl,
-        ),
+        padding: _RailFramed.padding(widget.pane),
         child: Align(
-          alignment: AlignmentDirectional.topStart,
+          alignment: widget.pane == Pane.single
+              ? Alignment.topCenter
+              : AlignmentDirectional.topStart,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

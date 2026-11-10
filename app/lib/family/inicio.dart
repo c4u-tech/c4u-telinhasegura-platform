@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../access/reauth_prompt.dart';
 import '../access/widgets.dart';
-import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../kid_mode/hand_over.dart';
@@ -32,9 +31,12 @@ String greeting(DateTime now) => switch (now.hour) {
 /// the next step and opens the first run there. Each child's day is read
 /// on its own, so one slow or failed read holds up no other row.
 class Inicio extends StatefulWidget {
-  const Inicio({super.key, required this.family});
+  const Inicio({super.key, required this.family, this.columns = 1});
 
   final Family family;
+
+  /// How many children stand side by side in the band.
+  final int columns;
 
   @override
   State<Inicio> createState() => _InicioState();
@@ -162,7 +164,7 @@ class _InicioState extends State<Inicio> {
           ],
           if (minors.isNotEmpty)
             ChildBand(
-              columns: (ShellFrame.maybeOf(context)?.rail ?? false) ? 2 : 1,
+              columns: widget.columns,
               children: [
                 for (final minor in minors)
                   ChildRow(

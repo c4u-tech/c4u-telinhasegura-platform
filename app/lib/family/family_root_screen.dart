@@ -76,6 +76,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
     return [
       DoorRow(
         title: 'Crianças',
+        selected: ShellFrame.isChosen(context, Routes.children),
         semanticsLabel: 'Crianças, $childWords',
         onTap: () => context.go(Routes.children),
         child: Column(
@@ -98,6 +99,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
       ),
       DoorRow(
         title: 'Responsáveis',
+        selected: ShellFrame.isChosen(context, Routes.adults),
         semanticsLabel: 'Responsáveis, $adultWords',
         onTap: () => context.go(Routes.adults),
         child: CapacityRow(
@@ -109,6 +111,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
       if (family.role == FamilyRole.owner)
         DoorRow(
           title: 'Convites',
+          selected: ShellFrame.isChosen(context, Routes.invitations),
           semanticsLabel: 'Convites, $waiting',
           onTap: () => context.go(Routes.invitations),
           child: _muted(waiting),

@@ -214,6 +214,7 @@ class _AccountScreenState extends State<AccountScreen> {
         ?.copyWith(color: context.palette.muted);
     return DoorRow(
       title: title,
+      selected: ShellFrame.isChosen(context, path),
       semanticsLabel: line.isEmpty ? title : '$title, $line',
       onTap: () => context.go(path),
       child: switch (line) {

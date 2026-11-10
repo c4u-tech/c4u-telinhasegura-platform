@@ -146,6 +146,11 @@ abstract final class FieldSizes {
   // Google's rendered web button tops out at 400 px; every control in
   // the column shares that width so their edges line up.
   static const columnMaxWidth = 400.0;
+
+  /// From this much room for its column, a page of sections (a child's
+  /// page) sets its first two side by side, each still close to a
+  /// column's width.
+  static const pairedMinWidth = 760.0;
 }
 
 /// The guardian's navigation: the ink rail on a wide window and the bar
@@ -163,6 +168,16 @@ abstract final class ShellSizes {
 
   /// A destination's row in the rail, a control's height.
   static const railItem = 56.0;
+
+  /// From this width a place of several items (the family, the account,
+  /// the team) shows its list and the item it opens side by side: the
+  /// large window class, which a 10 to 11 inch tablet in landscape
+  /// reaches (about 1317 dp), while the same tablet in portrait and a
+  /// small laptop window keep one column.
+  static const listDetailBreakpoint = 1200.0;
+
+  /// The list's pane beside the rail, before the reed hairline.
+  static const listPaneWidth = 320.0;
 }
 
 /// The wordmark's box height in each ink field. The wordmark is the

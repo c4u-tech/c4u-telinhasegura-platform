@@ -167,19 +167,28 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
       final state = _model.state;
       if (_model.suspended) return _suspended(state);
       if (state case FamilyReady(:final family)) {
-        return FieldLayout(
-          title: greeting(clock.now()),
-          rise: _rise,
-          columnWidth: (ShellFrame.maybeOf(context)?.rail ?? false)
-              ? 2 * FieldSizes.columnMaxWidth + Space.xl
-              : FieldSizes.columnMaxWidth,
-          children: [
-            if (_notice case final notice?) ...[
-              Notice(notice),
-              const SizedBox(height: Space.lg),
-            ],
-            Inicio(family: family),
-          ],
+        return LayoutBuilder(
+          builder: (context, box) {
+            // Beside the rail, the children stand two to a line once two
+            // whole columns fit with the margins around them; until then
+            // the home keeps the one column every screen shares.
+            const pair = 2 * FieldSizes.columnMaxWidth + Space.xl;
+            final paired =
+                (ShellFrame.maybeOf(context)?.rail ?? false) &&
+                box.maxWidth >= pair + 2 * Space.xxxl;
+            return FieldLayout(
+              title: greeting(clock.now()),
+              rise: _rise,
+              columnWidth: paired ? pair : FieldSizes.columnMaxWidth,
+              children: [
+                if (_notice case final notice?) ...[
+                  Notice(notice),
+                  const SizedBox(height: Space.lg),
+                ],
+                Inicio(family: family, columns: paired ? 2 : 1),
+              ],
+            );
+          },
         );
       }
       return FieldLayout(

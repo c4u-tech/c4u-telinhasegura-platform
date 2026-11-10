@@ -93,6 +93,7 @@ import '../staff/audit_screen.dart';
 import '../staff/staff_gate.dart';
 import '../staff/staff_root_screen.dart';
 import 'guardian_shell.dart';
+import 'list_detail.dart';
 import 'routes.dart';
 import 'services.dart';
 
@@ -179,7 +180,15 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
         pageBuilder: (_, state, child) => BandArrivalPage(
           key: state.pageKey,
           motion: state.extra == BandMotion.shrink ? BandMotion.shrink : null,
-          child: GuardianShell(path: state.uri.path, child: child),
+          child: GuardianShell(
+            path: state.uri.path,
+            lists: const {
+              Destination.familia: FamilyRootScreen(),
+              Destination.conta: AccountScreen(),
+              Destination.equipe: StaffRootScreen(),
+            },
+            child: child,
+          ),
         ),
         routes: _guardianRoutes(services),
       ),
@@ -205,7 +214,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
   ),
   GoRoute(
     path: Routes.family,
-    builder: (_, _) => const FamilyRootScreen(),
+    builder: (_, state) => ListRoot(
+      path: state.uri.path,
+      root: Routes.family,
+      first: (_) => const ChildrenScreen(),
+      child: const FamilyRootScreen(),
+    ),
     routes: [
       GoRoute(path: 'responsaveis', builder: (_, _) => const AdultsScreen()),
       GoRoute(path: 'convites', builder: (_, _) => const InvitationsScreen()),
@@ -328,7 +342,20 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
       GoRoute(path: 'excluir', builder: (_, _) => const DeleteFamilyScreen()),
     ],
   ),
-  GoRoute(path: Routes.staffHome, builder: (_, _) => const StaffRootScreen()),
+  GoRoute(
+    path: Routes.staffHome,
+    builder: (_, state) => ListRoot(
+      path: state.uri.path,
+      root: Routes.staffHome,
+      first: (_) =>
+          switch (Panes.firstOf(Routes.staffHome, services.familyModel.roles)) {
+            Routes.curation => const QueueScreen(),
+            Routes.heldVideos => _heldVideos(null),
+            _ => const SizedBox.shrink(),
+          },
+      child: const StaffRootScreen(),
+    ),
+  ),
   GoRoute(
     path: Routes.kidMode,
     builder: (_, state) => KidModeScreen(saved: state.extra as PinSaved?),
@@ -346,7 +373,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
   ),
   GoRoute(
     path: Routes.account,
-    builder: (_, _) => const AccountScreen(),
+    builder: (_, state) => ListRoot(
+      path: state.uri.path,
+      root: Routes.account,
+      first: (_) => const EmailScreen(),
+      child: const AccountScreen(),
+    ),
     routes: [
       GoRoute(path: 'email', builder: (_, _) => const EmailScreen()),
       GoRoute(path: 'senha', builder: (_, _) => const PasswordScreen()),
@@ -609,13 +641,9 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
   ),
   GoRoute(
     path: Routes.heldVideos,
-    builder: (_, state) => StaffGate(
-      title: 'Vídeos retidos',
-      child: HeldVideosScreen(
-        // Opening a held video hands its screen the video, not a notice.
-        notice: state.extra is String ? state.extra as String : null,
-      ),
-    ),
+    // Opening a held video hands its screen the video, not a notice.
+    builder: (_, state) =>
+        _heldVideos(state.extra is String ? state.extra as String : null),
     routes: [
       GoRoute(
         path: ':id',
@@ -639,6 +667,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     ],
   ),
 ];
+
+/// The held videos, behind the second factor's gate.
+Widget _heldVideos(String? notice) => StaffGate(
+  title: 'Vídeos retidos',
+  child: HeldVideosScreen(notice: notice),
+);
 
 /// The routes outside the guardian's navigation: the PIN gate, the child's
 /// side, linking a device, an invitation's link and every access screen.
