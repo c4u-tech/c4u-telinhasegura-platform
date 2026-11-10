@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,17 +8,16 @@ import '../access/check_email_screen.dart' show resentNotice;
 import '../access/copy.dart';
 import '../access/submission.dart';
 import '../access/widgets.dart';
-import '../auth/auth_api.dart' show PlatformRole;
 import '../design/address.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
-import '../kid_mode/kid_mode_door.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'avatars.dart';
+import '../staff/staff_root_screen.dart';
 import 'family.dart';
 import 'family_model.dart';
+import 'inicio.dart';
 import 'labels.dart';
 import 'profile_fields.dart' show SelectableRow;
 import 'widgets.dart';
@@ -26,14 +26,14 @@ const _inviteHelp =
     'O convite chega por e-\u2060mail, enviado por quem cuida da família. Abra o '
     'link da mensagem: ele abre o app e mostra a família para você entrar.';
 
-/// `/`: the family as its doors, or what comes before it (no family
-/// yet, the email to confirm, the first read). The doors of the
-/// session's platform roles ("Curadoria", "Pacotinhos", "Moderação",
-/// "Administração") follow the family's doors, or, with no family, the
-/// first use, since staff need no family. "Sua
-/// conta" comes last among the doors, or after the state's own choice,
-/// since an account exists before a family does.
-/// "Sair da conta" stays at the foot of every state.
+/// `/`: Início once the family is ready (the greeting, then the children,
+/// each one tap from being handed the device), or what comes before it
+/// (no family yet, the email to confirm, the first read). Before the
+/// family, the doors of the session's platform roles ("Curadoria",
+/// "Pacotinhos", "Moderação", "Administração") follow the first use,
+/// since staff need no family, then "Sua conta", since an account exists
+/// before a family does, and "Sair da conta" stays at the foot; once the
+/// family is ready the navigation holds those places.
 class FamilyHomeScreen extends StatefulWidget {
   const FamilyHomeScreen({super.key});
 
@@ -145,6 +145,22 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     builder: (context, _) {
       final state = _model.state;
       if (_model.suspended) return _suspended(state);
+      if (state case FamilyReady(:final family)) {
+        return FieldLayout(
+          title: greeting(clock.now()),
+          rise: _rise,
+          columnWidth: (ShellFrame.maybeOf(context)?.rail ?? false)
+              ? 2 * FieldSizes.columnMaxWidth + Space.xl
+              : FieldSizes.columnMaxWidth,
+          children: [
+            if (_notice case final notice?) ...[
+              Notice(notice),
+              const SizedBox(height: Space.lg),
+            ],
+            Inicio(family: family),
+          ],
+        );
+      }
       return FieldLayout(
         title: switch (state) {
           EmailUnverified() => 'Confirme seu e-\u2060mail',
@@ -161,7 +177,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
             const SizedBox(height: Space.lg),
           ],
           ...switch (state) {
-            FamilyReady(:final family) => _doors(family),
+            FamilyReady() => const [],
             NoFamily(:final invitations) =>
               invitations.isEmpty ? _firstUse() : _invited(invitations),
             EmailUnverified(:final email) => _verify(email),
@@ -241,147 +257,6 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     );
   }
 
-  List<Widget> _doors(Family family) {
-    final children = family.minors.length;
-    final adults = family.members.length + family.pendingInvitations;
-    final childWords = FamilyWords.children(children);
-    final adultWords = FamilyWords.adults(
-      family.members.length,
-      family.pendingInvitations,
-    );
-    final waiting = FamilyWords.invitationsWaiting(family.pendingInvitations);
-    return [
-      Doors(
-        children: [
-          DoorRow(
-            title: 'Crianças',
-            semanticsLabel: 'Crianças, $childWords',
-            onTap: () => context.go(Routes.children),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (family.minors.isNotEmpty) ...[
-                  Wrap(
-                    spacing: Space.sm,
-                    runSpacing: Space.sm,
-                    children: [
-                      for (final minor in family.minors)
-                        AvatarDisc(minor.avatar, excludeSemantics: true),
-                    ],
-                  ),
-                  const SizedBox(height: Space.md),
-                ],
-                CapacityRow(
-                  filled: children,
-                  total: kMaxMinors,
-                  words: childWords,
-                ),
-              ],
-            ),
-          ),
-          DoorRow(
-            title: 'Responsáveis',
-            semanticsLabel: 'Responsáveis, $adultWords',
-            onTap: () => context.go(Routes.adults),
-            child: CapacityRow(
-              filled: adults,
-              total: kMaxAdults,
-              words: adultWords,
-            ),
-          ),
-          if (family.role == FamilyRole.owner)
-            DoorRow(
-              title: 'Convites',
-              semanticsLabel: 'Convites, $waiting',
-              onTap: () => context.go(Routes.invitations),
-              child: Text(
-                waiting,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: context.palette.muted),
-              ),
-            ),
-          // Every member's, owner or not.
-          const KidModeDoor(),
-          _timeDoor(family),
-          _videosDoor(family),
-          _suggestDoor(),
-          ..._roleDoors(),
-          ?_accountDoor(),
-        ],
-      ),
-    ];
-  }
-
-  /// "Tempo de tela", every member's; with no child
-  /// yet, a row nobody acts on that says why.
-  DoorRow _timeDoor(Family family) {
-    final line = family.minors.isEmpty
-        ? 'Cadastre uma criança primeiro'
-        : 'Limite e horário de cada criança';
-    return DoorRow(
-      title: 'Tempo de tela',
-      semanticsLabel: 'Tempo de tela, $line',
-      onTap: family.minors.isEmpty ? null : () => context.go(Routes.screenTime),
-      child: Text(
-        line,
-        style: Theme.of(context).textTheme.bodyMedium
-            ?.copyWith(color: context.palette.muted),
-      ),
-    );
-  }
-
-  /// "Vídeos", every member's; with no
-  /// child yet, a row nobody acts on that says why.
-  DoorRow _videosDoor(Family family) {
-    final line = family.minors.isEmpty
-        ? 'Cadastre uma criança primeiro'
-        : 'O que cada criança pode assistir';
-    return DoorRow(
-      title: 'Vídeos',
-      semanticsLabel: 'Vídeos, $line',
-      onTap: family.minors.isEmpty
-          ? null
-          : () => context.go(Routes.familyVideos),
-      child: Text(
-        line,
-        style: Theme.of(context).textTheme.bodyMedium
-            ?.copyWith(color: context.palette.muted),
-      ),
-    );
-  }
-
-  /// "Sugerir vídeo", every guardian's and only with a family.
-  DoorRow _suggestDoor() => _mutedDoor(
-    'Sugerir vídeo',
-    'Indique um vídeo para a curadoria',
-    Routes.suggestions,
-  );
-
-  /// One door per platform role the session holds, with or without a
-  /// family: "Curadoria" and "Pacotinhos" for a curator, "Moderação" for
-  /// a moderator who is not an admin, "Administração" for an admin.
-  /// A role the server drops goes
-  /// on the next session read.
-  List<DoorRow> _roleDoors() {
-    final roles = _model.roles ?? const {};
-    final admin = roles.contains(PlatformRole.admin);
-    return [
-      if (roles.contains(PlatformRole.curator)) ...[
-        _mutedDoor('Curadoria', 'Fila de revisão', Routes.curation),
-        _mutedDoor('Pacotinhos', 'Montar e revisar', Routes.packs),
-      ],
-      // The admin reaches the held videos from Administração.
-      if (roles.contains(PlatformRole.moderator) && !admin)
-        _mutedDoor('Moderação', 'Vídeos retidos', Routes.heldVideos),
-      if (admin)
-        _mutedDoor(
-          'Administração',
-          'Contas, equipe, vídeos e auditoria',
-          Routes.admin,
-        ),
-    ];
-  }
-
   DoorRow _mutedDoor(String title, String line, String path) => DoorRow(
     title: title,
     semanticsLabel: '$title, $line',
@@ -393,11 +268,13 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     ),
   );
 
-  /// The doors under a state with no family's doors: with no family, the
-  /// role doors, then "Sua conta". None while the
-  /// first read runs: the family's doors take them once ready.
+  /// The doors under a state before the family: with no family, the
+  /// role doors, then "Sua conta". None while the first read runs.
   List<DoorRow> _stateDoors(FamilyState state) => switch (state) {
-    NoFamily() => [..._roleDoors(), ?_accountDoor()],
+    NoFamily() => [
+      ...staffDoors(context, _model.roles ?? const {}),
+      ?_accountDoor(),
+    ],
     EmailUnverified() || FamilyFailed() => [?_accountDoor()],
     FamilyReady() || FamilyLoading() => const [],
   };
@@ -568,23 +445,11 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     ];
   }
 
-  /// Quiet text actions: leaving or deleting the family on its own
-  /// screen, then signing out.
+  /// The quiet way out, signing out.
   List<Widget> _foot(FamilyState state) {
     final p = context.palette;
     final email = _model.email;
     return [
-      if (state case FamilyReady(:final family))
-        family.role == FamilyRole.owner
-            ? QuietAction(
-                label: 'Excluir família',
-                destructive: true,
-                onPressed: () => context.go(Routes.deleteFamily),
-              )
-            : QuietAction(
-                label: 'Sair da família',
-                onPressed: () => context.go(Routes.adults),
-              ),
       // The "Sua conta" door names the account; only the
       // first read, which has no door yet, names it here.
       if (email != null && state is FamilyLoading) ...[

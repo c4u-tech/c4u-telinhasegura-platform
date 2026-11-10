@@ -12,6 +12,7 @@ import 'package:telinha_segura/auth/provider_sign_in.dart';
 import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/family/confirm.dart';
 import 'package:telinha_segura/family/family.dart';
+import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
 import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/design/tokens.dart';
@@ -2516,7 +2517,10 @@ void main() {
         await openHome(tester, state, size: size, textScale: 2);
 
         expect(tester.takeException(), isNull);
-        // The column's first control and its last, "Sair da conta".
+        // Início, once the family is ready, ends on "Sugerir um vídeo";
+        // every state before it on "Sair da conta".
+        final inicio = find.byType(Inicio).evaluate().isNotEmpty;
+        // The column's first control and its last.
         final first = find.byWidgetPredicate(
           (w) => w is DoorRow || w is FilledButton,
         );
@@ -2526,13 +2530,56 @@ void main() {
           // A role door with no family.
           if (state.contains('moderator'))
             find.widgetWithText(DoorRow, 'Moderação'),
-          find.text('Sair da conta'),
+          find.text(inicio ? 'Sugerir um vídeo' : 'Sair da conta'),
         ]) {
           await tester.ensureVisible(control);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         }
-        if (state.contains('long')) expectWholeAddress(tester, size.width);
+        // Início names no account: Conta does.
+        if (state.contains('long') && !inicio) {
+          expectWholeAddress(tester, size.width);
+        }
+      });
+    }
+  }
+
+  // The Família and Equipe roots, with the navigation.
+  for (final (path, roles) in [
+    ('/familia', <String>[]),
+    ('/familia', ['curator']),
+    ('/equipe', ['admin', 'curator', 'moderator']),
+  ]) {
+    testWidgets('$path $roles: labelled controls with 48 dp targets', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final h = Harness(signedIn: true)
+        ..family = ownerFamily
+        ..roles = roles;
+      await h.pump(tester, initial: path);
+
+      await meetsGuidelines(tester);
+      semantics.dispose();
+    });
+
+    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+      testWidgets('$path $roles at 200% text, ${size.width.toInt()} wide: no '
+          'overflow, every door reachable', (tester) async {
+        final h = Harness(signedIn: true)
+          ..family = ownerFamily
+          ..roles = roles;
+        await h.pump(tester, initial: path, size: size, textScale: 2);
+
+        expect(tester.takeException(), isNull);
+        for (final control in [
+          find.byType(DoorRow).first,
+          find.byType(DoorRow).last,
+        ]) {
+          await tester.ensureVisible(control);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
       });
     }
   }

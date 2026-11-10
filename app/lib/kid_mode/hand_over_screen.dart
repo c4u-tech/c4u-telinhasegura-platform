@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../access/copy.dart';
 import '../access/reauth_prompt.dart';
 import '../access/widgets.dart';
 import '../design/field_layout.dart';
@@ -17,6 +16,7 @@ import '../family/profile_fields.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
+import 'hand_over.dart';
 import 'kid_mode_screen.dart';
 
 const _howToLeave =
@@ -56,31 +56,12 @@ class _HandOverScreenState extends State<HandOverScreen> {
     super.dispose();
   }
 
-  Future<void> _handOver(Minor minor) async {
-    await _write.write(
-      () => AppScope.of(context).appMode.handOver(minor.id),
-      overrides: const {'not_found': Copy.childGone},
-      handle: (e) {
-        switch (e.code) {
-          case 'consent_required':
-            // The child's profile waits for a new authorization: the
-            // adult gives it, then comes back here.
-            if (mounted) {
-              context.go(Routes.reconsent(minor.id, then: Routes.handOver));
-            }
-            return true;
-          case 'pin_not_set':
-            // The PIN went meanwhile: back to the guide's first step.
-            if (mounted) context.go(Routes.kidMode);
-            return true;
-          case 'not_found':
-            setState(() => _chosen = null);
-            unawaited(_model.refresh());
-        }
-        return false;
-      },
-    );
-  }
+  Future<void> _handOver(Minor minor) => handOverTo(
+    context,
+    _write,
+    minor,
+    onGone: () => setState(() => _chosen = null),
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(

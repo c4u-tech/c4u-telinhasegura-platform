@@ -65,7 +65,7 @@ void main() {
 
     await enter(tester, '2580');
 
-    expect(h.actions, ['POST /v1/parental/pin/verify {"pin":"2580"}']);
+    expect(h.actionsPastHome, ['POST /v1/parental/pin/verify {"pin":"2580"}']);
     expect(h.services.appMode.mode, const Guardian());
     expect(h.location(tester), '/');
     expect(find.byType(FamilyHomeScreen), findsOneWidget);

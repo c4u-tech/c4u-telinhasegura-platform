@@ -9,14 +9,12 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/design/field_layout.dart';
-import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
+import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/widgets.dart';
-import 'package:telinha_segura/kid_mode/kid_mode_status.dart';
 
 import '../access/a11y_test.dart' show invitationsFor;
 import '../access/harness.dart';
-import '../parental/parental_api_test.dart' show deviceJson;
 import 'fixtures.dart';
 
 final guardianFamily = <String, Object?>{
@@ -41,265 +39,35 @@ Future<Harness> home(
 }
 
 void main() {
-  group('member', () {
-    testWidgets('the owner sees three doors with their counts', (tester) async {
-      await home(tester);
-
-      expect(find.text('Sua família'), findsOneWidget);
-      expect(
-        find.descendant(of: find.byType(DoorRow), matching: find.byType(Text)),
-        findsWidgets,
-      );
-      for (final title in ['Crianças', 'Responsáveis', 'Convites']) {
-        expect(find.widgetWithText(DoorRow, title), findsOneWidget);
-      }
-      expect(find.byType(AvatarDisc), findsOneWidget);
-      expect(find.text('1 de 10 crianças'), findsOneWidget);
-      // Two members plus one pending invitation.
-      expect(find.text('3 de 6 vagas: 2 adultos e 1 convite'), findsOneWidget);
-      expect(find.text('1 convite esperando resposta'), findsOneWidget);
-      final capacities = tester.widgetList<CapacityRow>(
-        find.byType(CapacityRow),
-      );
-      expect(capacities.map((c) => (c.filled, c.total)), [(1, 10), (3, 6)]);
-    });
-
-    testWidgets('a guardian sees no Convites door', (tester) async {
-      await home(tester, family: guardianFamily);
-
-      expect(find.widgetWithText(DoorRow, 'Convites'), findsNothing);
-      // Crianças, Responsáveis, Modo criança, Tempo de tela, Vídeos,
-      // Sugerir vídeo and Sua conta.
-      expect(find.byType(DoorRow), findsNWidgets(7));
-    });
-
-    testWidgets('each door reads its words to assistive technology', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await home(tester);
-
-      expect(find.bySemanticsLabel('Crianças, 1 de 10 crianças'), findsOne);
-      expect(
-        find.bySemanticsLabel(
-          'Responsáveis, 3 de 6 vagas: 2 adultos e 1 convite',
-        ),
-        findsOne,
-      );
-      expect(
-        find.bySemanticsLabel('Convites, 1 convite esperando resposta'),
-        findsOne,
-      );
-      semantics.dispose();
-    });
-
-    for (final (door, path) in [
-      ('Crianças', '/familia/criancas'),
-      ('Responsáveis', '/familia/responsaveis'),
-      ('Convites', '/familia/convites'),
-    ]) {
-      testWidgets('$door opens $path', (tester) async {
-        final h = await home(tester);
-
-        await tester.tap(find.widgetWithText(DoorRow, door));
-        await tester.pumpAndSettle();
-
-        expect(h.location(tester), path);
-      });
-    }
-
-    testWidgets('the owner\'s quiet foot offers Excluir família, which '
-        'opens its screen', (tester) async {
-      final h = await home(tester);
-
-      expect(find.text('Sair da família'), findsNothing);
-      await tester.ensureVisible(find.text('Excluir família'));
-      await tester.tap(find.text('Excluir família'));
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/familia/excluir');
-    });
-
-    testWidgets('the foot\'s text links start on the column edge', (
-      tester,
-    ) async {
-      await home(tester);
-
-      final edge = tester.getTopLeft(find.byType(Doors)).dx;
-      for (final link in ['Excluir família', 'Sair da conta']) {
-        expect(tester.getTopLeft(find.text(link)).dx, edge, reason: link);
-      }
-    });
-
-    testWidgets('a guardian\'s foot offers Sair da família, which opens the '
-        'adults', (tester) async {
-      final h = await home(tester, family: guardianFamily);
-
-      expect(find.text('Excluir família'), findsNothing);
-      await tester.ensureVisible(find.text('Sair da família'));
-      await tester.tap(find.text('Sair da família'));
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/familia/responsaveis');
-    });
-  });
-
-  group('the Modo criança door', () {
-    Future<Harness> door(
-      WidgetTester tester, {
-      Map<String, Object?> family = ownerFamily,
-      bool pinSet = false,
-      int devices = 0,
-      FutureOr<http.Response> Function(http.Request)? read,
-    }) async {
-      final h = Harness(signedIn: true)
-        ..family = family
-        ..pinSet = pinSet
-        ..linkedDevices = [
-          for (var i = 0; i < devices; i++) {...deviceJson, 'id': 'd$i'},
-        ]
-        ..parentalRead = read;
-      await h.pump(tester, initial: '/');
-      return h;
-    }
-
-    Finder kidDoor() => find.widgetWithText(DoorRow, 'Modo criança');
-
-    List<bool> modulesIn(WidgetTester tester, Finder row) => tester
-        .widgetList<StateModule>(
-          find.descendant(of: row, matching: find.byType(StateModule)),
-        )
-        .map((m) => m.filled)
-        .toList();
-
-    for (final (role, family) in [
-      ('owner', ownerFamily),
-      ('guardian', guardianFamily),
-    ]) {
-      testWidgets('the $role sees it after the family\'s other doors, '
-          'before Tempo de tela and Sua conta', (tester) async {
-        await door(tester, family: family);
-
-        final titles = tester
-            .widgetList<DoorRow>(find.byType(DoorRow))
-            .map((d) => d.title)
-            .toList();
-        expect(titles.sublist(titles.length - 5), [
-          'Modo criança',
-          'Tempo de tela',
-          'Vídeos',
-          'Sugerir vídeo',
-          'Sua conta',
-        ]);
-      });
-    }
-
-    testWidgets('it is not in the pre-family states', (tester) async {
+  group('the family\'s doors', () {
+    testWidgets('are not in the pre-family states: Família holds them once '
+        'the family is ready', (tester) async {
       await home(tester, family: null);
 
-      expect(kidDoor(), findsNothing);
-    });
-
-    testWidgets('no PIN and no device: two hollow modules with their words', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await door(tester);
-
-      final row = kidDoor();
-      for (final words in [
-        'Crie o PIN para começar',
-        'Nenhum aparelho vinculado',
+      for (final title in [
+        'Crianças',
+        'Responsáveis',
+        'Modo criança',
+        'Tempo de tela',
+        'Vídeos',
+        'Sugerir vídeo',
       ]) {
-        expect(find.descendant(of: row, matching: find.text(words)), findsOne);
+        expect(
+          find.widgetWithText(DoorRow, title),
+          findsNothing,
+          reason: title,
+        );
       }
-      expect(modulesIn(tester, row), [false, false]);
-      expect(
-        find.bySemanticsLabel(
-          'Modo criança, Crie o PIN para começar, Nenhum aparelho vinculado',
-        ),
-        findsOne,
-      );
-      semantics.dispose();
     });
 
-    for (final (n, words) in [
-      (1, '1 aparelho vinculado'),
-      (2, '2 aparelhos vinculados'),
-    ]) {
-      testWidgets('a PIN and $n linked: both modules filled', (tester) async {
-        final semantics = tester.ensureSemantics();
-        await door(tester, pinSet: true, devices: n);
-
-        final row = kidDoor();
-        expect(
-          find.descendant(of: row, matching: find.text('PIN criado')),
-          findsOne,
-        );
-        expect(find.descendant(of: row, matching: find.text(words)), findsOne);
-        expect(modulesIn(tester, row), [true, true]);
-        expect(
-          find.bySemanticsLabel('Modo criança, PIN criado, $words'),
-          findsOne,
-        );
-        semantics.dispose();
-      });
-    }
-
-    testWidgets('it opens /modo-crianca', (tester) async {
-      final h = await door(tester, pinSet: true);
-
-      await tester.ensureVisible(kidDoor());
-      await tester.tap(kidDoor());
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/modo-crianca');
-    });
-
-    testWidgets('a failed read says so and still opens /modo-crianca', (
+    testWidgets('with a family, the home is Início, holding no door', (
       tester,
     ) async {
-      final semantics = tester.ensureSemantics();
-      final h = await door(
-        tester,
-        read: (req) => req.url.path.endsWith('/devices')
-            ? problem(503, 'unavailable')
-            : json(200, {'set': true}),
-      );
+      await home(tester, roles: ['admin', 'curator']);
 
-      final row = kidDoor();
-      expect(
-        find.descendant(of: row, matching: find.text(kidModeUnknown)),
-        findsOne,
-      );
-      expect(
-        find.descendant(of: row, matching: find.text('PIN criado')),
-        findsNothing,
-      );
-      expect(find.bySemanticsLabel('Modo criança, $kidModeUnknown'), findsOne);
-      await tester.ensureVisible(row);
-      await tester.tap(row);
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/modo-crianca');
-      semantics.dispose();
-    });
-
-    testWidgets('the other doors do not wait for the kid-mode reads', (
-      tester,
-    ) async {
-      final answer = Completer<http.Response>();
-      final h = Harness(signedIn: true)
-        ..family = ownerFamily
-        ..parentalRead = (_) => answer.future;
-      await h.pump(tester, initial: '/');
-
-      expect(find.widgetWithText(DoorRow, 'Crianças'), findsOne);
-      expect(kidDoor(), findsOne);
-      expect(find.text('PIN criado'), findsNothing);
-      expect(find.text('Crie o PIN para começar'), findsNothing);
-
-      answer.complete(json(200, {'set': true}));
-      await tester.pumpAndSettle();
+      expect(find.byType(Inicio), findsOneWidget);
+      expect(find.byType(DoorRow), findsNothing);
+      expect(find.text('Sair da conta'), findsNothing);
     });
   });
 
@@ -307,8 +75,6 @@ void main() {
     Finder accountDoor() => find.widgetWithText(DoorRow, 'Sua conta');
 
     final states = <String, (Map<String, Object?>?, bool)>{
-      'the owner': (ownerFamily, false),
-      'a guardian': (guardianFamily, false),
       'no family': (null, false),
       'the email unverified': (null, true),
     };
@@ -339,15 +105,12 @@ void main() {
       });
     }
 
-    testWidgets('with a family, it closes the doors, above the quiet foot', (
+    testWidgets('with a family it is gone: Conta holds the account', (
       tester,
     ) async {
       await home(tester);
 
-      expect(
-        tester.getBottomLeft(accountDoor()).dy,
-        lessThan(tester.getTopLeft(find.text('Excluir família')).dy),
-      );
+      expect(accountDoor(), findsNothing);
     });
 
     for (final (state, unverified, action) in [
@@ -425,8 +188,10 @@ void main() {
       await tester.tap(find.text('Começar minha família'));
       await tester.pumpAndSettle();
 
-      expect(h.actions, ['POST /v1/family']);
-      expect(find.widgetWithText(DoorRow, 'Crianças'), findsOneWidget);
+      // Then Início reads the new family's child's day.
+      expect(h.actions.first, 'POST /v1/family');
+      expect(h.actions.where((a) => a.startsWith('POST')), ['POST /v1/family']);
+      expect(find.byType(Inicio), findsOneWidget);
       expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
     });
 
@@ -539,7 +304,7 @@ void main() {
       answer.complete(json(200, ownerFamily));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('family-placeholder')), findsNothing);
-      expect(find.byType(DoorRow), findsNWidgets(8));
+      expect(find.byType(ChildRow), findsOneWidget);
     });
 
     testWidgets('a failed load offers Tentar de novo', (tester) async {
@@ -555,7 +320,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ErrorNote), findsNothing);
-      expect(find.byType(DoorRow), findsNWidgets(8));
+      expect(find.byType(ChildRow), findsOneWidget);
     });
   });
 
@@ -563,8 +328,6 @@ void main() {
     // The "Sua conta" door names the account; the foot is
     // only the way out.
     final withDoor = <String, Harness Function()>{
-      'the owner': () => Harness(signedIn: true)..family = ownerFamily,
-      'a guardian': () => Harness(signedIn: true)..family = guardianFamily,
       'no family': () => Harness(signedIn: true)..family = null,
       'the email unverified': () => Harness(signedIn: true)
         ..family = null
@@ -614,7 +377,7 @@ void main() {
     });
 
     testWidgets('signs out and lands on /entrar', (tester) async {
-      final h = await home(tester);
+      final h = await home(tester, family: null);
 
       await tester.ensureVisible(find.text('Sair da conta'));
       await tester.tap(find.text('Sair da conta'));
@@ -627,7 +390,11 @@ void main() {
     testWidgets('still lands on /entrar when the server is unreachable', (
       tester,
     ) async {
-      await home(tester, api: (_) => throw http.ClientException('down'));
+      await home(
+        tester,
+        family: null,
+        api: (_) => throw http.ClientException('down'),
+      );
 
       await tester.ensureVisible(find.text('Sair da conta'));
       await tester.tap(find.text('Sair da conta'));
@@ -649,159 +416,15 @@ void main() {
     }
   });
 
-  group('the Tempo de tela door', () {
-    Finder timeDoor() => find.widgetWithText(DoorRow, 'Tempo de tela');
-
-    for (final (role, family) in [
-      ('owner', ownerFamily),
-      ('guardian', guardianFamily),
-    ]) {
-      testWidgets('the $role sees it, saying what it holds', (tester) async {
-        final semantics = tester.ensureSemantics();
-        await home(tester, family: family);
-
-        expect(timeDoor(), findsOneWidget);
-        expect(
-          find.descendant(
-            of: timeDoor(),
-            matching: find.text('Limite e horário de cada criança'),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.bySemanticsLabel(
-            'Tempo de tela, Limite e horário de cada criança',
-          ),
-          findsOne,
-        );
-        semantics.dispose();
-      });
-    }
-
-    testWidgets('it opens /familia/tempo', (tester) async {
-      final h = await home(tester);
-
-      await tester.ensureVisible(timeDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(timeDoor());
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/familia/tempo');
-    });
-
-    testWidgets('with no children it says so, with no chevron, and is no '
-        'target', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final h = await home(tester, family: familyWith([]));
-
-      expect(
-        find.descendant(
-          of: timeDoor(),
-          matching: find.text('Cadastre uma criança primeiro'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: timeDoor(),
-          matching: find.byIcon(Icons.chevron_right_rounded),
-        ),
-        findsNothing,
-      );
-      expect(
-        tester.getSemantics(timeDoor()),
-        isSemantics(isButton: false, hasTapAction: false),
-      );
-      await tester.ensureVisible(timeDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(timeDoor(), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/');
-      semantics.dispose();
-    });
-
-    testWidgets('it is not in the pre-family states', (tester) async {
-      await home(tester, family: null);
-
-      expect(timeDoor(), findsNothing);
-    });
-  });
-
   testWidgets('the home is the family home', (tester) async {
     await home(tester);
 
     expect(find.byType(FamilyHomeScreen), findsOneWidget);
   });
 
-  group('the Vídeos door', () {
-    Finder videosDoor() => find.widgetWithText(DoorRow, 'Vídeos');
-
-    for (final (role, family) in [
-      ('owner', ownerFamily),
-      ('guardian', guardianFamily),
-    ]) {
-      testWidgets('the $role sees it after Tempo de tela and before '
-          'Sugerir vídeo, saying what it holds', (tester) async {
-        final semantics = tester.ensureSemantics();
-        await home(tester, family: family);
-
-        final titles = tester
-            .widgetList<DoorRow>(find.byType(DoorRow))
-            .map((d) => d.title)
-            .toList();
-        final at = titles.indexOf('Vídeos');
-        expect(titles.sublist(at - 1, at + 2), [
-          'Tempo de tela',
-          'Vídeos',
-          'Sugerir vídeo',
-        ]);
-        expect(
-          find.bySemanticsLabel('Vídeos, O que cada criança pode assistir'),
-          findsOne,
-        );
-        semantics.dispose();
-      });
-    }
-
-    testWidgets('it opens /familia/videos', (tester) async {
-      final h = await home(tester);
-
-      await tester.ensureVisible(videosDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(videosDoor());
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/familia/videos');
-    });
-
-    testWidgets('with no children it says so, with no chevron, and is no '
-        'target', (tester) async {
-      final h = await home(tester, family: familyWith([]));
-
-      expect(
-        find.descendant(
-          of: videosDoor(),
-          matching: find.text('Cadastre uma criança primeiro'),
-        ),
-        findsOneWidget,
-      );
-      expect(tester.widget<DoorRow>(videosDoor()).onTap, isNull);
-      await tester.ensureVisible(videosDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(videosDoor(), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/');
-    });
-  });
-
   group('the role doors', () {
     // Each door's line, path and the roles that show it.
     const doors = {
-      'Sugerir vídeo': (
-        'Indique um vídeo para a curadoria',
-        '/sugestoes',
-        <String>[],
-      ),
       'Curadoria': ('Fila de revisão', '/curadoria', ['curator']),
       'Pacotinhos': ('Montar e revisar', '/pacotinhos', ['curator']),
       'Moderação': ('Vídeos retidos', '/moderacao/retidos', ['moderator']),
@@ -811,33 +434,11 @@ void main() {
         ['admin'],
       ),
     };
-    const roleDoors = ['Curadoria', 'Pacotinhos', 'Moderação', 'Administração'];
 
     List<String> titles(WidgetTester tester) => tester
         .widgetList<DoorRow>(find.byType(DoorRow))
         .map((d) => d.title)
         .toList();
-
-    for (final (who, family) in [
-      ('owner', ownerFamily),
-      ('guardian', guardianFamily),
-    ]) {
-      testWidgets('the $who without a role sees only Sugerir vídeo, after '
-          'Tempo de tela and before Sua conta', (tester) async {
-        await home(tester, family: family);
-
-        final t = titles(tester);
-        expect(t.sublist(t.length - 4), [
-          'Tempo de tela',
-          'Vídeos',
-          'Sugerir vídeo',
-          'Sua conta',
-        ]);
-        for (final title in roleDoors) {
-          expect(find.widgetWithText(DoorRow, title), findsNothing);
-        }
-      });
-    }
 
     for (final (roles, expected) in [
       (['curator'], ['Curadoria', 'Pacotinhos']),
@@ -852,19 +453,6 @@ void main() {
         ['Curadoria', 'Pacotinhos', 'Administração'],
       ),
     ]) {
-      testWidgets('with $roles, the family shows $expected after Sugerir '
-          'vídeo and before Sua conta', (tester) async {
-        await home(tester, roles: roles);
-
-        final t = titles(tester);
-        expect(t.sublist(t.indexOf('Vídeos')), [
-          'Vídeos',
-          'Sugerir vídeo',
-          ...expected,
-          'Sua conta',
-        ]);
-      });
-
       for (final (what, answer, firstUse) in [
         ('no family', null, 'Tenho um convite'),
         (
@@ -898,11 +486,8 @@ void main() {
 
     for (final MapEntry(key: title, value: (line, path, roles))
         in doors.entries) {
-      for (final family in [ownerFamily, null]) {
-        // Sugerir vídeo stays with the family's doors.
-        if (family == null && title == 'Sugerir vídeo') continue;
-        final where = family == null ? 'with no family' : 'in the family';
-        testWidgets('$title says "$line" and opens $path, $where', (
+      for (final family in [null]) {
+        testWidgets('$title says "$line" and opens $path, with no family', (
           tester,
         ) async {
           final semantics = tester.ensureSemantics();

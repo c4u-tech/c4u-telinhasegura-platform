@@ -7,6 +7,7 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/family/profile_fields.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/family/inicio.dart';
 
 import '../access/harness.dart';
 import '../design/pump.dart' show findAddress;
@@ -79,8 +80,8 @@ void main() {
       await tester.tap(find.text('Entrar na família'));
       await tester.pumpAndSettle();
 
-      expect(h.actions, ['POST /v1/invitations/i1/accept']);
-      expect(find.widgetWithText(DoorRow, 'Crianças'), findsOneWidget);
+      expect(h.actionsPastHome, ['POST /v1/invitations/i1/accept']);
+      expect(find.byType(Inicio), findsOneWidget);
       expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
     });
 
@@ -144,8 +145,8 @@ void main() {
       await tester.tap(find.text('Começar minha família'));
       await tester.pumpAndSettle();
 
-      expect(h.actions, ['POST /v1/family']);
-      expect(find.widgetWithText(DoorRow, 'Crianças'), findsOneWidget);
+      expect(h.actionsPastHome, ['POST /v1/family']);
+      expect(find.byType(Inicio), findsOneWidget);
     });
   });
 
@@ -231,7 +232,7 @@ void main() {
       await tester.tap(find.text('Entrar na família'));
       await tester.pumpAndSettle();
 
-      expect(h.actions, ['POST /v1/invitations/i1/accept']);
+      expect(h.actionsPastHome, ['POST /v1/invitations/i1/accept']);
     });
   });
 

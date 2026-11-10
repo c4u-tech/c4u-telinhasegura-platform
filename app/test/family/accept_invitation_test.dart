@@ -16,6 +16,7 @@ import '../access/harness.dart';
 import 'fixtures.dart';
 
 import 'package:telinha_segura/design/address.dart';
+import 'package:telinha_segura/family/inicio.dart';
 
 import '../design/pump.dart' show findAddress;
 
@@ -206,9 +207,9 @@ void main() {
 
       await tapOn(tester, join);
 
-      expect(h.actions, [lookupCall, acceptCall]);
+      expect(h.actionsPastHome, [lookupCall, acceptCall]);
       expect(h.location(tester), '/');
-      expect(find.widgetWithText(DoorRow, 'Crianças'), findsOneWidget);
+      expect(find.byType(Inicio), findsOneWidget);
       expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
       final state = h.services.familyModel.state as FamilyReady;
       expect(state.family.role, FamilyRole.guardian);
