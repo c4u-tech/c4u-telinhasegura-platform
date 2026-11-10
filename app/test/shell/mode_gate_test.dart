@@ -25,10 +25,10 @@ GoRouter router(WidgetTester tester) =>
 const guardianScreens = [
   '/',
   '/familia/criancas',
+  '/familia/criancas/m1',
+  '/familia/criancas/m1/editar',
   '/familia/responsaveis',
-  // The screen-time screens.
-  '/familia/tempo',
-  '/familia/tempo/m1',
+  // A child's screen-time errands.
   '/familia/tempo/m1/mais',
   '/familia/tempo/m1/limite',
   '/modo-crianca',

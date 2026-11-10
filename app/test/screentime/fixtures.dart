@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 
 import '../access/harness.dart';
+import '../family/fixtures.dart';
 
 /// A child's rules as `GET /v1/screentime/minors/:id` answers them.
 Map<String, Object?> rulesJson({
@@ -71,3 +72,9 @@ FutureOr<http.Response> Function(http.Request) screenTimeApi({
   }
   return (rules[rest.first] ?? () => json(200, rulesJson()))();
 };
+
+/// Lia (5 to 8) and Téo (up to 4).
+final liaFamily = familyWith([
+  minorJson('m1', 'Lia'),
+  minorJson('m2', 'Téo', avatar: 'owl', ageBand: 'ate-4'),
+]);

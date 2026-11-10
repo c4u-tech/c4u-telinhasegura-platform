@@ -60,57 +60,6 @@ void main() {
     });
   });
 
-  group("today's state on the list", () {
-    test('ok reads the used and the limit plus the extension, rounded '
-        'down', () {
-      expect(
-        ScreenTimeWords.state(
-          rulesWith(usedSeconds: 40 * 60 + 59, extension: 15),
-        ),
-        '40 de 105 min hoje',
-      );
-    });
-
-    test('time_up and outside_window read in words', () {
-      expect(
-        ScreenTimeWords.state(rulesWith(state: KidTimeState.timeUp)),
-        'Acabou por hoje',
-      );
-      expect(
-        ScreenTimeWords.state(rulesWith(state: KidTimeState.outsideWindow)),
-        'Fora do horário',
-      );
-    });
-  });
-
-  group("the hub's today", () {
-    test('the watched minutes of the day\'s limit', () {
-      expect(
-        ScreenTimeWords.today(rulesWith(usedSeconds: 40 * 60 + 30)),
-        'Assistiu 40 min de 90.',
-      );
-      expect(
-        ScreenTimeWords.today(rulesWith(usedSeconds: 600, extension: 30)),
-        'Assistiu 10 min de 120.',
-      );
-    });
-
-    test('under a minute, not yet', () {
-      expect(
-        ScreenTimeWords.today(rulesWith(usedSeconds: 59)),
-        'Ainda não assistiu hoje.',
-      );
-    });
-
-    test('an extension has its own line, none without one', () {
-      expect(
-        ScreenTimeWords.extension(rulesWith(extension: 30)),
-        'Mais 30 min dados hoje.',
-      );
-      expect(ScreenTimeWords.extension(rulesWith()), isNull);
-    });
-  });
-
   test('the rules read as one line', () {
     expect(
       ScreenTimeWords.rules(rulesWith()),

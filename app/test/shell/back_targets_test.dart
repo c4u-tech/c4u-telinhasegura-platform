@@ -10,8 +10,6 @@ void main() {
     ('/familia/criancas', <String>[], '/familia'),
     ('/familia/responsaveis', <String>[], '/familia'),
     ('/familia/convites', <String>[], '/familia'),
-    ('/familia/tempo', <String>[], '/familia'),
-    ('/familia/videos', <String>[], '/familia'),
     ('/familia/excluir', <String>[], '/familia'),
     ('/modo-crianca', <String>[], '/familia'),
     ('/curadoria', ['curator'], '/equipe'),
@@ -26,6 +24,28 @@ void main() {
       final h = Harness(signedIn: true)
         ..family = ownerFamily
         ..roles = roles;
+      await h.pump(tester, initial: path);
+
+      await tester.tap(find.byTooltip('Voltar').first);
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), back);
+    });
+  }
+
+  // A child's page returns to the children; every errand opened from it
+  // returns to it.
+  for (final (path, back) in [
+    ('/familia/criancas/m1', '/familia/criancas'),
+    ('/familia/criancas/m1/editar', '/familia/criancas/m1'),
+    ('/familia/tempo/m1/mais', '/familia/criancas/m1'),
+    ('/familia/tempo/m1/limite', '/familia/criancas/m1'),
+    ('/familia/videos/m1', '/familia/criancas/m1'),
+    ('/familia/videos/m1/v1', '/familia/criancas/m1'),
+    ('/familia/videos/m1/pacotinho/k1', '/familia/criancas/m1'),
+  ]) {
+    testWidgets('back from $path goes to $back', (tester) async {
+      final h = Harness(signedIn: true)..family = ownerFamily;
       await h.pump(tester, initial: path);
 
       await tester.tap(find.byTooltip('Voltar').first);

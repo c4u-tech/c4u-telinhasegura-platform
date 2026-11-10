@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../screentime/kid_time.dart';
-import '../screentime/child_time_screen.dart';
 import '../screentime/more_time_screen.dart';
-import '../screentime/screen_time_screen.dart';
 import '../screentime/time_rules_screen.dart';
 import '../access/check_email_screen.dart';
 import '../account/account_screen.dart';
@@ -20,6 +18,7 @@ import '../access/entry_screen.dart';
 import '../access/forgot_password_screen.dart';
 import '../family/accept_invitation_screen.dart';
 import '../family/adults_screen.dart';
+import '../family/child_page.dart';
 import '../family/child_screen.dart';
 import '../family/children_screen.dart';
 import '../family/delete_family_screen.dart';
@@ -46,7 +45,6 @@ import '../access/reset_password_screen.dart';
 import '../access/signup_screen.dart';
 import '../access/verify_email_screen.dart';
 import '../auth/api_client.dart';
-import '../catalog/catalog_children_screen.dart';
 import '../catalog/child_catalog_screen.dart';
 import '../catalog/family_video_screen.dart';
 import '../catalog/pack_screen.dart';
@@ -199,13 +197,24 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
       GoRoute(path: 'convites', builder: (_, _) => const InvitationsScreen()),
       GoRoute(
         path: 'criancas',
-        builder: (_, state) => ChildrenScreen(notice: state.extra as String?),
+        builder: (_, state) => ChildrenScreen(notice: _notice(state)),
         routes: [
           GoRoute(path: 'nova', builder: (_, _) => const NewChildScreen()),
           GoRoute(
             path: ':id',
-            builder: (_, state) => ChildScreen(id: state.pathParameters['id']!),
+            builder: (_, state) => ChildPage(
+              id: state.pathParameters['id']!,
+              back: state.extra == ChildPage.fromHome
+                  ? Routes.home
+                  : Routes.children,
+              notice: _notice(state),
+            ),
             routes: [
+              GoRoute(
+                path: 'editar',
+                builder: (_, state) =>
+                    ChildScreen(id: state.pathParameters['id']!),
+              ),
               GoRoute(
                 path: 'autorizar',
                 builder: (_, state) => ReconsentScreen(
@@ -219,14 +228,26 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
           ),
         ],
       ),
+      // A child's screen-time errands keep their paths; the old list and
+      // hub lead to the children and to the child's page, which stands
+      // beneath the errands, so system back lands on it.
       GoRoute(
         path: 'tempo',
-        builder: (_, state) => ScreenTimeScreen(notice: state.extra as String?),
+        redirect: (_, state) =>
+            state.uri.path == Routes.screenTime ? Routes.children : null,
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, state) =>
-                ChildTimeScreen(id: state.pathParameters['id']!),
+            redirect: (_, state) {
+              final id = state.pathParameters['id']!;
+              return state.uri.path == Routes.childTime(id)
+                  ? Routes.child(id)
+                  : null;
+            },
+            builder: (_, state) {
+              final id = state.pathParameters['id']!;
+              return ChildPage(id: id, path: Routes.childTime(id));
+            },
             routes: [
               GoRoute(
                 path: 'mais',
@@ -242,9 +263,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
           ),
         ],
       ),
+      // One child's full list, its videos and pacotinhos keep their paths;
+      // the old list of children leads to the children.
       GoRoute(
         path: 'videos',
-        builder: (_, state) => CatalogChildrenScreen(notice: _notice(state)),
+        redirect: (_, state) =>
+            state.uri.path == Routes.familyVideos ? Routes.children : null,
         routes: [
           GoRoute(
             path: ':crianca',

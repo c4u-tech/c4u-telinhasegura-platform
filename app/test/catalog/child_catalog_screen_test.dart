@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
@@ -242,7 +243,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.location(tester), '/familia/videos/m1/v1');
 
-    await tester.tap(find.byTooltip('Voltar').last);
+    // System back: the list stands beneath the video.
+    GoRouter.of(tester.element(find.byType(Scaffold).last))
+        .go('/familia/videos/m1');
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/familia/videos/m1');
@@ -285,20 +288,19 @@ void main() {
     expect(find.byType(VideoRow), findsNWidgets(3));
   });
 
-  testWidgets('a child the server does not know goes back to the list with '
-      'a notice', (tester) async {
+  testWidgets('a child the server does not know goes back to the children '
+      'with a notice', (tester) async {
     final h = await catalogue(
       tester,
       catalog: (_, _) => problem(404, 'not_found'),
     );
 
-    expect(h.location(tester), '/familia/videos');
+    expect(h.location(tester), '/familia/criancas');
     expect(find.widgetWithText(Notice, Copy.childGone), findsOneWidget);
   });
 
-  testWidgets('a notice brought back from a video stands above the list', (
-    tester,
-  ) async {
+  testWidgets('a notice brought back from a video stands on the child\'s '
+      'page', (tester) async {
     final h = await catalogue(tester);
 
     await tester.tap(row('O sapo que pulava alto'));
@@ -309,7 +311,7 @@ void main() {
     await tester.tap(hide);
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
     expect(find.widgetWithText(Notice, videoGone), findsOneWidget);
   });
 
@@ -415,7 +417,9 @@ void main() {
       expect(find.byType(PackScreen), findsOneWidget);
       expect(reads(h), ['GET /v1/family/minors/m1/catalog?offset=0']);
 
-      await tester.tap(find.byTooltip('Voltar').last);
+      // System back: the list stands beneath the pacotinho.
+      GoRouter.of(tester.element(find.byType(Scaffold).last))
+          .go('/familia/videos/m1');
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/familia/videos/m1');
@@ -427,12 +431,12 @@ void main() {
     });
   });
 
-  testWidgets('back returns to the children', (tester) async {
+  testWidgets('back returns to the child\'s page', (tester) async {
     final h = await catalogue(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/videos');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 }

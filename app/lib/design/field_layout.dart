@@ -59,6 +59,8 @@ class FieldLayout extends StatelessWidget {
     required this.title,
     required this.children,
     this.titleSemanticsLabel,
+    this.titleLeading,
+    this.titleLine,
     this.size = FieldSize.band,
     this.onBack,
     this.rise = false,
@@ -82,6 +84,13 @@ class FieldLayout extends StatelessWidget {
   /// What assistive technology reads instead of [title], when the shown
   /// title carries an address's break marks.
   final String? titleSemanticsLabel;
+
+  /// A mark beside the title (a child's avatar), top-aligned with it.
+  final Widget? titleLeading;
+
+  /// A muted line under the title, beside [titleLeading] when there is one
+  /// (a child's age band).
+  final String? titleLine;
   final List<Widget> children;
   final FieldSize size;
   final VoidCallback? onBack;
@@ -99,6 +108,8 @@ class FieldLayout extends StatelessWidget {
     final task = _TaskColumn(
       title: title,
       titleSemanticsLabel: titleSemanticsLabel,
+      leading: titleLeading,
+      line: titleLine,
       lead: compact ? promise : null,
       width: columnWidth,
       children: children,
@@ -290,16 +301,54 @@ class _TaskColumn extends StatelessWidget {
     required this.children,
     required this.width,
     this.titleSemanticsLabel,
+    this.leading,
+    this.line,
     this.lead,
   });
 
   final double width;
   final String title;
   final String? titleSemanticsLabel;
+  final Widget? leading;
+  final String? line;
   final List<Widget> children;
 
   /// Body text under the title: the promise, when the field is a band.
   final String? lead;
+
+  /// The title, with its muted line under it and its mark beside both.
+  Widget _heading(BuildContext context) {
+    final title = Semantics(
+      header: true,
+      child: DisplayTitle(this.title, semanticsLabel: titleSemanticsLabel),
+    );
+    final line = this.line;
+    final leading = this.leading;
+    if (line == null && leading == null) return title;
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        title,
+        if (line != null) ...[
+          const SizedBox(height: Space.xs),
+          Text(
+            line,
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(color: context.palette.muted),
+          ),
+        ],
+      ],
+    );
+    if (leading == null) return text;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        leading,
+        const SizedBox(width: Space.lg),
+        Expanded(child: text),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
@@ -307,10 +356,7 @@ class _TaskColumn extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          header: true,
-          child: DisplayTitle(title, semanticsLabel: titleSemanticsLabel),
-        ),
+        _heading(context),
         if (lead case final lead?) ...[
           const SizedBox(height: Space.md),
           Text(lead, style: Theme.of(context).textTheme.bodyLarge),

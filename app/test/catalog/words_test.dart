@@ -187,16 +187,7 @@ void main() {
   });
 
   group('a child\'s band in words', () {
-    test('the children\'s rows and the empty catalogue', () {
-      expect(
-        {for (final b in AgeBand.values) b: CatalogWords.bandRow(b)},
-        {
-          AgeBand.upTo4: 'Vídeos de 2 a 4 anos',
-          AgeBand.from5To8: 'Vídeos de 5 a 8 anos',
-          AgeBand.from9To12: 'Vídeos de 9 a 12 anos',
-          AgeBand.unknown: 'Vídeos da faixa de idade da criança',
-        },
-      );
+    test('the empty catalogue', () {
       expect(
         CatalogWords.empty(AgeBand.from5To8),
         'Ainda não há vídeos aprovados para crianças de 5 a 8 anos.',

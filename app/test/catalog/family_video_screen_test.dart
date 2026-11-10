@@ -198,13 +198,13 @@ void main() {
     expect(h.adultPlayer.current!.calls, contains('pause'));
   });
 
-  testWidgets('back returns to the catalogue', (tester) async {
+  testWidgets('back returns to the child\'s page', (tester) async {
     final h = await video(tester);
 
     await tester.tap(find.byTooltip('Voltar').last);
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 
   testWidgets('opened by its address, it reads the pages until it finds '
@@ -228,12 +228,12 @@ void main() {
   });
 
   testWidgets('opened by its address for a video not there, it goes back '
-      'to the catalogue with a notice', (tester) async {
+      'to the child\'s page with a notice', (tester) async {
     final h = Harness(signedIn: true, api: catalogApi())
       ..family = threeChildren;
     await h.pump(tester, initial: '/familia/videos/m1/v9');
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
     expect(find.widgetWithText(Notice, videoGone), findsOneWidget);
   });
 }

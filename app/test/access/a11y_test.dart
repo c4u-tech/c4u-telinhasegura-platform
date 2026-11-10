@@ -93,7 +93,6 @@ Future<Harness> openRoute(
 final homes = <String, void Function(Harness)>{
   'member': (h) => h.family = ownerFamily,
   'guardian': (h) => h.family = {...ownerFamily, 'role': 'guardian'},
-  // Tempo de tela is then a row nobody acts on.
   'no children': (h) => h.family = familyWith([]),
   'no family': (h) => h.family = null,
   'email unverified': (h) => h.unverified = true,
@@ -714,8 +713,18 @@ final childScreens =
       'new child, profile': ('/familia/criancas/nova', [], null),
       'new child, consent': ('/familia/criancas/nova', [], toConsent),
       'child': ('/familia/criancas/m1', [minorJson('m1', 'Lia')], null),
-      'child, unknown profile': (
+      'child, a video hidden': (
         '/familia/criancas/m1',
+        [minorJson('m1', 'Lia')],
+        (tester) => tapOn(tester, find.text('Esconder').first),
+      ),
+      'child, edit': (
+        '/familia/criancas/m1/editar',
+        [minorJson('m1', 'Lia')],
+        null,
+      ),
+      'child, unknown profile': (
+        '/familia/criancas/m1/editar',
         [minorJson('m1', 'Lia', avatar: 'dragon', ageBand: '13-16')],
         null,
       ),
@@ -758,7 +767,8 @@ Future<Harness> openChildScreen(
   double textScale = 1,
 }) async {
   final (path, minors, then) = childScreens[name]!;
-  final h = Harness(signedIn: true)..family = familyWith(minors);
+  final h = Harness(signedIn: true, api: catalog.catalogApi())
+    ..family = familyWith(minors);
   unawaited(h.services.familyModel.load());
   await h.pump(tester, initial: path, size: size, textScale: textScale);
   await then?.call(tester);
@@ -1412,18 +1422,15 @@ final screenTimeScreens =
         Future<void> Function(WidgetTester)?,
       )
     >{
-      'screen time list': (
-        '/familia/tempo',
+      'child page, a spent day': (
+        '/familia/criancas/m1',
         screenTimeApi(
-          rules: {
-            'm1': () => json(200, rulesJson(state: 'time_up')),
-            'm2': () => problem(503, 'unavailable'),
-          },
+          rules: {'m1': () => json(200, rulesJson(state: 'time_up'))},
         ),
         null,
       ),
-      'screen time hub': (
-        '/familia/tempo/m1',
+      'child page, the day': (
+        '/familia/criancas/m1',
         screenTimeApi(
           rules: {
             'm1': () => json(200, rulesJson(isDefault: true, extension: 30)),
@@ -1432,8 +1439,8 @@ final screenTimeScreens =
         ),
         null,
       ),
-      'screen time hub, read failed': (
-        '/familia/tempo/m1',
+      'child page, the day failed': (
+        '/familia/criancas/m1',
         screenTimeApi(rules: {'m1': () => problem(503, 'unavailable')}),
         null,
       ),
@@ -1498,7 +1505,6 @@ final catalogScreens =
         Future<void> Function(WidgetTester)?,
       )
     >{
-      'catalogue children': ('/familia/videos', catalog.catalogApi(), null),
       'catalogue': ('/familia/videos/m1', catalog.catalogApi(), null),
       'catalogue, long titles, more to read': (
         '/familia/videos/m1',

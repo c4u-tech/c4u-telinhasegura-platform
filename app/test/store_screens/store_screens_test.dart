@@ -199,7 +199,7 @@ void main() {
     // One row per child, the age band in words.
     Frame('04', ['5 a 8 anos', '2 a 4 anos', 'Bia'], (tester, size) async {
       final h = Harness(signedIn: true, api: catalogApi())..family = demoFamily;
-      await h.pump(tester, initial: '/familia/videos', size: size);
+      await h.pump(tester, initial: '/familia/criancas', size: size);
     }),
     // The devices linked to each child.
     Frame('07', ['Tablet da Lia', 'Celular do Téo', 'Tablet da Bia'], (

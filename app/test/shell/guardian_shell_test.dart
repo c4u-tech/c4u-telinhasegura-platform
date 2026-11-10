@@ -79,7 +79,7 @@ void main() {
 
     for (final (path, roles) in [
       ('/familia/criancas', <String>[]),
-      ('/familia/tempo', <String>[]),
+      ('/familia/criancas/m1', <String>[]),
       ('/modo-crianca', <String>[]),
       ('/conta/email', <String>[]),
       ('/sugestoes', <String>[]),
@@ -265,7 +265,7 @@ void main() {
 
     for (final (path, roles, expected) in [
       ('/familia/criancas/m1', <String>[], Destination.familia),
-      ('/familia/tempo/m1', <String>[], Destination.familia),
+      ('/familia/tempo/m1/mais', <String>[], Destination.familia),
       ('/modo-crianca', <String>[], Destination.familia),
       ('/curadoria', ['curator'], Destination.equipe),
       ('/admin', ['admin'], Destination.equipe),

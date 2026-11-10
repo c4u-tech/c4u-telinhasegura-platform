@@ -7,12 +7,12 @@ import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../kid_mode/hand_over.dart';
-import '../screentime/kid_time.dart';
 import '../screentime/screentime_api.dart';
-import '../screentime/words.dart';
+import '../screentime/today.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'avatars.dart';
+import 'child_page.dart';
 import 'family.dart';
 import 'family_write.dart';
 
@@ -23,43 +23,6 @@ String greeting(DateTime now) => switch (now.hour) {
   >= 12 && < 18 => 'Boa tarde',
   _ => 'Boa noite',
 };
-
-/// A child's day on the home, in words the row shows beside its modules.
-abstract final class TodayWords {
-  static const loading = 'Carregando o tempo de hoje';
-  static const unavailable = 'tempo indisponível';
-  static const spent = 'acabou o tempo de hoje';
-
-  /// How many of the row's modules there are: each a fifth of the day.
-  static const modules = 5;
-
-  static bool isSpent(ScreenTimeRules rules) {
-    final limit = ScreenTimeWords.limit(rules);
-    return rules.today.time.state == KidTimeState.timeUp ||
-        (limit > 0 && rules.today.used.inMinutes >= limit);
-  }
-
-  /// "30 de 50 min", "… · fora do horário" outside the hours, or "acabou
-  /// o tempo de hoje" once spent: said calmly, never as a warning.
-  static String of(ScreenTimeRules rules) {
-    if (isSpent(rules)) return spent;
-    final count =
-        '${rules.today.used.inMinutes} de ${ScreenTimeWords.limit(rules)}'
-        '\u00a0min';
-    return rules.today.time.state == KidTimeState.outsideWindow
-        ? '$count\u00a0· fora do horário'
-        : count;
-  }
-
-  /// The modules filled: the whole fifths of the day used, so the last
-  /// one fills only once the day is spent.
-  static int filled(ScreenTimeRules rules) {
-    if (isSpent(rules)) return modules;
-    final limit = ScreenTimeWords.limit(rules);
-    if (limit <= 0) return 0;
-    return (rules.today.used.inMinutes * modules ~/ limit).clamp(0, modules);
-  }
-}
 
 /// The home once the family is ready: one row per child on the child
 /// band, each ending in handing the device to that child, then suggesting
@@ -157,6 +120,10 @@ class _InicioState extends State<Inicio> {
                     busy: _handing == minor.id && _write.busy,
                     onHandOver: waiting ? null : () => _give(minor),
                     onMoreTime: () => context.go(Routes.moreTime(minor.id)),
+                    onOpen: () => context.go(
+                      Routes.child(minor.id),
+                      extra: ChildPage.fromHome,
+                    ),
                   ),
               ],
             ),
@@ -239,7 +206,8 @@ class ChildBand extends StatelessWidget {
 
 /// One child on the home: the 56 dp avatar, the nickname, today's time
 /// as screen modules with its words, a quiet "+ tempo" opening the more
-/// time screen, and the filled "Entregar para {apelido}" under them.
+/// time screen, and the filled "Entregar para {apelido}" under them. The
+/// avatar, the nickname and the day together open the child's page.
 class ChildRow extends StatelessWidget {
   const ChildRow({
     super.key,
@@ -247,10 +215,11 @@ class ChildRow extends StatelessWidget {
     required this.today,
     required this.onHandOver,
     required this.onMoreTime,
+    required this.onOpen,
     this.busy = false,
   });
 
-  static const todayPlaceholderKey = Key('today-placeholder');
+  static const todayPlaceholderKey = TodayTime.placeholderKey;
 
   final Minor minor;
 
@@ -258,6 +227,9 @@ class ChildRow extends StatelessWidget {
   final Future<ScreenTimeRules>? today;
   final VoidCallback? onHandOver;
   final VoidCallback onMoreTime;
+
+  /// Opens the child's page.
+  final VoidCallback onOpen;
   final bool busy;
 
   @override
@@ -285,16 +257,36 @@ class ChildRow extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AvatarDisc(minor.avatar, size: 56, excludeSemantics: true),
-              const SizedBox(width: Space.lg),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(minor.nickname, style: text.titleMedium),
-                    const SizedBox(height: Space.xs),
-                    _Today(today),
-                  ],
+                child: _OpenTarget(
+                  label: 'Abrir a página de ${minor.nickname}',
+                  onTap: onOpen,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AvatarDisc(
+                        minor.avatar,
+                        size: 56,
+                        excludeSemantics: true,
+                      ),
+                      const SizedBox(width: Space.lg),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ExcludeSemantics(
+                              child: Text(
+                                minor.nickname,
+                                style: text.titleMedium,
+                              ),
+                            ),
+                            const SizedBox(height: Space.xs),
+                            TodayTime(today),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (!large) ...[const SizedBox(width: Space.sm), more],
@@ -316,72 +308,54 @@ class ChildRow extends StatelessWidget {
   }
 }
 
-/// Today's time: a quiet bar while it loads, its words when it cannot
-/// be read, otherwise the modules and the words saying the same.
-class _Today extends StatelessWidget {
-  const _Today(this.today);
+/// The part of a child's row that opens the child's page: one target,
+/// read by [label] with today's words inside it, washed on hover and
+/// press and ringed on focus like a door row.
+class _OpenTarget extends StatefulWidget {
+  const _OpenTarget({
+    required this.label,
+    required this.onTap,
+    required this.child,
+  });
 
-  final Future<ScreenTimeRules>? today;
+  final String label;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_OpenTarget> createState() => _OpenTargetState();
+}
+
+class _OpenTargetState extends State<_OpenTarget> {
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final muted = Theme.of(context).textTheme.bodyMedium
-        ?.copyWith(color: p.muted);
-    return FutureBuilder(
-      future: today,
-      builder: (context, read) {
-        if (read.hasError) return Text(TodayWords.unavailable, style: muted);
-        final rules = read.data;
-        if (rules == null) {
-          const height = 10.0;
-          return Semantics(
-            label: TodayWords.loading,
-            child: ExcludeSemantics(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Container(
-                  key: ChildRow.todayPlaceholderKey,
-                  width: 136,
-                  height: height,
-                  decoration: BoxDecoration(
-                    color: p.outline.withValues(alpha: .24),
-                    borderRadius: BorderRadius.circular(
-                      height * Radii.screenRatio,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-        final words = TodayWords.of(rules);
-        final filled = TodayWords.filled(rules);
-        return Semantics(
-          container: true,
-          label: 'Hoje, $words',
-          child: ExcludeSemantics(
-            // The words always under the modules, so every row has one
-            // shape and rows side by side line up.
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < TodayWords.modules; i++) ...[
-                      if (i > 0) const SizedBox(width: Space.xs),
-                      StateModule(filled: i < filled),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: Space.xs),
-                Text(words, style: muted),
-              ],
-            ),
-          ),
-        );
-      },
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(Radii.small),
+    );
+    final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
+    return Semantics(
+      container: true,
+      button: true,
+      label: widget.label,
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: ShapeDecoration(
+          shape: shape.copyWith(side: ring ?? BorderSide.none),
+        ),
+        child: InkWell(
+          onTap: widget.onTap,
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          customBorder: shape,
+          focusColor: Colors.transparent,
+          hoverColor: p.outline.withValues(alpha: .08),
+          highlightColor: p.outline.withValues(alpha: .12),
+          splashColor: p.outline.withValues(alpha: .12),
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

@@ -35,11 +35,12 @@ abstract final class Routes {
   static const invitations = '/familia/convites';
   static const deleteFamily = '/familia/excluir';
 
-  /// The children's screen time, then each child's hub and its errands.
+  /// Under it, a child's screen-time errands; on its own, and with a child
+  /// alone, it leads to the children and to the child's page.
   static const screenTime = '/familia/tempo';
 
-  /// What each child can watch, then one child's catalogue, one video
-  /// and its report.
+  /// Under it, everything one child can watch, one video, its report and
+  /// a pacotinho; on its own it leads to the children.
   static const familyVideos = '/familia/videos';
   static const acceptInvitation = '/convite';
 
@@ -192,7 +193,11 @@ abstract final class Routes {
   static String invitation(String token) =>
       Uri(path: acceptInvitation, queryParameters: {'token': token}).toString();
 
+  /// A child's page: the day, the videos and the profile.
   static String child(String id) => '$children/${Uri.encodeComponent(id)}';
+
+  /// The form that edits a child's nickname, avatar and age band.
+  static String editChild(String id) => '${child(id)}/editar';
 
   /// A child's new authorization, returning on completion to [then] when
   /// [reconsentReturn] accepts it, and to [children] otherwise.

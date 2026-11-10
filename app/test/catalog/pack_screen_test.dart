@@ -184,15 +184,15 @@ void main() {
     expect(reads(h), ['GET /v1/family/minors/m1/catalog?offset=0']);
   });
 
-  testWidgets('not among today\'s, it goes back to the catalogue with a '
-      'notice', (tester) async {
+  testWidgets('not among today\'s, it goes back to the child\'s page with '
+      'a notice', (tester) async {
     final h = await catalogue(
       tester,
       catalog: withPacks,
       initial: '/familia/videos/m1/pacotinho/k9',
     );
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
     expect(find.widgetWithText(Notice, packGone), findsOneWidget);
   });
 
@@ -204,7 +204,7 @@ void main() {
       initial: '/familia/videos/m1/pacotinho/k1',
     );
 
-    expect(h.location(tester), '/familia/videos');
+    expect(h.location(tester), '/familia/criancas');
     expect(find.widgetWithText(Notice, Copy.childGone), findsOneWidget);
   });
 
@@ -236,12 +236,12 @@ void main() {
     expect(find.byType(PackVideoRow), findsNWidgets(4));
   });
 
-  testWidgets('back returns to the child\'s catalogue', (tester) async {
+  testWidgets('back returns to the child\'s page', (tester) async {
     final h = await fromRow(tester);
 
     await tester.tap(find.byTooltip('Voltar').last);
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 }

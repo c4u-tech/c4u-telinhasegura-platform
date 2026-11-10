@@ -8,13 +8,13 @@ import '../access/widgets.dart';
 import '../auth/api_error.dart';
 import '../design/field_layout.dart';
 import '../design/tokens.dart';
+import '../family/child_page.dart' show leaveForGoneChild;
 import '../family/family.dart';
 import '../family/family_model.dart';
 import '../family/profile_fields.dart' show SelectableRow;
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'screen_time_screen.dart' show leaveForGoneChild;
 
 /// Under the primary until an amount is chosen.
 const moreTimeHint = 'Escolha quanto tempo acima.';
@@ -89,7 +89,7 @@ class _MoreTimeScreenState extends State<MoreTimeScreen> {
       }
       return FieldLayout(
         title: 'Mais tempo hoje',
-        onBack: () => context.go(Routes.childTime(widget.id)),
+        onBack: () => context.go(Routes.child(widget.id)),
         children: switch ((minor, _given)) {
           (final minor?, final given?) => _done(minor, given),
           (_?, null) => _form(),
@@ -134,8 +134,8 @@ class _MoreTimeScreenState extends State<MoreTimeScreen> {
     Notice('${minor.nickname} tem mais $given min hoje.'),
     const SizedBox(height: Space.xl),
     PrimaryButton(
-      label: 'Voltar para o tempo de tela',
-      onPressed: () => context.go(Routes.childTime(widget.id)),
+      label: 'Voltar para ${minor.nickname}',
+      onPressed: () => context.go(Routes.child(widget.id)),
     ),
   ];
 }

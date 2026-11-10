@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
-import 'package:telinha_segura/access/reauth_prompt.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/family/avatars.dart';
-import 'package:telinha_segura/family/confirm.dart';
 import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/labels.dart';
 import 'package:telinha_segura/family/profile_fields.dart';
@@ -16,37 +15,33 @@ import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/family/widgets.dart';
 
 import '../access/harness.dart';
+import '../catalog/fixtures.dart';
+import '../screentime/fixtures.dart';
 import 'fixtures.dart';
 
 final lia = minorJson('m1', 'Lia');
 
-/// `/familia/criancas/m1` (or [id]) over an API that answers each child
-/// write with [answer], or by default updates or deletes Lia.
+/// `/familia/criancas/m1/editar` (or [id]'s) over an API that answers each
+/// child write with [answer], or by default updates Lia. The child's page
+/// it returns to reads her day and her catalogue as usual.
 Future<Harness> child(
   WidgetTester tester, {
   Map<String, Object?>? minor,
   String id = 'm1',
   FutureOr<http.Response> Function(http.Request)? answer,
-  bool reauth = false,
 }) async {
   late final Harness h;
-  var confirmed = !reauth;
+  final time = screenTimeApi();
+  final videos = catalogApi();
   h = Harness(
     signedIn: true,
     api: (req) {
-      if (req.url.path == '/v1/session/reauth') {
-        confirmed = true;
-        return http.Response('', 204);
-      }
-      if (!req.url.path.startsWith('/v1/family/minors/')) {
-        return http.Response('', 204);
+      final path = req.url.path;
+      if (path.startsWith('/v1/screentime/')) return time(req);
+      if (!RegExp(r'^/v1/family/minors/[^/]+$').hasMatch(path)) {
+        return videos(req);
       }
       if (answer != null) return answer(req);
-      if (req.method == 'DELETE') {
-        if (!confirmed) return problem(403, 'reauth_required');
-        h.family = familyWith([]);
-        return http.Response('', 204);
-      }
       final patch = jsonDecode(req.body) as Map<String, dynamic>;
       final updated = {...(minor ?? lia), ...patch};
       h.family = familyWith([updated]);
@@ -54,9 +49,13 @@ Future<Harness> child(
     },
   )..family = familyWith([minor ?? lia]);
   unawaited(h.services.familyModel.load());
-  await h.pump(tester, initial: '/familia/criancas/$id');
+  await h.pump(tester, initial: '/familia/criancas/$id/editar');
   return h;
 }
+
+/// The profile writes [h] sent, without the reads around them.
+List<String> writes(Harness h) =>
+    h.actions.where((a) => a.startsWith('PATCH')).toList();
 
 Future<void> tapOn(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
@@ -135,17 +134,17 @@ void main() {
       expect(saveOf(tester), isNull, reason: 'the same after trimming');
     });
 
-    testWidgets('Salvar sends only the changed fields, then lists the '
-        'children', (tester) async {
+    testWidgets('Salvar sends only the changed fields, then returns to the '
+        'child\'s page', (tester) async {
       final h = await child(tester);
 
       await tapOn(tester, find.byKey(const ValueKey(Avatar.cat)));
       await tapOn(tester, find.text('Salvar'));
 
-      expect(h.actions, hasLength(1));
-      expect(h.actions.single, startsWith('PATCH /v1/family/minors/m1 '));
-      expect(bodyOf(h.actions.single), {'avatar': 'cat'});
-      expect(h.location(tester), '/familia/criancas');
+      expect(writes(h), hasLength(1));
+      expect(writes(h).single, startsWith('PATCH /v1/family/minors/m1 '));
+      expect(bodyOf(writes(h).single), {'avatar': 'cat'});
+      expect(h.location(tester), '/familia/criancas/m1');
     });
 
     testWidgets('a new nickname goes trimmed, alone', (tester) async {
@@ -155,8 +154,8 @@ void main() {
       await tester.pumpAndSettle();
       await tapOn(tester, find.text('Salvar'));
 
-      expect(bodyOf(h.actions.single), {'nickname': 'Lua'});
-      expect(find.widgetWithText(DoorRow, 'Lua'), findsOneWidget);
+      expect(bodyOf(writes(h).single), {'nickname': 'Lua'});
+      expect(find.widgetWithText(DisplayTitle, 'Lua'), findsOneWidget);
     });
 
     testWidgets('a nickname that does not fit keeps Salvar disabled', (
@@ -197,16 +196,16 @@ void main() {
       await tester.pumpAndSettle();
       await tapOn(tester, find.text('Salvar'));
 
-      expect(bodyOf(h.actions.single), {'nickname': 'Lua'});
+      expect(bodyOf(writes(h).single), {'nickname': 'Lua'});
     });
 
-    testWidgets('back returns to the children', (tester) async {
+    testWidgets('back returns to the child\'s page', (tester) async {
       final h = await child(tester);
 
       await tester.tap(find.byTooltip('Voltar'));
       await tester.pumpAndSettle();
 
-      expect(h.location(tester), '/familia/criancas');
+      expect(h.location(tester), '/familia/criancas/m1');
     });
 
     testWidgets('a dropped connection keeps the changes', (tester) async {
@@ -224,105 +223,14 @@ void main() {
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
         'Lua',
       );
-      expect(h.location(tester), '/familia/criancas/m1');
-    });
-  });
-
-  group('Excluir perfil', () {
-    testWidgets('asks first, naming the child and saying the profile is '
-        'erased and the consent withdrawn', (tester) async {
-      final h = await child(tester);
-      double edgeOf(Finder finder) => tester.getTopLeft(finder).dx;
-      final edge = edgeOf(find.byType(FilledButton));
-      expect(edgeOf(find.text('Excluir perfil')), edge);
-
-      await tapOn(tester, find.text('Excluir perfil'));
-
-      final confirmation = tester.widget<DestructiveConfirmation>(
-        find.byType(DestructiveConfirmation),
-      );
-      // A short title; the body's first line names the child.
-      expect(confirmation.title, 'Excluir perfil');
-      expect(
-        confirmation.body.first,
-        startsWith('O perfil de Lia será apagado'),
-      );
-      // One alignment rule: Cancelar starts on the column edge too.
-      expect(edgeOf(find.text('Cancelar')), edge);
-      final words = tester
-          .widgetList<Text>(
-            find.descendant(
-              of: find.byType(DestructiveConfirmation),
-              matching: find.byType(Text),
-            ),
-          )
-          .map((t) => t.data ?? '')
-          .join(' ');
-      expect(words, contains('Lia'));
-      expect(words, contains('apagado'));
-      // Everything the profile holds goes, what the child watched too.
-      expect(confirmation.body.first, contains('o que a criança assistiu'));
-      expect(confirmation.body.first, contains('tempo de tela'));
-      expect(words, contains('consentimento'));
-      expect(words, contains('retirado'));
-      expect(h.actions, isEmpty);
+      expect(h.location(tester), '/familia/criancas/m1/editar');
     });
 
-    testWidgets('cancelling deletes nothing', (tester) async {
-      final h = await child(tester);
+    testWidgets('deleting the profile is the child\'s page\'s, not the '
+        'form\'s', (tester) async {
+      await child(tester);
 
-      await tapOn(tester, find.text('Excluir perfil'));
-      await tapOn(tester, find.text('Cancelar'));
-
-      expect(find.byType(DestructiveConfirmation), findsNothing);
-      expect(h.actions, isEmpty);
-      expect(h.location(tester), '/familia/criancas/m1');
-    });
-
-    testWidgets('confirming deletes the child and returns to the refreshed '
-        'list', (tester) async {
-      final h = await child(tester);
-
-      await tapOn(tester, find.text('Excluir perfil'));
-      await tapOn(
-        tester,
-        find.descendant(
-          of: find.byType(DestructiveConfirmation),
-          matching: find.widgetWithText(PrimaryButton, 'Excluir perfil'),
-        ),
-      );
-
-      expect(h.actions, ['DELETE /v1/family/minors/m1']);
-      expect(h.location(tester), '/familia/criancas');
-      expect(find.widgetWithText(DoorRow, 'Lia'), findsNothing);
-      expect(find.text('0 de 10 crianças'), findsOneWidget);
-    });
-
-    testWidgets('a stale sign-in asks to confirm it is you, then deletes', (
-      tester,
-    ) async {
-      final h = await child(tester, reauth: true);
-
-      await tapOn(tester, find.text('Excluir perfil'));
-      await tapOn(
-        tester,
-        find.descendant(
-          of: find.byType(DestructiveConfirmation),
-          matching: find.widgetWithText(PrimaryButton, 'Excluir perfil'),
-        ),
-      );
-      expect(find.byType(ReauthPrompt), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField).last, 'uma senha longa');
-      await tester.pumpAndSettle();
-      await tapOn(tester, find.text('Confirmar'));
-
-      expect(h.actions, [
-        'DELETE /v1/family/minors/m1',
-        'POST /v1/session/reauth {"password":"uma senha longa"}',
-        'DELETE /v1/family/minors/m1',
-      ]);
-      expect(h.location(tester), '/familia/criancas');
+      expect(find.text('Excluir perfil'), findsNothing);
     });
   });
 

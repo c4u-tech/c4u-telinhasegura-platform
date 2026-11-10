@@ -14,6 +14,7 @@ import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/screentime/screentime_api.dart';
+import 'package:telinha_segura/screentime/today.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
 
 import '../access/harness.dart';
@@ -487,6 +488,40 @@ void main() {
     await tapOn(tester, inRow('Téo', find.text('+ tempo')));
 
     expect(h.location(tester), '/familia/tempo/m2/mais');
+    semantics.dispose();
+  });
+
+  for (final (part, finder) in [
+    ('avatar', (String n) => inRow(n, find.byType(AvatarDisc))),
+    ('name', (String n) => inRow(n, find.text(n))),
+  ]) {
+    testWidgets('tapping a child\'s $part opens the child\'s page', (
+      tester,
+    ) async {
+      final h = await inicio(tester);
+
+      await tapOn(tester, finder('Téo'));
+
+      expect(h.location(tester), '/familia/criancas/m2');
+    });
+  }
+
+  testWidgets('back from a page opened here returns to Início', (tester) async {
+    final h = await inicio(tester);
+    await tapOn(tester, inRow('Lia', find.text('Lia')));
+
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+
+    expect(h.location(tester), '/');
+  });
+
+  testWidgets('the child\'s page is one target, read by the nickname and '
+      'today', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await inicio(tester);
+
+    expect(find.bySemanticsLabel(RegExp(r'^Abrir a página de Téo')), findsOne);
     semantics.dispose();
   });
 

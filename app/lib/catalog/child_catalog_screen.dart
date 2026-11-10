@@ -12,13 +12,13 @@ import '../curation/words.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../family/child_page.dart' show leaveForGoneChild;
 import '../family/family.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
 import '../screentime/refetch_on_return.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'catalog_children_screen.dart' show leaveForGoneChild;
 import 'pack_rows.dart';
 import 'video_row.dart';
 import 'words.dart';
@@ -165,7 +165,7 @@ class _ChildCatalogScreenState extends State<ChildCatalogScreen>
       }
       return FieldLayout(
         title: minor?.nickname ?? 'Vídeos',
-        onBack: () => context.go(Routes.familyVideos),
+        onBack: () => context.go(Routes.child(widget.id)),
         children: minor == null ? familyPending(_model) : _body(minor),
       );
     },
