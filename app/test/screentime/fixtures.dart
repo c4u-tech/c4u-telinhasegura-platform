@@ -31,9 +31,10 @@ Map<String, Object?> rulesJson({
 };
 
 /// The last seven days as the server sends them, oldest first, today
-/// (2026-10-05, a Monday) last; [minutes] lists them today first.
+/// (2026-10-05, a Monday) last; [minutes] lists them today first. Today's
+/// 40 minutes are the ones [rulesJson] counts by default.
 Map<String, Object?> usageJson([
-  List<int> minutes = const [45, 70, 0, 0, 0, 0, 0],
+  List<int> minutes = const [40, 70, 0, 0, 0, 0, 0],
 ]) => {
   'days': [
     for (var i = 6; i >= 0; i--)

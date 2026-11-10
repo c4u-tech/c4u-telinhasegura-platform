@@ -7,6 +7,8 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/reauth_prompt.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/catalog/family_video_screen.dart';
+import 'package:telinha_segura/catalog/pack_rows.dart';
+import 'package:telinha_segura/catalog/video_row.dart';
 import 'package:telinha_segura/catalog/words.dart';
 import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/family/child_page.dart';
@@ -69,6 +71,7 @@ Future<Harness> childPage(
   FutureOr<http.Response> Function(String minorId, int offset)? catalog,
   FutureOr<http.Response> Function(http.Request)? write,
   String id = 'm1',
+  String? initial,
   Size size = phone,
   double textScale = 1,
 }) async {
@@ -85,7 +88,7 @@ Future<Harness> childPage(
   )..family = family ?? familyWith([minorJson('m1', 'Lia')]);
   await h.pump(
     tester,
-    initial: '/familia/criancas/$id',
+    initial: initial ?? '/familia/criancas/$id',
     size: size,
     textScale: textScale,
   );
@@ -184,6 +187,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/familia/criancas');
+    });
+
+    testWidgets('system back goes where the arrow goes: the children', (
+      tester,
+    ) async {
+      final h = await childPage(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/familia/criancas');
+    });
+
+    testWidgets('opened from Início, system back returns to Início', (
+      tester,
+    ) async {
+      final h = await childPage(tester, initial: '/');
+      await tapOn(tester, find.text('Lia').first);
+      expect(h.location(tester), '/familia/criancas/m1');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/');
     });
 
     testWidgets('a paused child leads to its new authorization', (
@@ -336,35 +363,48 @@ void main() {
       expect(h.location(tester), '/familia/tempo/m1/limite');
     });
 
-    testWidgets('the last seven days, today first, none a target', (
-      tester,
-    ) async {
+    testWidgets('the six days before today as figure rows under "Dias '
+        'anteriores", none a target; today is not repeated', (tester) async {
+      final semantics = tester.ensureSemantics();
       await childPage(tester);
 
-      var above = 0.0;
-      for (final line in [
-        'Hoje · 45 min',
-        'Ontem · 1 h 10 min',
-        'Sáb · 0 min',
-        'Sex · 0 min',
-        'Qui · 0 min',
-        'Qua · 0 min',
-        'Ter · 0 min',
-      ]) {
-        final f = find.text(line);
-        expect(f, findsOneWidget);
-        expect(
-          find.ancestor(of: f, matching: find.byType(InkWell)),
-          findsNothing,
-        );
-        expect(top(tester, f), greaterThan(above));
-        above = top(tester, f);
-      }
-      expect(top(tester, find.text('Últimos 7 dias')), lessThan(above));
+      expect(find.text('Últimos 7 dias'), findsNothing);
+      expect(find.textContaining('Hoje ·'), findsNothing);
+      final heading = find.text('Dias anteriores');
       expect(
-        top(tester, find.text('Ter · 0 min')),
-        lessThan(top(tester, header('Vídeos'))),
+        tester.widget<Text>(heading).style?.fontSize,
+        Theme.of(tester.element(heading)).textTheme.titleMedium?.fontSize,
       );
+      final rows = tester
+          .widgetList<FigureRow>(find.byType(FigureRow))
+          .map((r) => (r.label, r.figure))
+          .toList();
+      expect(rows, [
+        ('Ontem', '1 h 10 min'),
+        ('Sáb', '0 min'),
+        ('Sex', '0 min'),
+        ('Qui', '0 min'),
+        ('Qua', '0 min'),
+        ('Ter', '0 min'),
+      ]);
+      for (final r in find.byType(FigureRow).evaluate()) {
+        expect(
+          (r.renderObject! as RenderBox).size.height,
+          greaterThanOrEqualTo(48),
+        );
+      }
+      expect(
+        find.ancestor(
+          of: find.byType(FigureRow).first,
+          matching: find.byType(InkWell),
+        ),
+        findsNothing,
+      );
+      expect(
+        top(tester, heading),
+        lessThan(top(tester, find.byType(FigureRow).first)),
+      );
+      semantics.dispose();
     });
 
     testWidgets('coming back from more time reads the day again', (
@@ -390,6 +430,34 @@ void main() {
   });
 
   group('Vídeos', () {
+    testWidgets('at 200 % text the rows drop their pictures', (tester) async {
+      await childPage(tester, textScale: 2);
+      expect(find.byType(VideoRow), findsWidgets);
+      expect(find.byType(PackRow), findsWidgets);
+      expect(find.byType(VideoThumb), findsNothing);
+    });
+
+    testWidgets('at 100 % text the rows keep their pictures', (tester) async {
+      await childPage(tester);
+      expect(find.byType(VideoThumb), findsNWidgets(2 + ChildPage.firstVideos));
+    });
+
+    testWidgets('"Esconder" keeps a 48 dp target, its word close under the '
+        'row\'s line', (tester) async {
+      await childPage(tester);
+
+      final button = find.ancestor(
+        of: find.text('Esconder').first,
+        matching: find.byType(TextButton),
+      );
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      final meta = find.text('Ciência Pequena\u00a0· 6\u00a0min');
+      final gap =
+          tester.getTopLeft(find.text('Esconder').first).dy -
+          tester.getBottomLeft(meta.first).dy;
+      expect(gap, inInclusiveRange(4, 12));
+    });
+
     testWidgets('today\'s pacotinhos, then the first videos, each with a '
         'quiet Esconder', (tester) async {
       await childPage(tester);
@@ -451,6 +519,19 @@ void main() {
         findsOne,
       );
       expect(h.location(tester), '/familia/criancas/m1');
+      expect(
+        tester.getSemantics(find.text(CatalogWords.hidden('Lia'))),
+        isSemantics(isLiveRegion: true),
+      );
+      final focused = FocusManager.instance.primaryFocus?.context;
+      expect(focused, isNotNull);
+      expect(
+        find.ancestor(
+          of: find.byWidget(focused!.widget),
+          matching: find.widgetWithText(QuietAction, 'Desfazer'),
+        ),
+        findsOneWidget,
+      );
       semantics.dispose();
     });
 

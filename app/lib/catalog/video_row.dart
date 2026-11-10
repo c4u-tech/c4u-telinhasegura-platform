@@ -33,15 +33,18 @@ class VideoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = [video.channelTitle, CurationWords.duration(video.duration)];
+    final large = rowTextIsLarge(context);
     return DoorRow(
       title: video.title,
-      titleMaxLines: 2,
+      titleMaxLines: large ? 4 : 2,
       semanticsLabel: [
         video.title,
         CurationWords.joined(parts),
         if (video.hidden) 'escondido para $nickname',
       ].join(', '),
-      leading: VideoThumb(videoId: video.id, thumbnail: thumbnail),
+      leading: large
+          ? null
+          : VideoThumb(videoId: video.id, thumbnail: thumbnail),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,6 +65,13 @@ class VideoRow extends StatelessWidget {
     );
   }
 }
+
+/// Whether the text is set at 1.5 times or more: a row led by a picture
+/// then drops it and lets its title take up to four lines, since the
+/// picture would leave the title a word per line, and the row is read by
+/// its words.
+bool rowTextIsLarge(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
 
 /// The thumbnail at 96 × 54, the screen at 16:9 cornered at 10/33 of its
 /// height; while it loads, or if it never comes, the same screen hollow.

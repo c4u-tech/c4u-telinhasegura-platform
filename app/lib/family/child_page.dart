@@ -71,7 +71,7 @@ class _GroupLabel extends StatelessWidget {
 /// `/familia/criancas/:id`: everything a guardian does for one child, on
 /// one scrolling page, today first. Under the avatar, the nickname and the
 /// age band: "Hoje" (the day's modules and words, "Mais tempo hoje",
-/// "Limite e horário", the last seven days), "Vídeos" (today's
+/// "Limite e horário", the six days before), "Vídeos" (today's
 /// pacotinhos, the first videos with a quiet "Esconder" each, the way to
 /// all of them) and "Perfil" (the profile with "Editar", and "Excluir
 /// perfil" at the foot).
@@ -117,6 +117,10 @@ enum _Slot { hidden, gone }
 class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
   final _reading = Submission();
   final _hiding = Submission();
+
+  /// "Desfazer" of the video just hidden, which takes the focus the
+  /// hidden row's "Esconder" had.
+  final _undoFocus = FocusNode(debugLabel: 'desfazer');
   late final FamilyModel _model;
   late final FamilyWrite _delete;
   bool _started = false;
@@ -171,6 +175,7 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
   void dispose() {
     _reading.dispose();
     _hiding.dispose();
+    _undoFocus.dispose();
     _delete.dispose();
     super.dispose();
   }
@@ -239,7 +244,13 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
       () => api.hide(widget.id, v.id),
       handle: (e) => _videoGone(e, v),
     );
-    if (ok && mounted) setState(() => _slots[v.id] = _Slot.hidden);
+    if (!ok || !mounted) return;
+    setState(() => _slots[v.id] = _Slot.hidden);
+    // The notice in the row's slot is a live region, so the outcome is
+    // heard; focus follows to the way back.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _undoFocus.requestFocus();
+    });
   }
 
   Future<void> _undo(FamilyVideo v) async {
@@ -302,14 +313,22 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
         // open.
         if (minor == null) scheduleMicrotask(_leave);
       }
-      return FieldLayout(
-        title: minor?.nickname ?? 'Criança',
-        titleLeading: minor == null
-            ? null
-            : AvatarDisc(minor.avatar, size: 72, excludeSemantics: true),
-        titleLine: minor?.ageBand.label,
-        onBack: () => context.go(widget.back),
-        children: minor == null ? familyPending(_model) : _page(minor),
+      // System back goes where the arrow goes, not to the route beneath:
+      // opened from Início, that is Início.
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) context.go(widget.back);
+        },
+        child: FieldLayout(
+          title: minor?.nickname ?? 'Criança',
+          titleLeading: minor == null
+              ? null
+              : AvatarDisc(minor.avatar, size: 72, excludeSemantics: true),
+          titleLine: minor?.ageBand.label,
+          onBack: () => context.go(widget.back),
+          children: minor == null ? familyPending(_model) : _page(minor),
+        ),
       );
     },
   );
@@ -389,27 +408,23 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
           builder: (context, read) {
             final week = read.data;
             if (week == null) return const SizedBox.shrink();
+            // Today is the section's own modules and words; the list
+            // holds the six days before it.
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: Space.xl),
-                const _GroupLabel('Últimos 7 dias'),
-                const SizedBox(height: Space.sm),
+                Semantics(
+                  header: true,
+                  child: Text('Dias anteriores', style: text.titleMedium),
+                ),
+                const SizedBox(height: Space.md),
                 Doors(
                   children: [
-                    for (final (i, day) in week.indexed)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 48),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: Space.md,
-                          ),
-                          child: Text(
-                            '${ScreenTimeWords.day(i, day.date)} · '
-                            '${ScreenTimeWords.watched(day.watched)}',
-                            style: text.bodyLarge,
-                          ),
-                        ),
+                    for (final (i, day) in week.indexed.skip(1))
+                      FigureRow(
+                        label: ScreenTimeWords.day(i, day.date),
+                        figure: ScreenTimeWords.watched(day.watched),
                       ),
                   ],
                 ),
@@ -537,6 +552,7 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
               const SizedBox(height: Space.xs),
               QuietAction(
                 label: 'Desfazer',
+                focusNode: _undoFocus,
                 semanticsLabel: 'Mostrar “${v.title}” para $nickname de novo',
                 busy: busy,
                 onPressed: idle ? () => _undo(v) : null,
@@ -546,7 +562,7 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
           ),
         );
       case null:
-        final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
+        final large = rowTextIsLarge(context);
         final hide = QuietAction(
           label: 'Esconder',
           semanticsLabel: 'Esconder “${v.title}” para $nickname',
@@ -564,25 +580,35 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
           key: ValueKey(v.id),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            row,
-            // Under the row's words, outside its target, so the title keeps
-            // the line's width; at large text the picture is gone and the
-            // action starts on the column's edge.
-            Padding(
-              padding: EdgeInsetsDirectional.only(
-                start: large ? 0 : VideoThumb.size.width + Space.lg,
-                bottom: Space.sm,
-              ),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: hide,
-              ),
+            // "Esconder" stands under the row's words, outside its target,
+            // so the title keeps the line's width; its 48 dp target rises
+            // into the row's foot so the word sits close under the line.
+            // At large text the picture is gone and it starts on the
+            // column's edge.
+            Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: _hideRise),
+                  child: row,
+                ),
+                PositionedDirectional(
+                  start: large ? 0 : VideoThumb.size.width + Space.lg,
+                  bottom: 0,
+                  child: hide,
+                ),
+              ],
             ),
             ...error,
           ],
         );
     }
   }
+
+  /// How far "Esconder"'s 48 dp target reaches below its row. Its label
+  /// (about 20 px) sits centred, 14 px under the target's top; to set the
+  /// word 8 px (sm) under the row's line, past the row's 16 px foot, the
+  /// target rises 22 px into the row and the other 26 px stand below it.
+  static const _hideRise = 26.0;
 
   Widget _profile(Minor minor) {
     final muted = Theme.of(context).textTheme.bodyMedium

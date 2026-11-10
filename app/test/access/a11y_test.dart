@@ -1435,7 +1435,7 @@ final screenTimeScreens =
           rules: {
             'm1': () => json(200, rulesJson(isDefault: true, extension: 30)),
           },
-          usage: () => json(200, usageJson([45, 70, 299, 0, 15, 60, 1])),
+          usage: () => json(200, usageJson([40, 70, 299, 0, 15, 60, 1])),
         ),
         null,
       ),

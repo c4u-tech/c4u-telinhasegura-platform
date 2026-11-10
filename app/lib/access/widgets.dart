@@ -342,10 +342,14 @@ class QuietAction extends StatelessWidget {
     this.busy = false,
     this.inline = false,
     this.semanticsLabel,
+    this.focusNode,
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// Lets a screen move focus to the action, as after the step it undoes.
+  final FocusNode? focusNode;
   final bool destructive;
   final bool busy;
   final bool inline;
@@ -358,6 +362,7 @@ class QuietAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = destructive ? context.palette.error : null;
     final button = TextButton.icon(
+      focusNode: focusNode,
       onPressed: busy ? null : onPressed,
       style: TextButton.styleFrom(
         foregroundColor: color,
