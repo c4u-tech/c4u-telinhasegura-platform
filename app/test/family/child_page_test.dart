@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/reauth_prompt.dart';
@@ -214,20 +215,33 @@ void main() {
       expect(h.location(tester), '/');
     });
 
-    for (final (entry, from) in [('the children', null), ('Início', '/')]) {
-      testWidgets('on iOS, opened from $entry, the page never blocks the back '
-          'swipe', (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-        addTearDown(() => debugDefaultTargetPlatformOverride = null);
-        final h = await childPage(tester, initial: from);
-        if (from != null) await tapOn(tester, find.text('Lia').first);
-        expect(h.location(tester), '/familia/criancas/m1');
+    testWidgets('on iOS, opened from the children, the page pops plainly '
+        'to them', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await childPage(tester);
 
-        final route = ModalRoute.of(tester.element(find.byType(ChildPage)))!;
-        expect(route.popDisposition, RoutePopDisposition.pop);
-        debugDefaultTargetPlatformOverride = null;
-      });
-    }
+      final route = ModalRoute.of(tester.element(find.byType(ChildPage)))!;
+      expect(route.popDisposition, RoutePopDisposition.pop);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('opened from Início, back goes there at once, never through '
+        'the children', (tester) async {
+      final h = await childPage(tester, initial: '/');
+      await tapOn(tester, find.text('Lia').first);
+      final seen = <String>[];
+      final router = GoRouter.of(tester.element(find.byType(ChildPage)));
+      void note() => seen.add(router.state.uri.path);
+      router.routerDelegate.addListener(note);
+      addTearDown(() => router.routerDelegate.removeListener(note));
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/');
+      expect(seen, isNot(contains('/familia/criancas')));
+    });
 
     testWidgets('leaving for a task from a page opened from Início stays on '
         'the task', (tester) async {
@@ -561,19 +575,14 @@ void main() {
         ),
         findsOneWidget,
       );
-      // The focus ring stays inside the column, clear of its edge.
-      final ring = tester.getRect(
-        find.descendant(
-          of: find.widgetWithText(QuietAction, 'Desfazer'),
-          matching: find.byType(TextButton),
-        ),
-      );
+      // "Desfazer" starts on the column's edge, like the notice above it;
+      // its focus ring stands outside the word, 3 px into the margin.
       final column = tester.getRect(find.byKey(ChildPage.videosKey));
-      expect(ring.left - 3, greaterThanOrEqualTo(column.left));
       expect(
         tester.getTopLeft(find.text('Desfazer')).dx,
-        greaterThan(ring.left),
+        tester.getTopLeft(find.text(CatalogWords.hidden('Lia'))).dx,
       );
+      expect(tester.getTopLeft(find.text('Desfazer')).dx, column.left);
       semantics.dispose();
     });
 

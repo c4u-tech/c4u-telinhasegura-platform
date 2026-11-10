@@ -313,20 +313,13 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
         // open.
         if (minor == null) scheduleMicrotask(_leave);
       }
-      // System back, and the iOS back swipe, go where the arrow goes. The
-      // route beneath is the children, so a page opened from there simply
-      // pops; opened from Início, the pop to the children goes on to
-      // Início.
+      // System back goes where the arrow goes. Opened from the children,
+      // the route beneath, it simply pops; opened from Início, it goes
+      // there directly.
       return PopScope(
+        canPop: widget.back == Routes.children,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop || widget.back == Routes.children) return;
-          final router = GoRouter.of(context);
-          scheduleMicrotask(() {
-            if (_leaving) return;
-            if (router.state.uri.path == Routes.children) {
-              router.go(widget.back);
-            }
-          });
+          if (!didPop) context.go(widget.back);
         },
         child: FieldLayout(
           title: minor?.nickname ?? 'Criança',
@@ -558,18 +551,12 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
             children: [
               Notice(CatalogWords.hidden(nickname)),
               const SizedBox(height: Space.xs),
-              // Focus lands here after a hide, so its 3 px ring stands
-              // inside the column and clear of the word.
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 3),
-                child: QuietAction(
-                  label: 'Desfazer',
-                  inset: true,
-                  focusNode: _undoFocus,
-                  semanticsLabel: 'Mostrar “${v.title}” para $nickname de novo',
-                  busy: busy,
-                  onPressed: idle ? () => _undo(v) : null,
-                ),
+              QuietAction(
+                label: 'Desfazer',
+                focusNode: _undoFocus,
+                semanticsLabel: 'Mostrar “${v.title}” para $nickname de novo',
+                busy: busy,
+                onPressed: idle ? () => _undo(v) : null,
               ),
               ...error,
             ],
