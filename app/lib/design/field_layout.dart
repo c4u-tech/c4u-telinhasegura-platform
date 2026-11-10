@@ -508,7 +508,11 @@ class _FieldContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final wordmark = Wordmark(lockupHeight: size == FieldSize.hero ? 32 : 24);
+    // The name plate sits on the head's axis: the field is centred under
+    // the head, so the wordmark is centred in the field.
+    final wordmark = Wordmark(
+      height: size == FieldSize.hero ? WordmarkSizes.hero : WordmarkSizes.band,
+    );
     final back = onBack == null
         ? null
         : IconButton(
@@ -525,11 +529,12 @@ class _FieldContent extends StatelessWidget {
         ),
         child: SizedBox(
           height: 56,
-          child: Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              back ?? const SizedBox(width: Space.md),
-              const SizedBox(width: Space.xs),
               wordmark,
+              if (back != null)
+                Align(alignment: AlignmentDirectional.centerStart, child: back),
             ],
           ),
         ),
@@ -562,11 +567,12 @@ class _FieldContent extends StatelessWidget {
                     child: back,
                   ),
                 ),
-              wordmark,
+              Center(child: wordmark),
             ],
           ),
           if (promise case final promise?) ...[
-            SizedBox(height: large ? Space.xxxl : Space.xl),
+            // Further from the name plate than the plate is from the head.
+            SizedBox(height: large ? Space.xxxl : Space.xxl),
             Text(
               promise,
               style: (large ? text.displayLarge : text.headlineSmall)?.copyWith(

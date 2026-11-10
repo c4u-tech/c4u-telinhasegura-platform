@@ -165,6 +165,14 @@ abstract final class ShellSizes {
   static const railItem = 56.0;
 }
 
+/// The wordmark's box height in each ink field. The wordmark is the
+/// field's name plate, so it is never the smallest text in the field.
+abstract final class WordmarkSizes {
+  static const band = 20.0;
+  static const rail = 22.0;
+  static const hero = 28.0;
+}
+
 /// The kid dialect's sizes: small hands get 64 dp targets (the PIN keys
 /// too), and a child finds themself by a 96 dp+ avatar; the child home's
 /// grows to [avatarWide] on wide screens.

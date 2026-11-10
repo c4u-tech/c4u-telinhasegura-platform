@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/band_transition.dart';
@@ -239,13 +240,32 @@ void main() {
       });
     }
 
-    testWidgets('the rail carries the reversed wordmark, not a second mark, '
-        'at the lockup\'s letter height', (tester) async {
+    testWidgets('the rail centres the reversed wordmark under the head, '
+        'at least 22 tall, with the destinations at the start below', (
+      tester,
+    ) async {
       await shellAt(tester, '/', size: wide);
 
-      expect(brandAssets(tester, find.byType(InkRail)), [
-        ('assets/brand/telinha-segura-wordmark-reversed.svg', 32 * 29 / 64),
+      final rail = find.byType(InkRail);
+      expect(brandAssets(tester, rail).map((a) => a.$1), [
+        'assets/brand/telinha-segura-wordmark-reversed.svg',
       ]);
+      final wordmark = find.descendant(
+        of: rail,
+        matching: find.byType(SvgPicture),
+      );
+      final head = find.descendant(
+        of: rail,
+        matching: find.byType(PeekingHead),
+      );
+      expect(tester.getSize(wordmark).height, greaterThanOrEqualTo(22));
+      expect(
+        tester.getCenter(wordmark).dx,
+        moreOrLessEquals(tester.getCenter(head).dx, epsilon: 2),
+      );
+      final first = tester.getRect(find.byType(DestinationTile).first);
+      expect(first.top, greaterThan(tester.getRect(wordmark).bottom));
+      expect(first.left, lessThan(tester.getRect(wordmark).left));
     });
 
     testWidgets('the rail is the ink field, cut at the mark radius, with no '

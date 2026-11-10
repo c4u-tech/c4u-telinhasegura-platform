@@ -3,20 +3,18 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 /// The brand's wordmark alone, in cream, for the ink field the head
 /// already peeks over: field, head and letters together make the mark, so
-/// the field does not repeat the mark beside its letters.
+/// the field does not repeat the mark beside its letters. It is the
+/// field's name plate, set under the head at a size from WordmarkSizes.
 class Wordmark extends StatelessWidget {
-  const Wordmark({super.key, required this.lockupHeight});
+  const Wordmark({super.key, required this.height});
 
   static const asset = 'assets/brand/telinha-segura-wordmark-reversed.svg';
 
-  /// The lockup height whose letters this matches: the wordmark file is
-  /// 29 of the lockup's 64 units tall, with letters of the same size.
-  final double lockupHeight;
+  /// The wordmark's box, from the top of its ascenders to the foot of its
+  /// descenders.
+  final double height;
 
   @override
-  Widget build(BuildContext context) => SvgPicture.asset(
-    asset,
-    height: lockupHeight * 29 / 64,
-    semanticsLabel: 'Telinha Segura',
-  );
+  Widget build(BuildContext context) =>
+      SvgPicture.asset(asset, height: height, semanticsLabel: 'Telinha Segura');
 }

@@ -286,15 +286,9 @@ class InkRail extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Space.md,
-                        ),
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: const Wordmark(lockupHeight: 32),
-                        ),
-                      ),
+                      // The name plate, on the head's axis above the
+                      // start-aligned destinations.
+                      const Center(child: Wordmark(height: WordmarkSizes.rail)),
                       const SizedBox(height: Space.xxl),
                       for (final d in destinations) ...[
                         if (d != destinations.first)
