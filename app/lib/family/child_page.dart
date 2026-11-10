@@ -321,20 +321,36 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) context.go(widget.back);
         },
-        child: FieldLayout(
-          title: minor?.nickname ?? 'Criança',
-          titleLeading: minor == null
-              ? null
-              : AvatarDisc(minor.avatar, size: 72, excludeSemantics: true),
-          titleLine: minor?.ageBand.label,
-          onBack: () => context.go(widget.back),
-          children: minor == null ? familyPending(_model) : _page(minor),
+        child: LayoutBuilder(
+          builder: (context, box) => _layout(context, minor, box.maxWidth),
         ),
       );
     },
   );
 
-  List<Widget> _page(Minor minor) => [
+  /// The page at [width]: beside the rail with room for two columns,
+  /// Hoje and Vídeos stand side by side over Perfil.
+  Widget _layout(BuildContext context, Minor? minor, double width) {
+    final paired =
+        (ShellFrame.maybeOf(context)?.rail ?? false) &&
+        FieldLayout.roomIn(context, width) >= FieldSizes.pairedMinWidth;
+    return FieldLayout(
+      columnWidth: paired
+          ? 2 * FieldSizes.columnMaxWidth + Space.xl
+          : FieldSizes.columnMaxWidth,
+      title: minor?.nickname ?? 'Criança',
+      titleLeading: minor == null
+          ? null
+          : AvatarDisc(minor.avatar, size: 72, excludeSemantics: true),
+      titleLine: minor?.ageBand.label,
+      onBack: () => context.go(widget.back),
+      children: minor == null
+          ? familyPending(_model)
+          : _page(minor, paired: paired),
+    );
+  }
+
+  List<Widget> _page(Minor minor, {required bool paired}) => [
     if (!minor.consentCurrent) ...[
       // Kid mode is paused for this child until a guardian authorizes the
       // profile again.
@@ -348,9 +364,27 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
       ),
       const SizedBox(height: Space.xl),
     ],
-    KeyedSubtree(key: ChildPage.todayKey, child: _today(minor)),
-    const SizedBox(height: Space.xxl),
-    KeyedSubtree(key: ChildPage.videosKey, child: _videosSection(minor)),
+    if (paired)
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: KeyedSubtree(key: ChildPage.todayKey, child: _today(minor)),
+          ),
+          const SizedBox(width: Space.xl),
+          Expanded(
+            child: KeyedSubtree(
+              key: ChildPage.videosKey,
+              child: _videosSection(minor),
+            ),
+          ),
+        ],
+      )
+    else ...[
+      KeyedSubtree(key: ChildPage.todayKey, child: _today(minor)),
+      const SizedBox(height: Space.xxl),
+      KeyedSubtree(key: ChildPage.videosKey, child: _videosSection(minor)),
+    ],
     const SizedBox(height: Space.xxl),
     KeyedSubtree(key: ChildPage.profileKey, child: _profile(minor)),
   ];

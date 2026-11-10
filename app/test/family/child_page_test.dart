@@ -119,6 +119,64 @@ Finder hideOf(String title) => find.byWidgetPredicate(
 double top(WidgetTester tester, Finder f) => tester.getTopLeft(f).dy;
 
 void main() {
+  group('with room for two columns', () {
+    Rect rectOf(WidgetTester tester, Key key) =>
+        tester.getRect(find.byKey(key));
+
+    testWidgets('a desktop window sets Hoje and Vídeos side by side, Perfil '
+        'below at their full width', (tester) async {
+      await childPage(tester, size: const Size(1440, 900));
+
+      final today = rectOf(tester, ChildPage.todayKey);
+      final videos = rectOf(tester, ChildPage.videosKey);
+      final profile = rectOf(tester, ChildPage.profileKey);
+      expect(videos.top, today.top);
+      expect(videos.left, greaterThan(today.right));
+      expect(profile.top, greaterThan(today.bottom));
+      expect(profile.left, today.left);
+      expect(profile.right, videos.right);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('side by side on dark too', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      await childPage(tester, size: const Size(1440, 900));
+
+      expect(
+        rectOf(tester, ChildPage.videosKey).top,
+        rectOf(tester, ChildPage.todayKey).top,
+      );
+    });
+
+    testWidgets('at 200 % text the larger list leaves one column, nothing '
+        'clipped', (tester) async {
+      await childPage(tester, size: const Size(1440, 900), textScale: 2);
+
+      expect(tester.takeException(), isNull);
+      expect(
+        rectOf(tester, ChildPage.videosKey).top,
+        greaterThan(rectOf(tester, ChildPage.todayKey).bottom),
+      );
+    });
+
+    for (final size in [
+      phone,
+      const Size(1000, 800),
+      // A 10 to 11 inch tablet in landscape: its detail is too narrow.
+      const Size(1317, 823),
+    ]) {
+      testWidgets('at ${size.width} keeps one column', (tester) async {
+        await childPage(tester, size: size);
+
+        final today = rectOf(tester, ChildPage.todayKey);
+        final videos = rectOf(tester, ChildPage.videosKey);
+        expect(videos.top, greaterThan(today.bottom));
+        expect(videos.left, today.left);
+      });
+    }
+  });
+
   group('one page', () {
     testWidgets('a header with the avatar, the nickname and the age band, '
         'then Hoje, Vídeos and Perfil in order', (tester) async {
