@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -211,6 +212,34 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/');
+    });
+
+    for (final (entry, from) in [('the children', null), ('Início', '/')]) {
+      testWidgets('on iOS, opened from $entry, the page never blocks the back '
+          'swipe', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        final h = await childPage(tester, initial: from);
+        if (from != null) await tapOn(tester, find.text('Lia').first);
+        expect(h.location(tester), '/familia/criancas/m1');
+
+        final route = ModalRoute.of(tester.element(find.byType(ChildPage)))!;
+        expect(route.popDisposition, RoutePopDisposition.pop);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
+    testWidgets('leaving for a task from a page opened from Início stays on '
+        'the task', (tester) async {
+      final h = await childPage(tester, initial: '/');
+      await tapOn(tester, find.text('Lia').first);
+
+      await tapOn(
+        tester,
+        find.widgetWithText(PrimaryButton, 'Mais tempo hoje'),
+      );
+
+      expect(h.location(tester), '/familia/tempo/m1/mais');
     });
 
     testWidgets('a paused child leads to its new authorization', (
@@ -531,6 +560,19 @@ void main() {
           matching: find.widgetWithText(QuietAction, 'Desfazer'),
         ),
         findsOneWidget,
+      );
+      // The focus ring stays inside the column, clear of its edge.
+      final ring = tester.getRect(
+        find.descendant(
+          of: find.widgetWithText(QuietAction, 'Desfazer'),
+          matching: find.byType(TextButton),
+        ),
+      );
+      final column = tester.getRect(find.byKey(ChildPage.videosKey));
+      expect(ring.left - 3, greaterThanOrEqualTo(column.left));
+      expect(
+        tester.getTopLeft(find.text('Desfazer')).dx,
+        greaterThan(ring.left),
       );
       semantics.dispose();
     });

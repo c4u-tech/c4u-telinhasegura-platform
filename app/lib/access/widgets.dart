@@ -343,6 +343,7 @@ class QuietAction extends StatelessWidget {
     this.inline = false,
     this.semanticsLabel,
     this.focusNode,
+    this.inset = false,
   });
 
   final String label;
@@ -350,6 +351,11 @@ class QuietAction extends StatelessWidget {
 
   /// Lets a screen move focus to the action, as after the step it undoes.
   final FocusNode? focusNode;
+
+  /// Room between the label and the button's edge on both sides, so a
+  /// focus ring drawn when the action takes focus by itself stands clear
+  /// of the word.
+  final bool inset;
   final bool destructive;
   final bool busy;
   final bool inline;
@@ -366,7 +372,9 @@ class QuietAction extends StatelessWidget {
       onPressed: busy ? null : onPressed,
       style: TextButton.styleFrom(
         foregroundColor: color,
-        padding: const EdgeInsetsDirectional.only(end: Space.md),
+        padding: inset
+            ? const EdgeInsets.symmetric(horizontal: Space.sm)
+            : const EdgeInsetsDirectional.only(end: Space.md),
       ),
       icon: busy
           ? SizedBox.square(

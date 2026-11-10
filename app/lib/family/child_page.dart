@@ -313,12 +313,20 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
         // open.
         if (minor == null) scheduleMicrotask(_leave);
       }
-      // System back goes where the arrow goes, not to the route beneath:
-      // opened from Início, that is Início.
+      // System back, and the iOS back swipe, go where the arrow goes. The
+      // route beneath is the children, so a page opened from there simply
+      // pops; opened from Início, the pop to the children goes on to
+      // Início.
       return PopScope(
-        canPop: false,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) context.go(widget.back);
+          if (!didPop || widget.back == Routes.children) return;
+          final router = GoRouter.of(context);
+          scheduleMicrotask(() {
+            if (_leaving) return;
+            if (router.state.uri.path == Routes.children) {
+              router.go(widget.back);
+            }
+          });
         },
         child: FieldLayout(
           title: minor?.nickname ?? 'Criança',
@@ -544,18 +552,24 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
         // the next video's state.
         return Padding(
           key: ValueKey(v.id),
-          padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
+          padding: const EdgeInsets.only(top: Space.md, bottom: Space.sm),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Notice(CatalogWords.hidden(nickname)),
               const SizedBox(height: Space.xs),
-              QuietAction(
-                label: 'Desfazer',
-                focusNode: _undoFocus,
-                semanticsLabel: 'Mostrar “${v.title}” para $nickname de novo',
-                busy: busy,
-                onPressed: idle ? () => _undo(v) : null,
+              // Focus lands here after a hide, so its 3 px ring stands
+              // inside the column and clear of the word.
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 3),
+                child: QuietAction(
+                  label: 'Desfazer',
+                  inset: true,
+                  focusNode: _undoFocus,
+                  semanticsLabel: 'Mostrar “${v.title}” para $nickname de novo',
+                  busy: busy,
+                  onPressed: idle ? () => _undo(v) : null,
+                ),
               ),
               ...error,
             ],
