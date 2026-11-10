@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../access/copy.dart';
 import '../access/widgets.dart';
-import '../auth/auth_api.dart' show PlatformRole;
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
@@ -14,7 +13,6 @@ import '../screentime/refetch_on_return.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
-import 'audit_sample_screen.dart' show auditDoor, auditDoorLine;
 import 'curation.dart';
 import 'role_gate.dart';
 import 'words.dart';
@@ -25,14 +23,6 @@ const noHeldVideos = 'Nenhum vídeo retido.';
 /// A held video's reports, all reasons together.
 int reportCount(HeldVideo h) =>
     h.reports.byReason.values.fold(0, (sum, n) => sum + n);
-
-/// Where the moderation screens' back goes: to
-/// "Administração" for an admin, the staff areas for a moderator.
-String moderationBack(BuildContext context) =>
-    AppScope.of(context).familyModel.roles?.contains(PlatformRole.admin) ??
-        false
-    ? Routes.admin
-    : Routes.staffHome;
 
 /// `/moderacao/retidos`: every held video as a door, the title up to two
 /// lines, why it is held in words muted, then "2 recusas · 3 denúncias",
@@ -94,27 +84,12 @@ class _HeldVideosScreenState extends State<HeldVideosScreen>
   @override
   Widget build(BuildContext context) => FieldLayout(
     title: 'Vídeos retidos',
-    onBack: () => context.go(moderationBack(context)),
+    onBack: () => context.go(Routes.staffHome),
     children: [
       if (widget.notice case final notice?) ...[
         Notice(notice),
         const SizedBox(height: Space.xl),
       ],
-      Doors(
-        children: [
-          DoorRow(
-            title: auditDoor,
-            semanticsLabel: '$auditDoor, $auditDoorLine',
-            onTap: () => context.go(Routes.auditSample),
-            child: Text(
-              auditDoorLine,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: context.palette.muted),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: Space.xl),
       ..._list(),
     ],
   );

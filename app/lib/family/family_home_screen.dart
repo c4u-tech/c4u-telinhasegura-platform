@@ -29,9 +29,8 @@ const _inviteHelp =
 /// `/`: Início once the family is ready (the greeting, then the children,
 /// each one tap from being handed the device), or what comes before it
 /// (no family yet, the email to confirm, the first read). Before the
-/// family, the doors of the session's platform roles ("Curadoria",
-/// "Pacotinhos", "Moderação", "Administração") follow the first use,
-/// since staff need no family, then "Sua conta", since an account exists
+/// family, a role holder's "Equipe" door follows the first use, since
+/// staff need no family, then "Sua conta", since an account exists
 /// before a family does, and "Sair da conta" stays at the foot; once the
 /// family is ready the navigation holds those places.
 class FamilyHomeScreen extends StatefulWidget {
@@ -291,7 +290,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
   );
 
   /// The doors under a state before the family: with no family, the
-  /// role doors, then "Sua conta". None while the first read runs.
+  /// Equipe door, then "Sua conta". None while the first read runs.
   List<DoorRow> _stateDoors(FamilyState state) => switch (state) {
     NoFamily() => [
       ...staffDoors(context, _model.roles ?? const {}),

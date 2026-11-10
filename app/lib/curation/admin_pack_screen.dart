@@ -33,26 +33,22 @@ const packAlreadyRemoved = 'Esse pacotinho já tinha sido removido.';
 /// Back on the list after "Remover de vez".
 String packRemoved(String title) => 'Removemos “$title”.';
 
-/// `/admin/pacotinhos/:id`: the pacotinho's title; where it stands and
-/// who composed it, by displayed role; when published, the provenance
-/// line ("Revisado por 2 mães ou pais e 1 psicólogo(a) · última revisão
-/// ontem"); its videos in order, read; and,
-/// while it is not removed, the clay quiet "Remover de vez", confirmed
-/// full screen and sent through the re-authentication.
-class AdminPackScreen extends StatefulWidget {
-  const AdminPackScreen({super.key, required this.id});
+/// An admin's "Remover de vez" on a pacotinho's screen: the clay quiet
+/// action, confirmed full screen and sent through the re-authentication
+/// and the second factor; done, already removed or gone, back to the
+/// pacotinhos with the line that says so. A lost role goes home.
+class RemovePackAction extends StatefulWidget {
+  const RemovePackAction({super.key, required this.pack});
 
-  final String id;
+  final Pack pack;
 
   @override
-  State<AdminPackScreen> createState() => _AdminPackScreenState();
+  State<RemovePackAction> createState() => _RemovePackActionState();
 }
 
-class _AdminPackScreenState extends State<AdminPackScreen> {
+class _RemovePackActionState extends State<RemovePackAction> {
   late final ReauthWrite _write;
   bool _started = false;
-  bool _failed = false;
-  Pack? _pack;
 
   @override
   void didChangeDependencies() {
@@ -60,9 +56,6 @@ class _AdminPackScreenState extends State<AdminPackScreen> {
     if (_started) return;
     _started = true;
     _write = staffWrite(context);
-    // Opened directly, the session's roles are read so the guard decides.
-    scheduleMicrotask(AppScope.of(context).familyModel.load);
-    scheduleMicrotask(_read);
   }
 
   @override
@@ -71,24 +64,7 @@ class _AdminPackScreenState extends State<AdminPackScreen> {
     super.dispose();
   }
 
-  Future<void> _read() async {
-    if (!mounted) return;
-    setState(() => _failed = false);
-    try {
-      final pack = await AppScope.of(context).curation.adminPack(widget.id);
-      if (mounted) setState(() => _pack = pack);
-    } on Object catch (e) {
-      if (!mounted ||
-          takeLostRole(context, e) ||
-          takeMfaRefusal(context, e, again: _read)) {
-        return;
-      }
-      if (e is ApiError && e.code == 'not_found') return _leave(packGone);
-      setState(() => _failed = true);
-    }
-  }
-
-  void _leave(String notice) => context.go(Routes.adminPacks, extra: notice);
+  void _leave(String notice) => context.go(Routes.packs, extra: notice);
 
   /// Takes the removal's [e]: a lost role goes home; a pacotinho already
   /// removed or gone, back to the list.
@@ -105,7 +81,8 @@ class _AdminPackScreenState extends State<AdminPackScreen> {
     return true;
   }
 
-  Future<void> _remove(Pack p) async {
+  Future<void> _remove() async {
+    final p = widget.pack;
     final api = AppScope.of(context).curation;
     final confirmed = await confirmDestructive(
       context,
@@ -124,11 +101,78 @@ class _AdminPackScreenState extends State<AdminPackScreen> {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _write,
-    builder: (context, _) => FieldLayout(
-      title: 'Pacotinho',
-      onBack: () => context.go(Routes.adminPacks),
-      children: _body(),
+    builder: (context, _) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_write.message case final message?) ...[
+          ErrorNote(message),
+          const SizedBox(height: Space.lg),
+        ],
+        QuietAction(
+          label: 'Remover de vez',
+          destructive: true,
+          busy: _write.busy,
+          onPressed: _write.blocked ? null : _remove,
+        ),
+      ],
     ),
+  );
+}
+
+/// `/pacotinhos/:id` for an admin who is not a curator: the pacotinho's
+/// title; where it stands and who composed it, by displayed role; when
+/// published, the provenance line ("Revisado por 2 mães ou pais e 1
+/// psicólogo(a) · última revisão ontem"); its videos in order, read;
+/// and, while it is not removed, [RemovePackAction].
+class AdminPackScreen extends StatefulWidget {
+  const AdminPackScreen({super.key, required this.id});
+
+  final String id;
+
+  @override
+  State<AdminPackScreen> createState() => _AdminPackScreenState();
+}
+
+class _AdminPackScreenState extends State<AdminPackScreen> {
+  bool _started = false;
+  bool _failed = false;
+  Pack? _pack;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // Opened directly, the session's roles are read so the guard decides.
+    scheduleMicrotask(AppScope.of(context).familyModel.load);
+    scheduleMicrotask(_read);
+  }
+
+  Future<void> _read() async {
+    if (!mounted) return;
+    setState(() => _failed = false);
+    try {
+      final pack = await AppScope.of(context).curation.adminPack(widget.id);
+      if (mounted) setState(() => _pack = pack);
+    } on Object catch (e) {
+      if (!mounted ||
+          takeLostRole(context, e) ||
+          takeMfaRefusal(context, e, again: _read)) {
+        return;
+      }
+      if (e is ApiError && e.code == 'not_found') {
+        context.go(Routes.packs, extra: packGone);
+        return;
+      }
+      setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FieldLayout(
+    title: 'Pacotinho',
+    onBack: () => context.go(Routes.packs),
+    children: _body(),
   );
 
   List<Widget> _body() {
@@ -174,16 +218,7 @@ class _AdminPackScreenState extends State<AdminPackScreen> {
       Text(packTotal(p), style: muted),
       if (p.state != PackState.removed) ...[
         const SizedBox(height: Space.xxl),
-        if (_write.message case final message?) ...[
-          ErrorNote(message),
-          const SizedBox(height: Space.lg),
-        ],
-        QuietAction(
-          label: 'Remover de vez',
-          destructive: true,
-          busy: _write.busy,
-          onPressed: _write.blocked ? null : () => _remove(p),
-        ),
+        RemovePackAction(pack: p),
       ],
     ];
   }

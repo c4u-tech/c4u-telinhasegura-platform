@@ -11,6 +11,7 @@ import '../shell/services.dart';
 /// The curator, admin and moderation routes' guard:
 /// a route none of whose roles the session
 /// holds goes home. The moderation routes take a moderator or an admin;
+/// the pacotinhos' list and one pacotinho's screen a curator or an admin;
 /// the staff areas' root takes any platform role.
 /// Roles not read yet decide nothing; the screen reads them
 /// (`FamilyModel.load`) and the router decides again. It only spares a
@@ -19,6 +20,8 @@ String? roleRedirect(Set<PlatformRole>? roles, String path) {
   if (roles == null) return null;
   final any = path == Routes.staffHome
       ? PlatformRole.values.toSet()
+      : Routes.isPackArea(path)
+      ? const {PlatformRole.curator, PlatformRole.admin}
       : Routes.isCuratorScreen(path)
       ? const {PlatformRole.curator}
       : Routes.isAdminScreen(path)

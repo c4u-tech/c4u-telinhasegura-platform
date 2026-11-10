@@ -27,11 +27,21 @@ const checkingAccess = 'Carregando';
 /// read and one challenge. It only spares a round trip: the server
 /// refuses regardless, and the screens then ask.
 class StaffGate extends StatefulWidget {
-  const StaffGate({super.key, required this.title, required this.child});
+  const StaffGate({
+    super.key,
+    required this.title,
+    required this.child,
+    this.path,
+  });
 
   /// The screen's title, over the placeholder while the gate reads.
   final String title;
   final Widget child;
+
+  /// The route's location, when its builder knows it. A gate built while
+  /// the router is already leaving its page (a redirect decided at once)
+  /// cannot look its page's state up, so it is handed in.
+  final String? path;
 
   @override
   State<StaffGate> createState() => _StaffGateState();
@@ -57,7 +67,7 @@ class _StaffGateState extends State<StaffGate> {
     final services = AppScope.of(context);
     _open = services.elevation.holds;
     if (_open) return;
-    _path = GoRouterState.of(context).uri.path;
+    _path = widget.path ?? GoRouterState.of(context).uri.path;
     // The screen is not built yet, so the gate reads the roles: the
     // router sends a session without the area's role home first.
     final model = _model = services.familyModel;

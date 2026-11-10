@@ -55,13 +55,14 @@ import '../curation/admin_pack_screen.dart';
 import '../curation/audit_sample_screen.dart';
 import '../curation/audit_video_screen.dart';
 import '../curation/admin_packs_screen.dart';
-import '../curation/admin_screen.dart';
 import '../curation/appoint_screen.dart' show AppointScreen;
 import '../curation/compose_pack_screen.dart';
 import '../curation/pack.dart';
 import '../curation/pack_draft.dart';
 import '../curation/pack_decision_screens.dart';
 import '../curation/pack_review_screen.dart';
+import '../curation/numbers_screen.dart';
+import '../curation/pack_area.dart';
 import '../curation/packs_screen.dart';
 import '../curation/held_video_screen.dart';
 import '../curation/held_videos_screen.dart';
@@ -426,9 +427,17 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
       ),
     ],
   ),
+  // One pacotinhos area: a curator composes and reviews in it; an admin
+  // who is not a curator reads it behind the second factor; an admin
+  // removes a pacotinho from its own screen.
   GoRoute(
     path: Routes.packs,
-    builder: (_, state) => PacksScreen(notice: _notice(state)),
+    builder: (_, state) => PackArea(
+      title: 'Pacotinhos',
+      path: state.uri.path,
+      curator: PacksScreen(notice: _notice(state)),
+      admin: AdminPacksScreen(notice: _notice(state)),
+    ),
     routes: [
       GoRoute(
         path: 'novo',
@@ -443,8 +452,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
       ),
       GoRoute(
         path: ':id',
-        builder: (_, state) =>
-            PackReviewScreen(id: state.pathParameters['id']!),
+        builder: (_, state) => PackArea(
+          title: 'Pacotinho',
+          path: state.uri.path,
+          curator: PackReviewScreen(id: state.pathParameters['id']!),
+          admin: AdminPackScreen(id: state.pathParameters['id']!),
+        ),
         routes: [
           GoRoute(
             path: 'videos/:video',
@@ -486,16 +499,24 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     ],
   ),
   // The admin and moderation screens, each behind the second factor's
-  // gate; the curators' never are.
+  // gate; the curators' never are. `/admin` itself leads to Equipe,
+  // which lists the admin's screens.
   GoRoute(
     path: Routes.admin,
-    builder: (_, _) =>
-        const StaffGate(title: 'Administração', child: AdminScreen()),
+    redirect: (_, state) =>
+        state.uri.path == Routes.admin ? Routes.staffHome : null,
     routes: [
+      GoRoute(
+        path: 'numeros',
+        builder: (_, _) => const StaffGate(
+          title: 'Números da plataforma',
+          child: NumbersScreen(),
+        ),
+      ),
       GoRoute(
         path: 'equipe',
         builder: (_, state) => StaffGate(
-          title: 'Equipe',
+          title: 'Pessoas da equipe',
           child: TeamScreen(notice: state.extra as TeamNotice?),
         ),
         routes: [
@@ -514,7 +535,7 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
           GoRoute(
             path: ':id',
             builder: (_, state) => StaffGate(
-              title: 'Equipe',
+              title: 'Pessoas da equipe',
               child: MemberScreen(id: state.pathParameters['id']!),
             ),
           ),
@@ -546,21 +567,18 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
       GoRoute(
         path: 'auditoria',
         builder: (_, _) =>
-            const StaffGate(title: 'Auditoria', child: AuditScreen()),
+            const StaffGate(title: 'Registro da equipe', child: AuditScreen()),
       ),
+      // The admin's old pacotinhos paths lead to the one area.
       GoRoute(
         path: 'pacotinhos',
-        builder: (_, state) => StaffGate(
-          title: 'Pacotinhos',
-          child: AdminPacksScreen(notice: _notice(state)),
-        ),
+        redirect: (_, state) =>
+            state.uri.path == Routes.adminPacks ? Routes.packs : null,
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, state) => StaffGate(
-              title: 'Pacotinho',
-              child: AdminPackScreen(id: state.pathParameters['id']!),
-            ),
+            redirect: (_, state) =>
+                Routes.packReview(state.pathParameters['id']!),
           ),
         ],
       ),
@@ -569,7 +587,7 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
   GoRoute(
     path: Routes.auditSample,
     builder: (_, state) => StaffGate(
-      title: 'Auditoria das aprovações',
+      title: 'Amostra de aprovações',
       child: AuditSampleScreen(
         // Opening a video hands its screen the candidate, not a notice.
         notice: state.extra is String ? state.extra as String : null,

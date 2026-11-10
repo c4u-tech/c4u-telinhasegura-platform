@@ -64,7 +64,9 @@ class CapacityRow extends StatelessWidget {
 /// field in error: its title and chevron in clay (ember on dark), the
 /// words in body-small clay under its content, read with the row and
 /// announced. [titleMaxLines] caps a long title (a video's), ending it
-/// with an ellipsis; the semantics label still says it whole.
+/// with an ellipsis; the semantics label still says it whole. A
+/// [trailing] figure (a count) stands at the row's end, before the
+/// chevron, centred on the row.
 class DoorRow extends StatefulWidget {
   const DoorRow({
     super.key,
@@ -77,6 +79,7 @@ class DoorRow extends StatefulWidget {
     this.errorText,
     this.titleMaxLines,
     this.link = false,
+    this.trailing,
   });
 
   final String title;
@@ -89,6 +92,7 @@ class DoorRow extends StatefulWidget {
   final String? semanticsLabel;
   final Widget? leading;
   final Widget? child;
+  final Widget? trailing;
   final bool busy;
   final String? errorText;
 
@@ -150,6 +154,10 @@ class _DoorRowState extends State<DoorRow> {
                   ],
                 ),
               ),
+              if (widget.trailing case final trailing?) ...[
+                const SizedBox(width: Space.md),
+                trailing,
+              ],
               if (onTap != null) ...[
                 const SizedBox(width: Space.md),
                 if (widget.busy)

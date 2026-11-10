@@ -99,8 +99,8 @@ class _AuditScreenState extends State<AuditScreen> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _more,
     builder: (context, _) => FieldLayout(
-      title: 'Auditoria',
-      onBack: () => context.go(Routes.admin),
+      title: 'Registro da equipe',
+      onBack: () => context.go(Routes.staffHome),
       children: [
         Text(
           'Ações da equipe, das mais recentes para as mais antigas.',

@@ -223,13 +223,13 @@ void main() {
     expect(lookups(h), isEmpty);
   });
 
-  testWidgets('back goes to Administração', (tester) async {
+  testWidgets('back goes to Equipe', (tester) async {
     final h = await searchOf(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/admin');
+    expect(h.location(tester), '/equipe');
   });
 
   test('the field\'s words keep "e-mail" whole', () {

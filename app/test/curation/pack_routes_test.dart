@@ -18,7 +18,23 @@ void main() {
       expect(Routes.recompose('p1'), '/pacotinhos/p1/mudar');
       expect(Routes.recomposeVideos('p1'), '/pacotinhos/p1/mudar/videos');
       expect(Routes.adminPacks, '/admin/pacotinhos');
-      expect(Routes.adminPack('p/1'), '/admin/pacotinhos/p%2F1');
+    });
+
+    test('the list and one pacotinho\'s screen are the area admins share', () {
+      for (final path in ['/pacotinhos', '/pacotinhos/p1']) {
+        expect(Routes.isPackArea(path), isTrue, reason: path);
+      }
+      for (final path in [
+        '/pacotinhos/novo',
+        '/pacotinhos/novo/videos',
+        '/pacotinhos/p1/aprovar',
+        '/pacotinhos/p1/videos/v1',
+        '/pacotinhos/',
+        '/pacotinhosx',
+        '/admin/pacotinhos',
+      ]) {
+        expect(Routes.isPackArea(path), isFalse, reason: path);
+      }
     });
 
     test('each is signed-in only', () {
@@ -35,8 +51,15 @@ void main() {
   });
 
   group('roleRedirect', () {
-    test('a pacotinho route needs curator; the admin ones need admin', () {
-      for (final path in ['/pacotinhos', '/pacotinhos/p1/recusar']) {
+    test('the list and a pacotinho take a curator or an admin; what opens '
+        'from one, a curator; the admin\'s old paths, an admin', () {
+      for (final path in ['/pacotinhos', '/pacotinhos/p1']) {
+        expect(roleRedirect({PlatformRole.curator}, path), isNull);
+        expect(roleRedirect({PlatformRole.admin}, path), isNull);
+        expect(roleRedirect({PlatformRole.moderator}, path), Routes.home);
+        expect(roleRedirect(const {}, path), Routes.home);
+      }
+      for (final path in ['/pacotinhos/novo', '/pacotinhos/p1/recusar']) {
         expect(roleRedirect({PlatformRole.curator}, path), isNull);
         expect(roleRedirect({PlatformRole.admin}, path), Routes.home);
         expect(roleRedirect(const {}, path), Routes.home);
@@ -52,7 +75,8 @@ void main() {
     for (final (roles, packs, admin) in [
       (<String>[], '/', '/'),
       (['curator'], '/pacotinhos', '/'),
-      (['admin'], '/', '/admin/pacotinhos'),
+      (['admin'], '/pacotinhos', '/pacotinhos'),
+      (['admin', 'curator'], '/pacotinhos', '/pacotinhos'),
     ]) {
       testWidgets('with roles $roles: /pacotinhos lands on $packs, '
           '/admin/pacotinhos on $admin', (tester) async {

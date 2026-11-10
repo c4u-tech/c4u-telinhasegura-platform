@@ -101,8 +101,8 @@ void main() {
   });
 
   for (final (roles, back) in [
-    (['admin'], '/admin'),
-    (['admin', 'moderator'], '/admin'),
+    (['admin'], '/equipe'),
+    (['admin', 'moderator'], '/equipe'),
     (['moderator'], '/equipe'),
   ]) {
     testWidgets('with roles $roles, back goes to $back', (tester) async {

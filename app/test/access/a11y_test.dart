@@ -599,7 +599,7 @@ final mfaStates =
           await tapOn(t, find.text('Confirmar').last);
         },
       ),
-      'staff gate, challenge': ('/admin', mfaApi(), null),
+      'staff gate, challenge': ('/admin/numeros', mfaApi(), null),
       'enrollment, leaving the codes': (
         '/conta/verificacao/ativar',
         mfaApi(),
@@ -1961,7 +1961,7 @@ final adminScreens =
       )
     >{
       'administration': (
-        '/admin',
+        '/admin/numeros',
         adminApi(
           staff: () => staffList([
             for (var i = 0; i < 6; i++)
@@ -2089,9 +2089,9 @@ final adminScreens =
         ),
         null,
       ),
-      // The numbers failed, the doors still there.
+      // The numbers failed.
       'administration, numbers failed': (
-        '/admin',
+        '/admin/numeros',
         adminApi(metrics: () => problem(503, 'unavailable')),
         null,
       ),
@@ -2284,9 +2284,9 @@ final adminScreens =
         },
       ),
       // The pacotinhos.
-      'admin pacotinhos': ('/admin/pacotinhos', _adminPacks(), null),
+      'admin pacotinhos': ('/pacotinhos', _adminPacks(), null),
       'admin pacotinho': (
-        '/admin/pacotinhos/p1',
+        '/pacotinhos/p1',
         _adminPacks(
           pack: (id) => json(
             200,
@@ -2305,7 +2305,7 @@ final adminScreens =
         null,
       ),
       'admin pacotinho, confirming the removal': (
-        '/admin/pacotinhos/p1',
+        '/pacotinhos/p1',
         _adminPacks(),
         (tester, _) => tapOn(tester, find.text('Remover de vez')),
       ),
@@ -2473,7 +2473,7 @@ final longTitles =
       ),
       'Responsáveis': (t, size, scale) =>
           openAdultScreen(t, 'adults, owner', size: size, textScale: scale),
-      'Administração': (t, size, scale) =>
+      'Números da plataforma': (t, size, scale) =>
           openAdmin(t, 'administration', size: size, textScale: scale),
       'Vídeos retidos': (t, size, scale) =>
           openAdmin(t, 'held', size: size, textScale: scale),
@@ -2549,9 +2549,9 @@ void main() {
         expect(first, findsWidgets);
         for (final control in [
           first.first,
-          // A role door with no family.
+          // The Equipe door with no family.
           if (state.contains('moderator'))
-            find.widgetWithText(DoorRow, 'Moderação'),
+            find.widgetWithText(DoorRow, 'Equipe'),
           find.text(inicio ? 'Sugerir um vídeo' : 'Sair da conta'),
         ]) {
           await tester.ensureVisible(control);

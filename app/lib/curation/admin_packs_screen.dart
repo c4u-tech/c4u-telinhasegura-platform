@@ -40,7 +40,7 @@ class _AdminPacksScreenState extends State<AdminPacksScreen>
   bool _failed = false;
 
   @override
-  String get ownPath => Routes.adminPacks;
+  String get ownPath => Routes.packs;
 
   @override
   void didChangeDependencies() {
@@ -104,7 +104,7 @@ class _AdminPacksScreenState extends State<AdminPacksScreen>
     listenable: _more,
     builder: (context, _) => FieldLayout(
       title: 'Pacotinhos',
-      onBack: () => context.go(Routes.admin),
+      onBack: () => context.go(Routes.staffHome),
       children: [
         if (widget.notice case final notice?) ...[
           Notice(notice),
@@ -134,7 +134,7 @@ class _AdminPacksScreenState extends State<AdminPacksScreen>
       Doors(
         children: [
           for (final p in packs)
-            PackRow(p, onTap: () => context.go(Routes.adminPack(p.id))),
+            PackRow(p, onTap: () => context.go(Routes.packReview(p.id))),
         ],
       ),
       if (_hasMore) ...[

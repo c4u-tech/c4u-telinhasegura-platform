@@ -429,36 +429,21 @@ void main() {
     expect(find.byType(FamilyHomeScreen), findsOneWidget);
   });
 
-  group('the role doors', () {
-    // Each door's line, path and the roles that show it.
-    const doors = {
-      'Curadoria': ('Fila de revisão', '/curadoria', ['curator']),
-      'Pacotinhos': ('Montar e revisar', '/pacotinhos', ['curator']),
-      'Moderação': ('Vídeos retidos', '/moderacao/retidos', ['moderator']),
-      'Administração': (
-        'Contas, equipe, vídeos e auditoria',
-        '/admin',
-        ['admin'],
-      ),
-    };
+  group('the Equipe door', () {
+    const line = 'O que espera revisão e as ferramentas';
 
     List<String> titles(WidgetTester tester) => tester
         .widgetList<DoorRow>(find.byType(DoorRow))
         .map((d) => d.title)
         .toList();
 
-    for (final (roles, expected) in [
-      (['curator'], ['Curadoria', 'Pacotinhos']),
-      (['curator', 'moderator'], ['Curadoria', 'Pacotinhos', 'Moderação']),
-      (['moderator'], ['Moderação']),
-      (['admin'], ['Administração']),
-      (['admin', 'curator'], ['Curadoria', 'Pacotinhos', 'Administração']),
-      // An admin who also moderates sees only Administração.
-      (['admin', 'moderator'], ['Administração']),
-      (
-        ['admin', 'curator', 'moderator'],
-        ['Curadoria', 'Pacotinhos', 'Administração'],
-      ),
+    for (final roles in [
+      ['curator'],
+      ['moderator'],
+      ['admin'],
+      ['admin', 'curator'],
+      ['curator', 'moderator'],
+      ['admin', 'curator', 'moderator'],
     ]) {
       for (final (what, answer, firstUse) in [
         ('no family', null, 'Tenho um convite'),
@@ -473,51 +458,51 @@ void main() {
           'Prefere começar a sua?',
         ),
       ]) {
-        testWidgets('with $roles and $what, the home shows $expected below '
-            'the first use and before Sua conta', (tester) async {
+        testWidgets('with $roles and $what, the home shows one "Equipe" '
+            'door below the first use and before Sua conta', (tester) async {
           await home(tester, family: null, roles: roles, api: answer);
 
-          expect(titles(tester), [...expected, 'Sua conta']);
+          expect(titles(tester), ['Equipe', 'Sua conta']);
           expect(find.widgetWithText(DoorRow, 'Sugerir vídeo'), findsNothing);
           expect(
             tester.getTopLeft(find.text(firstUse)).dy,
             lessThan(
-              tester
-                  .getTopLeft(find.widgetWithText(DoorRow, expected.first))
-                  .dy,
+              tester.getTopLeft(find.widgetWithText(DoorRow, 'Equipe')).dy,
             ),
           );
         });
       }
     }
 
-    for (final MapEntry(key: title, value: (line, path, roles))
-        in doors.entries) {
-      for (final family in [null]) {
-        testWidgets('$title says "$line" and opens $path, with no family', (
-          tester,
-        ) async {
-          final semantics = tester.ensureSemantics();
-          final h = await home(tester, family: family, roles: roles);
-          final door = find.widgetWithText(DoorRow, title);
+    testWidgets('"Equipe" says what waits there and opens /equipe, with no '
+        'family', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final h = await home(tester, family: null, roles: ['moderator']);
+      final door = find.widgetWithText(DoorRow, 'Equipe');
 
-          expect(
-            find.descendant(of: door, matching: find.text(line)),
-            findsOneWidget,
-          );
-          expect(find.bySemanticsLabel('$title, $line'), findsOne);
-          await tester.ensureVisible(door);
-          await tester.pumpAndSettle();
-          await tester.tap(door);
-          await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: door, matching: find.text(line)),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Equipe, $line'), findsOne);
+      await tester.ensureVisible(door);
+      await tester.pumpAndSettle();
+      await tester.tap(door);
+      await tester.pumpAndSettle();
 
-          expect(h.location(tester), path);
-          semantics.dispose();
-        });
-      }
-    }
+      expect(h.location(tester), '/equipe');
+      semantics.dispose();
+    });
 
-    testWidgets('they are not in the email-to-confirm state', (tester) async {
+    testWidgets('without a platform role there is no Equipe door', (
+      tester,
+    ) async {
+      await home(tester, family: null);
+
+      expect(find.widgetWithText(DoorRow, 'Equipe'), findsNothing);
+    });
+
+    testWidgets('it is not in the email-to-confirm state', (tester) async {
       await home(
         tester,
         family: null,
@@ -525,9 +510,7 @@ void main() {
         roles: ['admin', 'curator', 'moderator'],
       );
 
-      for (final title in doors.keys) {
-        expect(find.widgetWithText(DoorRow, title), findsNothing);
-      }
+      expect(find.widgetWithText(DoorRow, 'Equipe'), findsNothing);
     });
   });
 }

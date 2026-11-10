@@ -52,7 +52,7 @@ const guardianScreens = [
   '/curadoria/v1',
   '/curadoria/v1/aprovar',
   '/curadoria/v1/recusar',
-  '/admin',
+  '/admin/numeros',
   '/admin/equipe',
   '/admin/equipe/nova',
   '/admin/equipe/a1',

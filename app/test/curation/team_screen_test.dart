@@ -41,7 +41,7 @@ void main() {
       ]),
     );
 
-    expect(find.text('Equipe'), findsOneWidget);
+    expect(find.text('Pessoas da equipe'), findsOneWidget);
     final emails = [
       'ana@example.com',
       'bia@example.com',
@@ -104,13 +104,13 @@ void main() {
     expect(h.location(tester), '/admin/equipe/nova');
   });
 
-  testWidgets('back goes to "Administração"', (tester) async {
+  testWidgets('back goes to Equipe', (tester) async {
     final h = await team(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/admin');
+    expect(h.location(tester), '/equipe');
   });
 
   testWidgets('while it loads, the placeholder says what is loading; a '

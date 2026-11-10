@@ -268,7 +268,7 @@ class _MemberScreenState extends State<MemberScreen> {
     return ListenableBuilder(
       listenable: _write,
       builder: (context, _) => FieldLayout(
-        title: email == null ? 'Equipe' : addressBreaks(email),
+        title: email == null ? 'Pessoas da equipe' : addressBreaks(email),
         titleSemanticsLabel: email,
         // Opened over an account's sheet, back to it as it was.
         onBack: () =>

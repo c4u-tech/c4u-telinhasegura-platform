@@ -74,11 +74,15 @@ abstract final class Routes {
   static const redeem = '/vincular-aparelho';
 
   /// The curation screens: suggestions for
-  /// every guardian, the queue for curators, administration for admins.
+  /// every guardian, the queue for curators. [admin] is no screen of its
+  /// own: it leads to [staffHome], and the admin's screens lie under it.
   static const suggestions = '/sugestoes';
   static const newSuggestion = '/sugestoes/nova';
   static const curation = '/curadoria';
   static const admin = '/admin';
+
+  /// The platform's numbers, for an admin.
+  static const numbers = '/admin/numeros';
 
   /// The curator terms, which a curator accepts before any review; its
   /// `depois` is the curation screen that asked, kept by
@@ -127,8 +131,9 @@ abstract final class Routes {
   /// sample, then one video of it.
   static const auditSample = '/moderacao/auditoria';
 
-  /// The pacotinhos' curation:
-  /// composing and reviewing for curators, removal for admins.
+  /// The pacotinhos' curation: composing and reviewing for curators;
+  /// the list and one pacotinho's screen also for admins, who remove a
+  /// pacotinho there. [adminPacks] and what lies under it lead to them.
   static const packs = '/pacotinhos';
   static const newPack = '/pacotinhos/novo';
   static const newPackVideos = '/pacotinhos/novo/videos';
@@ -156,7 +161,8 @@ abstract final class Routes {
     queryParameters: then == null ? null : {'depois': then},
   ).toString();
 
-  /// [raw] when it is an admin or moderation screen of this app, its query
+  /// [raw] when it is an admin or moderation screen of this app, or the
+  /// pacotinhos an admin reaches behind the second factor, its query
   /// kept; null for anything else, so the enrollment's `depois` can never
   /// lead outside the app or to another area (no open redirect).
   static String? staffReturn(String? raw) {
@@ -169,7 +175,11 @@ abstract final class Routes {
         uri.pathSegments.any((s) => s.isEmpty || s == '.' || s == '..')) {
       return null;
     }
-    if (!isAdminScreen(uri.path) && !isModerationScreen(uri.path)) return null;
+    if (!isAdminScreen(uri.path) &&
+        !isModerationScreen(uri.path) &&
+        !isPackArea(uri.path)) {
+      return null;
+    }
     return uri.toString();
   }
 
@@ -327,9 +337,6 @@ abstract final class Routes {
 
   static String recomposeVideos(String packId) => '${recompose(packId)}/videos';
 
-  static String adminPack(String packId) =>
-      '$adminPacks/${Uri.encodeComponent(packId)}';
-
   static String watch(String videoId) =>
       '$kidWatch/${Uri.encodeComponent(videoId)}';
 
@@ -385,7 +392,17 @@ abstract final class Routes {
   static bool isCuratorScreen(String path) =>
       _under(curation, path) || _under(packs, path);
 
-  /// The team, the pacotinhos and the account directory: for a session
+  /// The pacotinhos' list and one pacotinho's screen: for a session
+  /// holding `curator` or `admin`. What opens from a pacotinho (its
+  /// decisions, a new version, its videos) stays the curators'.
+  static bool isPackArea(String path) {
+    if (path == packs) return true;
+    if (!path.startsWith('$packs/')) return false;
+    final rest = path.substring(packs.length + 1);
+    return rest.isNotEmpty && !rest.contains('/') && path != newPack;
+  }
+
+  /// The team, the numbers and the account directory: for a session
   /// holding `admin`.
   static bool isAdminScreen(String path) => _under(admin, path);
 
