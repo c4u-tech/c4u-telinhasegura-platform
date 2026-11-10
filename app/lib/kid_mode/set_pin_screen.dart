@@ -27,21 +27,21 @@ const pinMismatch = 'Os dois PINs não são iguais.';
 /// screen's memory until its call ends, and is never kept after a
 /// failure.
 ///
-/// The same pad is a step of a longer path when given [step]: its marks
-/// and [lead] stand over the pad, [onBack] leaves it, [onSaved] follows
+/// The same pad is a step of a longer path when given [marks]: they and
+/// [lead] stand over the pad, [onBack] leaves it, [onSaved] follows
 /// the save and [foot] closes the screen.
 class SetPinScreen extends StatefulWidget {
   const SetPinScreen({
     super.key,
-    this.step,
+    this.marks,
     this.lead,
     this.onBack,
     this.onSaved,
     this.foot = const [],
   });
 
-  /// The step this screen is of a longer path, and the path's length.
-  final (int, int)? step;
+  /// The longer path's step marks.
+  final Widget? marks;
 
   /// What the PIN is for, said above the pad's own line.
   final String? lead;
@@ -151,15 +151,22 @@ class _SetPinScreenState extends State<SetPinScreen> {
         true => 'Trocar o PIN',
       },
       onBack: widget.onBack ?? () => context.go(Routes.kidMode),
-      children: switch (_pinSet) {
-        _? => [..._entry(), ...widget.foot],
-        null when _readFailed => [
-          const ErrorNote(Copy.genericRetry),
-          const SizedBox(height: Space.lg),
-          PrimaryButton(label: 'Tentar de novo', onPressed: _read),
+      children: [
+        // The marks stand from the first frame, the read still running.
+        if (widget.marks case final marks?) ...[
+          marks,
+          const SizedBox(height: Space.xl),
         ],
-        null => const [FamilyPlaceholder(label: 'Carregando o PIN')],
-      },
+        ...switch (_pinSet) {
+          _? => [..._entry(), ...widget.foot],
+          null when _readFailed => [
+            const ErrorNote(Copy.genericRetry),
+            const SizedBox(height: Space.lg),
+            PrimaryButton(label: 'Tentar de novo', onPressed: _read),
+          ],
+          null => const [FamilyPlaceholder(label: 'Carregando o PIN')],
+        },
+      ],
     ),
   );
 
@@ -173,10 +180,6 @@ class _SetPinScreenState extends State<SetPinScreen> {
     // The intro line, then the error note right above the pad, as on
     // every PIN screen.
     return [
-      if (widget.step case (final step, final of)) ...[
-        StepMarks(step: step, of: of),
-        const SizedBox(height: Space.lg),
-      ],
       if (widget.lead case final lead?) ...[
         Text(lead, style: Theme.of(context).textTheme.bodyLarge),
         const SizedBox(height: Space.md),

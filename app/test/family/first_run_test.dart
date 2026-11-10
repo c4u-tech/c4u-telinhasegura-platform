@@ -16,6 +16,9 @@ import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/labels.dart';
 import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/kid_mode/kid_mode_screen.dart' show pinPurpose;
+import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/kid_mode/hand_over_screen.dart' show ChildChoice;
 import 'package:telinha_segura/kid_mode/link_code_screen.dart';
@@ -41,6 +44,7 @@ Future<Harness> firstRun(
   Size size = const Size(390, 844),
   double textScale = 1,
   FutureOr<http.Response> Function(http.Request)? handOver,
+  FutureOr<http.Response> Function(http.Request)? parentalRead,
 }) async {
   late final Harness h;
   h =
@@ -69,7 +73,8 @@ Future<Harness> firstRun(
           },
         )
         ..family = familyWith(minors)
-        ..pinSet = pinSet;
+        ..pinSet = pinSet
+        ..parentalRead = parentalRead;
   unawaited(h.services.familyModel.load());
   await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
@@ -569,5 +574,120 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+  });
+
+  group('Início after the path', () {
+    for (final (how, leave) in [
+      ('Fazer depois', (WidgetTester t) => tapQuiet(t, 'Fazer depois')),
+      (
+        'back',
+        (WidgetTester t) async {
+          await t.tap(find.byTooltip('Voltar').first);
+          await t.pumpAndSettle();
+        },
+      ),
+    ]) {
+      testWidgets('leaving "Tudo pronto" by $how, the PIN row is gone', (
+        tester,
+      ) async {
+        final h = await firstRun(tester, minors: [lia], initial: '/');
+        await tapOn(tester, find.text('Continuar: criar o PIN'));
+        await enterPin(tester, '2580');
+        await enterPin(tester, '2580');
+        expect(title(tester), 'Tudo pronto');
+
+        await leave(tester);
+
+        expect(h.location(tester), '/');
+        expect(find.textContaining('Continuar:'), findsNothing);
+        expect(find.byType(ChildRow), findsOneWidget);
+      });
+    }
+
+    testWidgets('a failed PIN read is read again on coming back', (
+      tester,
+    ) async {
+      final h = await firstRun(
+        tester,
+        minors: [lia],
+        initial: '/',
+        parentalRead: (_) => problem(503, 'internal'),
+      );
+      expect(find.textContaining('Continuar:'), findsNothing);
+      h.parentalRead = null;
+
+      GoRouter.of(tester.element(find.byType(Inicio))).go('/comecar');
+      await tester.pumpAndSettle();
+      await tapQuiet(tester, 'Fazer depois');
+
+      expect(find.text('Continuar: criar o PIN'), findsOneWidget);
+    });
+  });
+
+  group('a hand-over before the PIN', () {
+    testWidgets('on Início it opens the path at the PIN, then that child', (
+      tester,
+    ) async {
+      final h = await firstRun(tester, minors: [lia, teo], initial: '/');
+
+      await tapOn(tester, find.text('Entregar para Téo'));
+
+      expect(h.location(tester), '/comecar?crianca=m2');
+      expect(
+        h.actions.where((a) => a.contains('/v1/parental/kid-mode')),
+        isEmpty,
+      );
+      expect(marks(tester), (2, 3));
+      await enterPin(tester, '2580');
+      await enterPin(tester, '2580');
+      expect(find.text('Entregar para Téo'), findsOneWidget);
+    });
+  });
+
+  group('the step marks', () {
+    Finder module(int i) => find
+        .descendant(
+          of: find.byType(StepMarks),
+          matching: find.byType(AnimatedContainer),
+        )
+        .at(i);
+
+    testWidgets('stand in one place, 24 px over the step, on every step', (
+      tester,
+    ) async {
+      await firstRun(tester);
+      final top = tester.getTopLeft(find.text('Cadastrar criança')).dy;
+      double gap(Finder next) =>
+          tester.getTopLeft(next).dy -
+          tester.getBottomLeft(find.byType(StepMarks)).dy;
+      expect(gap(find.byType(TextField)), greaterThanOrEqualTo(Space.xl));
+      final marksAt = tester.getTopLeft(find.byType(StepMarks)).dy;
+
+      await registerLia(tester);
+      expect(tester.getTopLeft(find.text('Criar o PIN')).dy, top);
+      expect(tester.getTopLeft(find.byType(StepMarks)).dy, marksAt);
+      expect(gap(find.text(pinPurpose)), Space.xl);
+
+      await enterPin(tester, '2580');
+      await enterPin(tester, '2580');
+      expect(tester.getTopLeft(find.text('Tudo pronto')).dy, top);
+      expect(tester.getTopLeft(find.byType(StepMarks)).dy, marksAt);
+      expect(gap(find.byType(AvatarDisc)), Space.xl);
+    });
+
+    testWidgets('are one set across the steps, so the next mark eases in', (
+      tester,
+    ) async {
+      await firstRun(tester);
+      final second = tester.state(module(1));
+      final third = tester.state(module(2));
+
+      await registerLia(tester);
+      expect(tester.state(module(1)), same(second));
+
+      await enterPin(tester, '2580');
+      await enterPin(tester, '2580');
+      expect(tester.state(module(2)), same(third));
+    });
   });
 }

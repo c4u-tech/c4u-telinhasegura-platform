@@ -13,7 +13,8 @@ import '../shell/services.dart';
 /// the router, seeing the mode move, lands on the child home as the band
 /// grows into it. A child whose consent must be renewed takes the adult to
 /// that authorization first, returning to the hand-over; a family with no
-/// PIN goes to the guide whose first step creates it. A child the family
+/// PIN goes to the first run, which creates it and then hands the device
+/// to the same child. A child the family
 /// no longer holds says so, calls [onGone] and reads the family again.
 Future<void> handOverTo(
   BuildContext context,
@@ -33,7 +34,9 @@ Future<void> handOverTo(
           }
           return true;
         case 'pin_not_set':
-          if (context.mounted) context.go(Routes.kidMode);
+          if (context.mounted) {
+            context.go(Routes.firstRunFor(child: minor.id));
+          }
           return true;
         case 'not_found':
           onGone?.call();

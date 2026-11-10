@@ -54,11 +54,19 @@ class _InicioState extends State<Inicio> {
   /// Whether the family has a PIN: null until read, and after a failed
   /// read, which shows nothing rather than a step that may be done.
   bool? _pinSet;
-  bool _pinRead = false;
+
+  /// Whether Início was the screen on top at the last look.
+  bool _current = true;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Back on top after a screen of its own (the first run, the PIN
+    // changed elsewhere): the PIN may have been created meanwhile, or a
+    // failed read may answer now.
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (current && !_current && _started) _readPin();
+    _current = current;
     if (_started) return;
     _started = true;
     _write = FamilyWrite(
@@ -92,8 +100,7 @@ class _InicioState extends State<Inicio> {
 
   /// The PIN matters once there is a child to hand the device to.
   Future<void> _readPin() async {
-    if (_pinRead || widget.family.minors.isEmpty) return;
-    _pinRead = true;
+    if (widget.family.minors.isEmpty) return;
     try {
       final set = await AppScope.of(context).parental.pinIsSet();
       if (mounted) setState(() => _pinSet = set);
@@ -124,6 +131,12 @@ class _InicioState extends State<Inicio> {
   }
 
   Future<void> _give(Minor minor) async {
+    // Without a PIN the hand-over would be refused: the first run creates
+    // it, then hands the device to this child.
+    if (_pinSet == false) {
+      context.go(Routes.firstRunFor(child: minor.id));
+      return;
+    }
     _write.clearMessage();
     setState(() => _handing = minor.id);
     await handOverTo(context, _write, minor);

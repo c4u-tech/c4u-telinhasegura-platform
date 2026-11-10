@@ -448,7 +448,8 @@ void main() {
       expect(button('Téo').onPressed, isNotNull);
     });
 
-    testWidgets('pin_not_set leads to creating the PIN', (tester) async {
+    testWidgets('pin_not_set opens the first run at the PIN, for that '
+        'child', (tester) async {
       final h = await inicio(
         tester,
         handOver: (_) => problem(409, 'pin_not_set'),
@@ -457,9 +458,9 @@ void main() {
 
       await tapOn(tester, find.text('Entregar para Lia'));
 
-      expect(h.location(tester), '/modo-crianca');
+      expect(h.location(tester), '/comecar?crianca=m1');
       final step = tester.widget<StepMarks>(find.byType(StepMarks));
-      expect((step.step, step.of), (1, 2));
+      expect((step.step, step.of), (2, 3));
     });
 
     testWidgets('consent_required opens the child\'s new authorization, '

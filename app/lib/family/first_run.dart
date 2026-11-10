@@ -57,6 +57,13 @@ class _FirstRunScreenState extends State<FirstRunScreen> {
   /// path registered none of them.
   String? _chosen;
 
+  /// One set of marks across the steps, so moving on fills the next mark
+  /// in place instead of drawing a new set.
+  final _marks = GlobalKey();
+
+  Widget _stepMarks(int step) =>
+      StepMarks(key: _marks, step: step, of: firstRunSteps);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -113,14 +120,14 @@ class _FirstRunScreenState extends State<FirstRunScreen> {
       (FamilyReady(:final family), _) when family.minors.isEmpty =>
         NewChildScreen(
           key: const ValueKey('first-run-child'),
-          step: (1, firstRunSteps),
+          marks: _stepMarks(1),
           onBack: _later,
           onCreated: (minor) => setState(() => _registered = minor.id),
           foot: _foot,
         ),
       (FamilyReady(), false) => SetPinScreen(
         key: const ValueKey('first-run-pin'),
-        step: (2, firstRunSteps),
+        marks: _stepMarks(2),
         lead: pinPurpose,
         onBack: _later,
         onSaved: () => setState(() => _pinSet = true),
@@ -160,7 +167,7 @@ class _FirstRunScreenState extends State<FirstRunScreen> {
       title: 'Tudo pronto',
       onBack: _later,
       children: [
-        const StepMarks(step: 3, of: firstRunSteps),
+        _stepMarks(3),
         const SizedBox(height: Space.xl),
         if (single != null) ...[
           _ChildMark(single),

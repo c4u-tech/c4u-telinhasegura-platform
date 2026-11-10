@@ -24,20 +24,20 @@ const profileHint =
 /// Going back a step keeps every value; so
 /// does a failed create.
 ///
-/// The same form is the first step of a longer path when given [step]:
-/// both its parts then show that step, [onBack] leaves the profile,
+/// The same form is the first step of a longer path when given [marks]:
+/// both its parts then show them, [onBack] leaves the profile,
 /// [onCreated] receives the registered child and [foot] closes each part.
 class NewChildScreen extends StatefulWidget {
   const NewChildScreen({
     super.key,
-    this.step,
+    this.marks,
     this.onBack,
     this.onCreated,
     this.foot = const [],
   });
 
-  /// The step this form is of a longer path, and the path's length.
-  final (int, int)? step;
+  /// The longer path's step marks.
+  final Widget? marks;
   final VoidCallback? onBack;
   final ValueChanged<Minor>? onCreated;
   final List<Widget> foot;
@@ -100,10 +100,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
   }
 
   /// The marks of [part] (1, the profile; 2, the consent).
-  StepMarks _marks(int part) => switch (widget.step) {
-    (final step, final of) => StepMarks(step: step, of: of),
-    null => StepMarks(step: part, of: 2),
-  };
+  Widget _marks(int part) => widget.marks ?? StepMarks(step: part, of: 2);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
