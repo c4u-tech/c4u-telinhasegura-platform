@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/api_client.dart';
@@ -9,6 +8,7 @@ import '../design/espiadinha.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../design/wordmark.dart';
 import '../family/family_model.dart';
 import '../parental/app_mode.dart';
 import 'routes.dart';
@@ -223,7 +223,7 @@ class ShellBar extends StatelessWidget {
 }
 
 /// The wide window's navigation and its one ink field: the Espiadinha
-/// peeking over the rail's top edge, the lockup inside it, then the
+/// peeking over the rail's top edge, the wordmark inside it, then the
 /// destinations.
 class InkRail extends StatelessWidget {
   const InkRail({
@@ -292,11 +292,7 @@ class InkRail extends StatelessWidget {
                         ),
                         child: Align(
                           alignment: AlignmentDirectional.centerStart,
-                          child: SvgPicture.asset(
-                            'assets/brand/telinha-segura-lockup-reversed.svg',
-                            height: 32,
-                            semanticsLabel: 'Telinha Segura',
-                          ),
+                          child: const Wordmark(lockupHeight: 32),
                         ),
                       ),
                       const SizedBox(height: Space.xxl),

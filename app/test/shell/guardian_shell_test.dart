@@ -9,6 +9,7 @@ import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
 
 import '../access/harness.dart';
+import '../design/pump.dart' show brandAssets;
 import '../family/fixtures.dart';
 
 const phone = Size(390, 844);
@@ -237,6 +238,15 @@ void main() {
         expect(find.byType(FieldLayout), findsOneWidget);
       });
     }
+
+    testWidgets('the rail carries the reversed wordmark, not a second mark, '
+        'at the lockup\'s letter height', (tester) async {
+      await shellAt(tester, '/', size: wide);
+
+      expect(brandAssets(tester, find.byType(InkRail)), [
+        ('assets/brand/telinha-segura-wordmark-reversed.svg', 32 * 29 / 64),
+      ]);
+    });
 
     testWidgets('the rail is the ink field, cut at the mark radius, with no '
         'shadow', (tester) async {

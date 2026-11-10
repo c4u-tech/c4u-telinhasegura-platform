@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'display_title.dart';
 import 'espiadinha.dart';
 import 'theme.dart';
 import 'tokens.dart';
+import 'wordmark.dart';
 
 /// How much of the screen the ink field takes on a narrow screen.
 enum FieldSize {
-  /// The entry screen: lockup and the promise line.
+  /// The entry screen: wordmark and the promise line.
   hero,
 
-  /// Every task screen: a band with the lockup and, when given, a back
+  /// Every task screen: a band with the wordmark and, when given, a back
   /// control.
   band,
 }
@@ -500,7 +500,7 @@ class _FieldContent extends StatelessWidget {
 
   final FieldSize size;
 
-  /// The promise at the field's foot; null leaves the field to the lockup.
+  /// The promise at the field's foot; null leaves the field to the wordmark.
   final String? promise;
   final VoidCallback? onBack;
   final bool large;
@@ -508,11 +508,7 @@ class _FieldContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final lockup = SvgPicture.asset(
-      'assets/brand/telinha-segura-lockup-reversed.svg',
-      height: size == FieldSize.hero ? 32 : 24,
-      semanticsLabel: 'Telinha Segura',
-    );
+    final wordmark = Wordmark(lockupHeight: size == FieldSize.hero ? 32 : 24);
     final back = onBack == null
         ? null
         : IconButton(
@@ -533,7 +529,7 @@ class _FieldContent extends StatelessWidget {
             children: [
               back ?? const SizedBox(width: Space.md),
               const SizedBox(width: Space.xs),
-              lockup,
+              wordmark,
             ],
           ),
         ),
@@ -553,7 +549,7 @@ class _FieldContent extends StatelessWidget {
             ? MainAxisAlignment.spaceBetween
             : MainAxisAlignment.start,
         children: [
-          // Back and lockup stay one top group; only the promise goes to
+          // Back and wordmark stay one top group; only the promise goes to
           // the foot of the wide field.
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +562,7 @@ class _FieldContent extends StatelessWidget {
                     child: back,
                   ),
                 ),
-              lockup,
+              wordmark,
             ],
           ),
           if (promise case final promise?) ...[

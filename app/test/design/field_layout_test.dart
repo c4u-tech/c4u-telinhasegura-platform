@@ -4,6 +4,8 @@ import 'package:telinha_segura/design/espiadinha.dart';
 import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/design/theme.dart';
 
+import 'pump.dart' show brandAssets;
+
 double headRise(WidgetTester tester) => tester
     .widgetList<CustomPaint>(find.byType(CustomPaint))
     .map((p) => p.painter)
@@ -13,6 +15,7 @@ double headRise(WidgetTester tester) => tester
 
 void main() {
   wideAtLargeText();
+  wordmarkInTheField();
   testWidgets('"o sol sobe" plays when rise turns on in a layout already '
       'shown (a confirmation on the same screen)', (tester) async {
     final rise = ValueNotifier(false);
@@ -88,5 +91,40 @@ void wideAtLargeText() {
         reason: 'in the task column, not the panel',
       );
     });
+  });
+}
+
+// The head already peeks over the ink field, so the field carries the
+// wordmark alone, its letters as tall as they were inside the lockup
+// (the wordmark is 29 of the lockup's 64 units).
+void wordmarkInTheField() {
+  group('the field carries the wordmark, not a second mark', () {
+    for (final (size, lockupHeight) in [
+      (FieldSize.band, 24.0),
+      (FieldSize.hero, 32.0),
+    ]) {
+      testWidgets('the narrow ${size.name} loads the reversed wordmark', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildTheme(Brightness.light),
+            home: FieldLayout(title: 'Título', size: size, children: const []),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(brandAssets(tester, find.byType(FieldLayout)), [
+          (
+            'assets/brand/telinha-segura-wordmark-reversed.svg',
+            lockupHeight * 29 / 64,
+          ),
+        ]);
+        expect(find.bySemanticsLabel('Telinha Segura'), findsOneWidget);
+      });
+    }
   });
 }
