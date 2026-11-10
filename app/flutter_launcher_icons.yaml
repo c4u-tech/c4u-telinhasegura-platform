@@ -1,10 +1,12 @@
-# Launcher icons from the brand. Regenerate with
+# Launcher icons from the brand (brand/app-icon, written by
+# brand/source/build_brand.py). Regenerate with
 # dart run flutter_launcher_icons; the outputs are committed.
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
   remove_alpha_ios: true
   image_path: "../brand/app-icon/app-icon-1024.png"
+  image_path_ios_dark_transparent: "../brand/app-icon/app-icon-dark-1024.png"
   adaptive_icon_background: "../brand/app-icon/android-adaptive-background.png"
   adaptive_icon_foreground: "../brand/app-icon/android-adaptive-foreground.png"
   adaptive_icon_monochrome: "../brand/app-icon/android-monochrome.png"
