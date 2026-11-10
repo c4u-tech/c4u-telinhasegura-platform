@@ -608,7 +608,11 @@ strong {
 }
 
 .contents a {
-  display: inline-block;
+  /* A block link puts its first line in the item's first line box, where
+     the number sits; an inline-block would carry the number down to its
+     last line. The width stays the text's, so the target is the words. */
+  display: block;
+  width: fit-content;
   padding: var(--sm) 0;
   min-height: 48px;
 }
