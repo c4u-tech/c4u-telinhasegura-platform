@@ -90,7 +90,7 @@ class _KidModeScreenState extends State<KidModeScreen> {
     builder: (context, _) => FieldLayout(
       title: 'Modo criança',
       rise: widget.saved != null,
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch ((_model.state, _status)) {
         (FamilyReady(:final family), final status?) => _shape(family, status),
         (FamilyReady(), null) when _failed => [

@@ -23,6 +23,32 @@ const promiseLine =
     'Cada vídeo daqui passa pelo olhar de pais, cuidadores e profissionais '
     'antes de chegar a uma criança.';
 
+/// Marks the screens the guardian's navigation frames. With [rail], the
+/// ink rail stands beside them and is their ink field, so a screen draws
+/// no field of its own. A destination's root reads it to know that the
+/// navigation, not a back control, is the way elsewhere.
+class ShellFrame extends InheritedWidget {
+  const ShellFrame({
+    super.key,
+    required this.rail,
+    required this.rises,
+    required super.child,
+  });
+
+  final bool rail;
+
+  /// Counts the confirmations a framed screen asked to play: the rail's
+  /// head rises for them, since it is the field's head.
+  final ValueNotifier<int> rises;
+
+  static ShellFrame? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellFrame>();
+
+  @override
+  bool updateShouldNotify(ShellFrame old) =>
+      old.rail != rail || old.rises != rises;
+}
+
 /// The access surface's frame. The flat ink field is the Espiadinha's
 /// screen, with the head peeking over its top edge; the task sits on the
 /// ground beside it (wide) or below it (narrow). No cards: the field's
@@ -37,9 +63,17 @@ class FieldLayout extends StatelessWidget {
     this.onBack,
     this.rise = false,
     this.promise = promiseLine,
+    this.columnWidth = FieldSizes.columnMaxWidth,
   });
 
+  /// The wide window's ink panel, absent when the rail stands for it.
+  static const panelKey = Key('field-panel');
+
   final String title;
+
+  /// The column's cap: the task's 400 px, wider only for a screen that
+  /// is not one task (the home's two columns of children beside the rail).
+  final double columnWidth;
 
   /// The promise line the field carries (wide, and under the title at large
   /// text). A surface whose reader is not a guardian says its own.
@@ -66,8 +100,18 @@ class FieldLayout extends StatelessWidget {
       title: title,
       titleSemanticsLabel: titleSemanticsLabel,
       lead: compact ? promise : null,
+      width: columnWidth,
       children: children,
     );
+    final frame = ShellFrame.maybeOf(context);
+    if (frame != null && frame.rail) {
+      return _RailFramed(
+        task: task,
+        onBack: onBack,
+        rise: rise,
+        rises: frame.rises,
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -77,6 +121,7 @@ class FieldLayout extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(
+                    key: panelKey,
                     width: box.maxWidth * 0.46,
                     child: Padding(
                       padding: const EdgeInsets.all(Space.lg),
@@ -153,14 +198,99 @@ class FieldLayout extends StatelessWidget {
   }
 }
 
+/// A screen beside the ink rail: the rail is its field, so the column
+/// takes the whole content area, centred, and a task's back control
+/// stands at the area's top start.
+class _RailFramed extends StatefulWidget {
+  const _RailFramed({
+    required this.task,
+    required this.onBack,
+    required this.rise,
+    required this.rises,
+  });
+
+  final Widget task;
+  final VoidCallback? onBack;
+  final bool rise;
+  final ValueNotifier<int> rises;
+
+  @override
+  State<_RailFramed> createState() => _RailFramedState();
+}
+
+class _RailFramedState extends State<_RailFramed> {
+  bool _asked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _askRise();
+  }
+
+  @override
+  void didUpdateWidget(_RailFramed old) {
+    super.didUpdateWidget(old);
+    _askRise();
+  }
+
+  /// A confirmation plays once, on the rail's head.
+  void _askRise() {
+    if (!widget.rise || _asked) return;
+    _asked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.rises.value++);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.onBack case final onBack?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.sm,
+                Space.lg,
+                Space.sm,
+                0,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: IconButton(
+                  onPressed: onBack,
+                  tooltip: 'Voltar',
+                  color: context.palette.text,
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+              ),
+            ),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.xl,
+                  vertical: Space.xxxl,
+                ),
+                child: widget.task,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _TaskColumn extends StatelessWidget {
   const _TaskColumn({
     required this.title,
     required this.children,
+    required this.width,
     this.titleSemanticsLabel,
     this.lead,
   });
 
+  final double width;
   final String title;
   final String? titleSemanticsLabel;
   final List<Widget> children;
@@ -170,7 +300,7 @@ class _TaskColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: FieldSizes.columnMaxWidth),
+    constraints: BoxConstraints(maxWidth: width),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -219,7 +349,7 @@ class _Field extends StatelessWidget {
       children: [
         ExcludeSemantics(
           child: Center(
-            child: _Head(unit: unit, rise: rise),
+            child: PeekingHead(unit: unit, rise: rise),
           ),
         ),
         if (expand)
@@ -248,17 +378,20 @@ class _Field extends StatelessWidget {
   }
 }
 
-class _Head extends StatefulWidget {
-  const _Head({required this.unit, required this.rise});
+/// The Espiadinha's head and fingers over an ink field drawn on the grid
+/// of [unit]; with [rise], "o sol sobe" plays once.
+class PeekingHead extends StatefulWidget {
+  const PeekingHead({super.key, required this.unit, required this.rise});
 
   final double unit;
   final bool rise;
 
   @override
-  State<_Head> createState() => _HeadState();
+  State<PeekingHead> createState() => _HeadState();
 }
 
-class _HeadState extends State<_Head> with SingleTickerProviderStateMixin {
+class _HeadState extends State<PeekingHead>
+    with SingleTickerProviderStateMixin {
   late final _rise = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
@@ -274,7 +407,7 @@ class _HeadState extends State<_Head> with SingleTickerProviderStateMixin {
   /// A confirmation on a screen already shown (the family just created)
   /// turns rise on in place.
   @override
-  void didUpdateWidget(_Head old) {
+  void didUpdateWidget(PeekingHead old) {
     super.didUpdateWidget(old);
     if (!old.rise) _play();
   }

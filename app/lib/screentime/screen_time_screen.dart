@@ -99,7 +99,7 @@ class _ScreenTimeScreenState extends State<ScreenTimeScreen>
     listenable: _model,
     builder: (context, _) => FieldLayout(
       title: 'Tempo de tela',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch (_model.state) {
         FamilyReady(:final family) => _list(family.minors),
         _ => familyPending(_model),

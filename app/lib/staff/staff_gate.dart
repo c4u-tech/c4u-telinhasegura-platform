@@ -131,7 +131,7 @@ class _StaffGateState extends State<StaffGate> {
       ? widget.child
       : FieldLayout(
           title: widget.title,
-          onBack: () => context.go(Routes.home),
+          onBack: () => context.go(Routes.staffHome),
           children: const [FamilyPlaceholder(label: checkingAccess)],
         );
 }

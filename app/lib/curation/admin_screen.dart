@@ -134,7 +134,7 @@ class _AdminScreenState extends State<AdminScreen> with RefetchOnReturn {
     final held = _held == null ? null : CurationWords.videos(_held!);
     return FieldLayout(
       title: 'Administração',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.staffHome),
       children: [
         ..._numbers(muted),
         const SizedBox(height: Space.xxl),

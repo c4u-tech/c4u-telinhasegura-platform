@@ -144,13 +144,13 @@ void main() {
       });
     }
 
-    for (final (path, title) in [
-      ('/sugestoes', 'Sugestões'),
-      ('/curadoria', 'Curadoria'),
-      ('/admin', 'Administração'),
+    for (final (path, title, back) in [
+      ('/sugestoes', 'Sugestões', '/'),
+      ('/curadoria', 'Curadoria', '/equipe'),
+      ('/admin', 'Administração', '/equipe'),
     ]) {
       testWidgets('opened directly, $path reads the session for its '
-          'role, renders "$title" and goes back home', (tester) async {
+          'role, renders "$title" and goes back to $back', (tester) async {
         final h = guardian(roles: ['admin', 'curator']);
         await h.pump(tester, initial: path);
 
@@ -164,7 +164,7 @@ void main() {
         );
         await tester.tap(find.byTooltip('Voltar'));
         await tester.pumpAndSettle();
-        expect(h.location(tester), '/');
+        expect(h.location(tester), back);
       });
     }
 

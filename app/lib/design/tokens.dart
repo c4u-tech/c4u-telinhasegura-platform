@@ -148,6 +148,23 @@ abstract final class FieldSizes {
   static const columnMaxWidth = 400.0;
 }
 
+/// The guardian's navigation: the ink rail on a wide window and the bar
+/// on a narrow one. The selected destination's indicator is the mark's
+/// screen (58 × 33) at [indicator] tall, cornered at the same ratio.
+abstract final class ShellSizes {
+  /// The rail's ink field, the head over it drawn on the same grid.
+  static const railUnit = 2.0;
+  static const railWidth = 248.0;
+
+  /// The rail's field inset from the window, as the wide panel's was.
+  static const railInset = Space.lg;
+  static const indicator = 32.0;
+  static const indicatorWidth = indicator * 58 / 33;
+
+  /// A destination's row in the rail, a control's height.
+  static const railItem = 56.0;
+}
+
 /// The kid dialect's sizes: small hands get 64 dp targets (the PIN keys
 /// too), and a child finds themself by a 96 dp+ avatar; the child home's
 /// grows to [avatarWide] on wide screens.

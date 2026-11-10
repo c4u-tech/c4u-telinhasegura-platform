@@ -22,6 +22,13 @@ abstract final class Routes {
   /// policy waits until they do or sign out.
   static const terms = '/termos';
 
+  /// The family's areas, the Família destination's root.
+  static const family = '/familia';
+
+  /// The staff areas a session's platform roles open, the Equipe
+  /// destination's root.
+  static const staffHome = '/equipe';
+
   static const children = '/familia/criancas';
   static const newChild = '/familia/criancas/nova';
   static const adults = '/familia/responsaveis';
@@ -315,7 +322,8 @@ abstract final class Routes {
   };
 
   /// The home, the terms screen and everything under `/familia`,
-  /// `/modo-crianca`, `/conta` and the curation and moderation screens. `/convite` is not here: a
+  /// `/modo-crianca`, `/conta`, `/equipe` and the curation and moderation
+  /// screens. `/convite` is not here: a
   /// signed-out visitor keeps the token through sign-in.
   static bool signedInOnly(String path) =>
       path == home ||
@@ -326,7 +334,8 @@ abstract final class Routes {
       isSuggestionScreen(path) ||
       isCuratorScreen(path) ||
       isAdminScreen(path) ||
-      isModerationScreen(path);
+      isModerationScreen(path) ||
+      path == staffHome;
 
   static bool _under(String root, String path) =>
       path == root || path.startsWith('$root/');
@@ -346,7 +355,15 @@ abstract final class Routes {
   /// The held videos: for a session holding `moderator` or `admin`.
   static bool isModerationScreen(String path) => _under(moderation, path);
 
-  static bool isFamilyScreen(String path) => path.startsWith('/familia/');
+  static bool isFamilyScreen(String path) => _under(family, path);
+
+  /// The staff areas: the Equipe root and every curator, admin and
+  /// moderation screen.
+  static bool isStaffScreen(String path) =>
+      path == staffHome ||
+      isCuratorScreen(path) ||
+      isAdminScreen(path) ||
+      isModerationScreen(path);
 
   /// The guardian's own account, with or without a family or a
   /// confirmed email.

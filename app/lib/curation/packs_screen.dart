@@ -132,7 +132,7 @@ class _PacksScreenState extends State<PacksScreen> with RefetchOnReturn {
     listenable: _more,
     builder: (context, _) => FieldLayout(
       title: 'Pacotinhos',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.staffHome),
       children: [
         if (widget.notice case final notice?) ...[
           Notice(notice),

@@ -238,14 +238,45 @@ void main() {
     expect(lineOf('Aparelhos conectados', '1 aparelho'), findsOne);
   });
 
-  testWidgets('the band\'s back control returns home', (tester) async {
+  testWidgets('with a family it is the Conta root: no back control, the '
+      'navigation is the way elsewhere', (tester) async {
     await accountScreen(tester);
+
+    expect(find.byTooltip('Voltar'), findsNothing);
+  });
+
+  testWidgets('without a family, the band\'s back control returns home', (
+    tester,
+  ) async {
+    await accountScreen(tester, family: null);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
     expect(find.byType(FamilyHomeScreen), findsOneWidget);
   });
+
+  for (final family in [ownerFamily, null]) {
+    testWidgets('the foot offers Sair da conta above Excluir conta, which '
+        'signs out (${family == null ? 'no family' : 'a family'})', (
+      tester,
+    ) async {
+      final h = await accountScreen(tester, family: family);
+
+      final out = find.widgetWithText(QuietAction, 'Sair da conta');
+      expect(tester.widget<QuietAction>(out).destructive, isFalse);
+      expect(
+        tester.getBottomLeft(out).dy,
+        lessThanOrEqualTo(tester.getTopLeft(find.text('Excluir conta')).dy),
+      );
+      await tester.ensureVisible(out);
+      await tester.tap(find.text('Sair da conta'));
+      await tester.pumpAndSettle();
+
+      expect(h.actions, contains('DELETE /v1/session'));
+      expect(h.location(tester), '/entrar');
+    });
+  }
 
   testWidgets('without a family, the index is the same', (tester) async {
     await accountScreen(tester, family: null);

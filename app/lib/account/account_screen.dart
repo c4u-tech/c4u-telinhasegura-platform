@@ -29,7 +29,7 @@ const sessionsUnknown = 'Veja onde sua conta está conectada';
 String sessionsWords(int n) => n == 1 ? '1 aparelho' : '$n aparelhos';
 
 /// `/conta`: the guardian's own account as its doors, holding no form
-/// itself. It works with or without a
+/// itself, then signing out and deleting the account at its foot. It works with or without a
 /// family and while the email waits for its confirmation, which shows
 /// the verify line with resend above the doors.
 class AccountScreen extends StatefulWidget {
@@ -41,6 +41,7 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   final _resend = Submission();
+  final _signOut = Submission();
   late final FamilyModel _model;
 
   /// The sessions count; never read for a suspended account, whose
@@ -111,8 +112,14 @@ class _AccountScreenState extends State<AccountScreen> {
     _model.removeListener(_rolesRead);
     _router.removeListener(_moved);
     _resend.dispose();
+    _signOut.dispose();
     super.dispose();
   }
+
+  /// `signOut` forgets the local session even when the server cannot be
+  /// reached, and the router then leaves this screen.
+  Future<void> _leave() =>
+      _signOut.run(() => AppScope.of(context).auth.signOut());
 
   Future<void> _resendLink(String email) async {
     final ok = await _resend.run(
@@ -123,12 +130,16 @@ class _AccountScreenState extends State<AccountScreen> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([_model, _resend]),
+    listenable: Listenable.merge([_model, _resend, _signOut]),
     builder: (context, _) {
       final email = _model.email;
       return FieldLayout(
         title: 'Sua conta',
-        onBack: () => context.go(Routes.home),
+        // Inside the navigation this is the Conta root; before the family
+        // is ready it stands alone, with its way back home.
+        onBack: ShellFrame.maybeOf(context) == null
+            ? () => context.go(Routes.home)
+            : null,
         children: [
           if (_model.state is EmailUnverified && email != null) ...[
             ..._verify(email),
@@ -176,6 +187,11 @@ class _AccountScreenState extends State<AccountScreen> {
             ],
           ),
           const SizedBox(height: Space.xxl),
+          QuietAction(
+            label: 'Sair da conta',
+            busy: _signOut.busy,
+            onPressed: _signOut.busy ? null : _leave,
+          ),
           QuietAction(
             label: 'Excluir conta',
             destructive: true,

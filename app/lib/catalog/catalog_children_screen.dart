@@ -56,7 +56,7 @@ class _CatalogChildrenScreenState extends State<CatalogChildrenScreen> {
     listenable: _model,
     builder: (context, _) => FieldLayout(
       title: 'Vídeos',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch (_model.state) {
         FamilyReady(:final family) => _list(family.minors),
         _ => familyPending(_model),

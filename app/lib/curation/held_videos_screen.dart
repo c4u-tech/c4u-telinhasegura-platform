@@ -27,12 +27,12 @@ int reportCount(HeldVideo h) =>
     h.reports.byReason.values.fold(0, (sum, n) => sum + n);
 
 /// Where the moderation screens' back goes: to
-/// "Administração" for an admin, home for a moderator.
+/// "Administração" for an admin, the staff areas for a moderator.
 String moderationBack(BuildContext context) =>
     AppScope.of(context).familyModel.roles?.contains(PlatformRole.admin) ??
         false
     ? Routes.admin
-    : Routes.home;
+    : Routes.staffHome;
 
 /// `/moderacao/retidos`: every held video as a door, the title up to two
 /// lines, why it is held in words muted, then "2 recusas · 3 denúncias",

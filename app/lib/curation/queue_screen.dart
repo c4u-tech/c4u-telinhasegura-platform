@@ -131,7 +131,7 @@ class _QueueScreenState extends State<QueueScreen> with RefetchOnReturn {
     listenable: _more,
     builder: (context, _) => FieldLayout(
       title: 'Curadoria',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.staffHome),
       children: [
         if (widget.notice case final notice?) ...[
           Notice(notice),
