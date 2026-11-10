@@ -79,6 +79,12 @@ if [ "$full" = false ]; then
       *.md | LICENSE*) continue ;;
       *) full=true; break ;;
     esac
+    # The brand files the app and the site ship are copies the brand check
+    # compares with the brand generator's output.
+    case "$p" in
+      app/web/* | app/assets/brand/* | site/public/brand/* | site/public/favicon.* | site/public/apple-touch-icon.png) hits="$hits
+go tools/brandcheck/" ;;
+    esac
     case "$p" in
       site/*) hits="$hits
 go tools/sitecheck/"; continue ;;

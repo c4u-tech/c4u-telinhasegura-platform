@@ -28,6 +28,11 @@ func affectedRepo(t *testing.T) string {
 		"tools/sitecheck/go.mod":             "module sitecheck\n",
 		"tools/repoconfig/go.mod":            "module repoconfig\n",
 		"tools/dco/go.mod":                   "module dco\n",
+		"tools/brandcheck/go.mod":            "module brandcheck\n",
+		"app/web/favicon.svg":                "<svg/>\n",
+		"app/assets/brand/w.svg":             "<svg/>\n",
+		"site/public/brand/w.svg":            "<svg/>\n",
+		"site/public/favicon.svg":            "<svg/>\n",
 		"app/pubspec.yaml":                   "name: app\n",
 		"app/lib/a.dart":                     "void main() {}\n",
 		"app/fastlane/Fastfile":              "lane :x do\nend\n",
@@ -96,7 +101,7 @@ func wantAffected(t *testing.T, got map[string]string, goMods, dart, ruby, image
 	}
 }
 
-const everyGoModule = "backend/ tools/dco/ tools/repoconfig/ tools/sitecheck/"
+const everyGoModule = "backend/ tools/brandcheck/ tools/dco/ tools/repoconfig/ tools/sitecheck/"
 
 func TestAffectedSiteOnly(t *testing.T) {
 	dir := affectedRepo(t)
@@ -109,6 +114,23 @@ func TestAffectedTermsVersionAlsoChecksTheSite(t *testing.T) {
 	dir := affectedRepo(t)
 	change(t, dir, "backend/internal/identity/terms.go")
 	wantAffected(t, affectedBetweenDevAndHead(t, dir), "backend/ tools/repoconfig/ tools/sitecheck/", "", "false", "api backup", "false")
+}
+
+// The brand copies the app and the site ship must stay equal to the brand
+// generator's output, which brandcheck compares.
+func TestAffectedBrandCopiesAlsoCheckTheBrand(t *testing.T) {
+	for rel, want := range map[string][]string{
+		"app/web/favicon.svg":     {"tools/brandcheck/ tools/repoconfig/", "app/", "web"},
+		"app/assets/brand/w.svg":  {"tools/brandcheck/ tools/repoconfig/", "app/", "web"},
+		"site/public/brand/w.svg": {"tools/brandcheck/ tools/repoconfig/ tools/sitecheck/", "", "site"},
+		"site/public/favicon.svg": {"tools/brandcheck/ tools/repoconfig/ tools/sitecheck/", "", "site"},
+	} {
+		t.Run(rel, func(t *testing.T) {
+			dir := affectedRepo(t)
+			change(t, dir, rel)
+			wantAffected(t, affectedBetweenDevAndHead(t, dir), want[0], want[1], "false", want[2], "false")
+		})
+	}
 }
 
 // The backup image's smoke test runs against the API image.
