@@ -432,6 +432,9 @@ class _Field extends StatelessWidget {
 class PeekingHead extends StatefulWidget {
   const PeekingHead({super.key, required this.unit, required this.rise});
 
+  /// How long "o sol sobe" plays.
+  static const riseDuration = Duration(milliseconds: 1400);
+
   final double unit;
   final bool rise;
 
@@ -443,7 +446,7 @@ class _HeadState extends State<PeekingHead>
     with SingleTickerProviderStateMixin {
   late final _rise = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1400),
+    duration: PeekingHead.riseDuration,
     value: 1,
   );
 

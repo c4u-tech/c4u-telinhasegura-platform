@@ -994,6 +994,22 @@ final kidModeScreens =
         null,
       ),
       'kid mode index, no children': ('/modo-crianca', [], true, 2, null),
+      'first run, the child': ('/comecar', [], false, 0, null),
+      'first run, the PIN': (
+        '/comecar',
+        [minorJson('m1', 'Lia')],
+        false,
+        0,
+        null,
+      ),
+      'first run, ready': ('/comecar', [minorJson('m1', 'Lia')], true, 0, null),
+      'first run, ready, a choice': (
+        '/comecar',
+        [minorJson('m1', 'Lia'), minorJson('m2', 'Téo')],
+        true,
+        0,
+        null,
+      ),
       'create the PIN': (
         '/modo-crianca/pin',
         [minorJson('m1', 'Lia')],

@@ -26,8 +26,28 @@ const pinMismatch = 'Os dois PINs não são iguais.';
 /// refused PIN starts over on an empty pad. The PIN lives only in this
 /// screen's memory until its call ends, and is never kept after a
 /// failure.
+///
+/// The same pad is a step of a longer path when given [step]: its marks
+/// and [lead] stand over the pad, [onBack] leaves it, [onSaved] follows
+/// the save and [foot] closes the screen.
 class SetPinScreen extends StatefulWidget {
-  const SetPinScreen({super.key});
+  const SetPinScreen({
+    super.key,
+    this.step,
+    this.lead,
+    this.onBack,
+    this.onSaved,
+    this.foot = const [],
+  });
+
+  /// The step this screen is of a longer path, and the path's length.
+  final (int, int)? step;
+
+  /// What the PIN is for, said above the pad's own line.
+  final String? lead;
+  final VoidCallback? onBack;
+  final VoidCallback? onSaved;
+  final List<Widget> foot;
 
   @override
   State<SetPinScreen> createState() => _SetPinScreenState();
@@ -114,6 +134,7 @@ class _SetPinScreenState extends State<SetPinScreen> {
     if (!mounted) return;
     if (!ok) return _startOver();
     _first = null;
+    if (widget.onSaved case final onSaved?) return onSaved();
     context.go(
       Routes.kidMode,
       extra: changed ? PinSaved.changed : PinSaved.created,
@@ -129,9 +150,9 @@ class _SetPinScreenState extends State<SetPinScreen> {
         false => 'Criar o PIN',
         true => 'Trocar o PIN',
       },
-      onBack: () => context.go(Routes.kidMode),
+      onBack: widget.onBack ?? () => context.go(Routes.kidMode),
       children: switch (_pinSet) {
-        _? => _entry(),
+        _? => [..._entry(), ...widget.foot],
         null when _readFailed => [
           const ErrorNote(Copy.genericRetry),
           const SizedBox(height: Space.lg),
@@ -152,6 +173,14 @@ class _SetPinScreenState extends State<SetPinScreen> {
     // The intro line, then the error note right above the pad, as on
     // every PIN screen.
     return [
+      if (widget.step case (final step, final of)) ...[
+        StepMarks(step: step, of: of),
+        const SizedBox(height: Space.lg),
+      ],
+      if (widget.lead case final lead?) ...[
+        Text(lead, style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: Space.md),
+      ],
       Semantics(
         liveRegion: true,
         child: Text(step, style: Theme.of(context).textTheme.bodyLarge),

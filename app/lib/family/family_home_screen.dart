@@ -37,6 +37,10 @@ const _inviteHelp =
 class FamilyHomeScreen extends StatefulWidget {
   const FamilyHomeScreen({super.key});
 
+  /// How long a family just started stays on the home, the sun rising,
+  /// before its first run opens.
+  static const riseThenPath = PeekingHead.riseDuration;
+
   @override
   State<FamilyHomeScreen> createState() => _FamilyHomeScreenState();
 }
@@ -51,6 +55,9 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
   bool _rise = false;
   bool _resent = false;
   bool _inviteExplained = false;
+
+  /// Opens the first run once the sun has risen on a family just started.
+  Timer? _toFirstRun;
 
   /// The invitation chosen among several; with one, that one.
   String? _chosen;
@@ -89,6 +96,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
 
   @override
   void dispose() {
+    _toFirstRun?.cancel();
     _model.removeListener(_takeNotice);
     _create.dispose();
     _accept.dispose();
@@ -107,6 +115,20 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
         _rise = true;
         _notice = null;
       });
+      // A family started here goes on to its first child, PIN and
+      // hand-over; one joined by invitation shares a family already set
+      // up, and stays on the home. Without motion there is no sun to wait
+      // for.
+      final still = MediaQuery.of(context).disableAnimations;
+      _toFirstRun = Timer(
+        still ? Duration.zero : FamilyHomeScreen.riseThenPath,
+        () {
+          // Only if the guardian is still here, not gone elsewhere.
+          if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
+            context.go(Routes.firstRun);
+          }
+        },
+      );
     }
   }
 

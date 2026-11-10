@@ -533,19 +533,15 @@ void main() {
     expect(h.location(tester), '/sugestoes/nova');
   });
 
-  testWidgets('with no child it says so and offers Cadastrar criança', (
-    tester,
-  ) async {
+  testWidgets('with no child, one row names registering one and opens the '
+      'first run there', (tester) async {
     final h = await inicio(tester, minors: []);
 
     expect(find.byType(ChildRow), findsNothing);
-    expect(find.text('Nenhuma criança cadastrada ainda.'), findsOneWidget);
-    await tapOn(
-      tester,
-      find.widgetWithText(PrimaryButton, 'Cadastrar criança'),
-    );
+    expect(find.text('Nenhuma criança cadastrada ainda.'), findsNothing);
+    await tapOn(tester, find.text('Continuar: cadastrar uma criança'));
 
-    expect(h.location(tester), '/familia/criancas/nova');
+    expect(h.location(tester), '/comecar');
   });
 
   testWidgets('it holds no door: the family\'s areas are under Família', (

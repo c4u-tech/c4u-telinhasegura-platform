@@ -44,6 +44,18 @@ abstract final class Routes {
   static const familyVideos = '/familia/videos';
   static const acceptInvitation = '/convite';
 
+  /// A new family's guided first run: registering a child, creating the
+  /// PIN, then handing the device over. It belongs to the home, which it
+  /// opens from and returns to.
+  static const firstRun = '/comecar';
+
+  /// The first run, naming the child it registered, so a screen opened
+  /// from its last step comes back to the same child.
+  static String firstRunFor({String? child}) => Uri(
+    path: firstRun,
+    queryParameters: child == null ? null : {'crianca': child},
+  ).toString();
+
   static const kidMode = '/modo-crianca';
   static const setPin = '/modo-crianca/pin';
   static const handOver = '/modo-crianca/entregar';
@@ -212,6 +224,25 @@ abstract final class Routes {
   static String? reconsentReturn(String? raw) =>
       raw == handOver ? handOver : null;
 
+  /// The link code, returning on back to [then] when [linkCodeReturn]
+  /// accepts it.
+  static String linkCodeFrom(String then) =>
+      Uri(path: linkCode, queryParameters: {'depois': then}).toString();
+
+  /// [raw] when it is the first run (its query kept); null for anything
+  /// else, so `depois` never leads outside the app or elsewhere in it.
+  static String? linkCodeReturn(String? raw) {
+    final uri = raw == null ? null : Uri.tryParse(raw);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasFragment ||
+        uri.path != firstRun) {
+      return null;
+    }
+    return uri.toString();
+  }
+
   static String childTime(String id) =>
       '$screenTime/${Uri.encodeComponent(id)}';
 
@@ -326,13 +357,14 @@ abstract final class Routes {
     redeem,
   };
 
-  /// The home, the terms screen and everything under `/familia`,
+  /// The home and its first run, the terms screen and everything under `/familia`,
   /// `/modo-crianca`, `/conta`, `/equipe` and the curation and moderation
   /// screens. `/convite` is not here: a
   /// signed-out visitor keeps the token through sign-in.
   static bool signedInOnly(String path) =>
       path == home ||
       path == terms ||
+      path == firstRun ||
       isFamilyScreen(path) ||
       isKidModeScreen(path) ||
       isAccountScreen(path) ||

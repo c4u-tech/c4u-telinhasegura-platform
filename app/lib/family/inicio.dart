@@ -15,6 +15,8 @@ import 'avatars.dart';
 import 'child_page.dart';
 import 'family.dart';
 import 'family_write.dart';
+import 'first_run.dart' show firstRunSteps;
+import 'widgets.dart';
 
 /// The home's title, by the device's local time: "Bom dia" from 5 h,
 /// "Boa tarde" from noon, "Boa noite" from 18 h.
@@ -26,8 +28,9 @@ String greeting(DateTime now) => switch (now.hour) {
 
 /// The home once the family is ready: one row per child on the child
 /// band, each ending in handing the device to that child, then suggesting
-/// a video. With no child yet, the way to register one. Each child's day
-/// is read on its own, so one slow or failed read holds up no other row.
+/// a video. While the family has no child, or no PIN, one calm row names
+/// the next step and opens the first run there. Each child's day is read
+/// on its own, so one slow or failed read holds up no other row.
 class Inicio extends StatefulWidget {
   const Inicio({super.key, required this.family});
 
@@ -47,6 +50,11 @@ class _InicioState extends State<Inicio> {
 
   /// The child being handed the device, while the hand-over runs.
   String? _handing;
+
+  /// Whether the family has a PIN: null until read, and after a failed
+  /// read, which shows nothing rather than a step that may be done.
+  bool? _pinSet;
+  bool _pinRead = false;
 
   @override
   void didChangeDependencies() {
@@ -79,6 +87,40 @@ class _InicioState extends State<Inicio> {
     _readFor = key;
     final api = AppScope.of(context).screenTime;
     _today = {for (final m in minors) m.id: api.rules(m.id)};
+    _readPin();
+  }
+
+  /// The PIN matters once there is a child to hand the device to.
+  Future<void> _readPin() async {
+    if (_pinRead || widget.family.minors.isEmpty) return;
+    _pinRead = true;
+    try {
+      final set = await AppScope.of(context).parental.pinIsSet();
+      if (mounted) setState(() => _pinSet = set);
+    } on Object {
+      // Início stays as built.
+    }
+  }
+
+  /// The row naming the first run's next step, or null once both the
+  /// child and the PIN exist.
+  Widget? _resume() {
+    final (title, step) = switch ((widget.family.minors.isEmpty, _pinSet)) {
+      (true, _) => ('Continuar: cadastrar uma criança', 1),
+      (false, false) => ('Continuar: criar o PIN', 2),
+      _ => (null, 0),
+    };
+    if (title == null) return null;
+    return Doors(
+      children: [
+        DoorRow(
+          title: title,
+          semanticsLabel: '$title, Passo $step de $firstRunSteps',
+          onTap: () => context.go(Routes.firstRun),
+          child: StepMarks(step: step, of: firstRunSteps),
+        ),
+      ],
+    );
   }
 
   Future<void> _give(Minor minor) async {
@@ -93,7 +135,6 @@ class _InicioState extends State<Inicio> {
     listenable: _write,
     builder: (context, _) {
       final minors = widget.family.minors;
-      final text = Theme.of(context).textTheme;
       final waiting = _write.blocked;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -102,14 +143,11 @@ class _InicioState extends State<Inicio> {
             ErrorNote(message),
             const SizedBox(height: Space.lg),
           ],
-          if (minors.isEmpty) ...[
-            Text('Nenhuma criança cadastrada ainda.', style: text.bodyLarge),
-            const SizedBox(height: Space.xl),
-            PrimaryButton(
-              label: 'Cadastrar criança',
-              onPressed: () => context.go(Routes.newChild),
-            ),
-          ] else
+          if (_resume() case final resume?) ...[
+            resume,
+            if (minors.isNotEmpty) const SizedBox(height: Space.xl),
+          ],
+          if (minors.isNotEmpty)
             ChildBand(
               columns: (ShellFrame.maybeOf(context)?.rail ?? false) ? 2 : 1,
               children: [

@@ -29,11 +29,13 @@ Future<Harness> home(
   FutureOr<http.Response> Function(http.Request)? api,
   bool unverified = false,
   List<String> roles = const [],
+  bool pinSet = true,
 }) async {
   final h = Harness(signedIn: true, api: api)
     ..family = family
     ..unverified = unverified
-    ..roles = roles;
+    ..roles = roles
+    ..pinSet = pinSet;
   await h.pump(tester, initial: '/');
   return h;
 }
@@ -186,13 +188,18 @@ void main() {
       expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, false);
 
       await tester.tap(find.text('Começar minha família'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      // Then Início reads the new family's child's day.
+      // Then Início reads the new family's child's day, the sun rising,
+      // before the first run opens.
       expect(h.actions.first, 'POST /v1/family');
       expect(h.actions.where((a) => a.startsWith('POST')), ['POST /v1/family']);
       expect(find.byType(Inicio), findsOneWidget);
       expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+
+      await tester.pumpAndSettle();
+      expect(h.location(tester), '/comecar');
     });
 
     testWidgets('creating disables the button while pending, and a dropped '

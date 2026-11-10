@@ -19,9 +19,13 @@ import '../shell/services.dart';
 import 'hand_over.dart';
 import 'kid_mode_screen.dart';
 
-const _howToLeave =
-    'Escolha quem vai usar este aparelho. Para sair do modo criança, um '
-    'adulto segura o canto da tela e digita o PIN.';
+/// How the child's screen is left, said before handing the device over.
+const howToLeave =
+    'Para sair do modo criança, um adulto segura o canto da tela e digita '
+    'o PIN.';
+
+/// Over the children as a choice of one, before the hand-over.
+const chooseAndLeave = 'Escolha quem vai usar este aparelho. $howToLeave';
 
 /// `/modo-crianca/entregar`: hands this device to a child.
 /// The children as a choice of one, none chosen; "Entregar para
@@ -90,7 +94,7 @@ class _HandOverScreenState extends State<HandOverScreen> {
     final chosen = minors.where((m) => m.id == _chosen).firstOrNull;
     final busy = _write.busy;
     return [
-      Text(_howToLeave, style: Theme.of(context).textTheme.bodyLarge),
+      Text(chooseAndLeave, style: Theme.of(context).textTheme.bodyLarge),
       const SizedBox(height: Space.xl),
       Wrap(
         spacing: Space.sm,

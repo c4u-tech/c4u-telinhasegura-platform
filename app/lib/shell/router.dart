@@ -24,6 +24,7 @@ import '../family/children_screen.dart';
 import '../family/delete_family_screen.dart';
 import '../family/family_home_screen.dart';
 import '../family/family_root_screen.dart';
+import '../family/first_run.dart';
 import '../family/invitations_screen.dart';
 import '../family/new_child_screen.dart';
 import '../family/reconsent_screen.dart';
@@ -152,7 +153,9 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
             null => Routes.home,
           },
         AuthStatus.signedIn
-            when Routes.isFamilyScreen(path) || Routes.isKidModeScreen(path) =>
+            when Routes.isFamilyScreen(path) ||
+                Routes.isKidModeScreen(path) ||
+                path == Routes.firstRun =>
           _familyRedirect(family.state, path),
         AuthStatus.signedIn when Routes.isStaffScreen(path) => roleRedirect(
           family.roles,
@@ -188,7 +191,17 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
 /// opens from them. The family's areas nest under its root, so system back
 /// on one returns there.
 List<RouteBase> _guardianRoutes(AppServices services) => [
-  GoRoute(path: Routes.home, builder: (_, _) => const FamilyHomeScreen()),
+  GoRoute(
+    path: Routes.home,
+    builder: (_, _) => const FamilyHomeScreen(),
+    routes: [
+      GoRoute(
+        path: Routes.firstRun.substring(1),
+        builder: (_, state) =>
+            FirstRunScreen(child: state.uri.queryParameters['crianca']),
+      ),
+    ],
+  ),
   GoRoute(
     path: Routes.family,
     builder: (_, _) => const FamilyRootScreen(),
@@ -321,7 +334,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     routes: [
       GoRoute(path: 'pin', builder: (_, _) => const SetPinScreen()),
       GoRoute(path: 'entregar', builder: (_, _) => const HandOverScreen()),
-      GoRoute(path: 'vincular', builder: (_, _) => const LinkCodeScreen()),
+      GoRoute(
+        path: 'vincular',
+        builder: (_, state) => LinkCodeScreen(
+          back: Routes.linkCodeReturn(state.uri.queryParameters['depois']),
+        ),
+      ),
       GoRoute(path: 'aparelhos', builder: (_, _) => const DevicesScreen()),
     ],
   ),
