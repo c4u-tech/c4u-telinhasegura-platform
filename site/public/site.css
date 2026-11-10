@@ -175,14 +175,21 @@ a:hover {
   padding: var(--xl) var(--xl) var(--xxl);
 }
 
-.lockup {
+/* The head already peeks over the field, so the field carries the
+   wordmark alone, its letters the size they had in a 32 px lockup (the
+   wordmark is 29 of the lockup's 64 units tall). The link keeps the
+   lockup's height, so its target does not shrink with the letters. */
+.wordmark {
   justify-self: start;
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
   border-radius: 8px;
 }
 
-.lockup img {
-  height: 32px;
+.wordmark img {
+  display: block;
+  height: calc(32px * 29 / 64);
   width: auto;
 }
 
@@ -288,7 +295,7 @@ a:hover {
     column-gap: var(--xxxl);
   }
 
-  .letterhead .lockup {
+  .letterhead .wordmark {
     grid-column: 1 / -1;
   }
 
@@ -314,7 +321,7 @@ a:hover {
 
 /* ----------------------------------------------------------------- band */
 
-/* Every Read page: the task screen's 72 px band with the lockup. */
+/* Every Read page: the task screen's 72 px band with the wordmark. */
 .band {
   --unit: 1.75px;
   padding: var(--sm) var(--md) 0;
@@ -331,8 +338,12 @@ a:hover {
   padding: var(--sm) var(--sm) var(--sm) var(--lg);
 }
 
-.band .lockup img {
-  height: 24px;
+.band .wordmark {
+  min-height: 24px;
+}
+
+.band .wordmark img {
+  height: calc(24px * 29 / 64);
 }
 
 .band-action {
