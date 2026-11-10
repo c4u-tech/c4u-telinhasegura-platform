@@ -198,9 +198,10 @@ class FieldLayout extends StatelessWidget {
   }
 }
 
-/// A screen beside the ink rail: the rail is its field, so the column
-/// takes the whole content area, centred, and a task's back control
-/// stands at the area's top start.
+/// A screen beside the ink rail: the rail is its field. Every column
+/// starts at one place, top and start of the content area, so the title
+/// stays put as the destinations change; a task's back control stands at
+/// the column's start right above it, in a slot a root keeps empty.
 class _RailFramed extends StatefulWidget {
   const _RailFramed({
     required this.task,
@@ -243,39 +244,41 @@ class _RailFramedState extends State<_RailFramed> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.onBack case final onBack?)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.sm,
-                Space.lg,
-                Space.sm,
-                0,
+      child: SingleChildScrollView(
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          Space.xxxl,
+          Space.xxl,
+          Space.xl,
+          Space.xxxl,
+        ),
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 48,
+                child: switch (widget.onBack) {
+                  // The arrow's edge on the column's edge; the button's own
+                  // inset stands outside it.
+                  final onBack? => Transform.translate(
+                    offset: const Offset(-Space.md, 0),
+                    child: IconButton(
+                      onPressed: onBack,
+                      tooltip: 'Voltar',
+                      color: context.palette.text,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                  ),
+                  null => null,
+                },
               ),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: IconButton(
-                  onPressed: onBack,
-                  tooltip: 'Voltar',
-                  color: context.palette.text,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-              ),
-            ),
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Space.xl,
-                  vertical: Space.xxxl,
-                ),
-                child: widget.task,
-              ),
-            ),
+              const SizedBox(height: Space.sm),
+              widget.task,
+            ],
           ),
-        ],
+        ),
       ),
     ),
   );

@@ -93,7 +93,8 @@ class PrimaryButton extends StatelessWidget {
               ),
             ),
           )
-        : Text(label),
+        // At large text a long label wraps; its lines stay centred.
+        : Text(label, textAlign: TextAlign.center),
   );
 }
 

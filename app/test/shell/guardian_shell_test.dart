@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/band_transition.dart';
+import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
@@ -289,6 +290,46 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/familia');
+    });
+
+    testWidgets('every title stands at one place beside the rail, root or '
+        'task, so switching destinations moves none', (tester) async {
+      Offset? anchor;
+      await shellAt(tester, '/', size: wide, roles: ['curator']);
+      for (final path in [
+        '/',
+        '/familia',
+        '/conta',
+        '/equipe',
+        '/familia/criancas',
+        '/conta/email',
+      ]) {
+        GoRouter.of(tester.element(find.byType(InkRail))).go(path);
+        await tester.pumpAndSettle();
+        final title = tester.getTopLeft(find.byType(DisplayTitle));
+        anchor ??= title;
+        expect(title, anchor, reason: path);
+      }
+      // Top and start, not centred in the space beside the rail.
+      expect(anchor!.dy, lessThan(200));
+      expect(
+        anchor.dx,
+        ShellSizes.railInset + ShellSizes.railWidth + Space.xxxl,
+      );
+    });
+
+    testWidgets('a task\'s back control stands at the column\'s start, '
+        'right above the title', (tester) async {
+      await shellAt(tester, '/familia/criancas', size: wide);
+
+      final back = tester.getRect(find.byTooltip('Voltar'));
+      final arrow = tester.getRect(find.byIcon(Icons.arrow_back_rounded));
+      final title = tester.getRect(find.byType(DisplayTitle));
+      expect(back.bottom, lessThanOrEqualTo(title.top));
+      expect(title.top - back.bottom, lessThanOrEqualTo(Space.md));
+      // The arrow on the column's edge: the button's own inset stands
+      // outside it.
+      expect(arrow.left, closeTo(title.left, 0.5));
     });
 
     testWidgets('a destination root has no back control', (tester) async {

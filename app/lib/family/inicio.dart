@@ -51,16 +51,13 @@ abstract final class TodayWords {
         : count;
   }
 
-  /// The modules filled: the share of the day used, all of them once
-  /// spent.
+  /// The modules filled: the whole fifths of the day used, so the last
+  /// one fills only once the day is spent.
   static int filled(ScreenTimeRules rules) {
     if (isSpent(rules)) return modules;
     final limit = ScreenTimeWords.limit(rules);
     if (limit <= 0) return 0;
-    return (rules.today.used.inMinutes * modules / limit).round().clamp(
-      0,
-      modules,
-    );
+    return (rules.today.used.inMinutes * modules ~/ limit).clamp(0, modules);
   }
 }
 
@@ -283,7 +280,10 @@ class ChildRow extends StatelessWidget {
         // its foot.
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Top-aligned, so a longer line of words never moves the avatar
+          // or "+ tempo" off the line they share with the row beside.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AvatarDisc(minor.avatar, size: 56, excludeSemantics: true),
               const SizedBox(width: Space.lg),
@@ -361,10 +361,10 @@ class _Today extends StatelessWidget {
           container: true,
           label: 'Hoje, $words',
           child: ExcludeSemantics(
-            child: Wrap(
-              spacing: Space.sm,
-              runSpacing: Space.xs,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            // The words always under the modules, so every row has one
+            // shape and rows side by side line up.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -375,6 +375,7 @@ class _Today extends StatelessWidget {
                     ],
                   ],
                 ),
+                const SizedBox(height: Space.xs),
                 Text(words, style: muted),
               ],
             ),

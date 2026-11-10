@@ -13,6 +13,7 @@ import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
+import 'package:telinha_segura/screentime/screentime_api.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
 
 import '../access/harness.dart';
@@ -199,6 +200,40 @@ void main() {
       );
     });
 
+    testWidgets('side by side, the pair shares one row shape: avatars, '
+        '"+ tempo" and buttons on one line, words under the modules', (
+      tester,
+    ) async {
+      await inicio(
+        tester,
+        size: const Size(1280, 800),
+        rules: {'m2': () => json(200, rulesJson(state: 'time_up'))},
+      );
+
+      double top(String name, Finder f) => tester.getTopLeft(inRow(name, f)).dy;
+      for (final f in [
+        find.byType(AvatarDisc),
+        find.text('+ tempo'),
+        find.byType(PrimaryButton),
+      ]) {
+        expect(top('Lia', f), top('Téo', f), reason: '$f');
+      }
+      for (final (name, words) in [
+        ('Lia', '40 de 90\u00a0min'),
+        ('Téo', 'acabou o tempo de hoje'),
+      ]) {
+        expect(
+          top(name, find.text(words)),
+          greaterThanOrEqualTo(
+            tester
+                .getBottomLeft(inRow(name, find.byType(StateModule)).first)
+                .dy,
+          ),
+          reason: name,
+        );
+      }
+    });
+
     testWidgets('on a phone the rows stack in one column', (tester) async {
       await inicio(tester);
 
@@ -238,6 +273,23 @@ void main() {
   });
 
   group('today\'s time', () {
+    for (final (used, limit, state, filled) in [
+      (0, 50, 'ok', 0),
+      (9, 50, 'ok', 0),
+      (10, 50, 'ok', 1),
+      (30, 50, 'ok', 3),
+      (49, 50, 'ok', 4),
+      (50, 50, 'ok', 5),
+      (20, 90, 'time_up', 5),
+    ]) {
+      test('$used of $limit min ($state) fills $filled of the modules', () {
+        final rules = ScreenTimeRules.fromJson(
+          rulesJson(dailyMinutes: limit, usedSeconds: used * 60, state: state),
+        );
+        expect(TodayWords.filled(rules), filled);
+      });
+    }
+
     testWidgets('reads "{usado} de {limite} min" beside five screen modules', (
       tester,
     ) async {
