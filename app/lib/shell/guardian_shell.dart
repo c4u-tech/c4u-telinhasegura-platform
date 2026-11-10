@@ -200,8 +200,10 @@ class ShellBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
+          // With the tiles' own inset, every name keeps a clear gap from
+          // its neighbour and from the screen edge, even at 200 % text.
           padding: const EdgeInsets.symmetric(
-            horizontal: Space.xs,
+            horizontal: Space.sm,
             vertical: Space.xs,
           ),
           child: Row(
@@ -394,7 +396,7 @@ class _DestinationTileState extends State<DestinationTile> {
             constraints: const BoxConstraints(minHeight: 64),
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: Space.xs,
+                horizontal: Space.sm,
                 vertical: Space.sm,
               ),
               child: Column(

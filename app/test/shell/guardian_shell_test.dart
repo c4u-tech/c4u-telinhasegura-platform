@@ -169,6 +169,47 @@ void main() {
       });
     }
 
+    testWidgets('at 200 % text on a 412 dp phone the four names keep clear '
+        'of each other and of the screen edges', (tester) async {
+      const width = 412.0;
+      await shellAt(
+        tester,
+        '/',
+        roles: ['admin'],
+        size: const Size(width, 900),
+        textScale: 2,
+      );
+
+      expect(tester.takeException(), isNull);
+      final names = [
+        for (final d in Destination.values)
+          tester.getRect(
+            find.descendant(
+              of: find.byType(ShellBar),
+              matching: find.text(d.label),
+            ),
+          ),
+      ];
+      // Each name stands a comfortable gap from its neighbour and from the
+      // edge, so the four never read as one run of words.
+      expect(names.first.left, greaterThanOrEqualTo(Space.lg));
+      expect(width - names.last.right, greaterThanOrEqualTo(Space.lg));
+      for (var i = 1; i < names.length; i++) {
+        expect(
+          names[i].left - names[i - 1].right,
+          greaterThanOrEqualTo(Space.lg),
+          reason:
+              '${Destination.values[i - 1].label} and '
+              '${Destination.values[i].label}',
+        );
+      }
+      for (final tile in find.byType(DestinationTile).evaluate()) {
+        final size = tester.getSize(find.byWidget(tile.widget));
+        expect(size.height, greaterThanOrEqualTo(48));
+        expect(size.width, greaterThanOrEqualTo(48));
+      }
+    });
+
     testWidgets('the selected destination is cut as a screen module in the '
         'action colour, never a pill', (tester) async {
       await shellAt(tester, '/');
