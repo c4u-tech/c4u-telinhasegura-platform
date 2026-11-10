@@ -48,9 +48,15 @@ void main() {
       'Responsáveis',
       'Convites',
       'Modo criança',
-      'Tempo de tela',
-      'Vídeos',
     ]);
+  });
+
+  testWidgets('a child\'s time and videos are no door of their own: they '
+      'live on the child\'s page', (tester) async {
+    await home(tester);
+
+    expect(find.widgetWithText(DoorRow, 'Tempo de tela'), findsNothing);
+    expect(find.widgetWithText(DoorRow, 'Vídeos'), findsNothing);
   });
 
   testWidgets('it holds no door the other destinations took', (tester) async {
@@ -77,7 +83,7 @@ void main() {
     expect(find.byKey(const Key('family-placeholder')), findsOneWidget);
     answer.complete(json(200, ownerFamily));
     await tester.pumpAndSettle();
-    expect(find.byType(DoorRow), findsNWidgets(6));
+    expect(find.byType(DoorRow), findsNWidgets(4));
   });
 
   testWidgets('with no family, /familia goes home to the first use', (
@@ -116,8 +122,8 @@ void main() {
       await home(tester, family: guardianFamily);
 
       expect(find.widgetWithText(DoorRow, 'Convites'), findsNothing);
-      // Crianças, Responsáveis, Modo criança, Tempo de tela and Vídeos.
-      expect(find.byType(DoorRow), findsNWidgets(5));
+      // Crianças, Responsáveis and Modo criança.
+      expect(find.byType(DoorRow), findsNWidgets(3));
     });
 
     testWidgets('each door reads its words to assistive technology', (
@@ -221,16 +227,11 @@ void main() {
       ('owner', ownerFamily),
       ('guardian', guardianFamily),
     ]) {
-      testWidgets('the $role sees it after the family\'s other doors, '
-          'before Tempo de tela', (tester) async {
+      testWidgets('the $role sees it last, after the family\'s other '
+          'doors', (tester) async {
         await door(tester, family: family);
 
-        final t = titles(tester);
-        expect(t.sublist(t.length - 3), [
-          'Modo criança',
-          'Tempo de tela',
-          'Vídeos',
-        ]);
+        expect(titles(tester).last, 'Modo criança');
       });
     }
 
@@ -334,131 +335,6 @@ void main() {
 
       answer.complete(json(200, {'set': true}));
       await tester.pumpAndSettle();
-    });
-  });
-
-  group('the Tempo de tela door', () {
-    Finder timeDoor() => find.widgetWithText(DoorRow, 'Tempo de tela');
-
-    for (final (role, family) in [
-      ('owner', ownerFamily),
-      ('guardian', guardianFamily),
-    ]) {
-      testWidgets('the $role sees it, saying what it holds', (tester) async {
-        final semantics = tester.ensureSemantics();
-        await home(tester, family: family);
-
-        expect(timeDoor(), findsOneWidget);
-        expect(
-          find.descendant(
-            of: timeDoor(),
-            matching: find.text('Limite e horário de cada criança'),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.bySemanticsLabel(
-            'Tempo de tela, Limite e horário de cada criança',
-          ),
-          findsOne,
-        );
-        semantics.dispose();
-      });
-    }
-
-    testWidgets('it opens /familia/tempo', (tester) async {
-      final h = await home(tester);
-
-      await tester.ensureVisible(timeDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(timeDoor());
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/familia/tempo');
-    });
-
-    testWidgets('with no children it says so, with no chevron, and is no '
-        'target', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final h = await home(tester, family: familyWith([]));
-
-      expect(
-        find.descendant(
-          of: timeDoor(),
-          matching: find.text('Cadastre uma criança primeiro'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: timeDoor(),
-          matching: find.byIcon(Icons.chevron_right_rounded),
-        ),
-        findsNothing,
-      );
-      expect(
-        tester.getSemantics(timeDoor()),
-        isSemantics(isButton: false, hasTapAction: false),
-      );
-      await tester.ensureVisible(timeDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(timeDoor(), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/familia');
-      semantics.dispose();
-    });
-  });
-
-  group('the Vídeos door', () {
-    Finder videosDoor() => find.widgetWithText(DoorRow, 'Vídeos');
-
-    for (final (role, family) in [
-      ('owner', ownerFamily),
-      ('guardian', guardianFamily),
-    ]) {
-      testWidgets('the $role sees it last, after Tempo de tela, saying '
-          'what it holds', (tester) async {
-        final semantics = tester.ensureSemantics();
-        await home(tester, family: family);
-
-        final t = titles(tester);
-        expect(t.sublist(t.length - 2), ['Tempo de tela', 'Vídeos']);
-        expect(
-          find.bySemanticsLabel('Vídeos, O que cada criança pode assistir'),
-          findsOne,
-        );
-        semantics.dispose();
-      });
-    }
-
-    testWidgets('it opens /familia/videos', (tester) async {
-      final h = await home(tester);
-
-      await tester.ensureVisible(videosDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(videosDoor());
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/familia/videos');
-    });
-
-    testWidgets('with no children it says so, with no chevron, and is no '
-        'target', (tester) async {
-      final h = await home(tester, family: familyWith([]));
-
-      expect(
-        find.descendant(
-          of: videosDoor(),
-          matching: find.text('Cadastre uma criança primeiro'),
-        ),
-        findsOneWidget,
-      );
-      expect(tester.widget<DoorRow>(videosDoor()).onTap, isNull);
-      await tester.ensureVisible(videosDoor());
-      await tester.pumpAndSettle();
-      await tester.tap(videosDoor(), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/familia');
     });
   });
 }

@@ -18,8 +18,9 @@ import 'widgets.dart';
 
 /// `/familia`, the Família destination's root: the family's areas as
 /// doors (Crianças and Responsáveis counted in state modules, Convites
-/// for the owner, Modo criança, Tempo de tela and Vídeos), then leaving
-/// or deleting the family, quiet, at the foot. It holds no list itself.
+/// for the owner, Modo criança), then leaving or deleting the family,
+/// quiet, at the foot. It holds no list itself: a child's time and videos
+/// live on the child's page, opened from Crianças.
 class FamilyRootScreen extends StatefulWidget {
   const FamilyRootScreen({super.key});
 
@@ -114,32 +115,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
         ),
       // Every member's, owner or not.
       const KidModeDoor(),
-      _needsChild(
-        family,
-        'Tempo de tela',
-        'Limite e horário de cada criança',
-        Routes.screenTime,
-      ),
-      _needsChild(
-        family,
-        'Vídeos',
-        'O que cada criança pode assistir',
-        Routes.familyVideos,
-      ),
     ];
-  }
-
-  /// A door every member has, opening [path]; with no child yet, a row
-  /// nobody acts on that says why.
-  DoorRow _needsChild(Family family, String title, String line, String path) {
-    final none = family.minors.isEmpty;
-    final words = none ? 'Cadastre uma criança primeiro' : line;
-    return DoorRow(
-      title: title,
-      semanticsLabel: '$title, $words',
-      onTap: none ? null : () => context.go(path),
-      child: _muted(words),
-    );
   }
 
   Widget _muted(String words) => Text(
