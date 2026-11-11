@@ -250,3 +250,24 @@ func TestKidPacksOfAGoneChild(t *testing.T) {
 		t.Fatalf("gone child: %v", err)
 	}
 }
+
+func TestATooLongVideoKeepsItsPackFromTheYoungestBand(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	bebe := f.minor(fam, family.AgeUpTo4)
+	a := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	b := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	long := f.published(nthID(3), "bichos", family.AgeUpTo4)
+	id := f.publishedPack(a, b, long)
+	if got := f.kidPacks(bebe); len(got) != 1 || got[0].ID != id {
+		t.Fatalf("before: %+v", got)
+	}
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((31 * time.Minute).Seconds()))
+	if got := f.kidPacks(bebe); len(got) != 0 {
+		t.Fatalf("a 31-minute video let a 2-to-4 child see the pack: %+v", got)
+	}
+	if got := f.kidPacks(lia); len(got) != 1 || got[0].ID != id {
+		t.Fatalf("5-8 child: %+v", got)
+	}
+}

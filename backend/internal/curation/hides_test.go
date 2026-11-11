@@ -3,6 +3,7 @@ package curation_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
@@ -150,5 +151,22 @@ func TestFamilyCatalogPagesByFifty(t *testing.T) {
 	rest, more, err := f.svc.FamilyCatalog(ctx, ana, lia.MinorID, 50)
 	if err != nil || len(rest) != 5 || more {
 		t.Fatalf("second page: %d, more %v, %v", len(rest), more, err)
+	}
+}
+
+func TestFamilyCatalogKeepsATooLongVideoFromTheYoungestBand(t *testing.T) {
+	f := newFixture(t)
+	fam, ana := f.family("ana@example.com")
+	bebe := f.minor(fam, family.AgeUpTo4)
+	long := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	short := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((31 * time.Minute).Seconds()))
+
+	page, _, err := f.svc.FamilyCatalog(ctx, ana, bebe.MinorID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page) != 1 || page[0].Video.ID != short {
+		t.Fatalf("page %+v", page)
 	}
 }

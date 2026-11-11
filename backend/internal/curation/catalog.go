@@ -3,6 +3,7 @@ package curation
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 	_ "time/tzdata" // the rotation's zone loads on a host without zoneinfo
 
@@ -32,15 +33,25 @@ type Shelf struct {
 	Videos []KidVideo
 }
 
-// bandRankSQL is bandRank over videos v.
-const bandRankSQL = `CASE v.min_age_band WHEN 'ate-4' THEN 1 WHEN '5-8' THEN 2 WHEN '9-12' THEN 3 END`
+// bandRankSQL is bandRank over videos v, except that a video stored for
+// the youngest band but longer than that band's ceiling counts as the next
+// band up. The reads hold the rule themselves, so however the band or the
+// length came to be stored, such a video never reaches a child of the
+// youngest band.
+func (s *Service) bandRankSQL() string {
+	youngest := strconv.Itoa(int(s.d.YoungestMaxDuration / time.Second))
+	return `CASE WHEN v.min_age_band = 'ate-4' AND v.duration_seconds > ` + youngest + ` THEN 2
+		WHEN v.min_age_band = 'ate-4' THEN 1 WHEN v.min_age_band = '5-8' THEN 2 WHEN v.min_age_band = '9-12' THEN 3 END`
+}
 
-// eligible is the condition of a video a child may see, over
+// eligibleSQL is the condition of a video a child may see, over
 // videos v, with $1 the child, $2 its family and $3 its band's rank.
 // Every child-facing read uses it, so they cannot disagree.
-const eligible = `v.state = 'approved' AND ` + bandRankSQL + ` <= $3
+func (s *Service) eligibleSQL() string {
+	return `v.state = 'approved' AND ` + s.bandRankSQL() + ` <= $3
 	AND NOT EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id)
 	AND NOT EXISTS (SELECT 1 FROM video_reports r WHERE r.family_id = $2::uuid AND r.video_id = v.id)`
+}
 
 // childBand is the rank of the child's band, read on every request so a
 // changed band applies at once. A child or family that
@@ -71,7 +82,7 @@ func (s *Service) Catalog(ctx context.Context, c Child, loc *time.Location) ([]S
 	rows, err := s.d.Pool.Query(ctx, `SELECT theme, id, title, duration_seconds FROM (
 			SELECT v.theme, v.id::text AS id, v.title, v.duration_seconds,
 				row_number() OVER (PARTITION BY v.theme ORDER BY md5($4 || v.id::text), v.id) AS n
-			FROM videos v WHERE `+eligible+`) x
+			FROM videos v WHERE `+s.eligibleSQL()+`) x
 		WHERE n <= $5 ORDER BY n`, c.MinorID, c.FamilyID, rank, seed, s.d.ShelfSize)
 	if err != nil {
 		return nil, err
@@ -105,7 +116,7 @@ func (s *Service) eligibleVideo(ctx context.Context, c Child, videoID string) (V
 	if !validID(videoID) {
 		return Video{}, ErrVideoNotAllowed
 	}
-	v, err := scanVideo(s.d.Pool.QueryRow(ctx, `SELECT `+videoCols+` FROM videos v WHERE v.id = $4::uuid AND `+eligible,
+	v, err := scanVideo(s.d.Pool.QueryRow(ctx, `SELECT `+videoCols+` FROM videos v WHERE v.id = $4::uuid AND `+s.eligibleSQL(),
 		c.MinorID, c.FamilyID, rank, videoID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Video{}, ErrVideoNotAllowed

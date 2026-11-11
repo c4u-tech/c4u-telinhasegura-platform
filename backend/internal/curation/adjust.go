@@ -81,7 +81,7 @@ func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, 
 	}
 	rows, err := tx.Query(ctx, `SELECT `+videoCols+`,
 			EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id)
-		FROM videos v WHERE v.state = 'approved' AND `+bandRankSQL+` <= $3
+		FROM videos v WHERE v.state = 'approved' AND `+s.bandRankSQL()+` <= $3
 		AND NOT EXISTS (SELECT 1 FROM video_reports r WHERE r.family_id = $2::uuid AND r.video_id = v.id)
 		ORDER BY array_position($4::text[], v.theme), v.title, v.id LIMIT $5 OFFSET $6`,
 		c.MinorID, c.FamilyID, rank, themes, familyPage+1, offset)
