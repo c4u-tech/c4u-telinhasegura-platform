@@ -10,12 +10,12 @@ import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../design/value_stepper.dart';
+import '../family/child_page.dart' show leaveForGoneChild;
 import '../family/family.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'screen_time_screen.dart' show leaveForGoneChild;
 import 'screentime_api.dart';
 import 'words.dart';
 
@@ -193,7 +193,7 @@ class _TimeRulesScreenState extends State<TimeRulesScreen> {
       }
       return FieldLayout(
         title: 'Limite e horário',
-        onBack: () => context.go(Routes.childTime(widget.id)),
+        onBack: () => context.go(Routes.child(widget.id)),
         children: _body(minor),
       );
     },
@@ -273,8 +273,8 @@ class _TimeRulesScreenState extends State<TimeRulesScreen> {
     ),
     const SizedBox(height: Space.xl),
     PrimaryButton(
-      label: 'Voltar para o tempo de tela',
-      onPressed: () => context.go(Routes.childTime(widget.id)),
+      label: 'Voltar para ${minor.nickname}',
+      onPressed: () => context.go(Routes.child(widget.id)),
     ),
   ];
 }

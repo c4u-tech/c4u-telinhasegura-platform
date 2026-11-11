@@ -11,12 +11,12 @@ import '../curation/family_catalog.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../family/child_page.dart' show leaveForGoneChild;
 import '../family/family.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'catalog_children_screen.dart' show leaveForGoneChild;
 import 'pack_rows.dart';
 import 'words.dart';
 
@@ -91,7 +91,7 @@ class _PackScreenState extends State<PackScreen> {
   /// Not among today's pacotinhos: the day turned, or it was taken down.
   void _toCatalogue() {
     _leaving = true;
-    context.go(Routes.childVideos(widget.minorId), extra: packGone);
+    context.go(Routes.child(widget.minorId), extra: packGone);
   }
 
   /// The child is gone from the family.
@@ -112,7 +112,7 @@ class _PackScreenState extends State<PackScreen> {
       }
       return FieldLayout(
         title: 'Pacotinho',
-        onBack: () => context.go(Routes.childVideos(widget.minorId)),
+        onBack: () => context.go(Routes.child(widget.minorId)),
         children: minor == null ? familyPending(_model) : _body(minor),
       );
     },

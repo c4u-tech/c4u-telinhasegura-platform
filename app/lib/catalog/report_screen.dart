@@ -109,7 +109,7 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   void _toCatalogue() =>
-      context.go(Routes.childVideos(widget.minorId), extra: videoGone);
+      context.go(Routes.child(widget.minorId), extra: videoGone);
 
   Future<void> _report(ReportReason reason) async {
     final api = AppScope.of(context).familyCatalog;
@@ -153,7 +153,7 @@ class _ReportScreenState extends State<ReportScreen> {
               ?.nickname,
         _ => null,
       };
-      final back = Routes.childVideos(widget.minorId);
+      final back = Routes.child(widget.minorId);
       return FieldLayout(
         title: 'Denunciar',
         onBack: () => context.go(
@@ -175,7 +175,7 @@ class _ReportScreenState extends State<ReportScreen> {
             const SizedBox(height: Space.xl),
             PrimaryButton(
               label: nickname == null
-                  ? 'Voltar para os vídeos'
+                  ? 'Voltar'
                   : CatalogWords.backTo(nickname),
               onPressed: () => context.go(back),
             ),

@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'display_title.dart';
 import 'espiadinha.dart';
 import 'theme.dart';
 import 'tokens.dart';
+import 'wordmark.dart';
 
 /// How much of the screen the ink field takes on a narrow screen.
 enum FieldSize {
-  /// The entry screen: lockup and the promise line.
+  /// The entry screen: wordmark and the promise line.
   hero,
 
-  /// Every task screen: a band with the lockup and, when given, a back
+  /// Every task screen: a band with the wordmark and, when given, a back
   /// control.
   band,
 }
@@ -23,6 +23,81 @@ const promiseLine =
     'Cada vídeo daqui passa pelo olhar de pais, cuidadores e profissionais '
     'antes de chegar a uma criança.';
 
+/// Where a framed screen stands beside the rail.
+enum Pane {
+  /// Alone in the space beside the rail, its column centred there.
+  single,
+
+  /// The list of a place's items, at the start of a large window.
+  list,
+
+  /// The item the list opened, beside the list.
+  detail,
+}
+
+/// Marks the screens the guardian's navigation frames. With [rail], the
+/// ink rail stands beside them and is their ink field, so a screen draws
+/// no field of its own. A destination's root reads it to know that the
+/// navigation, not a back control, is the way elsewhere.
+class ShellFrame extends InheritedWidget {
+  const ShellFrame({
+    super.key,
+    required this.rail,
+    required this.rises,
+    this.pane = Pane.single,
+    this.chosen,
+    this.chosenAtFirstLevel = false,
+    this.paneRoot,
+    this.leavesOnBack,
+    required super.child,
+  });
+
+  final bool rail;
+
+  /// Counts the confirmations a framed screen asked to play: the rail's
+  /// head rises for them, since it is the field's head.
+  final ValueNotifier<int> rises;
+
+  /// Where the screens stand beside the rail.
+  final Pane pane;
+
+  /// In the list pane, the path of the item the detail shows.
+  final String? chosen;
+
+  /// In the list pane, whether the detail shows the chosen item at its
+  /// first level, so opening it again would change nothing.
+  final bool chosenAtFirstLevel;
+
+  /// In the detail pane, whether a page (named by its route's path
+  /// pattern) is an item's first level: the list beside it is the way
+  /// elsewhere, so it shows no back control.
+  final bool Function(String pattern)? paneRoot;
+
+  /// In the detail pane, whether back from a page (named by its route's
+  /// path pattern) leaves the place rather than popping to its root, so
+  /// the page takes no back swipe.
+  final bool Function(String pattern)? leavesOnBack;
+
+  static ShellFrame? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellFrame>();
+
+  /// Whether the list pane's row opening [item] is the one shown beside it.
+  static bool isChosen(BuildContext context, String item) {
+    final frame = maybeOf(context);
+    return frame != null && frame.pane == Pane.list && frame.chosen == item;
+  }
+
+  @override
+  bool updateShouldNotify(ShellFrame old) =>
+      old.rail != rail ||
+      old.rises != rises ||
+      old.pane != pane ||
+      old.chosen != chosen ||
+      old.chosenAtFirstLevel != chosenAtFirstLevel ||
+      old.paneRoot != paneRoot ||
+      old.leavesOnBack != leavesOnBack;
+}
+
 /// The access surface's frame. The flat ink field is the Espiadinha's
 /// screen, with the head peeking over its top edge; the task sits on the
 /// ground beside it (wide) or below it (narrow). No cards: the field's
@@ -33,13 +108,23 @@ class FieldLayout extends StatelessWidget {
     required this.title,
     required this.children,
     this.titleSemanticsLabel,
+    this.titleLeading,
+    this.titleLine,
     this.size = FieldSize.band,
     this.onBack,
     this.rise = false,
     this.promise = promiseLine,
+    this.columnWidth = FieldSizes.columnMaxWidth,
   });
 
+  /// The wide window's ink panel, absent when the rail stands for it.
+  static const panelKey = Key('field-panel');
+
   final String title;
+
+  /// The column's cap: the task's 400 px, wider only for a screen that
+  /// is not one task (the home's two columns of children beside the rail).
+  final double columnWidth;
 
   /// The promise line the field carries (wide, and under the title at large
   /// text). A surface whose reader is not a guardian says its own.
@@ -48,12 +133,49 @@ class FieldLayout extends StatelessWidget {
   /// What assistive technology reads instead of [title], when the shown
   /// title carries an address's break marks.
   final String? titleSemanticsLabel;
+
+  /// A mark beside the title (a child's avatar), top-aligned with it.
+  final Widget? titleLeading;
+
+  /// A muted line under the title, beside [titleLeading] when there is one
+  /// (a child's age band).
+  final String? titleLine;
   final List<Widget> children;
   final FieldSize size;
   final VoidCallback? onBack;
 
   /// Plays "o sol sobe" once: the confirmations.
   final bool rise;
+
+  /// The width a column can take in a screen [width] wide: the screen
+  /// less the side padding its place gives the column.
+  static double roomIn(BuildContext context, double width) {
+    final frame = ShellFrame.maybeOf(context);
+    final sides = frame == null || !frame.rail
+        ? 2 * Space.xl
+        : _RailFramed.padding(frame.pane).horizontal;
+    return width - sides;
+  }
+
+  /// Whether this screen is the first level of the detail pane's item,
+  /// read from its page's path pattern (never from the router's state,
+  /// which a page being redirected away cannot resolve).
+  static bool _atPaneRoot(BuildContext context, ShellFrame frame) =>
+      _pageIs(context, frame, frame.paneRoot);
+
+  /// Whether [test] holds for this page's path pattern in the detail pane.
+  static bool _pageIs(
+    BuildContext context,
+    ShellFrame frame,
+    bool Function(String pattern)? test,
+  ) {
+    if (frame.pane != Pane.detail || test == null) return false;
+    final key = ModalRoute.of(context)?.settings;
+    return switch (key) {
+      Page(key: ValueKey<String>(:final value)) => test(value),
+      _ => false,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,9 +187,27 @@ class FieldLayout extends StatelessWidget {
     final task = _TaskColumn(
       title: title,
       titleSemanticsLabel: titleSemanticsLabel,
+      leading: titleLeading,
+      line: titleLine,
       lead: compact ? promise : null,
+      width: columnWidth,
       children: children,
     );
+    final frame = ShellFrame.maybeOf(context);
+    if (frame != null && frame.rail) {
+      final framed = _RailFramed(
+        task: task,
+        onBack: _atPaneRoot(context, frame) ? null : onBack,
+        rise: rise,
+        rises: frame.rises,
+        pane: frame.pane,
+      );
+      // Back from here leaves the place (the shell sees to it), so no
+      // swipe pops to the root beneath, which shows this same page.
+      return _pageIs(context, frame, frame.leavesOnBack)
+          ? PopScope(canPop: false, child: framed)
+          : framed;
+    }
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -77,6 +217,7 @@ class FieldLayout extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(
+                    key: panelKey,
                     width: box.maxWidth * 0.46,
                     child: Padding(
                       padding: const EdgeInsets.all(Space.lg),
@@ -153,31 +294,177 @@ class FieldLayout extends StatelessWidget {
   }
 }
 
+/// A screen beside the ink rail: the rail is its field. Every column
+/// stands at one place, at the top of the content area and centred in it
+/// (or at the start of its pane, beside a list), so the title stays put
+/// as the destinations change; a task's back control stands at the
+/// column's start right above it, in a slot a root keeps empty.
+class _RailFramed extends StatefulWidget {
+  const _RailFramed({
+    required this.task,
+    required this.onBack,
+    required this.rise,
+    required this.rises,
+    required this.pane,
+  });
+
+  final Widget task;
+  final VoidCallback? onBack;
+  final bool rise;
+  final ValueNotifier<int> rises;
+  final Pane pane;
+
+  /// The space around the column in each place beside the rail.
+  static EdgeInsetsDirectional padding(Pane pane) => switch (pane) {
+    Pane.single => const EdgeInsetsDirectional.fromSTEB(
+      Space.xxxl,
+      Space.xxl,
+      Space.xxxl,
+      Space.xxxl,
+    ),
+    // The list's pane is narrow: its doors take most of it.
+    Pane.list => const EdgeInsetsDirectional.fromSTEB(
+      Space.xl,
+      Space.xxl,
+      Space.xl,
+      Space.xxxl,
+    ),
+    Pane.detail => const EdgeInsetsDirectional.fromSTEB(
+      Space.xxxl,
+      Space.xxl,
+      Space.xl,
+      Space.xxxl,
+    ),
+  };
+
+  @override
+  State<_RailFramed> createState() => _RailFramedState();
+}
+
+class _RailFramedState extends State<_RailFramed> {
+  bool _asked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _askRise();
+  }
+
+  @override
+  void didUpdateWidget(_RailFramed old) {
+    super.didUpdateWidget(old);
+    _askRise();
+  }
+
+  /// A confirmation plays once, on the rail's head.
+  void _askRise() {
+    if (!widget.rise || _asked) return;
+    _asked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.rises.value++);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: _RailFramed.padding(widget.pane),
+        child: Align(
+          alignment: widget.pane == Pane.single
+              ? Alignment.topCenter
+              : AlignmentDirectional.topStart,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 48,
+                child: switch (widget.onBack) {
+                  // The arrow's edge on the column's edge; the button's own
+                  // inset stands outside it.
+                  final onBack? => Transform.translate(
+                    offset: const Offset(-Space.md, 0),
+                    child: IconButton(
+                      onPressed: onBack,
+                      tooltip: 'Voltar',
+                      color: context.palette.text,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                  ),
+                  null => null,
+                },
+              ),
+              const SizedBox(height: Space.sm),
+              widget.task,
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _TaskColumn extends StatelessWidget {
   const _TaskColumn({
     required this.title,
     required this.children,
+    required this.width,
     this.titleSemanticsLabel,
+    this.leading,
+    this.line,
     this.lead,
   });
 
+  final double width;
   final String title;
   final String? titleSemanticsLabel;
+  final Widget? leading;
+  final String? line;
   final List<Widget> children;
 
   /// Body text under the title: the promise, when the field is a band.
   final String? lead;
 
+  /// The title, with its muted line under it and its mark beside both.
+  Widget _heading(BuildContext context) {
+    final title = Semantics(
+      header: true,
+      child: DisplayTitle(this.title, semanticsLabel: titleSemanticsLabel),
+    );
+    final line = this.line;
+    final leading = this.leading;
+    if (line == null && leading == null) return title;
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        title,
+        if (line != null) ...[
+          const SizedBox(height: Space.xs),
+          Text(
+            line,
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(color: context.palette.muted),
+          ),
+        ],
+      ],
+    );
+    if (leading == null) return text;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        leading,
+        const SizedBox(width: Space.lg),
+        Expanded(child: text),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: FieldSizes.columnMaxWidth),
+    constraints: BoxConstraints(maxWidth: width),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          header: true,
-          child: DisplayTitle(title, semanticsLabel: titleSemanticsLabel),
-        ),
+        _heading(context),
         if (lead case final lead?) ...[
           const SizedBox(height: Space.md),
           Text(lead, style: Theme.of(context).textTheme.bodyLarge),
@@ -219,7 +506,7 @@ class _Field extends StatelessWidget {
       children: [
         ExcludeSemantics(
           child: Center(
-            child: _Head(unit: unit, rise: rise),
+            child: PeekingHead(unit: unit, rise: rise),
           ),
         ),
         if (expand)
@@ -248,20 +535,26 @@ class _Field extends StatelessWidget {
   }
 }
 
-class _Head extends StatefulWidget {
-  const _Head({required this.unit, required this.rise});
+/// The Espiadinha's head and fingers over an ink field drawn on the grid
+/// of [unit]; with [rise], "o sol sobe" plays once.
+class PeekingHead extends StatefulWidget {
+  const PeekingHead({super.key, required this.unit, required this.rise});
+
+  /// How long "o sol sobe" plays.
+  static const riseDuration = Duration(milliseconds: 1400);
 
   final double unit;
   final bool rise;
 
   @override
-  State<_Head> createState() => _HeadState();
+  State<PeekingHead> createState() => _HeadState();
 }
 
-class _HeadState extends State<_Head> with SingleTickerProviderStateMixin {
+class _HeadState extends State<PeekingHead>
+    with SingleTickerProviderStateMixin {
   late final _rise = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1400),
+    duration: PeekingHead.riseDuration,
     value: 1,
   );
 
@@ -274,7 +567,7 @@ class _HeadState extends State<_Head> with SingleTickerProviderStateMixin {
   /// A confirmation on a screen already shown (the family just created)
   /// turns rise on in place.
   @override
-  void didUpdateWidget(_Head old) {
+  void didUpdateWidget(PeekingHead old) {
     super.didUpdateWidget(old);
     if (!old.rise) _play();
   }
@@ -318,7 +611,7 @@ class _FieldContent extends StatelessWidget {
 
   final FieldSize size;
 
-  /// The promise at the field's foot; null leaves the field to the lockup.
+  /// The promise at the field's foot; null leaves the field to the wordmark.
   final String? promise;
   final VoidCallback? onBack;
   final bool large;
@@ -326,10 +619,10 @@ class _FieldContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final lockup = SvgPicture.asset(
-      'assets/brand/telinha-segura-lockup-reversed.svg',
-      height: size == FieldSize.hero ? 32 : 24,
-      semanticsLabel: 'Telinha Segura',
+    // The name plate sits on the head's axis: the field is centred under
+    // the head, so the wordmark is centred in the field.
+    final wordmark = Wordmark(
+      height: size == FieldSize.hero ? WordmarkSizes.hero : WordmarkSizes.band,
     );
     final back = onBack == null
         ? null
@@ -347,11 +640,12 @@ class _FieldContent extends StatelessWidget {
         ),
         child: SizedBox(
           height: 56,
-          child: Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              back ?? const SizedBox(width: Space.md),
-              const SizedBox(width: Space.xs),
-              lockup,
+              wordmark,
+              if (back != null)
+                Align(alignment: AlignmentDirectional.centerStart, child: back),
             ],
           ),
         ),
@@ -371,7 +665,7 @@ class _FieldContent extends StatelessWidget {
             ? MainAxisAlignment.spaceBetween
             : MainAxisAlignment.start,
         children: [
-          // Back and lockup stay one top group; only the promise goes to
+          // Back and wordmark stay one top group; only the promise goes to
           // the foot of the wide field.
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,11 +678,12 @@ class _FieldContent extends StatelessWidget {
                     child: back,
                   ),
                 ),
-              lockup,
+              Center(child: wordmark),
             ],
           ),
           if (promise case final promise?) ...[
-            SizedBox(height: large ? Space.xxxl : Space.xl),
+            // Further from the name plate than the plate is from the head.
+            SizedBox(height: large ? Space.xxxl : Space.xxl),
             Text(
               promise,
               style: (large ? text.displayLarge : text.headlineSmall)?.copyWith(

@@ -12,6 +12,7 @@ import 'package:telinha_segura/auth/provider_sign_in.dart';
 import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/family/confirm.dart';
 import 'package:telinha_segura/family/family.dart';
+import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
 import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/design/tokens.dart';
@@ -92,7 +93,6 @@ Future<Harness> openRoute(
 final homes = <String, void Function(Harness)>{
   'member': (h) => h.family = ownerFamily,
   'guardian': (h) => h.family = {...ownerFamily, 'role': 'guardian'},
-  // Tempo de tela is then a row nobody acts on.
   'no children': (h) => h.family = familyWith([]),
   'no family': (h) => h.family = null,
   'email unverified': (h) => h.unverified = true,
@@ -599,7 +599,7 @@ final mfaStates =
           await tapOn(t, find.text('Confirmar').last);
         },
       ),
-      'staff gate, challenge': ('/admin', mfaApi(), null),
+      'staff gate, challenge': ('/admin/numeros', mfaApi(), null),
       'enrollment, leaving the codes': (
         '/conta/verificacao/ativar',
         mfaApi(),
@@ -713,8 +713,18 @@ final childScreens =
       'new child, profile': ('/familia/criancas/nova', [], null),
       'new child, consent': ('/familia/criancas/nova', [], toConsent),
       'child': ('/familia/criancas/m1', [minorJson('m1', 'Lia')], null),
-      'child, unknown profile': (
+      'child, a video hidden': (
         '/familia/criancas/m1',
+        [minorJson('m1', 'Lia')],
+        (tester) => tapOn(tester, find.text('Esconder').first),
+      ),
+      'child, edit': (
+        '/familia/criancas/m1/editar',
+        [minorJson('m1', 'Lia')],
+        null,
+      ),
+      'child, unknown profile': (
+        '/familia/criancas/m1/editar',
         [minorJson('m1', 'Lia', avatar: 'dragon', ageBand: '13-16')],
         null,
       ),
@@ -757,7 +767,8 @@ Future<Harness> openChildScreen(
   double textScale = 1,
 }) async {
   final (path, minors, then) = childScreens[name]!;
-  final h = Harness(signedIn: true)..family = familyWith(minors);
+  final h = Harness(signedIn: true, api: catalog.catalogApi())
+    ..family = familyWith(minors);
   unawaited(h.services.familyModel.load());
   await h.pump(tester, initial: path, size: size, textScale: textScale);
   await then?.call(tester);
@@ -803,7 +814,9 @@ final adultScreens =
       'adults, leave confirmation': (
         '/familia/responsaveis',
         guardianFamily,
-        (tester) => tapOn(tester, find.text('Sair da família')),
+        // On a large window the family's list beside it has its own
+        // "Sair da família"; the screen's is the last.
+        (tester) => tapOn(tester, find.text('Sair da família').last),
       ),
       'invitations': ('/familia/convites', ownerFamily, null),
       'invitations, none': (
@@ -983,6 +996,22 @@ final kidModeScreens =
         null,
       ),
       'kid mode index, no children': ('/modo-crianca', [], true, 2, null),
+      'first run, the child': ('/comecar', [], false, 0, null),
+      'first run, the PIN': (
+        '/comecar',
+        [minorJson('m1', 'Lia')],
+        false,
+        0,
+        null,
+      ),
+      'first run, ready': ('/comecar', [minorJson('m1', 'Lia')], true, 0, null),
+      'first run, ready, a choice': (
+        '/comecar',
+        [minorJson('m1', 'Lia'), minorJson('m2', 'Téo')],
+        true,
+        0,
+        null,
+      ),
       'create the PIN': (
         '/modo-crianca/pin',
         [minorJson('m1', 'Lia')],
@@ -1411,28 +1440,25 @@ final screenTimeScreens =
         Future<void> Function(WidgetTester)?,
       )
     >{
-      'screen time list': (
-        '/familia/tempo',
+      'child page, a spent day': (
+        '/familia/criancas/m1',
         screenTimeApi(
-          rules: {
-            'm1': () => json(200, rulesJson(state: 'time_up')),
-            'm2': () => problem(503, 'unavailable'),
-          },
+          rules: {'m1': () => json(200, rulesJson(state: 'time_up'))},
         ),
         null,
       ),
-      'screen time hub': (
-        '/familia/tempo/m1',
+      'child page, the day': (
+        '/familia/criancas/m1',
         screenTimeApi(
           rules: {
             'm1': () => json(200, rulesJson(isDefault: true, extension: 30)),
           },
-          usage: () => json(200, usageJson([45, 70, 299, 0, 15, 60, 1])),
+          usage: () => json(200, usageJson([40, 70, 299, 0, 15, 60, 1])),
         ),
         null,
       ),
-      'screen time hub, read failed': (
-        '/familia/tempo/m1',
+      'child page, the day failed': (
+        '/familia/criancas/m1',
         screenTimeApi(rules: {'m1': () => problem(503, 'unavailable')}),
         null,
       ),
@@ -1497,7 +1523,6 @@ final catalogScreens =
         Future<void> Function(WidgetTester)?,
       )
     >{
-      'catalogue children': ('/familia/videos', catalog.catalogApi(), null),
       'catalogue': ('/familia/videos/m1', catalog.catalogApi(), null),
       'catalogue, long titles, more to read': (
         '/familia/videos/m1',
@@ -1938,7 +1963,7 @@ final adminScreens =
       )
     >{
       'administration': (
-        '/admin',
+        '/admin/numeros',
         adminApi(
           staff: () => staffList([
             for (var i = 0; i < 6; i++)
@@ -2066,9 +2091,9 @@ final adminScreens =
         ),
         null,
       ),
-      // The numbers failed, the doors still there.
+      // The numbers failed.
       'administration, numbers failed': (
-        '/admin',
+        '/admin/numeros',
         adminApi(metrics: () => problem(503, 'unavailable')),
         null,
       ),
@@ -2261,9 +2286,9 @@ final adminScreens =
         },
       ),
       // The pacotinhos.
-      'admin pacotinhos': ('/admin/pacotinhos', _adminPacks(), null),
+      'admin pacotinhos': ('/pacotinhos', _adminPacks(), null),
       'admin pacotinho': (
-        '/admin/pacotinhos/p1',
+        '/pacotinhos/p1',
         _adminPacks(
           pack: (id) => json(
             200,
@@ -2282,7 +2307,7 @@ final adminScreens =
         null,
       ),
       'admin pacotinho, confirming the removal': (
-        '/admin/pacotinhos/p1',
+        '/pacotinhos/p1',
         _adminPacks(),
         (tester, _) => tapOn(tester, find.text('Remover de vez')),
       ),
@@ -2450,7 +2475,7 @@ final longTitles =
       ),
       'Responsáveis': (t, size, scale) =>
           openAdultScreen(t, 'adults, owner', size: size, textScale: scale),
-      'Administração': (t, size, scale) =>
+      'Números da plataforma': (t, size, scale) =>
           openAdmin(t, 'administration', size: size, textScale: scale),
       'Vídeos retidos': (t, size, scale) =>
           openAdmin(t, 'held', size: size, textScale: scale),
@@ -2516,23 +2541,69 @@ void main() {
         await openHome(tester, state, size: size, textScale: 2);
 
         expect(tester.takeException(), isNull);
-        // The column's first control and its last, "Sair da conta".
+        // Início, once the family is ready, ends on "Sugerir um vídeo";
+        // every state before it on "Sair da conta".
+        final inicio = find.byType(Inicio).evaluate().isNotEmpty;
+        // The column's first control and its last.
         final first = find.byWidgetPredicate(
           (w) => w is DoorRow || w is FilledButton,
         );
         expect(first, findsWidgets);
         for (final control in [
           first.first,
-          // A role door with no family.
+          // The Equipe door with no family.
           if (state.contains('moderator'))
-            find.widgetWithText(DoorRow, 'Moderação'),
-          find.text('Sair da conta'),
+            find.widgetWithText(DoorRow, 'Equipe'),
+          find.text(inicio ? 'Sugerir um vídeo' : 'Sair da conta'),
         ]) {
           await tester.ensureVisible(control);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         }
-        if (state.contains('long')) expectWholeAddress(tester, size.width);
+        // Início names no account: Conta does.
+        if (state.contains('long') && !inicio) {
+          expectWholeAddress(tester, size.width);
+        }
+      });
+    }
+  }
+
+  // The Família and Equipe roots, with the navigation.
+  for (final (path, roles) in [
+    ('/familia', <String>[]),
+    ('/familia', ['curator']),
+    ('/equipe', ['admin', 'curator', 'moderator']),
+  ]) {
+    testWidgets('$path $roles: labelled controls with 48 dp targets', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final h = Harness(signedIn: true)
+        ..family = ownerFamily
+        ..roles = roles;
+      await h.pump(tester, initial: path);
+
+      await meetsGuidelines(tester);
+      semantics.dispose();
+    });
+
+    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+      testWidgets('$path $roles at 200% text, ${size.width.toInt()} wide: no '
+          'overflow, every door reachable', (tester) async {
+        final h = Harness(signedIn: true)
+          ..family = ownerFamily
+          ..roles = roles;
+        await h.pump(tester, initial: path, size: size, textScale: 2);
+
+        expect(tester.takeException(), isNull);
+        for (final control in [
+          find.byType(DoorRow).first,
+          find.byType(DoorRow).last,
+        ]) {
+          await tester.ensureVisible(control);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
       });
     }
   }

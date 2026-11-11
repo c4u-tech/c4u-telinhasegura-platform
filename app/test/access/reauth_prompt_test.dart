@@ -8,7 +8,7 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/reauth_prompt.dart';
 import 'package:telinha_segura/auth/provider_authenticator.dart';
 import 'package:telinha_segura/auth/provider_sign_in.dart';
-import 'package:telinha_segura/family/family_home_screen.dart';
+import 'package:telinha_segura/family/family_root_screen.dart';
 import 'package:telinha_segura/family/family_write.dart';
 import 'package:telinha_segura/shell/services.dart';
 
@@ -17,7 +17,7 @@ import 'harness.dart';
 
 const _password = 'uma senha bem comprida';
 
-/// The family home over a scripted API. [reauth] answers
+/// The family's root over a scripted API. [reauth] answers
 /// `POST /v1/session/reauth`; `DELETE /v1/family` answers
 /// `reauth_required` until a re-authentication succeeded.
 Future<Harness> signedIn(
@@ -48,12 +48,12 @@ Future<Harness> signedIn(
     },
   )..family = ownerFamily;
   unawaited(h.services.familyModel.load());
-  await h.pump(tester, size: size, textScale: textScale);
+  await h.pump(tester, initial: '/familia', size: size, textScale: textScale);
   return h;
 }
 
 BuildContext homeContext(WidgetTester tester) =>
-    tester.element(find.byType(FamilyHomeScreen));
+    tester.element(find.byType(FamilyRootScreen));
 
 /// Opens the prompt from the home; the future holds its answer.
 Future<bool> open(WidgetTester tester) {

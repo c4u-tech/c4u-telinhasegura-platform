@@ -212,7 +212,7 @@ class _AdultsScreenState extends State<AdultsScreen> {
     listenable: Listenable.merge([_model, _write]),
     builder: (context, _) => FieldLayout(
       title: 'Responsáveis',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch (_model.state) {
         FamilyReady(:final family) => _list(family),
         _ => familyPending(_model),

@@ -14,19 +14,20 @@ enum BandMotion {
   shrink,
 }
 
-/// Where the guardian layout draws its ink field on a screen of [size]
-/// with [padding] as safe area (Layout, FieldLayout): narrow,
-/// the 72 dp band inset 12 px at the sides and 8 px at the top under the
-/// head strip; wide, the 46% panel inset 16 px.
+/// Where the guardian's ink field stands on a screen of [size] with
+/// [padding] as safe area, the place a hand-over leaves from and an
+/// unlock returns to: narrow, the 72 dp band inset 12 px at the sides and
+/// 8 px at the top under the head strip; wide, the navigation's ink rail.
 RRect guardianBand(Size size, EdgeInsets padding) {
   final width = size.width - padding.horizontal;
   if (width >= FieldSizes.wideBreakpoint) {
-    const unit = 4.0;
+    const unit = ShellSizes.railUnit;
+    const inset = ShellSizes.railInset;
     return RRect.fromLTRBR(
-      padding.left + Space.lg,
-      padding.top + Space.lg + EspiadinhaPainter.height * unit,
-      padding.left + width * 0.46 - Space.lg,
-      size.height - padding.bottom - Space.lg,
+      padding.left + inset,
+      padding.top + inset + EspiadinhaPainter.height * unit,
+      padding.left + inset + ShellSizes.railWidth,
+      size.height - padding.bottom - inset,
       const Radius.circular(10 * unit),
     );
   }

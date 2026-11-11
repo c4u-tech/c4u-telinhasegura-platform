@@ -79,8 +79,8 @@ class _TeamScreenState extends State<TeamScreen> with RefetchOnReturn {
 
   @override
   Widget build(BuildContext context) => FieldLayout(
-    title: 'Equipe',
-    onBack: () => context.go(Routes.admin),
+    title: 'Pessoas da equipe',
+    onBack: () => context.go(Routes.staffHome),
     children: [
       if (widget.notice case final notice?) ...[
         Notice(notice(addressBreaks), semanticsLabel: notice(_plain)),

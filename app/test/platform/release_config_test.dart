@@ -12,6 +12,23 @@ const _flutterDefault1024Length = 10932;
 
 String _read(String path) => File(path).readAsStringSync();
 
+/// The first pixel of an 8-bit RGB PNG: the splash grounds are 1x1.
+List<int> _pixel(String path) {
+  final png = File(path).readAsBytesSync();
+  var offset = 8;
+  final idat = <int>[];
+  while (offset < png.length) {
+    final length = ByteData.sublistView(png).getUint32(offset);
+    final type = String.fromCharCodes(png.sublist(offset + 4, offset + 8));
+    if (type == 'IDAT') {
+      idat.addAll(png.sublist(offset + 8, offset + 8 + length));
+    }
+    offset += 12 + length;
+  }
+  // One scanline: filter byte, then R, G, B.
+  return ZLibCodec().decode(idat).sublist(1, 4);
+}
+
 void main() {
   group('Android', () {
     test('release is signed by the upload key, never the debug key', () {
@@ -197,36 +214,36 @@ void main() {
       expect(header.getUint32(20), 1024);
     });
 
-    test('the splash is the brand cream', () {
-      final styles = _read('android/app/src/main/res/values-v31/styles.xml');
-      expect(
-        styles,
-        matches(
-          RegExp(
-            r'windowSplashScreenBackground">#FBF6EC<',
-            caseSensitive: false,
+    // The splash opens on the icon's own ground: ink by day, the dark
+    // brand ground at night, so launching keeps one colour.
+    for (final (name, values, drawable, rgb) in [
+      ('ink', 'values-v31', 'drawable', [0x1E, 0x5B, 0x66]),
+      ('dark', 'values-night-v31', 'drawable-night', [0x0F, 0x2A, 0x30]),
+    ]) {
+      test('the $name splash is the brand $name', () {
+        final hex = rgb
+            .map((c) => c.toRadixString(16).padLeft(2, '0'))
+            .join()
+            .toUpperCase();
+        final styles = _read('android/app/src/main/res/$values/styles.xml');
+        expect(
+          styles,
+          matches(
+            RegExp(
+              'windowSplashScreenBackground">#$hex<',
+              caseSensitive: false,
+            ),
           ),
-        ),
-      );
-      expect(
-        _read('android/app/src/main/res/drawable/launch_background.xml'),
-        contains('@drawable/background'),
-      );
-      // The pre-12 splash ground is a 1x1 PNG; read its pixel (RGB, 8 bit).
-      final png = File('android/app/src/main/res/drawable/background.png')
-          .readAsBytesSync();
-      var offset = 8;
-      final idat = <int>[];
-      while (offset < png.length) {
-        final length = ByteData.sublistView(png).getUint32(offset);
-        final type = String.fromCharCodes(png.sublist(offset + 4, offset + 8));
-        if (type == 'IDAT') {
-          idat.addAll(png.sublist(offset + 8, offset + 8 + length));
-        }
-        offset += 12 + length;
-      }
-      // One scanline: filter byte, then R, G, B.
-      expect(ZLibCodec().decode(idat).sublist(1, 4), [0xFB, 0xF6, 0xEC]);
-    });
+        );
+        expect(
+          _read('android/app/src/main/res/$drawable/launch_background.xml'),
+          contains('@drawable/background'),
+        );
+        expect(
+          _pixel('android/app/src/main/res/$drawable/background.png'),
+          rgb,
+        );
+      });
+    }
   });
 }

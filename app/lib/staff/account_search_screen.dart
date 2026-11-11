@@ -164,7 +164,7 @@ class _AccountSearchScreenState extends State<AccountSearchScreen> {
       final minutes = _block.minutes;
       return FieldLayout(
         title: 'Buscar uma conta',
-        onBack: () => context.go(Routes.admin),
+        onBack: () => context.go(Routes.staffHome),
         children: [
           if (widget.notice case final notice?) ...[
             Notice(notice),

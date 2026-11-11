@@ -91,7 +91,7 @@ abstract final class CatalogWords {
   static String packCount(FamilyPack p, String nickname) {
     final playing = p.videos.where((v) => !v.hidden).toList();
     final total = p.videos.length;
-    return CurationWords.joined([
+    return CurationWords.tight([
       if (playing.length == total)
         CurationWords.videos(total)
       else
@@ -128,12 +128,6 @@ abstract final class CatalogWords {
     AgeBand.unknown => null,
   };
 
-  /// A child's row on the children's list.
-  static String bandRow(AgeBand band) => switch (_band(band)) {
-    final b? => 'Vídeos de $b',
-    null => 'Vídeos da faixa de idade da criança',
-  };
-
   /// An empty catalogue.
   static String empty(AgeBand band) => switch (_band(band)) {
     final b? => 'Ainda não há vídeos aprovados para crianças de $b.',
@@ -157,6 +151,6 @@ abstract final class CatalogWords {
   static String shown(String nickname) =>
       '$nickname pode ver este vídeo de novo.';
 
-  /// The report's way back.
-  static String backTo(String nickname) => 'Voltar para os vídeos de $nickname';
+  /// The report's way back, to the child's page.
+  static String backTo(String nickname) => 'Voltar para $nickname';
 }

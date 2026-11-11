@@ -121,8 +121,8 @@ void main() {
     for (final (roles, curation, admin) in [
       (<String>[], '/', '/'),
       (['curator'], '/curadoria', '/'),
-      (['admin'], '/', '/admin'),
-      (['admin', 'curator'], '/curadoria', '/admin'),
+      (['admin'], '/', '/equipe'),
+      (['admin', 'curator'], '/curadoria', '/equipe'),
     ]) {
       testWidgets('with roles $roles: /sugestoes renders, /curadoria lands on '
           '$curation, /admin on $admin', (tester) async {
@@ -133,24 +133,27 @@ void main() {
         expect(find.text('Sugestões'), findsOneWidget);
         expect(await open(tester, h, '/curadoria'), curation);
         expect(await open(tester, h, '/admin'), admin);
-        expect(
-          await open(tester, h, '/admin/equipe'),
-          admin == '/' ? '/' : '/admin/equipe',
-        );
-        expect(
-          await open(tester, h, '/admin/equipe/a2'),
-          admin == '/' ? '/' : '/admin/equipe/a2',
-        );
+        for (final path in [
+          '/admin/equipe',
+          '/admin/equipe/a2',
+          '/admin/numeros',
+        ]) {
+          expect(
+            await open(tester, h, path),
+            admin == '/' ? '/' : path,
+            reason: path,
+          );
+        }
       });
     }
 
-    for (final (path, title) in [
-      ('/sugestoes', 'Sugestões'),
-      ('/curadoria', 'Curadoria'),
-      ('/admin', 'Administração'),
+    for (final (path, title, back) in [
+      ('/sugestoes', 'Sugestões', '/'),
+      ('/curadoria', 'Revisar vídeos', '/equipe'),
+      ('/admin/numeros', 'Números da plataforma', '/equipe'),
     ]) {
       testWidgets('opened directly, $path reads the session for its '
-          'role, renders "$title" and goes back home', (tester) async {
+          'role, renders "$title" and goes back to $back', (tester) async {
         final h = guardian(roles: ['admin', 'curator']);
         await h.pump(tester, initial: path);
 
@@ -164,7 +167,7 @@ void main() {
         );
         await tester.tap(find.byTooltip('Voltar'));
         await tester.pumpAndSettle();
-        expect(h.location(tester), '/');
+        expect(h.location(tester), back);
       });
     }
 
@@ -209,7 +212,11 @@ void main() {
   group('takeLostRole', () {
     for (final (code, path, notice) in [
       ('not_curator', '/curadoria', 'Você não faz mais parte da curadoria.'),
-      ('not_admin', '/admin', 'Você não tem mais acesso à administração.'),
+      (
+        'not_admin',
+        '/admin/numeros',
+        'Você não tem mais acesso à administração.',
+      ),
     ]) {
       testWidgets('$code goes home with a notice, and the door goes with '
           'the session read again', (tester) async {
@@ -236,7 +243,7 @@ void main() {
     testWidgets('not_moderator goes home with a notice, and the session is '
         'read again', (tester) async {
       final h = guardian(roles: ['admin', 'moderator']);
-      await h.pump(tester, initial: '/admin');
+      await h.pump(tester, initial: '/admin/numeros');
       h.roles = ['admin'];
       final reads = h.calls.where((c) => c == 'GET /v1/session').length;
 

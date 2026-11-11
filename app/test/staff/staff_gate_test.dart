@@ -116,13 +116,13 @@ void main() {
     tester,
   ) async {
     final answer = Completer<http.Response>();
-    await gate(tester, initial: '/admin', status: () => answer.future);
+    await gate(tester, initial: '/admin/numeros', status: () => answer.future);
 
     expect(find.byType(FamilyPlaceholder), findsOneWidget);
-    expect(find.text('Equipe'), findsNothing);
+    expect(find.text('Contas'), findsNothing);
     answer.complete(json(200, elevated()));
     await tester.pumpAndSettle();
-    expect(find.text('Equipe'), findsOneWidget);
+    expect(find.text('Contas'), findsOneWidget);
   });
 
   testWidgets('a cancelled challenge goes home', (tester) async {
@@ -166,7 +166,7 @@ void main() {
   testWidgets('a cancelled enrollment goes home', (tester) async {
     final h = await gate(
       tester,
-      initial: '/admin',
+      initial: '/admin/numeros',
       status: () => json(200, mfaStatusJson(enrolled: false)),
     );
 
@@ -192,13 +192,13 @@ void main() {
 
   testWidgets('no new challenge or status read moving inside the area while '
       'elevated', (tester) async {
-    final h = await gate(tester, initial: '/admin');
+    final h = await gate(tester, initial: '/admin/numeros');
     await pass(tester);
     final reads = statusReads(h);
 
-    await tapText(tester, 'Equipe');
+    await go(tester, '/admin/equipe');
     await go(tester, '/moderacao/retidos');
-    await go(tester, '/admin/pacotinhos');
+    await go(tester, '/pacotinhos');
 
     expect(find.text(challengeTitle), findsNothing);
     expect(statusReads(h), reads);
@@ -220,8 +220,22 @@ void main() {
     expect(staffReads(h), ['GET /v1/moderation/videos?state=held']);
   });
 
-  for (final path in ['/curadoria', '/pacotinhos']) {
-    testWidgets('$path never reads the status', (tester) async {
+  for (final path in ['/pacotinhos', '/pacotinhos/p1']) {
+    testWidgets('$path is gated for an admin who is not a curator', (
+      tester,
+    ) async {
+      final h = await gate(tester, initial: path);
+
+      expect(find.text(challengeTitle), findsOneWidget);
+      expect(staffReads(h), isEmpty);
+      await pass(tester);
+      expect(h.location(tester), path);
+      expect(staffReads(h), hasLength(1));
+    });
+  }
+
+  for (final path in ['/curadoria', '/pacotinhos', '/pacotinhos/p1']) {
+    testWidgets('$path never reads the status for a curator', (tester) async {
       final h = await gate(
         tester,
         initial: path,
@@ -236,7 +250,11 @@ void main() {
   testWidgets('without the area\'s role: home, and no MFA call', (
     tester,
   ) async {
-    final h = await gate(tester, initial: '/admin', roles: const ['curator']);
+    final h = await gate(
+      tester,
+      initial: '/admin/numeros',
+      roles: const ['curator'],
+    );
 
     expect(h.location(tester), '/');
     expect(statusReads(h), 0);

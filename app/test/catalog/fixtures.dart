@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../access/harness.dart' show json, problem;
 import '../family/fixtures.dart';
+import '../screentime/fixtures.dart' show screenTimeApi;
 
 /// A guardian catalogue item as the API answers it.
 Map<String, Object?> familyItem(
@@ -121,13 +122,15 @@ final liaVideos = [
 /// The family's catalogue routes: [catalog] answers each read by minor
 /// and offset (Lia's one page by default), [write] every hide, unhide
 /// and report, and thumbnails answer two JPEG bytes unless [thumb] says
-/// otherwise.
+/// otherwise. A child's day answers as usual, for the child's page the
+/// catalogue's screens return to.
 FutureOr<http.Response> Function(http.Request) catalogApi({
   FutureOr<http.Response> Function(String minorId, int offset)? catalog,
   FutureOr<http.Response> Function(http.Request)? write,
   FutureOr<http.Response> Function(String videoId)? thumb,
 }) => (req) {
   final p = req.url.path;
+  if (p.startsWith('/v1/screentime/')) return screenTimeApi()(req);
   final read = RegExp(r'^/v1/family/minors/([^/]+)/catalog$').firstMatch(p);
   if (read != null) {
     final offset = int.parse(req.url.queryParameters['offset'] ?? '0');

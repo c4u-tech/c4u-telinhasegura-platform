@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
@@ -15,7 +16,7 @@ import 'package:telinha_segura/kid/shelves.dart' show HollowThumbnail;
 import 'package:telinha_segura/kid_mode/kid_mode_door.dart' show StateLine;
 
 import '../access/harness.dart';
-import '../curation/fixtures.dart' show nb;
+import '../curation/fixtures.dart' show nbt;
 import '../curation/appoint_screen_test.dart' show tapOn;
 import 'fixtures.dart';
 
@@ -117,7 +118,7 @@ void main() {
     expect(
       find.descendant(
         of: row('O sapo que pulava alto'),
-        matching: find.text(nb('Ciência Pequena · 6 min')),
+        matching: find.text(nbt('Ciência Pequena · 6 min')),
       ),
       findsOneWidget,
     );
@@ -132,7 +133,7 @@ void main() {
     expect(
       find.descendant(
         of: row('Gatinhos no quintal'),
-        matching: find.text(nb('Canal X · 4 min')),
+        matching: find.text(nbt('Canal X · 4 min')),
       ),
       findsOneWidget,
     );
@@ -145,7 +146,7 @@ void main() {
     expect(tester.widget<StateLine>(mark).words, 'Escondido para Lia');
     expect(
       tester.getTopLeft(mark).dy,
-      greaterThan(tester.getTopLeft(find.text(nb('Canal X · 4 min'))).dy),
+      greaterThan(tester.getTopLeft(find.text(nbt('Canal X · 4 min'))).dy),
       reason: 'its own line, under the channel and length',
     );
     expect(
@@ -157,13 +158,13 @@ void main() {
     );
     expect(
       find.bySemanticsLabel(
-        nb('Gatinhos no quintal, Canal X · 4 min, escondido para Lia'),
+        nbt('Gatinhos no quintal, Canal X · 4 min, escondido para Lia'),
       ),
       findsOne,
     );
     expect(
       find.bySemanticsLabel(
-        nb('O sapo que pulava alto, Ciência Pequena · 6 min'),
+        nbt('O sapo que pulava alto, Ciência Pequena · 6 min'),
       ),
       findsOne,
     );
@@ -242,7 +243,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.location(tester), '/familia/videos/m1/v1');
 
-    await tester.tap(find.byTooltip('Voltar').last);
+    // System back: the list stands beneath the video.
+    GoRouter.of(tester.element(find.byType(Scaffold).last))
+        .go('/familia/videos/m1');
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/familia/videos/m1');
@@ -285,20 +288,19 @@ void main() {
     expect(find.byType(VideoRow), findsNWidgets(3));
   });
 
-  testWidgets('a child the server does not know goes back to the list with '
-      'a notice', (tester) async {
+  testWidgets('a child the server does not know goes back to the children '
+      'with a notice', (tester) async {
     final h = await catalogue(
       tester,
       catalog: (_, _) => problem(404, 'not_found'),
     );
 
-    expect(h.location(tester), '/familia/videos');
+    expect(h.location(tester), '/familia/criancas');
     expect(find.widgetWithText(Notice, Copy.childGone), findsOneWidget);
   });
 
-  testWidgets('a notice brought back from a video stands above the list', (
-    tester,
-  ) async {
+  testWidgets('a notice brought back from a video stands on the child\'s '
+      'page', (tester) async {
     final h = await catalogue(tester);
 
     await tester.tap(row('O sapo que pulava alto'));
@@ -309,7 +311,7 @@ void main() {
     await tester.tap(hide);
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
     expect(find.widgetWithText(Notice, videoGone), findsOneWidget);
   });
 
@@ -360,20 +362,20 @@ void main() {
       expect(
         find.descendant(
           of: packRow('Bichos da fazenda'),
-          matching: find.text(nb('4 vídeos · 18 min')),
+          matching: find.text(nbt('4 vídeos · 18 min')),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: packRow('Hora de dormir'),
-          matching: find.text(nb('2 de 3 vídeos para Lia · 12 min')),
+          matching: find.text(nbt('2 de 3 vídeos para Lia · 12 min')),
         ),
         findsOneWidget,
       );
       expect(
         find.bySemanticsLabel(
-          nb('Bichos da fazenda, pacotinho, 4 vídeos · 18 min'),
+          nbt('Bichos da fazenda, pacotinho, 4 vídeos · 18 min'),
         ),
         findsOne,
       );
@@ -415,7 +417,9 @@ void main() {
       expect(find.byType(PackScreen), findsOneWidget);
       expect(reads(h), ['GET /v1/family/minors/m1/catalog?offset=0']);
 
-      await tester.tap(find.byTooltip('Voltar').last);
+      // System back: the list stands beneath the pacotinho.
+      GoRouter.of(tester.element(find.byType(Scaffold).last))
+          .go('/familia/videos/m1');
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/familia/videos/m1');
@@ -427,12 +431,12 @@ void main() {
     });
   });
 
-  testWidgets('back returns to the children', (tester) async {
+  testWidgets('back returns to the child\'s page', (tester) async {
     final h = await catalogue(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/videos');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 }

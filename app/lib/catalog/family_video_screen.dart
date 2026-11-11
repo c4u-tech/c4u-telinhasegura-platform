@@ -13,12 +13,12 @@ import '../curation/family_catalog.dart';
 import '../curation/video_heading.dart';
 import '../design/field_layout.dart';
 import '../design/tokens.dart';
+import '../family/child_page.dart' show leaveForGoneChild;
 import '../family/family.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'catalog_children_screen.dart' show leaveForGoneChild;
 import 'words.dart';
 
 /// In the window's place when the player could not play the video:
@@ -130,7 +130,7 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
 
   void _toCatalogue() {
     _leaving = true;
-    context.go(Routes.childVideos(widget.minorId), extra: videoGone);
+    context.go(Routes.child(widget.minorId), extra: videoGone);
   }
 
   /// The catalogue read answered `not_found`: the child is gone.
@@ -183,7 +183,7 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
       }
       return FieldLayout(
         title: 'Vídeo',
-        onBack: () => context.go(Routes.childVideos(widget.minorId)),
+        onBack: () => context.go(Routes.child(widget.minorId)),
         children: minor == null ? familyPending(_model) : _body(minor),
       );
     },

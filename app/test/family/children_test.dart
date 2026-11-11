@@ -75,13 +75,13 @@ void main() {
     expect(h.location(tester), '/familia/criancas/nova');
   });
 
-  testWidgets('back returns to the family home', (tester) async {
+  testWidgets('back returns to Família', (tester) async {
     final h = await children(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/');
+    expect(h.location(tester), '/familia');
   });
 
   testWidgets('with no children, it says what a profile holds, what the '

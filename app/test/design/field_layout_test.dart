@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/espiadinha.dart';
 import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/design/theme.dart';
+
+import 'pump.dart' show brandAssets;
 
 double headRise(WidgetTester tester) => tester
     .widgetList<CustomPaint>(find.byType(CustomPaint))
@@ -13,6 +16,7 @@ double headRise(WidgetTester tester) => tester
 
 void main() {
   wideAtLargeText();
+  wordmarkInTheField();
   testWidgets('"o sol sobe" plays when rise turns on in a layout already '
       'shown (a confirmation on the same screen)', (tester) async {
     final rise = ValueNotifier(false);
@@ -88,5 +92,61 @@ void wideAtLargeText() {
         reason: 'in the task column, not the panel',
       );
     });
+  });
+}
+
+// The head already peeks over the ink field, so the field carries the
+// wordmark alone, as its name plate: centred under the head, and never
+// the smallest text in the field.
+void wordmarkInTheField() {
+  group('the field carries the wordmark, not a second mark', () {
+    for (final (name, size, width, back, floor) in [
+      ('narrow band', FieldSize.band, 390.0, false, 20.0),
+      ('narrow band with a back control', FieldSize.band, 320.0, true, 20.0),
+      ('narrow hero', FieldSize.hero, 390.0, false, 26.0),
+      ('narrow hero with a back control', FieldSize.hero, 320.0, true, 26.0),
+      ('wide panel', FieldSize.hero, 1280.0, false, 26.0),
+    ]) {
+      testWidgets('the $name centres the reversed wordmark under the head, '
+          'at least $floor tall', (tester) async {
+        final view = Size(width, 844);
+        tester.view.physicalSize = view;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildTheme(Brightness.light),
+            home: FieldLayout(
+              title: 'Título',
+              size: size,
+              onBack: back ? () {} : null,
+              children: const [],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final assets = brandAssets(tester, find.byType(FieldLayout));
+        expect(assets.map((a) => a.$1), [
+          'assets/brand/telinha-segura-wordmark-reversed.svg',
+        ]);
+        final wordmark = find.byType(SvgPicture);
+        expect(tester.getSize(wordmark).height, greaterThanOrEqualTo(floor));
+        expect(
+          tester.getCenter(wordmark).dx,
+          moreOrLessEquals(
+            tester.getCenter(find.byType(PeekingHead)).dx,
+            epsilon: 2,
+          ),
+        );
+        expect(find.bySemanticsLabel('Telinha Segura'), findsOneWidget);
+        if (back) {
+          // The back control keeps the start, clear of the name plate.
+          final control = tester.getRect(find.byTooltip('Voltar'));
+          expect(control.left, lessThan(tester.getRect(wordmark).left));
+          expect(control.overlaps(tester.getRect(wordmark)), isFalse);
+        }
+      });
+    }
   });
 }

@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 
 import '../access/copy.dart';
 import '../access/widgets.dart';
+import '../auth/auth_api.dart' show PlatformRole;
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
+import 'admin_pack_screen.dart' show RemovePackAction;
 import 'adult_window.dart';
 import 'curation.dart';
 import 'pack.dart';
@@ -43,7 +45,8 @@ const packVideoFailed = 'Esse vídeo não abriu aqui.';
 /// Pedagogo(a) · Rodada 2", this round's reviews by displayed role; then
 /// the videos in order, each a door to watch it, and the total; then,
 /// for a round the curator may review, the doors "Aprovar" and
-/// "Recusar", and for any pacotinho the quiet "Mudar o pacotinho".
+/// "Recusar", and for any pacotinho the quiet "Mudar o pacotinho"; for a
+/// curator who is also an admin, the clay quiet "Remover de vez" under it.
 class PackReviewScreen extends StatefulWidget {
   const PackReviewScreen({super.key, required this.id});
 
@@ -81,13 +84,21 @@ class _PackReviewScreenState extends State<PackReviewScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => FieldLayout(
-    title: 'Revisar pacotinho',
-    onBack: () => context.go(Routes.packs),
-    children: _body(),
-  );
+  Widget build(BuildContext context) {
+    final model = AppScope.of(context).familyModel;
+    return ListenableBuilder(
+      listenable: model,
+      builder: (context, _) => FieldLayout(
+        title: 'Revisar pacotinho',
+        onBack: () => context.go(Routes.packs),
+        children: _body(
+          admin: model.roles?.contains(PlatformRole.admin) ?? false,
+        ),
+      ),
+    );
+  }
 
-  List<Widget> _body() {
+  List<Widget> _body({required bool admin}) {
     final p = _pack;
     if (p == null) {
       if (!_failed) {
@@ -170,6 +181,10 @@ class _PackReviewScreenState extends State<PackReviewScreen> {
           label: 'Mudar o pacotinho',
           onPressed: () => context.go(Routes.recompose(p.id)),
         ),
+        if (admin) ...[
+          const SizedBox(height: Space.lg),
+          RemovePackAction(pack: p),
+        ],
       ],
     ];
   }

@@ -175,14 +175,21 @@ a:hover {
   padding: var(--xl) var(--xl) var(--xxl);
 }
 
-.lockup {
-  justify-self: start;
-  display: block;
+/* The head already peeks over the field, so the field carries the
+   wordmark alone as its name plate: centred under the head, and never the
+   smallest text in the field. The heights are the wordmark's box, from
+   ascender to descender. */
+.wordmark {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
   border-radius: 8px;
 }
 
-.lockup img {
-  height: 32px;
+.wordmark img {
+  display: block;
+  height: 28px;
   width: auto;
 }
 
@@ -288,8 +295,12 @@ a:hover {
     column-gap: var(--xxxl);
   }
 
-  .letterhead .lockup {
+  .letterhead .wordmark {
     grid-column: 1 / -1;
+  }
+
+  .letterhead .wordmark img {
+    height: 32px;
   }
 
   .promise {
@@ -314,7 +325,7 @@ a:hover {
 
 /* ----------------------------------------------------------------- band */
 
-/* Every Read page: the task screen's 72 px band with the lockup. */
+/* Every Read page: the task screen's 72 px band with the wordmark. */
 .band {
   --unit: 1.75px;
   padding: var(--sm) var(--md) 0;
@@ -331,8 +342,44 @@ a:hover {
   padding: var(--sm) var(--sm) var(--sm) var(--lg);
 }
 
-.band .lockup img {
-  height: 24px;
+.band .wordmark {
+  min-height: 24px;
+}
+
+.band .wordmark img {
+  height: 20px;
+}
+
+/* On a narrow phone the name plate and the action share the band: the
+   wordmark keeps the start and the action may break onto two lines. */
+@media (max-width: 599.98px) {
+  .band .wordmark {
+    flex: none;
+  }
+
+  .band .band-action {
+    white-space: normal;
+    text-align: end;
+  }
+}
+
+/* With room for both, the name plate sits on the head's axis, the action
+   at the end: three columns, the outer two equal, even padding. */
+@media (min-width: 600px) {
+  .band .field {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    padding-inline: var(--sm);
+  }
+
+  .band .wordmark {
+    grid-column: 2;
+  }
+
+  .band .band-action {
+    grid-column: 3;
+    justify-self: end;
+  }
 }
 
 .band-action {
@@ -561,7 +608,11 @@ strong {
 }
 
 .contents a {
-  display: inline-block;
+  /* A block link puts its first line in the item's first line box, where
+     the number sits; an inline-block would carry the number down to its
+     last line. The width stays the text's, so the target is the words. */
+  display: block;
+  width: fit-content;
   padding: var(--sm) 0;
   min-height: 48px;
 }

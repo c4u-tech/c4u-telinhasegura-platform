@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 
 import '../access/harness.dart';
+import '../family/fixtures.dart';
 
 /// A child's rules as `GET /v1/screentime/minors/:id` answers them.
 Map<String, Object?> rulesJson({
@@ -30,9 +31,10 @@ Map<String, Object?> rulesJson({
 };
 
 /// The last seven days as the server sends them, oldest first, today
-/// (2026-10-05, a Monday) last; [minutes] lists them today first.
+/// (2026-10-05, a Monday) last; [minutes] lists them today first. Today's
+/// 40 minutes are the ones [rulesJson] counts by default.
 Map<String, Object?> usageJson([
-  List<int> minutes = const [45, 70, 0, 0, 0, 0, 0],
+  List<int> minutes = const [40, 70, 0, 0, 0, 0, 0],
 ]) => {
   'days': [
     for (var i = 6; i >= 0; i--)
@@ -71,3 +73,9 @@ FutureOr<http.Response> Function(http.Request) screenTimeApi({
   }
   return (rules[rest.first] ?? () => json(200, rulesJson()))();
 };
+
+/// Lia (5 to 8) and Téo (up to 4).
+final liaFamily = familyWith([
+  minorJson('m1', 'Lia'),
+  minorJson('m2', 'Téo', avatar: 'owl', ageBand: 'ate-4'),
+]);

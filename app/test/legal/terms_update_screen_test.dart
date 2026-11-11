@@ -119,7 +119,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.location(tester), path);
-      expect(h.actions, isEmpty);
+      expect(h.actionsPastHome, isEmpty);
     });
   }
 
@@ -163,7 +163,7 @@ void main() {
     await tester.tap(find.text('Concordo'));
     await tester.pumpAndSettle();
 
-    expect(h.actions, [
+    expect(h.actionsPastHome, [
       'POST /v1/account/terms {"terms_version":"$kTermsVersion"}',
     ]);
     expect(
@@ -199,7 +199,7 @@ void main() {
     await tester.tap(find.text('Sair da conta'));
     await tester.pumpAndSettle();
 
-    expect(h.actions, ['DELETE /v1/session']);
+    expect(h.actionsPastHome, ['DELETE /v1/session']);
     expect(h.location(tester), '/entrar');
     expect(find.byType(EntryScreen), findsOneWidget);
   });

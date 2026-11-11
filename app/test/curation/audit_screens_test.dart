@@ -15,6 +15,7 @@ import '../family/fixtures.dart';
 import 'appoint_screen_test.dart' show tapOn;
 import 'fixtures.dart';
 import 'held_video_screen_test.dart' show confirming;
+import 'queue_screen_test.dart' show goTo;
 
 Map<String, Object?> approvalOf(String role, Map<String, String>? answers) => {
   'display_role': role,
@@ -86,13 +87,20 @@ Future<void> open(WidgetTester tester) =>
     tapOn(tester, find.widgetWithText(DoorRow, 'Baby Shark'));
 
 void main() {
-  testWidgets('the held videos open the audit', (tester) async {
+  testWidgets('Equipe opens the sample, its back returns there, and the '
+      'held videos no longer hold a second door to it', (tester) async {
     final h = await auditing(tester, initial: '/moderacao/retidos');
+    expect(find.widgetWithText(DoorRow, sampleTitle), findsNothing);
 
-    await tapOn(tester, find.widgetWithText(DoorRow, auditDoor));
+    goTo(tester, '/equipe');
+    await tester.pumpAndSettle();
+    await tapOn(tester, find.widgetWithText(DoorRow, sampleTitle));
 
     expect(h.location(tester), '/moderacao/auditoria');
+    expect(find.text(sampleTitle), findsWidgets);
     expect(find.text(sampleLead), findsOneWidget);
+    await tapOn(tester, find.byTooltip('Voltar'));
+    expect(h.location(tester), '/equipe');
   });
 
   testWidgets('the sample lists each video as a door', (tester) async {

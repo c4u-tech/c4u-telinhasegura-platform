@@ -9,6 +9,7 @@ import 'package:telinha_segura/access/entry_screen.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/design/band_transition.dart';
+import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/design/pin_pad.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
@@ -154,9 +155,14 @@ void main() {
 
     expect(closing, findsOneWidget, reason: 'the ink is still closing');
     expect(find.byType(FamilyHomeScreen), findsOneWidget);
-    expect(find.text('Sua família'), findsOneWidget);
-    final title = tester.getRect(find.text('Sua família'));
     final home = find.byType(FamilyHomeScreen);
+    // Início's greeting, whatever the hour.
+    final greeting = find.descendant(
+      of: home,
+      matching: find.byType(DisplayTitle),
+    );
+    expect(greeting, findsOneWidget);
+    final title = tester.getRect(greeting);
     expect(
       find.ancestor(
         of: home,
@@ -180,7 +186,7 @@ void main() {
     expect(BrandColors.ink.a, 1.0);
 
     await tester.pumpAndSettle();
-    expect(tester.getRect(find.text('Sua família')), title);
+    expect(tester.getRect(greeting), title);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('under reduced motion the family home comes in a cut', (
