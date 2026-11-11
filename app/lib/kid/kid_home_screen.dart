@@ -296,7 +296,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   Widget _note(String message) => Padding(
     key: _noteKey,
     padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
-    child: KidErrorNote(message),
+    child: KidErrorNote(message, asleep: restsNote(message)),
   );
 
   Future<Uint8List> _thumbnail(String id) =>
@@ -404,7 +404,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
             const SizedBox(height: Space.xxxl),
             // Paused, the line below already says why nothing opens.
             if (_notice case final notice? when !asleep && !paused) ...[
-              KidErrorNote(notice),
+              KidErrorNote(notice, asleep: restsNote(notice)),
               const SizedBox(height: Space.xl),
             ],
             if (_failed)

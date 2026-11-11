@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/curation/curation.dart';
+import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
 import 'package:telinha_segura/kid/player_screen.dart';
@@ -63,6 +65,30 @@ void main() {
     expect(h.location(tester), '/crianca');
     expect(find.byType(KidErrorNote), findsOne);
     expect(find.text(PlayerScreen.doesNotFit), findsOne);
+  });
+
+  testWidgets('the note for a video that does not fit is the sleepy '
+      'telinha, calm, not the error tone', (tester) async {
+    await shelves(tester, catalog: () => json(200, notAll));
+
+    await tester.tap(tilesIn(shelfOf(VideoTheme.bichos)).at(1));
+    await tester.pumpAndSettle();
+
+    final note = tester.widget<KidErrorNote>(find.byType(KidErrorNote));
+    expect(note.asleep, isTrue);
+    final painter = find.descendant(
+      of: find.byType(KidErrorNote),
+      matching: find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is EmptyShelfPainter,
+      ),
+    );
+    expect(
+      (tester.widget<CustomPaint>(painter).painter! as EmptyShelfPainter)
+          .asleep,
+      isTrue,
+    );
+    final line = tester.widget<Text>(find.text(PlayerScreen.doesNotFit));
+    expect(line.style?.color, isNot(Palette.kid.error));
   });
 
   testWidgets('a pacotinho that does not fit rests, is read so, and a tap '

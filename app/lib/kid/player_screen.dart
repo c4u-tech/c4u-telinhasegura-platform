@@ -316,6 +316,11 @@ String? refusalNote(Object error) => switch (error) {
   _ => PlayerScreen.cannotOpen,
 };
 
+/// Whether [note] says only that a video or pacotinho is longer than the
+/// time left: nothing went wrong, so it is said asleep, not as an error.
+bool restsNote(String note) =>
+    note == PlayerScreen.doesNotFit || note == PlayerScreen.packDoesNotFit;
+
 /// A refusal no other video escapes: the day ran out, or the profile is
 /// paused until a guardian authorizes it again.
 bool refusesEvery(Object error) =>
