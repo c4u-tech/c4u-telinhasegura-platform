@@ -136,7 +136,7 @@ Future<void> capture(WidgetTester tester, Profile p, Frame f) async {
   for (final phrase in f.mustShow) {
     final finder = find.textContaining(phrase);
     expect(finder, findsWidgets, reason: '${f.number} must show "$phrase"');
-    final rect = tester.getRect(finder.first);
+    final rect = _painted(tester, finder.first);
     expect(
       _inside(rect, viewport),
       isTrue,
@@ -162,6 +162,24 @@ Future<void> capture(WidgetTester tester, Profile p, Frame f) async {
       ..createSync(recursive: true);
     file.writeAsBytesSync(bytes!.buffer.asUint8List());
   });
+}
+
+/// Where [text]'s glyphs stand on the screen: a title stretched across a
+/// wide column paints its words only at the start of its box.
+Rect _painted(WidgetTester tester, Finder text) {
+  final rich = find.descendant(of: text, matching: find.byType(RichText));
+  final paragraph = tester.renderObject<RenderParagraph>(
+    rich.evaluate().isEmpty ? text : rich.first,
+  );
+  final length = paragraph.text.toPlainText().length;
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(baseOffset: 0, extentOffset: length),
+  );
+  if (boxes.isEmpty) return tester.getRect(text);
+  final local = boxes
+      .map((b) => b.toRect())
+      .reduce((a, b) => a.expandToInclude(b));
+  return MatrixUtils.transformRect(paragraph.getTransformTo(null), local);
 }
 
 bool _inside(Rect inner, Rect outer) =>
