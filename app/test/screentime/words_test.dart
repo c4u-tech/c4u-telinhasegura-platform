@@ -63,7 +63,7 @@ void main() {
   test('the rules read as one line', () {
     expect(
       ScreenTimeWords.rules(rulesWith()),
-      '90 min por dia · das 08:00 '
+      '90 min por dia\u00A0·\u00A0das 08:00 '
       'às 19:30',
     );
   });

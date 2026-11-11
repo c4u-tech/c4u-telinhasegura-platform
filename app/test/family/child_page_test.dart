@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -25,6 +26,7 @@ import 'package:telinha_segura/shell/guardian_shell.dart';
 import '../access/harness.dart';
 import '../catalog/fixtures.dart';
 import '../screentime/fixtures.dart';
+import '../design/pump.dart' show linesOf;
 import 'fixtures.dart';
 
 const phone = Size(412, 915);
@@ -136,6 +138,23 @@ void main() {
       expect(profile.left, today.left);
       expect(profile.right, videos.right);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('in a paired column, no meta line ends on its dot', (
+      tester,
+    ) async {
+      await childPage(tester, size: const Size(1317, 823));
+
+      final metas = find.byWidgetPredicate(
+        (w) => w is Text && (w.data?.contains('·') ?? false),
+      );
+      expect(metas, findsWidgets);
+      for (final e in metas.evaluate()) {
+        final paragraph = e.findRenderObject()! as RenderParagraph;
+        for (final line in linesOf(paragraph)) {
+          expect(line.trimRight(), isNot(endsWith('·')), reason: line);
+        }
+      }
     });
 
     testWidgets('side by side on dark too', (tester) async {
@@ -454,7 +473,7 @@ void main() {
       );
 
       for (final line in [
-        '90 min por dia · das 08:00 às 19:30',
+        '90 min por dia\u00A0·\u00A0das 08:00 às 19:30',
         'Padrão da faixa 5 a 8 anos',
       ]) {
         expect(
@@ -558,7 +577,7 @@ void main() {
         matching: find.byType(TextButton),
       );
       expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
-      final meta = find.text('Ciência Pequena\u00a0· 6\u00a0min');
+      final meta = find.text('Ciência Pequena\u00a0·\u00a06\u00a0min');
       final gap =
           tester.getTopLeft(find.text('Esconder').first).dy -
           tester.getBottomLeft(meta.first).dy;

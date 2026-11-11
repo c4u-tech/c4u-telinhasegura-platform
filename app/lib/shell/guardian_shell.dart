@@ -111,9 +111,7 @@ class _GuardianShellState extends State<GuardianShell> {
   Future<bool> _leaveFromItem() async {
     final path = widget.path;
     if (!_split ||
-        !Panes.isPaneRoot(path) ||
-        Panes.roots.contains(path) ||
-        Routes.isMfaScreen(path) ||
+        !Panes.leavesOnBack(path) ||
         !(ModalRoute.of(context)?.isCurrent ?? true)) {
       return false;
     }
@@ -178,6 +176,7 @@ class _GuardianShellState extends State<GuardianShell> {
                       rises: _rises,
                       pane: Pane.detail,
                       paneRoot: Panes.isPaneRoot,
+                      leavesOnBack: Panes.leavesOnBack,
                       child: content,
                     ),
                   )

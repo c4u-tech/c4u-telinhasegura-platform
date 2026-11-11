@@ -16,7 +16,7 @@ import 'package:telinha_segura/kid/shelves.dart' show HollowThumbnail;
 import 'package:telinha_segura/kid_mode/kid_mode_door.dart' show StateLine;
 
 import '../access/harness.dart';
-import '../curation/fixtures.dart' show nb;
+import '../curation/fixtures.dart' show nbt;
 import '../curation/appoint_screen_test.dart' show tapOn;
 import 'fixtures.dart';
 
@@ -118,7 +118,7 @@ void main() {
     expect(
       find.descendant(
         of: row('O sapo que pulava alto'),
-        matching: find.text(nb('Ciência Pequena · 6 min')),
+        matching: find.text(nbt('Ciência Pequena · 6 min')),
       ),
       findsOneWidget,
     );
@@ -133,7 +133,7 @@ void main() {
     expect(
       find.descendant(
         of: row('Gatinhos no quintal'),
-        matching: find.text(nb('Canal X · 4 min')),
+        matching: find.text(nbt('Canal X · 4 min')),
       ),
       findsOneWidget,
     );
@@ -146,7 +146,7 @@ void main() {
     expect(tester.widget<StateLine>(mark).words, 'Escondido para Lia');
     expect(
       tester.getTopLeft(mark).dy,
-      greaterThan(tester.getTopLeft(find.text(nb('Canal X · 4 min'))).dy),
+      greaterThan(tester.getTopLeft(find.text(nbt('Canal X · 4 min'))).dy),
       reason: 'its own line, under the channel and length',
     );
     expect(
@@ -158,13 +158,13 @@ void main() {
     );
     expect(
       find.bySemanticsLabel(
-        nb('Gatinhos no quintal, Canal X · 4 min, escondido para Lia'),
+        nbt('Gatinhos no quintal, Canal X · 4 min, escondido para Lia'),
       ),
       findsOne,
     );
     expect(
       find.bySemanticsLabel(
-        nb('O sapo que pulava alto, Ciência Pequena · 6 min'),
+        nbt('O sapo que pulava alto, Ciência Pequena · 6 min'),
       ),
       findsOne,
     );
@@ -362,20 +362,20 @@ void main() {
       expect(
         find.descendant(
           of: packRow('Bichos da fazenda'),
-          matching: find.text(nb('4 vídeos · 18 min')),
+          matching: find.text(nbt('4 vídeos · 18 min')),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: packRow('Hora de dormir'),
-          matching: find.text(nb('2 de 3 vídeos para Lia · 12 min')),
+          matching: find.text(nbt('2 de 3 vídeos para Lia · 12 min')),
         ),
         findsOneWidget,
       );
       expect(
         find.bySemanticsLabel(
-          nb('Bichos da fazenda, pacotinho, 4 vídeos · 18 min'),
+          nbt('Bichos da fazenda, pacotinho, 4 vídeos · 18 min'),
         ),
         findsOne,
       );

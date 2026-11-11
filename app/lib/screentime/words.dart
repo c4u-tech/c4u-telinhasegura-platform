@@ -18,9 +18,10 @@ abstract final class ScreenTimeWords {
   static int limit(ScreenTimeRules rules) =>
       rules.dailyMinutes + rules.today.extensionMinutes;
 
-  /// "90 min por dia · das 08:00 às 19:30".
+  /// "90 min por dia · das 08:00 às 19:30", its dot glued to both
+  /// neighbours so it never ends or opens a line.
   static String rules(ScreenTimeRules rules) =>
-      '${rules.dailyMinutes} min por dia · das ${rules.windowStart} às '
+      '${rules.dailyMinutes} min por dia\u00A0·\u00A0das ${rules.windowStart} às '
       '${rules.windowEnd}';
 
   static const _weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];

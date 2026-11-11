@@ -129,6 +129,14 @@ abstract final class Panes {
   static bool isPaneRoot(String pattern) =>
       roots.contains(pattern) || _items.contains(pattern);
 
+  /// Whether back from a page (named by its path pattern) beside the list
+  /// leaves the place, as a root's back does on a phone: an item's first
+  /// level, the root under it showing the same item. The second factor's
+  /// screens keep the router's back, which asks before recovery codes on
+  /// screen go.
+  static bool leavesOnBack(String pattern) =>
+      _items.contains(pattern) && !Routes.isMfaScreen(pattern);
+
   /// The item a place's root opens on arrival: the children, the email,
   /// and the team's first row for the [roles] held.
   static String? firstOf(String root, Set<PlatformRole>? roles) =>

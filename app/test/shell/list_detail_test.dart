@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/display_title.dart';
+import 'package:telinha_segura/family/child_page.dart';
 import 'package:telinha_segura/family/children_screen.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/widgets.dart';
@@ -458,6 +460,51 @@ void main() {
         expect(h.location(tester), path);
       });
     }
+
+    group('on iOS', () {
+      /// Runs [body] as on an iPhone or iPad, the platform put back before
+      /// the test ends.
+      Future<void> onIos(Future<void> Function() body) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        try {
+          await body();
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      }
+
+      ModalRoute<Object?> routeOf(WidgetTester tester, Finder page) =>
+          ModalRoute.of(tester.element(page))!;
+
+      testWidgets('an item\'s first level beside the list takes no back '
+          'swipe; a deeper page still does', (tester) async {
+        await onIos(() async {
+          await appAt(tester, '/familia/criancas');
+          expect(
+            routeOf(tester, find.byType(ChildrenScreen)).popGestureEnabled,
+            isFalse,
+          );
+
+          go(tester, '/familia/criancas/m1');
+          await tester.pumpAndSettle();
+          expect(
+            routeOf(tester, find.byType(ChildPage)).popGestureEnabled,
+            isTrue,
+          );
+        });
+      });
+
+      testWidgets('on a phone the item keeps its back swipe', (tester) async {
+        await onIos(() async {
+          await appAt(tester, '/familia/criancas', size: phone);
+
+          expect(
+            routeOf(tester, find.byType(ChildrenScreen)).popGestureEnabled,
+            isTrue,
+          );
+        });
+      });
+    });
 
     testWidgets('below an item\'s first level, system back still walks the '
         'detail', (tester) async {

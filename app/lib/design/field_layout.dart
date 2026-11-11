@@ -48,6 +48,7 @@ class ShellFrame extends InheritedWidget {
     this.chosen,
     this.chosenAtFirstLevel = false,
     this.paneRoot,
+    this.leavesOnBack,
     required super.child,
   });
 
@@ -72,6 +73,11 @@ class ShellFrame extends InheritedWidget {
   /// elsewhere, so it shows no back control.
   final bool Function(String pattern)? paneRoot;
 
+  /// In the detail pane, whether back from a page (named by its route's
+  /// path pattern) leaves the place rather than popping to its root, so
+  /// the page takes no back swipe.
+  final bool Function(String pattern)? leavesOnBack;
+
   static ShellFrame? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ShellFrame>();
 
@@ -88,7 +94,8 @@ class ShellFrame extends InheritedWidget {
       old.pane != pane ||
       old.chosen != chosen ||
       old.chosenAtFirstLevel != chosenAtFirstLevel ||
-      old.paneRoot != paneRoot;
+      old.paneRoot != paneRoot ||
+      old.leavesOnBack != leavesOnBack;
 }
 
 /// The access surface's frame. The flat ink field is the Espiadinha's
@@ -153,12 +160,19 @@ class FieldLayout extends StatelessWidget {
   /// Whether this screen is the first level of the detail pane's item,
   /// read from its page's path pattern (never from the router's state,
   /// which a page being redirected away cannot resolve).
-  static bool _atPaneRoot(BuildContext context, ShellFrame frame) {
-    final paneRoot = frame.paneRoot;
-    if (frame.pane != Pane.detail || paneRoot == null) return false;
+  static bool _atPaneRoot(BuildContext context, ShellFrame frame) =>
+      _pageIs(context, frame, frame.paneRoot);
+
+  /// Whether [test] holds for this page's path pattern in the detail pane.
+  static bool _pageIs(
+    BuildContext context,
+    ShellFrame frame,
+    bool Function(String pattern)? test,
+  ) {
+    if (frame.pane != Pane.detail || test == null) return false;
     final key = ModalRoute.of(context)?.settings;
     return switch (key) {
-      Page(key: ValueKey<String>(:final value)) => paneRoot(value),
+      Page(key: ValueKey<String>(:final value)) => test(value),
       _ => false,
     };
   }
@@ -181,13 +195,18 @@ class FieldLayout extends StatelessWidget {
     );
     final frame = ShellFrame.maybeOf(context);
     if (frame != null && frame.rail) {
-      return _RailFramed(
+      final framed = _RailFramed(
         task: task,
         onBack: _atPaneRoot(context, frame) ? null : onBack,
         rise: rise,
         rises: frame.rises,
         pane: frame.pane,
       );
+      // Back from here leaves the place (the shell sees to it), so no
+      // swipe pops to the root beneath, which shows this same page.
+      return _pageIs(context, frame, frame.leavesOnBack)
+          ? PopScope(canPop: false, child: framed)
+          : framed;
     }
     return Scaffold(
       body: SafeArea(

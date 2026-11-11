@@ -11,7 +11,7 @@ import 'package:telinha_segura/catalog/words.dart';
 import 'package:telinha_segura/kid_mode/kid_mode_door.dart' show StateLine;
 
 import '../access/harness.dart';
-import '../curation/fixtures.dart' show nb;
+import '../curation/fixtures.dart' show nb, nbt;
 import '../curation/appoint_screen_test.dart' show tapOn;
 import 'child_catalog_screen_test.dart' show catalogue, packRow, reads;
 import 'fixtures.dart';
@@ -38,7 +38,7 @@ void main() {
     final order = [
       find.text('Pacotinho'),
       find.text('Hora de dormir'),
-      find.text(nb('2 de 3 vídeos para Lia · 12 min')),
+      find.text(nbt('2 de 3 vídeos para Lia · 12 min')),
       plainText(
         'Montado por mãe ou pai · revisado por 2 pedagogos(as) · última '
         'revisão há 3 dias',

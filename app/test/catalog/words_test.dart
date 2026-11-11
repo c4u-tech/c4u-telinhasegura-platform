@@ -66,6 +66,14 @@ void main() {
       );
     });
 
+    test('its dot holds to both neighbours, so it never ends a line', () {
+      final count = CatalogWords.packCount(
+        pack([(300, false), (240, true), (420, false)]),
+        'Lia',
+      );
+      expect(count, contains('Lia\u00A0·\u00A012'));
+    });
+
     test('who built it, who approved it by role and when', () {
       expect(
         plain(

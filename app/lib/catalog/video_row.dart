@@ -39,7 +39,7 @@ class VideoRow extends StatelessWidget {
       titleMaxLines: large ? 4 : 2,
       semanticsLabel: [
         video.title,
-        CurationWords.joined(parts),
+        CurationWords.tight(parts),
         if (video.hidden) 'escondido para $nickname',
       ].join(', '),
       leading: large
@@ -50,7 +50,7 @@ class VideoRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            CurationWords.joined(parts),
+            CurationWords.tight(parts),
             style: Theme.of(context).textTheme.bodyMedium
                 ?.copyWith(color: context.palette.muted),
           ),

@@ -91,7 +91,7 @@ abstract final class CatalogWords {
   static String packCount(FamilyPack p, String nickname) {
     final playing = p.videos.where((v) => !v.hidden).toList();
     final total = p.videos.length;
-    return CurationWords.joined([
+    return CurationWords.tight([
       if (playing.length == total)
         CurationWords.videos(total)
       else

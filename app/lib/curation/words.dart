@@ -110,6 +110,14 @@ abstract final class CurationWords {
   /// [parts] joined by [dot].
   static String joined(Iterable<String> parts) => parts.join(dot);
 
+  /// The dot of a short meta line under a row's title ("2 de 3 vídeos
+  /// para Lia · 12 min"), glued to both neighbours: in a narrow column it
+  /// neither opens nor ends a line, the line breaking between words.
+  static const tightDot = '$_nbsp·$_nbsp';
+
+  /// [parts] joined by [tightDot].
+  static String tight(Iterable<String> parts) => parts.join(tightDot);
+
   /// A video's length, rounded down to the minute: "menos de 1 min",
   /// "4 min", "1 h", "1 h 05 min", every inner space non-breaking so a
   /// length never parts across lines.
