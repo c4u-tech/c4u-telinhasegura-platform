@@ -72,6 +72,9 @@ class PackTile extends StatelessWidget {
       : narrow;
 
   static String label(KidPack pack) =>
+      VideoTile.label(_named(pack), resting: !pack.fits);
+
+  static String _named(KidPack pack) =>
       '${pack.title}, pacotinho de ${pack.videos.length} vídeos';
 
   @override
@@ -90,12 +93,13 @@ class PackTile extends StatelessWidget {
             // The cover is one of its videos; the tile reads the pack.
             video: KidVideo(
               id: pack.coverVideoId,
-              title: label(pack),
+              title: _named(pack),
               duration: Duration.zero,
             ),
             size: size,
             thumbnail: thumbnail,
             onTap: onTap,
+            resting: !pack.fits,
           ),
           const SizedBox(height: Space.sm),
           PackModules(count: pack.videos.length, filled: 0, height: module),

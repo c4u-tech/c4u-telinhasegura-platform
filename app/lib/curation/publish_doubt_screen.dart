@@ -15,6 +15,7 @@ import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
+import 'approve_screen.dart' show fastPaceLine, tooLongForYoungestLine;
 import 'curation.dart';
 import 'held_video_screen.dart' show doubtsHeading, heldGone;
 import 'role_gate.dart';
@@ -34,7 +35,10 @@ String publishedFromDoubt(String title) =>
 /// `/moderacao/retidos/:id/publicar`: a moderator or an admin settles a
 /// curator's doubt by publishing: one theme of six, a band of three and a
 /// reason of 3 to 200 characters, through [ReauthWrite]. A video no
-/// longer held by a doubt goes back to the list.
+/// longer held by a doubt goes back to the list. "2 a 4 anos" is not
+/// offered for a video longer than the youngest band allows, nor for one a
+/// doubt found fast-paced; the server holds the rule for every review of
+/// the round, so its refusal takes the band away too.
 class PublishDoubtScreen extends StatefulWidget {
   const PublishDoubtScreen({super.key, required this.id, this.held});
 
@@ -56,6 +60,9 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
   VideoTheme? _theme;
   AgeBand? _band;
   String? _fieldError;
+
+  /// The server refused "2 a 4 anos" for this video.
+  bool _youngestRefused = false;
 
   @override
   void initState() {
@@ -121,13 +128,31 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
         .map((d) => d.minAgeBand)
         .where((b) => b != null && b != AgeBand.unknown)
         .firstOrNull;
+    if (_upTo4Barred(held) && _band == AgeBand.upTo4) _band = null;
   }
+
+  static bool _tooLong(HeldVideo held) =>
+      held.video.duration > defaultYoungestMax;
+
+  static bool _fast(HeldVideo held) => held.doubts.any(
+    (d) => d.answers?[fastPaceItem] == ChecklistAnswer.appears,
+  );
+
+  bool _upTo4Barred(HeldVideo held) =>
+      _youngestRefused || _tooLong(held) || _fast(held);
 
   bool _handle(ApiError e) {
     if (takeLostRole(context, e)) return true;
     if (e.code == 'state_conflict' || e.code == 'not_found') {
       context.go(Routes.heldVideos, extra: heldGone);
       return true;
+    }
+    if (e.code == 'checklist_band') {
+      setState(() {
+        _youngestRefused = true;
+        if (_band == AgeBand.upTo4) _band = null;
+      });
+      return false;
     }
     if (e.code != 'reason_required') return false;
     setState(() => _fieldError = publishReasonInvalid);
@@ -213,8 +238,17 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: band,
+        disabled: _upTo4Barred(held) ? const {AgeBand.upTo4} : const {},
         onChanged: idle ? (b) => setState(() => _band = b) : null,
       ),
+      if (_fast(held)) ...[
+        const SizedBox(height: Space.sm),
+        Text(fastPaceLine, style: text.bodyMedium),
+      ],
+      if (_tooLong(held)) ...[
+        const SizedBox(height: Space.sm),
+        Text(tooLongForYoungestLine, style: text.bodyMedium),
+      ],
       const SizedBox(height: Space.xl),
       TextField(
         controller: _reason,

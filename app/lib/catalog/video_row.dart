@@ -49,11 +49,7 @@ class VideoRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            CurationWords.tight(parts),
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: context.palette.muted),
-          ),
+          RowMeta(lead: video.channelTitle, length: parts.last),
           // Hidden is a state: a hollow module and its words, on their own
           // line, never a faded row (2026-10-06).
           if (video.hidden) ...[
@@ -62,6 +58,44 @@ class VideoRow extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// A row's muted line, "Canal · 6 min", its dot glued to both neighbours
+/// so no line ends or opens on it. When the length and the word before it
+/// cannot share one line (large text in a narrow column), the length takes
+/// a line of its own, whole and without the dot, instead of breaking
+/// inside a word.
+class RowMeta extends StatelessWidget {
+  const RowMeta({super.key, required this.lead, required this.length});
+
+  final String lead;
+  final String length;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(color: context.palette.muted);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final last = lead.split(' ').last;
+        final chunk = TextPainter(
+          text: TextSpan(
+            text: '$last${CurationWords.tightDot}$length',
+            style: style,
+          ),
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: Directionality.of(context),
+          maxLines: 1,
+        )..layout();
+        final fits = chunk.width <= box.maxWidth;
+        chunk.dispose();
+        return Text(
+          fits ? CurationWords.tight([lead, length]) : '$lead\n$length',
+          style: style,
+        );
+      },
     );
   }
 }

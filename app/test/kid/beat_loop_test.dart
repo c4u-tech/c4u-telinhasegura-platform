@@ -23,24 +23,41 @@ class ManualTimer implements Timer {
 }
 
 class Rig {
-  Rig({this.onBeat, this.onReopen});
+  Rig({
+    this.onBeat,
+    this.onReopen,
+    this.sendPosition = false,
+    this.position,
+    this.startSeconds = 0,
+  });
+
+  final int startSeconds;
+
+  final bool sendPosition;
+  Future<int> Function()? position;
 
   final beats = <String>[];
   final timers = <ManualTimer>[];
   Future<KidTime> Function(String id, bool playing)? onBeat;
-  Future<KidPlay> Function()? onReopen;
+  Future<KidPlay> Function(String closed)? onReopen;
   var timeUps = 0;
+  var doesNotFits = 0;
   var reopens = 0;
+  final reopenedFrom = <String>[];
 
   late final loop = BeatLoop(
     playId: 'p1',
-    beat: (id, playing) {
-      beats.add('$id $playing');
+    sendPosition: sendPosition,
+    startSeconds: startSeconds,
+    position: () => position?.call() ?? Future.value(0),
+    beat: (id, playing, at) {
+      beats.add(at == null ? '$id $playing' : '$id $playing @$at');
       return onBeat?.call(id, playing) ?? Future.value(ok);
     },
-    reopen: () {
+    reopen: (closed) {
       reopens++;
-      return onReopen?.call() ??
+      reopenedFrom.add(closed);
+      return onReopen?.call(closed) ??
           Future.value(
             const KidPlay(
               playId: 'p2',
@@ -50,6 +67,7 @@ class Rig {
           );
     },
     onTimeUp: () => timeUps++,
+    onDoesNotFit: () => doesNotFits++,
     periodic: (interval, cb) {
       expect(interval, BeatLoop.interval);
       final t = ManualTimer(cb);
@@ -62,6 +80,9 @@ class Rig {
 Future<void> settle() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  Future<KidTime> closedFor(String id, bool playing) =>
+      Future.error(const ApiError(status: 409, code: 'play_closed'));
+
   test('beats on start, every tick, and once on pause', () async {
     final r = Rig();
     r.loop.playing();
@@ -77,6 +98,129 @@ void main() {
     r.loop.stop();
     await settle();
     expect(r.beats, hasLength(3));
+  });
+
+  test('with sendPosition every beat carries where the video is', () async {
+    var at = 754;
+    final r = Rig(sendPosition: true, position: () async => at);
+    r.loop.playing();
+    await settle();
+    at = 784;
+    r.timers.single.fire();
+    await settle();
+    at = 790;
+    r.loop.paused();
+    await settle();
+    expect(r.beats, ['p1 true @754', 'p1 true @784', 'p1 false @790']);
+  });
+
+  test(
+    'a family play started at 812 whose first read is 0 sends 812',
+    () async {
+      var at = 0;
+      final r = Rig(
+        sendPosition: true,
+        startSeconds: 812,
+        position: () async => at,
+      );
+      r.loop.playing();
+      await settle();
+      at = 842;
+      r.timers.single.fire();
+      await settle();
+      expect(r.beats, ['p1 true @812', 'p1 true @842']);
+    },
+  );
+
+  test('without sendPosition no beat carries a position', () async {
+    var asked = 0;
+    final r = Rig(
+      position: () async {
+        asked++;
+        return 754;
+      },
+    );
+    r.loop.playing();
+    await settle();
+    r.loop.paused();
+    await settle();
+    expect(r.beats, ['p1 true', 'p1 false']);
+    expect(asked, 0);
+  });
+
+  test('a position that cannot be read still beats, without one', () async {
+    final r = Rig(
+      sendPosition: true,
+      position: () => Future.error(StateError('no player')),
+    );
+    r.loop.playing();
+    await settle();
+    expect(r.beats, ['p1 true']);
+  });
+
+  test('the stop beat asks the position at once, before the player can '
+      'close', () async {
+    var closed = false;
+    final r = Rig(sendPosition: true, position: () async => closed ? 0 : 812);
+    r.loop.playing();
+    await settle();
+    r.loop.stop();
+    // The screen closes the player in the same tick it stops the loop.
+    closed = true;
+    await settle();
+    expect(r.beats, ['p1 true @812', 'p1 false @812']);
+  });
+
+  test('a stopped player answering 0 never sends 0 over the last position '
+      'read', () async {
+    var at = 754;
+    final r = Rig(sendPosition: true, position: () async => at);
+    r.loop.playing();
+    await settle();
+    r.timers.single.fire();
+    at = 0;
+    r.loop.stop();
+    await settle();
+    expect(r.beats, ['p1 true @754', 'p1 true @754', 'p1 false @754']);
+  });
+
+  test(
+    'a stop whose position read fails sends the last position read',
+    () async {
+      var fail = false;
+      final r = Rig(
+        sendPosition: true,
+        position: () =>
+            fail ? Future.error(StateError('closed')) : Future.value(754),
+      );
+      r.loop.playing();
+      await settle();
+      fail = true;
+      r.loop.stop();
+      await settle();
+      expect(r.beats, ['p1 true @754', 'p1 false @754']);
+    },
+  );
+
+  test('a beat after a reopen carries the position too', () async {
+    final r = Rig(
+      sendPosition: true,
+      position: () async => 900,
+      onReopen: (_) async => const KidPlay(
+        playId: 'p2',
+        youtubeId: 'yt1',
+        remaining: Duration.zero,
+        startSeconds: 754,
+        family: true,
+      ),
+      onBeat: (id, playing) => id == 'p1'
+          ? Future.error(const ApiError(status: 409, code: 'play_closed'))
+          : Future.value(ok),
+    );
+    r.loop.playing();
+    await settle();
+    await settle();
+    expect(r.beats, ['p1 true @900', 'p2 true @900']);
   });
 
   test('a stop while playing beats false once', () async {
@@ -106,7 +250,7 @@ void main() {
     final r = Rig();
     r.onBeat = (_, _) =>
         Future.error(const ApiError(status: 409, code: 'play_closed'));
-    r.onReopen = () =>
+    r.onReopen = (_) =>
         Future.error(const ApiError(status: 403, code: 'time_up'));
     r.loop.playing();
     await settle();
@@ -114,6 +258,68 @@ void main() {
     expect(r.timeUps, 1);
     expect(r.timers.single.cancelled, isTrue);
   });
+
+  test('a reopen carries the closed play as continues', () async {
+    final r = Rig();
+    r.onBeat = (id, _) => id == 'p1'
+        ? Future.error(const ApiError(status: 409, code: 'play_closed'))
+        : Future.value(ok);
+    r.loop.playing();
+    await settle();
+    await settle();
+    expect(r.reopenedFrom, ['p1']);
+  });
+
+  test('a reopen refused for not fitting stops the loop and says so', () async {
+    final r = Rig();
+    r.onBeat = (_, _) =>
+        Future.error(const ApiError(status: 409, code: 'play_closed'));
+    r.onReopen = (_) =>
+        Future.error(const ApiError(status: 403, code: 'does_not_fit'));
+    r.loop.playing();
+    await settle();
+    await settle();
+    expect(r.doesNotFits, 1);
+    expect(r.timeUps, 0);
+    expect(r.timers.single.cancelled, isTrue);
+    // Stopped: a later play sends nothing and says nothing again.
+    r.loop.playing();
+    await settle();
+    expect(r.beats, ['p1 true']);
+    expect(r.doesNotFits, 1);
+  });
+
+  test(
+    'a reopen refused for not fitting after a pause does not say so',
+    () async {
+      final r = Rig();
+      r.onBeat = closedFor;
+      r.onReopen = (_) =>
+          Future.error(const ApiError(status: 403, code: 'does_not_fit'));
+      r.loop.playing();
+      r.loop.paused();
+      await settle();
+      await settle();
+      expect(r.doesNotFits, 0);
+    },
+  );
+
+  test(
+    'a reopen refused for not fitting after a stop does not say so',
+    () async {
+      final r = Rig();
+      final reopened = Completer<KidPlay>();
+      r.onBeat = closedFor;
+      r.onReopen = (_) => reopened.future;
+      r.loop.playing();
+      await settle();
+      r.loop.stop();
+      reopened.completeError(const ApiError(status: 403, code: 'does_not_fit'));
+      await settle();
+      await settle();
+      expect(r.doesNotFits, 0);
+    },
+  );
 
   test('a time_up beat keeps the video playing', () async {
     final r = Rig();
@@ -145,9 +351,6 @@ void main() {
     expect(r.beats, ['p1 true', 'p1 true']);
   });
 
-  Future<KidTime> closedFor(String id, bool playing) =>
-      Future.error(const ApiError(status: 409, code: 'play_closed'));
-
   test('a stop beat answered play_closed does not reopen', () async {
     final r = Rig();
     r.onBeat = (_, playing) =>
@@ -176,7 +379,7 @@ void main() {
   test('a reopen refused for time after a pause does not say so', () async {
     final r = Rig();
     r.onBeat = closedFor;
-    r.onReopen = () =>
+    r.onReopen = (_) =>
         Future.error(const ApiError(status: 403, code: 'time_up'));
     r.loop.playing();
     r.loop.paused();
@@ -190,7 +393,7 @@ void main() {
     () async {
       final r = Rig();
       r.onBeat = closedFor;
-      r.onReopen = () =>
+      r.onReopen = (_) =>
           Future.error(const ApiError(status: 403, code: 'time_up'));
       r.loop.playing();
       await settle();

@@ -67,6 +67,10 @@ const teamLabel = 'Enviar para a equipe';
 /// Under the bands when the pace rules out the youngest.
 const fastPaceLine = 'Ritmo agitado não serve para 2 a 4 anos.';
 
+/// Under the bands when the video's length rules out the youngest.
+const tooLongForYoungestLine =
+    'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.';
+
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';
 const doubtSent = 'Enviamos o vídeo para a equipe da Coding4u decidir.';
@@ -133,6 +137,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   final _note = TextEditingController();
   bool _started = false;
   Video? _video;
+  Checklist? _list;
   ApprovalDraft? _draft;
   bool _checklistFailed = false;
   bool _refused = false;
@@ -158,19 +163,38 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     scheduleMicrotask(_readChecklist);
   }
 
-  /// Opened directly: the video is read to be named. A video gone from
-  /// the queue goes back to it; any other failure leaves the flow as is,
-  /// since the decision does not need the name to be sent.
+  /// Opened directly: the video is read to be named, and for its length,
+  /// which decides the questions asked. A video gone from the queue goes
+  /// back to it; any other failure offers to try again.
   Future<void> _readVideo() async {
     if (!mounted) return;
     try {
       final detail = await AppScope.of(context).curation.video(widget.id);
       if (!mounted) return;
-      setState(() => _video = detail.video);
+      setState(() {
+        _video = detail.video;
+        _startDraft();
+      });
       openPlayer(detail.video.youtubeId);
     } on Object catch (e) {
-      if (mounted) leaveForQueue(context, e);
+      if (!mounted || leaveForQueue(context, e)) return;
+      setState(() => _checklistFailed = true);
     }
+  }
+
+  /// The questions depend on the video's length, so the answers start
+  /// once both the list and the video are read.
+  void _startDraft() {
+    if (_draft != null) return;
+    if ((_list, _video) case (final list?, final video?)) {
+      _draft = ApprovalDraft(list, length: video.duration);
+    }
+  }
+
+  /// Tries again what failed to read: the video, the list, or both.
+  void _retry() {
+    if (_video == null) unawaited(_readVideo());
+    unawaited(_readChecklist());
   }
 
   /// The list is read on every arrival, and again when the server says it
@@ -180,12 +204,17 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   Future<void> _readChecklist() async {
     if (!mounted) return;
     setState(() {
+      _list = null;
       _draft = null;
       _checklistFailed = false;
     });
     try {
       final list = await AppScope.of(context).curation.checklist();
-      if (mounted) setState(() => _draft = ApprovalDraft(list));
+      if (!mounted) return;
+      setState(() {
+        _list = list;
+        _startDraft();
+      });
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
       setState(() => _checklistFailed = true);
@@ -330,7 +359,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       return [
         const ErrorNote(Copy.genericRetry),
         const SizedBox(height: Space.lg),
-        PrimaryButton(label: 'Tentar de novo', onPressed: _readChecklist),
+        PrimaryButton(label: 'Tentar de novo', onPressed: _retry),
       ];
     }
     final g = d.group;
@@ -469,7 +498,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   List<Widget> _topic(ApprovalDraft d) {
     final text = Theme.of(context).textTheme;
-    final barred = d.youngestBarred;
+    final fast = d.youngestBarred;
+    final long = d.tooLongForYoungest;
     return [
       Semantics(header: true, child: Text('Tema', style: text.titleMedium)),
       if (_refused) ...[
@@ -509,12 +539,16 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: d.band,
-        disabled: barred ? const {AgeBand.upTo4} : const {},
+        disabled: d.upTo4Barred ? const {AgeBand.upTo4} : const {},
         onChanged: _idle ? (b) => _update(() => d.band = b) : null,
       ),
-      if (barred) ...[
+      if (fast) ...[
         const SizedBox(height: Space.sm),
         Text(fastPaceLine, style: text.bodyMedium),
+      ],
+      if (long) ...[
+        const SizedBox(height: Space.sm),
+        Text(tooLongForYoungestLine, style: text.bodyMedium),
       ],
       ..._foot(
         label: seeSummary,

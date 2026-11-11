@@ -2,6 +2,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/kid/youtube_kid_player.dart';
 
 void main() {
+  group('the player\'s position', () {
+    test('reads whole seconds from the embed\'s answer', () {
+      expect(parsePosition(754.9), 754);
+      expect(parsePosition('754.2'), 754);
+      expect(parsePosition(0), 0);
+    });
+
+    test('an answer that is not a time is an error, never 0', () {
+      for (final raw in <Object?>['', 'null', 'undefined', null, -1, 'NaN']) {
+        expect(() => parsePosition(raw), throwsFormatException, reason: '$raw');
+      }
+    });
+  });
+
   group('the embed parameters', () {
     test('no YouTube controls, same-channel suggestions, no fullscreen, no '
         'keyboard, no annotations, inline, privacy-enhanced', () {

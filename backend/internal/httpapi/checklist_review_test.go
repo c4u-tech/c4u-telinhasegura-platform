@@ -81,7 +81,7 @@ func TestReviewWithTheChecklistOverHTTP(t *testing.T) {
 
 	got := decodeReview(t, a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...))
 	if got.VideoState != "pending" || got.Review.Decision != "approve" || got.Review.ChecklistVersion == nil ||
-		*got.Review.ChecklistVersion != "2026-10-21" || len(got.Review.Answers) != 23 || got.Review.FailedItems != nil {
+		*got.Review.ChecklistVersion != "2026-11-11" || len(got.Review.Answers) != 23 || got.Review.FailedItems != nil {
 		t.Fatalf("approval %+v", got)
 	}
 

@@ -50,7 +50,7 @@ func TestSuggestRefusals(t *testing.T) {
 		curation.RefusedNotForKids:    func(m *curation.Metadata) { m.MadeForKids = false },
 		curation.RefusedNotEmbeddable: func(m *curation.Metadata) { m.Embeddable = false },
 		curation.RefusedLive:          func(m *curation.Metadata) { m.Live = "upcoming" },
-		curation.RefusedTooLong:       func(m *curation.Metadata) { m.Duration = 20*time.Minute + time.Second },
+		curation.RefusedTooLong:       func(m *curation.Metadata) { m.Duration = 120*time.Minute + time.Second },
 	}
 	i := 0
 	for reason, change := range cases {
@@ -80,11 +80,34 @@ func TestSuggestRefusals(t *testing.T) {
 		t.Fatalf("a refusal stored %d rows", n)
 	}
 
-	limit := curationtest.Kids("exactly20mi", "Vinte minutos")
-	limit.Duration = 20 * time.Minute
-	f.source.Add(limit)
-	if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/exactly20mi"); err != nil || !created {
-		t.Fatalf("a 20:00 video: %v %v", created, err)
+	for id, d := range map[string]time.Duration{
+		"exactly44mi": 44 * time.Minute,
+		"exactly45mi": 45 * time.Minute,
+		"over30min01": 30*time.Minute + time.Second,
+	} {
+		m := curationtest.Kids(id, "Longo o bastante")
+		m.Duration = d
+		f.source.Add(m)
+		if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/"+id); err != nil || !created {
+			t.Fatalf("a %s video: %v %v", d, created, err)
+		}
+	}
+}
+
+// A long work up to the family ceiling is approvable; a second past it is not.
+func TestSuggestAcceptsUpToTheFamilyCeiling(t *testing.T) {
+	f := newFixture(t)
+	ana := f.account("ana@example.com")
+	for id, d := range map[string]time.Duration{
+		"over45min01": 45*time.Minute + time.Second,
+		"exact120min": 120 * time.Minute,
+	} {
+		m := curationtest.Kids(id, "Longo")
+		m.Duration = d
+		f.source.Add(m)
+		if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/"+id); err != nil || !created {
+			t.Fatalf("a %s video: %v %v", d, created, err)
+		}
 	}
 }
 

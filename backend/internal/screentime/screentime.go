@@ -34,11 +34,18 @@ const (
 )
 
 // Time is a child's day state now. Remaining is what can be watched now;
-// it informs, the app never cuts a video.
+// a video starts only when it fits it (plus a minute); once started it
+// plays to its end.
 type Time struct {
 	State     State
 	Reason    string // "" when OK
 	Remaining time.Duration
+}
+
+// Fits reports whether a viewing of length d may start in day state t: the
+// day is open and d is within what is left plus the tolerance.
+func Fits(t Time, d time.Duration) bool {
+	return t.State == OK && d <= t.Remaining+fitTolerance
 }
 
 // Child is a child principal as screentime needs it (parental.Principal).
@@ -53,11 +60,13 @@ const (
 	MaxDailyMinutes = 240
 	DefaultZone     = "America/Sao_Paulo"
 
-	creditCap     = 45 * time.Second // per beat interval
-	closeAfter    = 45 * time.Second // a play with no beat this long is closed
-	overrun       = 60 * time.Second // past the video's length, nothing more is credited
-	playRetention = 30 * 24 * time.Hour
-	dayRetention  = 90 * 24 * time.Hour
+	creditCap      = 45 * time.Second // per beat interval
+	closeAfter     = 45 * time.Second // a play with no beat this long is closed
+	overrun        = 60 * time.Second // past the video's length, nothing more is credited
+	fitTolerance   = 60 * time.Second // a video may exceed the time left by this much and still start
+	continueWithin = 30 * time.Minute // a play resumed within this long of its last beat skips the fit
+	playRetention  = 30 * 24 * time.Hour
+	dayRetention   = 90 * 24 * time.Hour
 )
 
 var (
@@ -72,6 +81,11 @@ var (
 type TimeUpError struct{ Reason string }
 
 func (e *TimeUpError) Error() string { return "screentime: time up: " + e.Reason }
+
+// NotFitError refuses a play whose video is longer than the time left.
+type NotFitError struct{ Remaining time.Duration }
+
+func (e *NotFitError) Error() string { return "screentime: the video does not fit the time left" }
 
 // ThrottledError refuses a beat over the per-child limit.
 type ThrottledError struct{ RetryAfter time.Duration }

@@ -229,10 +229,22 @@ abstract final class Routes {
   ).toString();
 
   /// [raw] when it is a screen a new authorization may return to (the
-  /// hand-over that asked for it); null for anything else, so `depois`
-  /// never leads elsewhere.
+  /// hand-over, or the start of a family work, that asked for it); null
+  /// for anything else, so `depois` never leads elsewhere.
   static String? reconsentReturn(String? raw) =>
-      raw == handOver ? handOver : null;
+      raw == handOver || (raw != null && isFamilySession(raw)) ? raw : null;
+
+  /// A family work's start: `/familia/videos/:crianca/:video/assistir`,
+  /// each id one plain segment.
+  static bool isFamilySession(String path) {
+    final segments = path.split('/');
+    return path.startsWith('$familyVideos/') &&
+        segments.length == 6 &&
+        segments[5] == 'assistir' &&
+        segments
+            .sublist(3, 5)
+            .every((s) => RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(s));
+  }
 
   /// The link code, returning on back to [then] when [linkCodeReturn]
   /// accepts it.
@@ -268,6 +280,11 @@ abstract final class Routes {
 
   static String reportVideo(String minorId, String videoId) =>
       '${familyVideo(minorId, videoId)}/denunciar';
+
+  /// The start of a long work the child watches with the family, behind
+  /// the PIN.
+  static String familySession(String minorId, String videoId) =>
+      '${familyVideo(minorId, videoId)}/assistir';
 
   /// One of the child's pacotinhos today, read by a guardian.
   static String familyPack(String minorId, String packId) =>

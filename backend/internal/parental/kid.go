@@ -124,3 +124,25 @@ func (s *Service) Profile(ctx context.Context, p Principal) (Profile, error) {
 	}
 	return s.profileOf(ctx, s.d.Pool, p.FamilyID, p.MinorID)
 }
+
+// ConsentedChild answers the family of a child of the account's family
+// whose consent is current, for a gate a guardian opens for that child
+// from their own session. A malformed, unknown or foreign child is
+// ErrNotFound, checked before anything else, the PIN included.
+func (s *Service) ConsentedChild(ctx context.Context, accountID, minorID string) (string, error) {
+	familyID, err := familyOf(ctx, s.d.Pool, accountID)
+	if err != nil {
+		return "", err
+	}
+	if err := minorOfFamily(ctx, s.d.Pool, familyID, minorID); err != nil {
+		return "", err
+	}
+	ok, err := s.consentCurrent(ctx, s.d.Pool, minorID)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", ErrConsentRequired
+	}
+	return familyID, nil
+}

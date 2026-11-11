@@ -259,6 +259,11 @@ class SelectableRow extends StatelessWidget {
     final off = onTap == null;
     final text = Theme.of(context).textTheme;
     final dim = p.text.withValues(alpha: .6);
+    // The module centres on the first line of the words, so when they wrap
+    // (large text, a narrow key) it stays beside where they begin.
+    final first = detail == null ? text.bodyLarge : text.titleMedium;
+    final line = MediaQuery.textScalerOf(context)
+        .scale((first?.fontSize ?? 16) * (first?.height ?? 1));
     return ChoiceTarget(
       label: label,
       selected: selected,
@@ -269,6 +274,8 @@ class SelectableRow extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         constraints: BoxConstraints(minHeight: height),
+        // One line of words stands centred in the row's height.
+        alignment: asKey ? Alignment.center : Alignment.centerLeft,
         padding: EdgeInsets.symmetric(
           horizontal: asKey ? Space.sm : Space.lg,
           vertical: Space.md,
@@ -290,8 +297,12 @@ class SelectableRow extends StatelessWidget {
           mainAxisAlignment: asKey
               ? MainAxisAlignment.center
               : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            StateModule(filled: selected),
+            SizedBox(
+              height: line,
+              child: Center(child: StateModule(filled: selected)),
+            ),
             SizedBox(width: asKey ? Space.sm : Space.md),
             Flexible(
               fit: asKey ? FlexFit.loose : FlexFit.tight,

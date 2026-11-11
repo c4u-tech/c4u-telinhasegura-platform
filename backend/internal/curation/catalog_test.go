@@ -179,3 +179,111 @@ func TestCatalogRotatesOnTheGivenZone(t *testing.T) {
 		t.Fatal("Manaus's 5th rotated at São Paulo's midnight")
 	}
 }
+
+// length sets a stored video's length.
+func (f *fixture) length(videoID string, d time.Duration) {
+	f.t.Helper()
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, videoID, int(d.Seconds()))
+}
+
+// A video longer than what a child may watch alone stays off the child's
+// shelves and cannot be played there, whatever its band; one at the
+// ceiling stays.
+func TestAVideoPastTheSoloCeilingLeavesTheShelves(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	bebe := f.minor(fam, family.AgeUpTo4)
+	lia := f.minor(fam, family.Age5To8)
+	edge4 := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	long4 := f.published(nthID(2), "musica", family.AgeUpTo4)
+	edge8 := f.published(nthID(3), "bichos", family.Age5To8)
+	long8 := f.published(nthID(4), "musica", family.Age5To8)
+	f.length(edge4, 30*time.Minute)
+	f.length(long4, 40*time.Minute)
+	f.length(edge8, 45*time.Minute)
+	f.length(long8, 50*time.Minute)
+
+	for _, c := range []struct {
+		name    string
+		child   curation.Child
+		video   string
+		allowed bool
+	}{
+		{"30:00 for 2 to 4", bebe, edge4, true},
+		{"40:00 for 2 to 4", bebe, long4, false},
+		{"45:00 for 5 to 8", lia, edge8, true},
+		{"50:00 for 5 to 8", lia, long8, false},
+	} {
+		if got := f.shown(c.child, c.video); got != c.allowed {
+			t.Errorf("%s: shown %v", c.name, got)
+		}
+		_, err := f.svc.Play(ctx, c.child, c.video)
+		if c.allowed && err != nil || !c.allowed && !errors.Is(err, curation.ErrVideoNotAllowed) {
+			t.Errorf("%s: play %v", c.name, err)
+		}
+	}
+}
+
+func TestFamilyWorkIsAVideoPastTheSoloCeilingWithinTheFamilyOne(t *testing.T) {
+	f := newFixture(t)
+	fam, ana := f.family("ana@example.com")
+	bebe := f.minor(fam, family.AgeUpTo4)
+	lia := f.minor(fam, family.Age5To8)
+	big := f.minor(fam, family.Age9To12)
+	mid4 := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	over4 := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	solo4 := f.published(nthID(3), "bichos", family.AgeUpTo4)
+	mid8 := f.published(nthID(4), "bichos", family.Age5To8)
+	over8 := f.published(nthID(5), "bichos", family.Age5To8)
+	old := f.published(nthID(6), "bichos", family.Age9To12)
+	hidden := f.published(nthID(7), "bichos", family.Age5To8)
+	reported := f.published(nthID(8), "bichos", family.Age5To8)
+	held := f.published(nthID(9), "bichos", family.Age5To8)
+	edge4 := f.published(nthID(10), "bichos", family.AgeUpTo4)
+	f.length(mid4, 40*time.Minute)
+	f.length(edge4, 60*time.Minute)
+	f.length(over4, 61*time.Minute)
+	f.length(solo4, 30*time.Minute)
+	f.length(mid8, 90*time.Minute)
+	f.length(over8, 121*time.Minute)
+	f.length(old, 90*time.Minute)
+	for _, v := range []string{hidden, reported, held} {
+		f.length(v, 90*time.Minute)
+	}
+	f.exec(`UPDATE videos SET state = 'held', held_reason = 'review' WHERE id = $1::uuid`, held)
+	if err := f.svc.Hide(ctx, ana, big.MinorID, hidden); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Report(ctx, ana, reported, curation.ReportOutro, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range []struct {
+		name    string
+		child   curation.Child
+		video   string
+		allowed bool
+	}{
+		{"40:00 for 2 to 4", bebe, mid4, true},
+		{"60:00 for 2 to 4", bebe, edge4, true},
+		{"61:00 for 2 to 4", bebe, over4, false},
+		{"30:00, a solo video", bebe, solo4, false},
+		{"61:00 of the youngest band for 5 to 8", lia, over4, true},
+		{"90:00 of 5 to 8 for 9 to 12", big, mid8, true},
+		{"121:00 for 9 to 12", big, over8, false},
+		{"a stricter band", lia, old, false},
+		{"hidden", big, hidden, false},
+		{"reported", big, reported, false},
+		{"held", big, held, false},
+		{"malformed", big, "abc", false},
+		{"unknown", big, "00000000-0000-0000-0000-000000000000", false},
+	} {
+		v, err := f.svc.FamilyWork(ctx, c.child, c.video)
+		if c.allowed && (err != nil || v.ID != c.video) || !c.allowed && !errors.Is(err, curation.ErrVideoNotAllowed) {
+			t.Errorf("%s: %+v %v", c.name, v.ID, err)
+		}
+	}
+	if _, err := f.svc.FamilyWork(ctx, curation.Child{FamilyID: fam}, mid8); !errors.Is(err, curation.ErrProfileGone) {
+		t.Fatalf("a gone child: %v", err)
+	}
+}

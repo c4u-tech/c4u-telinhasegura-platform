@@ -12,12 +12,12 @@ import (
 func (f *fixture) beat(c screentime.Child, playID string, d time.Duration, playing bool) (screentime.Time, error) {
 	f.t.Helper()
 	f.now = f.now.Add(d)
-	return f.svc.Beat(ctx, c, playID, playing)
+	return f.svc.Beat(ctx, c, playID, playing, nil)
 }
 
 func (f *fixture) open(c screentime.Child, videoID string) screentime.Play {
 	f.t.Helper()
-	p, err := f.svc.Open(ctx, c, videoID)
+	p, err := f.svc.Open(ctx, c, videoID, "", false)
 	if err != nil {
 		f.t.Fatalf("open: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestBeatOnAnotherChildsOrAMalformedPlay(t *testing.T) {
 	lia, rui := f.minor(fam, "5-8"), f.minor(fam, "5-8")
 	p := f.open(lia, f.video("dQw4w9WgXcQ", 300))
 	for _, id := range []string{p.ID, "abc", "00000000-0000-0000-0000-000000000000"} {
-		if _, err := f.svc.Beat(ctx, rui, id, true); !errors.Is(err, screentime.ErrNotFound) {
+		if _, err := f.svc.Beat(ctx, rui, id, true, nil); !errors.Is(err, screentime.ErrNotFound) {
 			t.Errorf("%s: %v", id, err)
 		}
 	}
@@ -98,28 +98,29 @@ func TestTimeUpRefusesAPlayButTheOpenOneFinishes(t *testing.T) {
 	c := f.minor(fam, "5-8")
 	f.svc.SaveRules(ctx, owner, c.MinorID, screentime.RulesInput{DailyMinutes: 15, WindowStart: "08:00",
 		WindowEnd: "19:30", TimeZone: "America/Sao_Paulo"})
-	v := f.video("dQw4w9WgXcQ", 20*60) // a 20-minute video
+	v := f.video("dQw4w9WgXcQ", 16*60) // a 16-minute video: fits the 15 minutes plus the tolerance
 	p := f.open(c, v)
 	f.beat(c, p.ID, 0, true)
 	var tm screentime.Time
-	for range 40 { // 20 minutes of beats
+	for range 32 { // 16 minutes of beats
 		tm, _ = f.beat(c, p.ID, 30*time.Second, true)
 	}
 	if tm.State != screentime.TimeUp || tm.Reason != screentime.ReasonDaily {
 		t.Fatalf("state %+v", tm)
 	}
-	if s, _ := f.used(c); s != 1200 {
+	if s, _ := f.used(c); s != 960 {
 		t.Fatalf("the open play stopped being credited: %d", s)
 	}
-	// Past the video's length plus a minute, nothing more counts.
-	for range 6 {
+	// Past the video's length plus a minute, nothing more counts: the third
+	// beat lands past the cap and adds nothing.
+	for range 3 {
 		f.beat(c, p.ID, 30*time.Second, true)
 	}
-	if s, _ := f.used(c); s != 1260 {
+	if s, _ := f.used(c); s != 1020 {
 		t.Fatalf("overrun %d", s)
 	}
 	var up *screentime.TimeUpError
-	if _, err := f.svc.Open(ctx, c, v); !errors.As(err, &up) || up.Reason != screentime.ReasonDaily {
+	if _, err := f.svc.Open(ctx, c, v, "", false); !errors.As(err, &up) || up.Reason != screentime.ReasonDaily {
 		t.Fatalf("open after time up: %v", err)
 	}
 	if n := f.count(`SELECT count(*) FROM plays`); n != 1 {
@@ -133,7 +134,7 @@ func TestOutsideTheWindowRefusesAPlay(t *testing.T) {
 	c := f.minor(fam, "5-8")
 	f.at(20, 0)
 	var up *screentime.TimeUpError
-	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 300)); !errors.As(err, &up) || up.Reason != screentime.ReasonWindow {
+	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 300), "", false); !errors.As(err, &up) || up.Reason != screentime.ReasonWindow {
 		t.Fatalf("%v", err)
 	}
 }
@@ -161,7 +162,7 @@ func TestBeatCreditsTheLocalDay(t *testing.T) {
 	f.svc.SaveRules(ctx, owner, c.MinorID, screentime.RulesInput{DailyMinutes: 120, WindowStart: "00:00",
 		WindowEnd: "23:59", TimeZone: "America/Manaus"})
 	f.now = time.Date(2026, 10, 6, 3, 58, 50, 0, time.UTC) // 23:58:50 on the 5th in Manaus
-	p := f.open(c, f.video("dQw4w9WgXcQ", 600))
+	p := f.open(c, f.video("dQw4w9WgXcQ", 60))
 	f.beat(c, p.ID, 0, true)
 	f.beat(c, p.ID, 30*time.Second, true) // 23:59:20 on the 5th
 	f.beat(c, p.ID, 40*time.Second, true) // 00:00:00 on the 6th
@@ -192,7 +193,7 @@ func TestLoweredRulesStopNewPlaysButNotTheOpenOne(t *testing.T) {
 		t.Fatalf("the open play: %v", err)
 	}
 	var up *screentime.TimeUpError
-	if _, err := f.svc.Open(ctx, c, v); !errors.As(err, &up) {
+	if _, err := f.svc.Open(ctx, c, v, "", false); !errors.As(err, &up) {
 		t.Fatalf("open: %v", err)
 	}
 }
@@ -203,10 +204,10 @@ func TestBeatLimit(t *testing.T) {
 	c := f.minor(fam, "5-8")
 	p := f.open(c, f.video("dQw4w9WgXcQ", 300))
 	for range 20 {
-		f.svc.Beat(ctx, c, p.ID, true)
+		f.svc.Beat(ctx, c, p.ID, true, nil)
 	}
 	var th *screentime.ThrottledError
-	if _, err := f.svc.Beat(ctx, c, p.ID, true); !errors.As(err, &th) || th.RetryAfter <= 0 {
+	if _, err := f.svc.Beat(ctx, c, p.ID, true, nil); !errors.As(err, &th) || th.RetryAfter <= 0 {
 		t.Fatalf("21st beat: %v", err)
 	}
 }
@@ -220,7 +221,7 @@ func TestOpenLimit(t *testing.T) { // 30 opens per child per minute
 		f.open(c, v)
 	}
 	var th *screentime.ThrottledError
-	if _, err := f.svc.Open(ctx, c, v); !errors.As(err, &th) || th.RetryAfter <= 0 {
+	if _, err := f.svc.Open(ctx, c, v, "", false); !errors.As(err, &th) || th.RetryAfter <= 0 {
 		t.Fatalf("31st open: %v", err)
 	}
 	if n := f.count(`SELECT count(*) FROM plays`); n != 30 {
@@ -233,11 +234,177 @@ func TestOutsideCreditGoesToOutsideSeconds(t *testing.T) {
 	fam, _ := f.family("ana@example.com")
 	c := f.minor(fam, "5-8")
 	f.at(19, 29)
-	p := f.open(c, f.video("dQw4w9WgXcQ", 300))
+	p := f.open(c, f.video("dQw4w9WgXcQ", 60))
 	f.beat(c, p.ID, 0, true)
 	f.beat(c, p.ID, 30*time.Second, true) // 19:29:30, inside
 	f.beat(c, p.ID, 40*time.Second, true) // 19:30:10, outside
 	if s, out := f.used(c); s != 70 || out != 40 {
 		t.Fatalf("used %d, outside %d", s, out)
+	}
+}
+
+func (f *fixture) rules15(owner string, c screentime.Child) {
+	f.t.Helper()
+	if _, _, err := f.svc.SaveRules(ctx, owner, c.MinorID, screentime.RulesInput{DailyMinutes: 15, WindowStart: "08:00",
+		WindowEnd: "19:30", TimeZone: "America/Sao_Paulo"}); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func TestDoesNotFitRefusesAndOpensNoPlay(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 20*60), "", false); !errors.As(err, &nf) || nf.Remaining != 15*time.Minute {
+		t.Fatalf("open: %v", err)
+	}
+	if n := f.count(`SELECT count(*) FROM plays`); n != 0 {
+		t.Fatalf("%d plays", n)
+	}
+}
+
+func TestFitsAtTheBoundary(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	f.open(c, f.video("dQw4w9WgXcQ", 15*60+60))
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, f.video("aaaaaaaaaaa", 15*60+61), "", false); !errors.As(err, &nf) {
+		t.Fatalf("one second over: %v", err)
+	}
+}
+
+func TestFitMeasuredToTheWindowEnd(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.at(19, 20)
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 12*60), "", false); !errors.As(err, &nf) || nf.Remaining != 10*time.Minute {
+		t.Fatalf("12 minutes: %v", err)
+	}
+	f.open(c, f.video("aaaaaaaaaaa", 10*60))
+}
+
+func TestTimeUpWinsOverNotFit(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.at(20, 0)
+	var up *screentime.TimeUpError
+	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 2*3600), "", false); !errors.As(err, &up) || up.Reason != screentime.ReasonWindow {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestContinuesSkipsTheFit(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	p := f.open(c, v)
+	f.beat(c, p.ID, 0, true)
+	for range 20 { // 10 minutes
+		f.beat(c, p.ID, 30*time.Second, true)
+	}
+	f.now = f.now.Add(50 * time.Second) // the play closes
+	if _, err := f.svc.Open(ctx, c, v, p.ID, false); err != nil {
+		t.Fatalf("continue: %v", err)
+	}
+}
+
+func TestContinuesIgnoredWhenNotTheSamePlay(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	other := f.video("aaaaaaaaaaa", 4*60)
+	p := f.open(c, v)
+	f.beat(c, p.ID, 0, true)
+	for range 20 {
+		f.beat(c, p.ID, 30*time.Second, true)
+	}
+	otherVideo := f.open(c, other)
+	f.beat(c, otherVideo.ID, 0, false)
+	fam2, _ := f.family("bia@example.com")
+	c2 := f.minor(fam2, "5-8")
+	foreign := f.open(c2, v)
+	var nf *screentime.NotFitError
+	for name, id := range map[string]string{"not a uuid": "not-a-uuid", "another child": foreign.ID, "another video": otherVideo.ID} {
+		if _, err := f.svc.Open(ctx, c, v, id, false); !errors.As(err, &nf) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	f.now = f.now.Add(31 * time.Minute) // past the last beat by more than the continue window
+	if _, err := f.svc.Open(ctx, c, v, p.ID, false); !errors.As(err, &nf) {
+		t.Errorf("stale play: %v", err)
+	}
+}
+
+// watched runs a play of videoID for n half-minute beats, then lets it close.
+func (f *fixture) watched(c screentime.Child, videoID string, n int) screentime.Play {
+	f.t.Helper()
+	p := f.open(c, videoID)
+	f.beat(c, p.ID, 0, true)
+	for range n {
+		f.beat(c, p.ID, 30*time.Second, true)
+	}
+	f.now = f.now.Add(50 * time.Second) // the play closes
+	return p
+}
+
+func TestWithoutContinuesARecentUnfinishedPlayOfTheVideoSkipsTheFit(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	f.watched(c, v, 20) // 10 minutes of 14
+	if _, err := f.svc.Open(ctx, c, v, "", false); err != nil {
+		t.Fatalf("reopen without continues: %v", err)
+	}
+}
+
+func TestWithoutContinuesAFinishedPlayIsANewStart(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	f.watched(c, v, 28) // the whole 14 minutes
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, v, "", false); !errors.As(err, &nf) {
+		t.Fatalf("finished play: %v", err)
+	}
+}
+
+func TestWithoutContinuesAStalePlayIsANewStart(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	f.watched(c, v, 20)
+	f.now = f.now.Add(31 * time.Minute)
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, v, "", false); !errors.As(err, &nf) {
+		t.Fatalf("stale play: %v", err)
+	}
+}
+
+func TestWithoutContinuesAPlayOfAnotherVideoIsANewStart(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	f.watched(c, f.video("aaaaaaaaaaa", 12*60), 20) // 10 minutes of 12
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 14*60), "", false); !errors.As(err, &nf) {
+		t.Fatalf("another video: %v", err)
 	}
 }

@@ -57,3 +57,30 @@ func TestSweepAppliesRetention(t *testing.T) {
 		t.Fatal("extensions retention")
 	}
 }
+
+// Resume points go with the play history, after 30 days without an
+// update; sessions, used or not, are gone after a day.
+func TestSweepClearsPositionsAndSessions(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	old, recent := f.video("dQw4w9WgXcQ", 50*60), f.video("aaaaaaaaaaa", 50*60)
+	f.exec(`INSERT INTO play_positions (minor_id, video_id, position_seconds, updated_at) VALUES
+		($1::uuid, $2::uuid, 600, $4), ($1::uuid, $3::uuid, 600, $5)`,
+		c.MinorID, old, recent, f.now.Add(-30*24*time.Hour-time.Minute), f.now.Add(-29*24*time.Hour))
+	for _, created := range []time.Time{f.now.Add(-25 * time.Hour), f.now.Add(-time.Hour)} {
+		f.exec(`INSERT INTO family_sessions (minor_id, video_id, account_id, created_at, expires_at)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5)`, c.MinorID, old, owner, created, created.Add(10*time.Minute))
+	}
+	if err := f.svc.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if f.count(`SELECT count(*) FROM play_positions WHERE video_id = $1::uuid`, recent) != 1 ||
+		f.count(`SELECT count(*) FROM play_positions`) != 1 {
+		t.Fatal("positions retention")
+	}
+	if f.count(`SELECT count(*) FROM family_sessions WHERE created_at = $1`, f.now.Add(-time.Hour)) != 1 ||
+		f.count(`SELECT count(*) FROM family_sessions`) != 1 {
+		t.Fatal("sessions retention")
+	}
+}

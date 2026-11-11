@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/screentime"
 )
 
 // kidOf is the request's child principal as curation needs it.
@@ -19,6 +21,7 @@ type kidVideoOut struct {
 	ID              string `json:"id"`
 	Title           string `json:"title"`
 	DurationSeconds int    `json:"duration_seconds"`
+	Fits            bool   `json:"fits"` // the video may start in the time left
 }
 
 type kidPackOut struct {
@@ -26,16 +29,23 @@ type kidPackOut struct {
 	Title        string        `json:"title"`
 	CoverVideoID string        `json:"cover_video_id"`
 	Videos       []kidVideoOut `json:"videos"`
+	Fits         bool          `json:"fits"` // all its videos together fit the time left
 }
 
-func kidPacksBody(ps []curation.KidPack) []kidPackOut {
+func kidVideoBody(v curation.KidVideo, t screentime.Time) kidVideoOut {
+	return kidVideoOut{v.ID, v.Title, v.DurationSeconds, screentime.Fits(t, time.Duration(v.DurationSeconds)*time.Second)}
+}
+
+func kidPacksBody(ps []curation.KidPack, t screentime.Time) []kidPackOut {
 	out := make([]kidPackOut, 0, len(ps))
 	for _, p := range ps {
 		vs := make([]kidVideoOut, 0, len(p.Videos))
+		var total time.Duration
 		for _, v := range p.Videos {
-			vs = append(vs, kidVideoOut{v.ID, v.Title, v.DurationSeconds})
+			vs = append(vs, kidVideoBody(v, t))
+			total += time.Duration(v.DurationSeconds) * time.Second
 		}
-		out = append(out, kidPackOut{p.ID, p.Title, p.CoverVideoID, vs})
+		out = append(out, kidPackOut{p.ID, p.Title, p.CoverVideoID, vs, screentime.Fits(t, total)})
 	}
 	return out
 }
@@ -78,6 +88,11 @@ func (s *Server) childCatalog(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	t, err := s.ScreenTime.Time(r.Context(), stOf(r))
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
 	shelves, err := s.Curation.Catalog(r.Context(), kidOf(r), loc)
 	if err != nil {
 		s.fail(w, err)
@@ -91,7 +106,7 @@ func (s *Server) childCatalog(w http.ResponseWriter, r *http.Request) {
 	for _, sh := range shelves {
 		vs := make([]kidVideoOut, 0, len(sh.Videos))
 		for _, v := range sh.Videos {
-			vs = append(vs, kidVideoOut{v.ID, v.Title, v.DurationSeconds})
+			vs = append(vs, kidVideoBody(v, t))
 		}
 		out = append(out, shelf{sh.Theme, vs})
 	}
@@ -100,12 +115,7 @@ func (s *Server) childCatalog(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	t, err := s.ScreenTime.Time(r.Context(), stOf(r))
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"themes": out, "packs": kidPacksBody(packs), "time": timeBody(t)})
+	writeJSON(w, http.StatusOK, map[string]any{"themes": out, "packs": kidPacksBody(packs, t), "time": timeBody(t)})
 }
 
 // writeThumb sends a cached thumbnail, a JPEG the fetch checked; the
@@ -128,28 +138,41 @@ func (s *Server) childThumb(w http.ResponseWriter, r *http.Request) {
 	writeThumb(w, b)
 }
 
-// play re-checks a video (curation: may this child see it?), then opens
-// a play (screentime: may they watch now?).
+// play re-checks a video (curation: may this child see it, alone or
+// only with the family?), then opens a play (screentime: may they watch
+// now?). A family work also needs the session a guardian started, and
+// answers where it resumes.
 func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		VideoID string `json:"video_id"`
+		VideoID   string `json:"video_id"`
+		Continues string `json:"continues"` // a recent play of this video being resumed
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
 		return
 	}
+	family := false
 	youtubeID, err := s.Curation.Play(r.Context(), kidOf(r), in.VideoID)
+	if errors.Is(err, curation.ErrVideoNotAllowed) {
+		var v curation.Video
+		if v, err = s.Curation.FamilyWork(r.Context(), kidOf(r), in.VideoID); err == nil {
+			youtubeID, family = v.YouTubeID, true
+		}
+	}
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID)
+	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID, in.Continues, family)
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"play_id": p.ID, "youtube_id": youtubeID,
-		"remaining_seconds": int(p.Time.Remaining / time.Second)})
+	out := map[string]any{"play_id": p.ID, "youtube_id": youtubeID, "remaining_seconds": int(p.Time.Remaining / time.Second)}
+	if family {
+		out["start_seconds"] = p.StartSeconds
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 // unavailable answers 202 for any video the child may see: the outcome
@@ -186,13 +209,16 @@ func (s *Server) minorCatalog(w http.ResponseWriter, r *http.Request) {
 		Theme           string `json:"theme"`
 		MinAgeBand      string `json:"min_age_band"`
 		Hidden          bool   `json:"hidden"`
-		Provenance      any    `json:"provenance"`
+		FamilySession   bool   `json:"family_session"`
+		// Only a family session's video says where the child stopped it.
+		ResumeSeconds *int `json:"resume_seconds,omitempty"`
+		Provenance    any  `json:"provenance"`
 	}
 	out := make([]item, 0, len(items))
 	for _, x := range items {
 		v := x.Video
 		out = append(out, item{v.ID, v.YouTubeID, v.Title, v.ChannelTitle, v.DurationSeconds, v.Theme, string(v.MinAgeBand), x.Hidden,
-			provenanceBody(x.Provenance)})
+			x.FamilySession, x.ResumeSeconds, provenanceBody(x.Provenance)})
 	}
 	packs := []familyPackOut{}
 	if offset == 0 {

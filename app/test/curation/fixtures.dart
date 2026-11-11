@@ -152,9 +152,12 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
 };
 
 /// A short checklist as the curation route carries it: "Antes de
-/// começar" and five steps, at least one question of each rule.
+/// começar" and five steps, at least one question of each rule, then the
+/// step asked only of a video longer than 20 minutes.
 const checklistJson = <String, Object?>{
-  'version': '2026-10-21',
+  'version': '2026-11-11',
+  'long_from_seconds': 1200,
+  'youngest_max_seconds': 3600,
   'groups': [
     {
       'id': 'antes',
@@ -210,6 +213,30 @@ const checklistJson = <String, Object?>{
         },
       ],
     },
+    {
+      'id': 'longo',
+      'title': 'Vídeo longo',
+      'items': [
+        {
+          'id': 'c26',
+          'text': 'É filme de um canal que não é o oficial?',
+          'rule': 'refuses',
+          'long_only': true,
+        },
+        {
+          'id': 'c27',
+          'text': 'A obra tem classificação acima de Livre?',
+          'rule': 'refuses',
+          'long_only': true,
+        },
+        {
+          'id': 'c28',
+          'text': 'Aparecem anúncios no meio do vídeo?',
+          'rule': 'notes',
+          'long_only': true,
+        },
+      ],
+    },
   ],
 };
 
@@ -229,7 +256,7 @@ const doubtJson = <String, Object?>{
   'theme': 'bichos',
   'min_age_band': '5-8',
   'reason': 'Não sei se a tristeza pesa.',
-  'checklist_version': '2026-10-21',
+  'checklist_version': '2026-11-11',
   'answers': {
     'c25': 'ok',
     'c03': 'ok',

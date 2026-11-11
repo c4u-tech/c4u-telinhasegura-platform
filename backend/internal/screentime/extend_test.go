@@ -28,7 +28,7 @@ func TestGuardianExtendOpensTheWindow(t *testing.T) {
 	if f.audited(audit.ScreenTimeExtended) != 1 {
 		t.Fatal("not audited")
 	}
-	p := f.open(c, f.video("dQw4w9WgXcQ", 3600))
+	p := f.open(c, f.video("dQw4w9WgXcQ", 840))
 	f.beat(c, p.ID, 0, true)
 	for range 30 {
 		f.beat(c, p.ID, 30*time.Second, true)

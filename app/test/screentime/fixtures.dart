@@ -15,6 +15,7 @@ Map<String, Object?> rulesJson({
   int usedSeconds = 40 * 60,
   int extension = 0,
   String state = 'ok',
+  int remainingSeconds = 0,
 }) => {
   'daily_minutes': dailyMinutes,
   'window_start': start,
@@ -26,7 +27,7 @@ Map<String, Object?> rulesJson({
     'extension_minutes': extension,
     'state': state,
     if (state != 'ok') 'reason': state == 'time_up' ? 'daily' : 'window',
-    'remaining_seconds': 0,
+    'remaining_seconds': remainingSeconds,
   },
 };
 

@@ -9,12 +9,16 @@ import (
 
 // ReportUnavailable re-checks a video the child's player could not play
 // and holds it when YouTube no longer passes it. Past the
-// eligibility check it answers nil whether or not it checked: the
+// eligibility check (a video the child may watch alone or with the family)
+// it answers nil whether or not it checked: the
 // child's app has nothing to do with the outcome. The child's budget is
 // spent before the video's, so one child cannot use up the hourly check
 // of every video.
 func (s *Service) ReportUnavailable(ctx context.Context, c Child, videoID string) error {
 	v, err := s.eligibleVideo(ctx, c, videoID)
+	if errors.Is(err, ErrVideoNotAllowed) {
+		v, err = s.FamilyWork(ctx, c, videoID)
+	}
 	if err != nil {
 		return err
 	}

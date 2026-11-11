@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"math"
 	"net/http"
 	"time"
 
@@ -22,10 +24,29 @@ func timeBody(t screentime.Time) map[string]any {
 	return out
 }
 
-// beat credits an open play.
+// maxPosition bounds a reported position before it becomes an int; the
+// work's own length clamps it further.
+const maxPosition = math.MaxInt32
+
+// wholeSeconds reads a reported playback position as whole seconds. A
+// player reports fractions, and the position is a hint the beat must never
+// fail on, so anything that is not a non-negative number is no position,
+// and a huge one is held at maxPosition.
+func wholeSeconds(raw json.RawMessage) *int {
+	var v *float64 // null stays nil, not 0
+	if len(raw) == 0 || json.Unmarshal(raw, &v) != nil || v == nil || math.IsNaN(*v) || *v < 0 {
+		return nil
+	}
+	n := int(min(*v, maxPosition))
+	return &n
+}
+
+// beat credits an open play. A family work's beat may carry where the
+// playback stands, so the work resumes there.
 func (s *Server) beat(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Playing *bool `json:"playing"`
+		Playing  *bool           `json:"playing"`
+		Position json.RawMessage `json:"position_seconds"`
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
@@ -35,7 +56,7 @@ func (s *Server) beat(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, screentime.ErrValidation)
 		return
 	}
-	t, err := s.ScreenTime.Beat(r.Context(), stOf(r), r.PathValue("id"), *in.Playing)
+	t, err := s.ScreenTime.Beat(r.Context(), stOf(r), r.PathValue("id"), *in.Playing, wholeSeconds(in.Position))
 	if err != nil {
 		s.fail(w, err)
 		return

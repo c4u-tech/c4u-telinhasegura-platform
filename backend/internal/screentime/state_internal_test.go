@@ -50,3 +50,25 @@ func TestStateAtClampsTheDayToTheCap(t *testing.T) { // rules saved after an ext
 		t.Errorf("fresh: %+v, want %+v", got, want)
 	}
 }
+
+func TestFits(t *testing.T) {
+	ok := Time{State: OK, Remaining: 10 * time.Minute}
+	for _, c := range []struct {
+		name string
+		t    Time
+		d    time.Duration
+		want bool
+	}{
+		{"well inside", ok, 5 * time.Minute, true},
+		{"exactly what is left", ok, 10 * time.Minute, true},
+		{"at the tolerance", ok, 11 * time.Minute, true},
+		{"one second over the tolerance", ok, 11*time.Minute + time.Second, false},
+		{"nothing left, a minute-long video", Time{State: OK}, time.Minute, true},
+		{"time up", Time{State: TimeUp, Reason: ReasonDaily}, time.Second, false},
+		{"outside the window", Time{State: OutsideWindow, Reason: ReasonWindow, Remaining: time.Hour}, time.Second, false},
+	} {
+		if got := Fits(c.t, c.d); got != c.want {
+			t.Errorf("%s: Fits = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

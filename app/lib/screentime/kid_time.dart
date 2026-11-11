@@ -45,15 +45,28 @@ class KidPlay {
     required this.playId,
     required this.youtubeId,
     required this.remaining,
+    this.startSeconds = 0,
+    this.family = false,
   });
 
   factory KidPlay.fromJson(Map<String, dynamic> j) => KidPlay(
     playId: j['play_id'] as String,
     youtubeId: j['youtube_id'] as String,
     remaining: Duration(seconds: j['remaining_seconds'] as int? ?? 0),
+    startSeconds: (j['start_seconds'] as num?)?.floor() ?? 0,
+    // The server says where to start only for a long work watched with
+    // the family, so the key itself marks one.
+    family: j.containsKey('start_seconds'),
   );
 
   final String playId;
   final String youtubeId;
   final Duration remaining;
+
+  /// The second the video starts at: where the family stopped.
+  final int startSeconds;
+
+  /// A long work watched with the family: its beats say where the video
+  /// is, so the next session resumes there.
+  final bool family;
 }

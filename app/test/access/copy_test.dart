@@ -69,6 +69,15 @@ void main() {
     );
   });
 
+  test('the youngest band refused names the pace or the length, for a '
+      'curator and a moderator alike', () {
+    expect(
+      Copy.forError(err('checklist_band')),
+      'Esse vídeo não serve para 2 a 4 anos, pelo ritmo ou pela duração. '
+      'Escolha outra idade.',
+    );
+  });
+
   test('invalid_credentials never says which field was wrong', () {
     final text = Copy.forError(err('invalid_credentials'));
     expect(text, isNot(contains('não existe')));

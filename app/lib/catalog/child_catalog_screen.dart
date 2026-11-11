@@ -26,7 +26,8 @@ import 'words.dart';
 /// `/familia/videos/:crianca`: everything one child can watch, titled by
 /// the nickname, each theme under its heading in the app's order and each
 /// video a row led by its thumbnail,
-/// under today's pacotinhos when there are any.
+/// under today's pacotinhos and the long works watched with the family,
+/// when there are any.
 /// Pages of 50 append under "Ver mais"; coming back from a video reads
 /// from the start again. [notice] is a calm line brought back from a
 /// video that left the catalogue.
@@ -193,6 +194,12 @@ class _ChildCatalogScreenState extends State<ChildCatalogScreen>
         ),
       ];
     }
+    // A long work watched with the family stands in its own section,
+    // never under its theme.
+    final together = [
+      for (final v in videos)
+        if (v.familySession) v,
+    ];
     final themes = [
       for (final t in VideoTheme.values)
         if (t != VideoTheme.unknown)
@@ -200,7 +207,7 @@ class _ChildCatalogScreenState extends State<ChildCatalogScreen>
             t,
             [
               for (final v in videos)
-                if (v.theme == t) v,
+                if (v.theme == t && !v.familySession) v,
             ],
           ),
     ].where((s) => s.$2.isNotEmpty);
@@ -238,7 +245,32 @@ class _ChildCatalogScreenState extends State<ChildCatalogScreen>
           style: text.bodyMedium?.copyWith(color: context.palette.muted),
         ),
       ],
-      if (themes.isEmpty) ...[
+      if (together.isNotEmpty) ...[
+        const SizedBox(height: Space.xxl),
+        Semantics(
+          header: true,
+          child: Text(familyHeading, style: text.titleMedium),
+        ),
+        const SizedBox(height: Space.md),
+        Doors(
+          children: [
+            for (final v in together)
+              VideoRow(
+                key: ValueKey(v.id),
+                video: v,
+                nickname: minor.nickname,
+                thumbnail: thumbnail,
+                onTap: () => _open(v),
+              ),
+          ],
+        ),
+        const SizedBox(height: Space.md),
+        Text(
+          familyNote,
+          style: text.bodyMedium?.copyWith(color: context.palette.muted),
+        ),
+      ],
+      if (themes.isEmpty && together.isEmpty) ...[
         const SizedBox(height: Space.xl),
         Text(CatalogWords.empty(minor.ageBand), style: text.bodyLarge),
       ],

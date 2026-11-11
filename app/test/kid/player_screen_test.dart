@@ -99,6 +99,92 @@ void main() {
     expect(h.location(tester), '/crianca');
   });
 
+  testWidgets('a solo play starts at the beginning and its beats carry no '
+      'position', (tester) async {
+    final h = await watching(tester);
+    expect(current(h).start, 0);
+    current(h).at = 42;
+    current(h).emit(const PlayerPlaying());
+    await tester.pump();
+    expect(beats(h), ['POST /v1/child/plays/p1/beat {"playing":true}']);
+  });
+
+  testWidgets('a family work opens where it stopped and every beat says '
+      'where the video is', (tester) async {
+    final h = kid(
+      play: (_) => json(201, {
+        'play_id': 'p1',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+        'start_seconds': 754,
+      }),
+    );
+    await watching(tester, harness: h);
+    expect(current(h).start, 754);
+    current(h).at = 755;
+    current(h).emit(const PlayerPlaying());
+    await tester.pump();
+    current(h).at = 785;
+    await tester.pump(const Duration(seconds: 30));
+    expect(beats(h), [
+      'POST /v1/child/plays/p1/beat {"playing":true,"position_seconds":755}',
+      'POST /v1/child/plays/p1/beat {"playing":true,"position_seconds":785}',
+    ]);
+  });
+
+  testWidgets('leaving a family work sends where it stopped, not the 0 of '
+      'a closed player', (tester) async {
+    final h = kid(
+      play: (_) => json(201, {
+        'play_id': 'p1',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+        'start_seconds': 754,
+      }),
+    );
+    await watching(tester, harness: h);
+    current(h).at = 812;
+    current(h).emit(const PlayerPlaying());
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel(PlayerScreen.back));
+    await tester.pumpAndSettle();
+
+    expect(current(h).closed, isTrue);
+    expect(
+      beats(h).last,
+      'POST /v1/child/plays/p1/beat {"playing":false,"position_seconds":812}',
+    );
+  });
+
+  testWidgets('a family work reopened after a long pause keeps saying where '
+      'the video is', (tester) async {
+    var opened = 0;
+    final h = kid(
+      play: (_) => json(201, {
+        'play_id': 'p${++opened}',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+        'start_seconds': 754,
+      }),
+      beat: (req) => req.url.path.contains('/p1/')
+          ? problem(409, 'play_closed')
+          : json(200, {'state': 'ok', 'remaining_seconds': 600}),
+    );
+    await watching(tester, harness: h);
+    current(h).at = 900;
+    current(h).emit(const PlayerPlaying());
+    await tester.pumpAndSettle();
+    expect(
+      h.actions,
+      contains('POST /v1/child/plays {"video_id":"v1","continues":"p1"}'),
+    );
+    expect(
+      beats(h).last,
+      'POST /v1/child/plays/p2/beat {"playing":true,"position_seconds":900}',
+    );
+  });
+
   testWidgets('a reopen refused for time pauses and returns to the shelves', (
     tester,
   ) async {
@@ -119,6 +205,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(playback.closed, isTrue);
     expect(h.location(tester), '/crianca');
+  });
+
+  testWidgets('a reopen refused for not fitting pauses and returns to the '
+      'shelves with the note', (tester) async {
+    var opened = 0;
+    final h = kid(
+      play: (_) => opened++ == 0
+          ? json(201, {
+              'play_id': 'p1',
+              'youtube_id': 'yt1',
+              'remaining_seconds': 600,
+            })
+          : problem(403, 'does_not_fit'),
+      beat: (_) => problem(409, 'play_closed'),
+    );
+    await watching(tester, harness: h);
+    final playback = current(h);
+    playback.emit(const PlayerPlaying());
+    await tester.pumpAndSettle();
+    expect(playback.calls, contains('pause'));
+    expect(playback.closed, isTrue);
+    expect(h.location(tester), '/crianca');
+    expect(find.text(PlayerScreen.doesNotFit), findsOneWidget);
   });
 
   testWidgets('a thumbnail plays once and opens the player with the video '
@@ -181,6 +290,18 @@ void main() {
       );
     });
   }
+
+  test('does_not_fit says the video is longer than the time left', () {
+    const e = ApiError(status: 403, code: 'does_not_fit');
+    expect(refusalNote(e), PlayerScreen.doesNotFit);
+    expect(
+      PlayerScreen.doesNotFit,
+      'Esse vídeo é mais comprido que o tempo que falta hoje. '
+      'Escolha um mais curto.',
+    );
+    expect(refusesEvery(e), isFalse);
+    expect(refetchAfter(refusalNote(e)), isFalse);
+  });
 
   test(
     'a paused profile\'s refusal says so, and the shelves are read again',

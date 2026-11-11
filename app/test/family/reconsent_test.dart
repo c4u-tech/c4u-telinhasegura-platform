@@ -11,6 +11,7 @@ import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/labels.dart';
 import 'package:telinha_segura/family/reconsent_screen.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/shell/routes.dart';
 
 import '../access/harness.dart';
 import 'fixtures.dart';
@@ -111,6 +112,42 @@ void main() {
     await authorize(tester);
 
     expect(h.location(tester), '/modo-crianca/entregar');
+  });
+
+  testWidgets('opened from the start of a family work, it returns there', (
+    tester,
+  ) async {
+    const start = '/familia/videos/m1/f1/assistir';
+    final h = await reconsent(
+      tester,
+      initial:
+          '/familia/criancas/m1/autorizar?depois=${Uri.encodeComponent(start)}',
+    );
+
+    await authorize(tester);
+
+    expect(h.location(tester), start);
+  });
+
+  test('only a family work\'s start, one plain segment per id, is a '
+      'return', () {
+    for (final ok in [
+      '/familia/videos/m1/f1/assistir',
+      '/familia/videos/7c9e-a1/b2_c3/assistir',
+    ]) {
+      expect(Routes.reconsentReturn(ok), ok, reason: ok);
+    }
+    for (final no in [
+      '/familia/videos/m1/f1',
+      '/familia/videos/m1/f1/denunciar',
+      '/familia/videos/m1/../assistir',
+      '/familia/videos/m1/f1/assistir/x',
+      '/familia/videos/m1/f1/assistir?x=1',
+      '//example.com/familia/videos/m1/f1/assistir',
+      'https://example.com/familia/videos/m1/f1/assistir',
+    ]) {
+      expect(Routes.reconsentReturn(no), isNull, reason: no);
+    }
   });
 
   testWidgets('a return anywhere else is dropped for the children', (
