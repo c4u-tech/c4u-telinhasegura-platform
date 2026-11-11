@@ -44,7 +44,7 @@ func TestChecklistOverHTTP(t *testing.T) {
 	if err := json.Unmarshal([]byte(first), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Version != "2026-10-21" || len(body.Groups) != 6 || body.Groups[0].ID != "antes" || body.Groups[0].Title != "Antes de começar" {
+	if body.Version != "2026-11-11" || len(body.Groups) != 7 || body.Groups[0].ID != "antes" || body.Groups[0].Title != "Antes de começar" {
 		t.Fatalf("list %+v", body)
 	}
 	if c25 := body.Groups[0].Items[0]; c25.ID != "c25" || c25.Rule != "conflict" ||

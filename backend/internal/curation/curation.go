@@ -78,7 +78,7 @@ var (
 
 	ErrChecklistOutdated   = errors.New("curation: the checklist version is not the current one")
 	ErrChecklistRefuses    = errors.New("curation: an answer refuses the video")
-	ErrChecklistBand       = errors.New("curation: the pace answered rules out the youngest band")
+	ErrChecklistBand       = errors.New("curation: the pace answered or the length rules out the youngest band")
 	ErrDeclarationRequired = errors.New("curation: the curator has not accepted the current curator terms")
 	ErrDeclarationOutdated = errors.New("curation: the curator terms version is not the current one")
 	ErrConflictOfInterest  = errors.New("curation: the curator has a tie to the channel")

@@ -131,8 +131,9 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		var st string
 		var round int
 		var due *time.Time
-		err := tx.QueryRow(ctx, `SELECT state, round, review_due_at FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
-			Scan(&st, &round, &due)
+		var seconds int
+		err := tx.QueryRow(ctx, `SELECT state, round, review_due_at, duration_seconds FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
+			Scan(&st, &round, &due, &seconds)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -168,6 +169,12 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 			return err
 		}
 		rv.DisplayRole = DisplayRole(role)
+		if e.decision != Reject {
+			length := time.Duration(seconds) * time.Second
+			if err := lengthRule(in.Answers, in.MinAgeBand, length, s.d.LongFrom, s.d.YoungestMaxDuration); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
 			min_age_band, reason, reviewed_at, checklist_version, checklist) VALUES ($1::uuid, $2, $3::uuid, $4, $5,
 			nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb)`,

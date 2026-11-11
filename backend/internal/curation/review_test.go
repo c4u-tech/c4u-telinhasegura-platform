@@ -19,8 +19,21 @@ func clean() map[string]curation.Answer {
 	out := map[string]curation.Answer{}
 	for _, g := range curation.Checklist() {
 		for _, it := range g.Items {
+			if it.LongOnly {
+				continue
+			}
 			out[it.ID] = curation.AnswerOK
 		}
+	}
+	return out
+}
+
+// cleanLong is clean with the questions only a long video is asked, each
+// answered "ok" too.
+func cleanLong() map[string]curation.Answer {
+	out := clean()
+	for _, id := range []string{"c26", "c27", "c28"} {
+		out[id] = curation.AnswerOK
 	}
 	return out
 }
@@ -91,7 +104,7 @@ func (f *fixture) approvedVideo(youtubeID string, due time.Time) string {
 // own transaction.
 func (f *fixture) waitForLockWaiters(n int) {
 	f.t.Helper()
-	f.waitForLockWaitersLike(n, "SELECT state, round, review_due_at FROM videos%")
+	f.waitForLockWaitersLike(n, "SELECT state, round, review_due_at, duration_seconds FROM videos%")
 }
 
 // waitForLockWaitersLike returns once n backends of this database are

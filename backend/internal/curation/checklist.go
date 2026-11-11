@@ -3,6 +3,7 @@ package curation
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 )
@@ -10,7 +11,7 @@ import (
 // ChecklistVersion names the list of questions curators answer. A review
 // sent against another version is refused, so every stored answer reads
 // against the exact questions that were asked.
-const ChecklistVersion = "2026-10-21"
+const ChecklistVersion = "2026-11-11"
 
 // Answer is a curator's answer to one question. Every question asks
 // whether something is in the video, so "ok" (no) is always the answer
@@ -33,12 +34,16 @@ const (
 	RuleDoubt    Rule = "doubt"    // the video goes to a moderator
 	RuleBand     Rule = "band"     // the youngest band is not allowed
 	RuleConflict Rule = "conflict" // the curator may not review this video
+	RuleNotes    Rule = "notes"    // recorded for the team, never changes the outcome
 )
 
+// ChecklistItem is one question. A LongOnly question is asked of a long
+// video only: a long video's review must answer it, a short one's must not.
 type ChecklistItem struct {
-	ID   string
-	Text string
-	Rule Rule
+	ID       string
+	Text     string
+	Rule     Rule
+	LongOnly bool
 }
 
 type ChecklistGroup struct {
@@ -83,6 +88,11 @@ var checklist = []ChecklistGroup{
 		{ID: "c02", Text: "É uma compilação longa ('1 hora de…') ou uma estreia?", Rule: RuleRefuses},
 		{ID: "c24", Text: "O canal tem outros vídeos que você recusaria?", Rule: RuleDoubt},
 	}},
+	{ID: "longo", Title: "Vídeo longo", Items: []ChecklistItem{
+		{ID: "c26", Text: "É filme, episódio ou história publicada por um canal que não é o oficial da obra nem licenciado por quem tem os direitos?", Rule: RuleRefuses, LongOnly: true},
+		{ID: "c27", Text: "A obra tem classificação indicativa oficial acima de Livre?", Rule: RuleRefuses, LongOnly: true},
+		{ID: "c28", Text: "Aparecem anúncios no meio do vídeo?", Rule: RuleNotes, LongOnly: true},
+	}},
 }
 
 // checklistItem finds a question by its ID; checklistOrder is the IDs in
@@ -115,16 +125,23 @@ func Checklist() []ChecklistGroup {
 // tie comes first, since such a curator must not judge the video at all;
 // then an answer that refuses the video; then the pace that rules out the
 // youngest band. It reports whether the review is a doubt: an explicit
-// "doubt", or a yes on a question that asks for a moderator.
+// "doubt", or a yes on a question that asks for a moderator. The questions
+// asked of a long video only are checked when present; whether they must be
+// is the video's length, which lengthRule judges.
 func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
-	if len(answers) != len(checklistOrder) {
-		return false, ErrValidation
+	for _, id := range checklistOrder {
+		if _, ok := answers[id]; !ok && !checklistItem[id].LongOnly {
+			return false, ErrValidation
+		}
 	}
 	var conflict, refuses, fast, doubt bool
 	for id, a := range answers {
 		item, ok := checklistItem[id]
 		if !ok || a != AnswerOK && a != AnswerAppears && a != AnswerDoubt {
 			return false, ErrValidation
+		}
+		if item.Rule == RuleNotes {
+			continue
 		}
 		if a == AnswerDoubt {
 			if item.Rule == RuleConflict {
@@ -155,6 +172,26 @@ func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
 		return false, ErrChecklistBand
 	}
 	return doubt, nil
+}
+
+// lengthRule holds a review to the video's length. A video longer than
+// longFrom is long: its review must answer every long question, and a
+// shorter one's must answer none. A video longer than youngestMax cannot go
+// to the youngest band; a doubt with no band leaves that to the moderator.
+func lengthRule(answers map[string]Answer, band family.AgeBand, length, longFrom, youngestMax time.Duration) error {
+	long := length > longFrom
+	for _, id := range checklistOrder {
+		if !checklistItem[id].LongOnly {
+			continue
+		}
+		if _, ok := answers[id]; ok != long {
+			return ErrValidation
+		}
+	}
+	if length > youngestMax && band == family.AgeUpTo4 {
+		return ErrChecklistBand
+	}
+	return nil
 }
 
 // failedItems checks a rejection's questions: one or more, each one whose
