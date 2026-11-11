@@ -256,3 +256,21 @@ func TestBeatPositionIsCutToWholeSeconds(t *testing.T) {
 		t.Fatalf("the beat lost its credit: %d", s)
 	}
 }
+
+// A child authorized under the previous consent text is paused until the
+// guardian authorizes again: the family session start and the child's own
+// reads both refuse with consent_required.
+func TestPreviousConsentTextPausesFamilySessions(t *testing.T) {
+	a := newAPI(t)
+	guardian, kid, minor, work := a.familySetup()
+	a.exec(`UPDATE minor_consents SET policy_version = '2026-10-17' WHERE minor_id = $1::uuid`, minor)
+	if r := a.startSession(guardian, minor, map[string]any{"video_id": work, "pin": "2580"}); r.Code != http.StatusForbidden || r.problemCode() != "consent_required" {
+		t.Errorf("session start: %d %s", r.Code, r.Body)
+	}
+	if r := a.do(http.MethodGet, "/v1/child/catalog", nil, kid...); r.Code != http.StatusForbidden || r.problemCode() != "consent_required" {
+		t.Errorf("catalog: %d %s", r.Code, r.Body)
+	}
+	if a.count(`SELECT count(*) FROM family_sessions`) != 0 {
+		t.Fatal("a refused start stored a session")
+	}
+}

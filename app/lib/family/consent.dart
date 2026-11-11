@@ -10,7 +10,7 @@ import '../shell/services.dart';
 /// The app sends [version] with the consent, so a change to the words is
 /// a new version, here and in the backend's `family.ConsentPolicyVersion`.
 abstract final class ConsentText {
-  static const version = '2026-10-17';
+  static const version = '2026-11-11';
 
   static const title = 'Antes de criar o perfil';
 
@@ -23,6 +23,9 @@ abstract final class ConsentText {
         'aparelho, quando e por quanto tempo. Isso conta o tempo de tela e '
         'mostra a você os últimos dias. Cada vídeo assistido é apagado '
         'depois de 30 dias; os totais de tempo por dia, depois de 90.',
+    'Nas sessões em família, guardamos também em que ponto do vídeo a '
+        'criança parou, para continuar dali na próxima vez; isso é apagado '
+        'em 30 dias, como o que ela assistiu.',
     'Esses dados servem para mostrar o perfil na sua família, ajustar à '
         'idade da criança o que aparece para ela e cuidar do tempo de tela.',
     'Os outros adultos da sua família também veem e podem editar este '

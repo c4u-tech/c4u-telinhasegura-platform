@@ -6,7 +6,7 @@ void main() {
   test('the text carries the version the app sends', () {
     // The app never records consent against a text it did not show.
     expect(ConsentText.version, kConsentPolicyVersion);
-    expect(ConsentText.version, '2026-10-17');
+    expect(ConsentText.version, '2026-11-11');
   });
 
   test('the text says what is kept, why, for how long, and that the '
@@ -21,6 +21,9 @@ void main() {
           'aparelho, quando e por quanto tempo. Isso conta o tempo de tela e '
           'mostra a você os últimos dias. Cada vídeo assistido é apagado '
           'depois de 30 dias; os totais de tempo por dia, depois de 90.',
+      'Nas sessões em família, guardamos também em que ponto do vídeo a '
+          'criança parou, para continuar dali na próxima vez; isso é apagado '
+          'em 30 dias, como o que ela assistiu.',
       'Esses dados servem para mostrar o perfil na sua família, ajustar à '
           'idade da criança o que aparece para ela e cuidar do tempo de tela.',
       'Os outros adultos da sua família também veem e podem editar este '
