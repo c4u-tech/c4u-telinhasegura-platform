@@ -253,12 +253,15 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
           label: CatalogWords.watchWith(nickname),
           onPressed: idle ? () => _watch(v) : null,
         ),
+        if (v.resumeSeconds > 0) const SubmitHint(familyResumes),
         const SizedBox(height: Space.xxl),
         QuietAction(
           label: toggle,
           busy: _write.busy,
           onPressed: idle ? () => _toggle(nickname) : null,
         ),
+        // The report keeps its own distance: it never pairs with hiding.
+        const SizedBox(height: Space.xxl),
       ] else ...[
         PrimaryButton(
           label: toggle,

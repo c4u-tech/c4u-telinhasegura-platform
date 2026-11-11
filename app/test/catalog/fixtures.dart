@@ -18,6 +18,7 @@ Map<String, Object?> familyItem(
   Map<String, int>? approvals = const {'mae-pai': 2, 'pedagogo': 1},
   int reviewedDaysAgo = 3,
   bool familySession = false,
+  int? resume,
 }) => {
   'id': id,
   'youtube_id': 'yt-$id',
@@ -28,6 +29,7 @@ Map<String, Object?> familyItem(
   'min_age_band': 'ate-4',
   'hidden': hidden,
   'family_session': familySession,
+  'resume_seconds': ?resume,
   'provenance': approvals == null
       ? null
       : {
@@ -128,6 +130,16 @@ final liaFilm = familyItem(
   channel: 'Cinema Pequeno',
   seconds: 90 * 60,
   familySession: true,
+);
+
+/// Lia's film, stopped 32 minutes in: 58 minutes left.
+final liaFilmResumed = familyItem(
+  'f1',
+  'A grande viagem do sapo',
+  channel: 'Cinema Pequeno',
+  seconds: 90 * 60,
+  familySession: true,
+  resume: 32 * 60,
 );
 
 /// Lia's catalogue with a film and a long story to watch with the family,

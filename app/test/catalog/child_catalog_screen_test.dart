@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -26,16 +27,27 @@ Future<Harness> catalogue(
   FutureOr<http.Response> Function(String videoId)? thumb,
   FutureOr<http.Response> Function(http.Request)? write,
   String initial = '/familia/videos/m1',
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   final h = Harness(
     signedIn: true,
     api: catalogApi(catalog: catalog, thumb: thumb, write: write),
   )..family = threeChildren;
-  await h.pump(tester, initial: initial);
+  await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
 }
 
 Finder row(String title) => find.widgetWithText(VideoRow, title);
+
+/// A row's muted line saying [words] ("Canal · 6 min"): on one line, or,
+/// where the length cannot stand beside the channel, with the length on a
+/// line of its own.
+Finder meta(String words) => find.byWidgetPredicate(
+  (w) =>
+      w is Text &&
+      w.data?.replaceAll('\u00A0', ' ').replaceAll('\n', ' · ') == words,
+);
 
 Finder packRow(String title) => find.widgetWithText(PackRow, title);
 
@@ -118,7 +130,7 @@ void main() {
     expect(
       find.descendant(
         of: row('O sapo que pulava alto'),
-        matching: find.text(nbt('Ciência Pequena · 6 min')),
+        matching: meta('Ciência Pequena · 6 min'),
       ),
       findsOneWidget,
     );
@@ -133,7 +145,7 @@ void main() {
     expect(
       find.descendant(
         of: row('Gatinhos no quintal'),
-        matching: find.text(nbt('Canal X · 4 min')),
+        matching: meta('Canal X · 4 min'),
       ),
       findsOneWidget,
     );
@@ -146,7 +158,7 @@ void main() {
     expect(tester.widget<StateLine>(mark).words, 'Escondido para Lia');
     expect(
       tester.getTopLeft(mark).dy,
-      greaterThan(tester.getTopLeft(find.text(nbt('Canal X · 4 min'))).dy),
+      greaterThan(tester.getTopLeft(meta('Canal X · 4 min')).dy),
       reason: 'its own line, under the channel and length',
     );
     expect(
@@ -478,7 +490,7 @@ void main() {
       expect(
         find.descendant(
           of: row('A grande viagem do sapo'),
-          matching: find.text(nbt('Cinema Pequeno · 1 h 30 min')),
+          matching: meta('Cinema Pequeno · 1 h 30 min'),
         ),
         findsOneWidget,
       );
@@ -489,6 +501,57 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('at 200 % text a length too long to stand '
+        'beside the channel takes its own line whole, and no line ends or '
+        'opens on the dot', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await catalogue(
+        tester,
+        catalog: (_, _) => page(liaWithFamily),
+        // Wide enough for the test font's length alone at 200 %.
+        size: const Size(412, 915),
+        textScale: 2,
+      );
+      final film = row('A grande viagem do sapo');
+      await tester.ensureVisible(film);
+      await tester.pumpAndSettle();
+
+      final words = find.descendant(
+        of: film,
+        matching: meta('Cinema Pequeno · 1 h 30 min'),
+      );
+      // The length on a line of its own, whole: no dot left to end a line.
+      expect(
+        tester.widget<Text>(words).data,
+        'Cinema${'\u00A0'}Pequeno\n1\u00A0h\u00A030\u00A0min'.replaceFirst(
+          'Cinema\u00A0',
+          'Cinema ',
+        ),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: words, matching: find.byType(RichText)),
+      );
+      final text = paragraph.text.toPlainText();
+      final start = text.indexOf('\n') + 1;
+      final boxes = paragraph.getBoxesForSelection(
+        TextSelection(baseOffset: start, extentOffset: text.length),
+      );
+      expect({for (final b in boxes) b.top}, hasLength(1));
+      // Read as one line still.
+      expect(
+        find.descendant(
+          of: film,
+          matching: find.text(nbt('Cinema Pequeno · 1 h 30 min')),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester.getSemantics(film).label,
+        contains(nbt('Cinema Pequeno · 1 h 30 min')),
+      );
+      semantics.dispose();
     });
 
     testWidgets('without family works the section is absent', (tester) async {

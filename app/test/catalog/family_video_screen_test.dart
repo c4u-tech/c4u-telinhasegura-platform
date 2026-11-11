@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/catalog/family_video_screen.dart';
 import 'package:telinha_segura/catalog/words.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
 
 import '../access/harness.dart';
@@ -22,8 +23,18 @@ Future<Harness> video(
   String title = 'O sapo que pulava alto',
   FutureOr<http.Response> Function(String minorId, int offset)? catalog,
   FutureOr<http.Response> Function(http.Request)? write,
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
-  final h = await catalogue(tester, catalog: catalog, write: write);
+  final h = await catalogue(
+    tester,
+    catalog: catalog,
+    write: write,
+    size: size,
+    textScale: textScale,
+  );
+  await tester.ensureVisible(row(title));
+  await tester.pumpAndSettle();
   await tapOn(tester, row(title));
   return h;
 }
@@ -246,6 +257,9 @@ void main() {
     Future<Harness> film(
       WidgetTester tester, {
       bool hidden = false,
+      int? resume,
+      Size size = const Size(390, 844),
+      double textScale = 1,
       FutureOr<http.Response> Function(http.Request)? write,
     }) => video(
       tester,
@@ -258,9 +272,12 @@ void main() {
           seconds: 90 * 60,
           familySession: true,
           hidden: hidden,
+          resume: resume,
         ),
       ]),
       write: write,
+      size: size,
+      textScale: textScale,
     );
 
     testWidgets('reads in order: the heading, "Melhor assistir junto.", the '
@@ -292,11 +309,39 @@ void main() {
       );
     });
 
-    testWidgets('with no resume point in the guardian\'s read, no hint under '
-        'the primary', (tester) async {
-      await film(tester);
+    testWidgets('never watched, no hint under the primary', (tester) async {
+      await film(tester, resume: 0);
 
-      expect(find.text('Continua de onde parou.'), findsNothing);
+      expect(find.text(familyResumes), findsNothing);
+    });
+
+    testWidgets('stopped partway, the primary\'s hint says it goes on from '
+        'there', (tester) async {
+      await film(tester, resume: 32 * 60);
+
+      expect(find.text(familyResumes), findsOneWidget);
+      final primary = tester.getRect(watch);
+      final hint = tester.getRect(find.text(familyResumes));
+      expect(hint.top, greaterThan(primary.bottom));
+      expect(hint.top, lessThan(tester.getTopLeft(quietHide).dy));
+    });
+
+    testWidgets('the report keeps its own distance from hiding, at 200 % '
+        'text at 360 × 640 too', (tester) async {
+      await film(tester, size: const Size(360, 640), textScale: 2);
+
+      await tester.ensureVisible(report);
+      await tester.pumpAndSettle();
+      final hideWords = tester.getRect(
+        find.descendant(of: quietHide, matching: find.byType(Text)),
+      );
+      final reportWords = tester.getRect(
+        find.descendant(of: report, matching: find.byType(Text)),
+      );
+      expect(
+        reportWords.top - hideWords.bottom,
+        greaterThanOrEqualTo(Space.xxl),
+      );
     });
 
     testWidgets('"Assistir com Lia" opens the start, the video paused '

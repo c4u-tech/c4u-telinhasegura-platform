@@ -67,6 +67,9 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
   FamilyVideo? _video;
   ScreenTimeRules? _day;
 
+  /// Where the pad stands, to bring it whole into view.
+  final _padKey = GlobalKey();
+
   /// The more time chosen, in minutes; 0 for none.
   int _minutes = 0;
 
@@ -96,6 +99,19 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
     _handOver.dispose();
     _pad.dispose();
     super.dispose();
+  }
+
+  /// Once a digit is typed, the whole pad, its start key included,
+  /// stands in view: scrolled there at once, without motion.
+  void _showPad() {
+    final pad = _padKey.currentContext;
+    if (pad == null) return;
+    unawaited(
+      Scrollable.ensureVisible(
+        pad,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      ),
+    );
   }
 
   /// The work, when it came by its address, then the child's day.
@@ -134,7 +150,7 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
   /// The day as just read, with the least more time that fits chosen.
   void _show(ScreenTimeRules day) {
     _day = day;
-    _minutes = SessionFit(day, _video!.duration).smallest ?? 0;
+    _minutes = SessionFit(day, _video!.left).smallest ?? 0;
   }
 
   /// The day again, after a refusal that said it changed; a failed read
@@ -261,7 +277,8 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
     final text = Theme.of(context).textTheme;
     final muted = text.bodyMedium?.copyWith(color: context.palette.muted);
     final nickname = minor.nickname;
-    final fit = SessionFit(day, v.duration);
+    // What has to fit is what is left of the work, as the server counts.
+    final fit = SessionFit(day, v.left);
     final smallest = fit.smallest;
     final now = day.today.time.state == KidTimeState.ok
         ? CatalogWords.dayLeft(nickname, fit.left)
@@ -278,7 +295,12 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
     return [
       Text(v.title, style: text.titleMedium),
       const SizedBox(height: Space.xs),
-      Text(CurationWords.duration(v.duration), style: muted),
+      Text(
+        v.resumeSeconds > 0
+            ? CatalogWords.workLeft(v.left)
+            : CurationWords.duration(v.duration),
+        style: muted,
+      ),
       const SizedBox(height: Space.lg),
       // Read again after a refusal: said aloud when it changes.
       Semantics(liveRegion: true, child: Text(dayLine, style: text.bodyLarge)),
@@ -315,7 +337,9 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
           const SizedBox(height: Space.xl),
         ],
         Center(
+          key: _padKey,
           child: PinPad(
+            onTyped: _showPad,
             controller: _pad,
             enabled: idle,
             autofocus: false,

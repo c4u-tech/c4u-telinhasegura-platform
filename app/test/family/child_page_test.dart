@@ -577,7 +577,14 @@ void main() {
         matching: find.byType(TextButton),
       );
       expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
-      final meta = find.text('Ciência Pequena\u00a0·\u00a06\u00a0min');
+      // On one line, or with the length on its own where it cannot stand
+      // beside the channel.
+      final meta = find.byWidgetPredicate(
+        (w) =>
+            w is Text &&
+            w.data?.replaceAll('\u00a0', ' ').replaceAll('\n', ' · ') ==
+                'Ciência Pequena · 6 min',
+      );
       final gap =
           tester.getTopLeft(find.text('Esconder').first).dy -
           tester.getBottomLeft(meta.first).dy;

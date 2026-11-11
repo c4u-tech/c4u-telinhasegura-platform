@@ -58,6 +58,20 @@ void main() {
     );
   });
 
+  test('a family work says where the child stopped it; a video watched '
+      'alone, and an older server, say nothing', () {
+    expect(FamilyVideo.fromJson(familyVideoJson).resumeSeconds, 0);
+    expect(
+      FamilyVideo.fromJson({
+        ...familyVideoJson,
+        'duration_seconds': 5400,
+        'family_session': true,
+        'resume_seconds': 1920,
+      }).resumeSeconds,
+      1920,
+    );
+  });
+
   test('every call hits its contract path', () async {
     final t = build(ClientKind.mobile, familyContract);
     final api = FamilyCatalogApi(t.client);

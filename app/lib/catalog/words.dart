@@ -41,6 +41,9 @@ const familyNote =
 /// Under a family work's heading.
 const familyTogether = 'Melhor assistir junto.';
 
+/// Under a family work's primary, once the child stopped it partway.
+const familyResumes = 'Continua de onde parou.';
+
 /// A non-breaking hyphen: "mostrá‑lo" never parts at its hyphen.
 const _nbhy = '\u2011';
 
@@ -174,6 +177,10 @@ abstract final class CatalogWords {
   /// with its verb on a line.
   static String toFit(Duration missing) =>
       'Para caber hoje, faltam$_nbsp${CurationWords.duration(missing)}.';
+
+  /// What is left of a work stopped partway, in its length's place.
+  static String workLeft(Duration left) =>
+      'Faltam ${CurationWords.duration(left)} do filme';
 
   /// No more time today could make the work fit.
   static const noFit = 'Esse filme não cabe mais hoje.';

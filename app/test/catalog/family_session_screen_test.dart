@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart';
@@ -45,12 +46,13 @@ Future<Harness> starting(
   FutureOr<http.Response> Function()? rules,
   FutureOr<http.Response> Function(http.Request)? session,
   FutureOr<http.Response> Function(http.Request)? handOver,
+  List<Map<String, Object?>>? videos,
   String initial = path,
   Size size = const Size(390, 844),
   double textScale = 1,
 }) async {
   late final Harness h;
-  final catalog = catalogApi(catalog: (_, _) => page(liaWithFamily));
+  final catalog = catalogApi(catalog: (_, _) => page(videos ?? liaWithFamily));
   h =
       Harness(
           signedIn: true,
@@ -166,6 +168,75 @@ void main() {
       isSemantics(label: CatalogWords.pinHeading, isHeader: true),
     );
     semantics.dispose();
+  });
+
+  group('a work stopped partway', () {
+    testWidgets('says what is left of it instead of its length, and fits '
+        'what is left', (tester) async {
+      await starting(tester, videos: [liaFilmResumed], rules: () => today(72));
+
+      expect(plain('Faltam 58 min do filme'), findsOneWidget);
+      expect(plain('1 h 30 min'), findsNothing);
+      expect(plain('Hoje Lia ainda tem 1 h 12 min.'), findsOneWidget);
+      expect(chosen(tester), 'Sem mais tempo');
+    });
+
+    testWidgets('what is short and the time chosen count only what is '
+        'left', (tester) async {
+      await starting(tester, videos: [liaFilmResumed], rules: () => today(50));
+
+      expect(
+        plain('Hoje Lia ainda tem 50 min. Para caber hoje, faltam 8 min.'),
+        findsOneWidget,
+      );
+      expect(chosen(tester), 'Mais 15 min');
+    });
+  });
+
+  testWidgets('the first digit brings the whole pad into view at once', (
+    tester,
+  ) async {
+    await starting(tester, rules: () => today(72));
+    final start = find.bySemanticsLabel(CatalogWords.begin);
+    expect(
+      tester.getRect(start).bottom,
+      greaterThan(844),
+      reason: 'below the fold on arrival',
+    );
+
+    // Typed where the first key shows, at the fold.
+    final one = tester.getRect(find.bySemanticsLabel('1'));
+    expect(one.top, lessThan(844));
+    await tester.tapAt(Offset(one.center.dx, (one.top + 844) / 2));
+    // One frame, no time passing: the scroll is a jump, not a motion.
+    await tester.pump();
+
+    expect(tester.getRect(start).bottom, lessThanOrEqualTo(844));
+  });
+
+  testWidgets('at 200 % text a wrapped choice keeps its module on the '
+      'first line', (tester) async {
+    await starting(
+      tester,
+      rules: () => today(72),
+      size: const Size(360, 640),
+      textScale: 2,
+    );
+    final none = choice('Sem mais tempo');
+    await tester.ensureVisible(none);
+    await tester.pumpAndSettle();
+    final words = tester.renderObject<RenderParagraph>(
+      find.descendant(of: none, matching: find.byType(RichText)),
+    );
+    final lines = words.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 14),
+    );
+    expect({for (final b in lines) b.top}.length, greaterThan(1));
+    final first = lines.first.toRect().shift(words.localToGlobal(Offset.zero));
+    final module = tester.getRect(
+      find.descendant(of: none, matching: find.byType(StateModule)),
+    );
+    expect(module.center.dy, closeTo(first.center.dy, 2));
   });
 
   testWidgets('when it fits, "Sem mais tempo" is chosen and nothing says '

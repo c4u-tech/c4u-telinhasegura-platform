@@ -25,6 +25,7 @@ class PinPad extends StatefulWidget {
     this.enabled = true,
     this.autofocus = true,
     this.confirmLabel = 'Confirmar',
+    this.onTyped,
   });
 
   static const minLength = 4;
@@ -42,6 +43,10 @@ class PinPad extends StatefulWidget {
   /// What the filled key is read as: the action the PIN completes
   /// ("Confirmar", or "Começar" where it starts something).
   final String confirmLabel;
+
+  /// Told each time a digit is typed, never which one: a long screen
+  /// brings the whole pad into view on the first.
+  final VoidCallback? onTyped;
 
   @override
   State<PinPad> createState() => _PinPadState();
@@ -87,6 +92,7 @@ class _PinPadState extends State<PinPad> {
   void _type(String digit) {
     if (_digits.length < PinPad.maxLength) {
       setState(() => _digits += digit);
+      widget.onTyped?.call();
     }
   }
 
