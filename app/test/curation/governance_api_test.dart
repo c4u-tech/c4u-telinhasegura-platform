@@ -71,17 +71,17 @@ void main() {
     expect(list.item('c26')!.longOnly, isTrue);
     expect(list.item('c24')!.longOnly, isFalse);
     expect(list.longFrom, const Duration(minutes: 20));
-    expect(list.youngestMax, const Duration(minutes: 30));
+    expect(list.youngestMax, const Duration(minutes: 60));
     expect(list.item('c99'), isNull);
     expect(ChecklistRule.parse('new_rule'), ChecklistRule.unknown);
     expect(ChecklistRule.parse('invalid_reason'), ChecklistRule.unknown);
     expect(ChecklistAnswer.parse('maybe'), ChecklistAnswer.unknown);
   });
 
-  test('a list without its limits reads 20 and 30 minutes', () {
+  test('a list without its limits reads 20 and 60 minutes', () {
     final list = Checklist.fromJson({'version': 'v', 'groups': <Object>[]});
     expect(list.longFrom, const Duration(minutes: 20));
-    expect(list.youngestMax, const Duration(minutes: 30));
+    expect(list.youngestMax, const Duration(minutes: 60));
     final other = Checklist.fromJson({
       'version': 'v',
       'long_from_seconds': 600,

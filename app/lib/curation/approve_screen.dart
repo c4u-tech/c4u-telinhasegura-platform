@@ -69,7 +69,7 @@ const fastPaceLine = 'Ritmo agitado não serve para 2 a 4 anos.';
 
 /// Under the bands when the video's length rules out the youngest.
 const tooLongForYoungestLine =
-    'Vídeos com mais de 30 minutos não vão para a faixa de 2 a 4 anos.';
+    'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.';
 
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';

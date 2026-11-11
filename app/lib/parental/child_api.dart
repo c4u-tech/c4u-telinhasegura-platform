@@ -132,16 +132,20 @@ class ChildApi {
         ),
       );
 
-  /// Tells the server the play is still going ([playing]) or stopped;
-  /// answers the day.
-  Future<KidTime> beat(String playId, {required bool playing}) async =>
-      KidTime.fromJson(
-        await _json(
-          'POST',
-          '/v1/child/plays/${_id(playId)}/beat',
-          body: {'playing': playing},
-        ),
-      );
+  /// Tells the server the play is still going ([playing]) or stopped,
+  /// and, for a family work, where the video is ([position], whole
+  /// seconds); answers the day.
+  Future<KidTime> beat(
+    String playId, {
+    required bool playing,
+    int? position,
+  }) async => KidTime.fromJson(
+    await _json(
+      'POST',
+      '/v1/child/plays/${_id(playId)}/beat',
+      body: {'playing': playing, 'position_seconds': ?position},
+    ),
+  );
 
   /// More time today, behind the parents' PIN.
   Future<KidTime> extend({required String pin, required int minutes}) async =>

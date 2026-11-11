@@ -15,6 +15,7 @@ class FamilyVideo {
     required this.minAgeBand,
     required this.hidden,
     this.provenance,
+    this.familySession = false,
   });
 
   factory FamilyVideo.fromJson(Map<String, dynamic> j) => FamilyVideo(
@@ -29,6 +30,7 @@ class FamilyVideo {
     provenance: j['provenance'] == null
         ? null
         : Provenance.fromJson(j['provenance'] as Map<String, dynamic>),
+    familySession: j['family_session'] as bool? ?? false,
   );
 
   final String id;
@@ -44,6 +46,10 @@ class FamilyVideo {
   /// Hidden for this child by a guardian; unhiding brings it back.
   final bool hidden;
   final Provenance? provenance;
+
+  /// A long work the child watches only with the family, started by a
+  /// guardian; it stays off the child's own shelves.
+  final bool familySession;
 }
 
 /// A video of a pacotinho as a guardian sees it: [hidden] when it is

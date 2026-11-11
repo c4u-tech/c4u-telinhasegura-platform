@@ -162,13 +162,13 @@ void main() {
     expect(find.text(publishedFromDoubt('Baby Shark')), findsOneWidget);
   });
 
-  testWidgets('"Publicar" keeps "2 a 4 anos" from a video past 30 minutes '
+  testWidgets('"Publicar" keeps "2 a 4 anos" from a video past 60 minutes '
       'and says why', (tester) async {
     await doubtHeld(
       tester,
       initial: '/moderacao/retidos/v1/publicar',
       held: heldOf(
-        queuedJson('v1', 'Baby Shark', seconds: 31 * 60),
+        queuedJson('v1', 'Baby Shark', seconds: 61 * 60),
         reason: 'doubt',
         doubts: [
           {...doubtJson, 'min_age_band': 'ate-4'},

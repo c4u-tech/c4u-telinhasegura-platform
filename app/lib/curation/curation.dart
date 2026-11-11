@@ -312,7 +312,7 @@ const defaultLongFrom = Duration(minutes: 20);
 
 /// The longest a video may run for the youngest age band, when the server
 /// does not say.
-const defaultYoungestMax = Duration(minutes: 30);
+const defaultYoungestMax = Duration(minutes: 60);
 
 /// The list every review answers, as the server holds it: the app renders
 /// it and sends its [version] back with the answers.

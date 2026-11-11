@@ -99,6 +99,67 @@ void main() {
     expect(h.location(tester), '/crianca');
   });
 
+  testWidgets('a solo play starts at the beginning and its beats carry no '
+      'position', (tester) async {
+    final h = await watching(tester);
+    expect(current(h).start, 0);
+    current(h).at = 42;
+    current(h).emit(const PlayerPlaying());
+    await tester.pump();
+    expect(beats(h), ['POST /v1/child/plays/p1/beat {"playing":true}']);
+  });
+
+  testWidgets('a family work opens where it stopped and every beat says '
+      'where the video is', (tester) async {
+    final h = kid(
+      play: (_) => json(201, {
+        'play_id': 'p1',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+        'start_seconds': 754,
+      }),
+    );
+    await watching(tester, harness: h);
+    expect(current(h).start, 754);
+    current(h).at = 755;
+    current(h).emit(const PlayerPlaying());
+    await tester.pump();
+    current(h).at = 785;
+    await tester.pump(const Duration(seconds: 30));
+    expect(beats(h), [
+      'POST /v1/child/plays/p1/beat {"playing":true,"position_seconds":755}',
+      'POST /v1/child/plays/p1/beat {"playing":true,"position_seconds":785}',
+    ]);
+  });
+
+  testWidgets('a family work reopened after a long pause keeps saying where '
+      'the video is', (tester) async {
+    var opened = 0;
+    final h = kid(
+      play: (_) => json(201, {
+        'play_id': 'p${++opened}',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+        'start_seconds': 754,
+      }),
+      beat: (req) => req.url.path.contains('/p1/')
+          ? problem(409, 'play_closed')
+          : json(200, {'state': 'ok', 'remaining_seconds': 600}),
+    );
+    await watching(tester, harness: h);
+    current(h).at = 900;
+    current(h).emit(const PlayerPlaying());
+    await tester.pumpAndSettle();
+    expect(
+      h.actions,
+      contains('POST /v1/child/plays {"video_id":"v1","continues":"p1"}'),
+    );
+    expect(
+      beats(h).last,
+      'POST /v1/child/plays/p2/beat {"playing":true,"position_seconds":900}',
+    );
+  });
+
   testWidgets('a reopen refused for time pauses and returns to the shelves', (
     tester,
   ) async {

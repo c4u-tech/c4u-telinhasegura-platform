@@ -336,9 +336,9 @@ void main() {
     expect(d.answers['c28'], ChecklistAnswer.appears);
   });
 
-  test('a video past 30 minutes keeps "2 a 4 anos" out, as a fast pace '
-      'does; up to 30 minutes it does not', () {
-    final long = ApprovalDraft(list, length: const Duration(minutes: 31));
+  test('a video past 60 minutes keeps "2 a 4 anos" out, as a fast pace '
+      'does; up to 60 minutes it does not', () {
+    final long = ApprovalDraft(list, length: const Duration(minutes: 61));
     expect(long.tooLongForYoungest, isTrue);
     expect(long.youngestBarred, isFalse, reason: 'the pace is not marked');
     long.band = AgeBand.upTo4;
@@ -347,7 +347,7 @@ void main() {
     expect(
       ApprovalDraft(
         list,
-        length: const Duration(minutes: 30),
+        length: const Duration(minutes: 60),
       ).tooLongForYoungest,
       isFalse,
     );

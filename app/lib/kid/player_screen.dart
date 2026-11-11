@@ -135,12 +135,20 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _open(KidPlay play) {
     final services = AppScope.of(context);
-    final playback = services.player.open(play.youtubeId);
+    final playback = services.player.open(
+      play.youtubeId,
+      start: play.startSeconds,
+    );
     _playback = playback;
     _events = playback.events.listen(_on);
     _beats = BeatLoop(
       playId: play.playId,
-      beat: (id, playing) => services.child.beat(id, playing: playing),
+      // A family work's beats say where the video is, so the next session
+      // starts there; a solo play's never do.
+      sendPosition: play.family,
+      position: playback.position,
+      beat: (id, playing, position) =>
+          services.child.beat(id, playing: playing, position: position),
       reopen: (closed) =>
           services.child.play(widget.videoId, continues: closed),
       // The day ran out between videos: leaving, the home reads the

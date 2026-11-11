@@ -192,6 +192,13 @@ double scrolled(WidgetTester tester) => tester
     .pixels;
 
 void main() {
+  test('the length line names the 60-minute bar of the youngest band', () {
+    expect(
+      tooLongForYoungestLine,
+      'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.',
+    );
+  });
+
   group('Antes de começar', () {
     testWidgets('says what the app checked, asks the tie with Não and Sim '
         'only, and waits on "Começar as perguntas" until both are '
@@ -747,10 +754,10 @@ void main() {
       expect(find.text('Etapa 1 de 6'), findsOneWidget);
     });
 
-    testWidgets('past 30 minutes disables "2 a 4 anos" and says why', (
+    testWidgets('past 60 minutes disables "2 a 4 anos" and says why', (
       tester,
     ) async {
-      await longApproving(tester, 31);
+      await longApproving(tester, 61);
       await start(tester);
       await clearSteps(tester, to: 6);
 
@@ -759,8 +766,8 @@ void main() {
       expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
     });
 
-    testWidgets('past 30 minutes with a fast pace says both', (tester) async {
-      await longApproving(tester, 31);
+    testWidgets('past 60 minutes with a fast pace says both', (tester) async {
+      await longApproving(tester, 61);
       await start(tester);
       await clearSteps(tester, to: 4);
       await noneOfThis(tester);

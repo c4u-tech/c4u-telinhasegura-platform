@@ -103,13 +103,14 @@ class YouTubeKidPlayer implements KidPlayer {
   final FrameHardener hardenFrame;
 
   @override
-  KidPlayback open(String youtubeId) {
+  KidPlayback open(String youtubeId, {int start = 0}) {
     final origin = appOrigin();
     return _YouTubePlayback(
       youtubeId,
       origin: origin,
       params: kidPlayerParams(origin: origin),
       autoplay: true,
+      start: start,
       hardenFrame: hardenFrame,
     );
   }
@@ -122,13 +123,14 @@ class YouTubeKidPlayer implements KidPlayer {
 /// [PlayerStrayed]; the screen decides (`followAdultPlayer`).
 class YouTubeAdultPlayer implements KidPlayer {
   @override
-  KidPlayback open(String youtubeId) {
+  KidPlayback open(String youtubeId, {int start = 0}) {
     final origin = appOrigin();
     return _YouTubePlayback(
       youtubeId,
       origin: origin,
       params: adultPlayerParams(origin: origin),
       autoplay: false,
+      start: start,
     );
   }
 }
@@ -139,6 +141,7 @@ class _YouTubePlayback implements KidPlayback {
     required String? origin,
     required YoutubePlayerParams params,
     required this._autoplay,
+    required this._start,
     FrameHardener? hardenFrame,
   }) {
     _controller = YoutubePlayerController(params: params, key: youtubeId);
@@ -174,7 +177,7 @@ class _YouTubePlayback implements KidPlayback {
     _values = _controller.stream.listen(_onValue);
     _loaded = safe;
     if (safe) {
-      unawaited(_start(params));
+      unawaited(_load(params));
     } else {
       _failed = true;
       // After the screen has subscribed to [events].
@@ -186,6 +189,7 @@ class _YouTubePlayback implements KidPlayback {
 
   final String youtubeId;
   final bool _autoplay;
+  final int _start;
   late final YoutubePlayerController _controller;
   late final StreamSubscription<YoutubePlayerValue> _values;
   final _events = StreamController<PlayerEvent>.broadcast();
@@ -193,12 +197,13 @@ class _YouTubePlayback implements KidPlayback {
   bool _failed = false;
   late final bool _loaded;
 
-  Future<void> _start(YoutubePlayerParams params) async {
+  Future<void> _load(YoutubePlayerParams params) async {
     await _controller.initWithParams(params: params);
+    final start = _start > 0 ? _start.toDouble() : null;
     if (_autoplay) {
-      await _controller.loadVideoById(videoId: youtubeId);
+      await _controller.loadVideoById(videoId: youtubeId, startSeconds: start);
     } else {
-      await _controller.cueVideoById(videoId: youtubeId);
+      await _controller.cueVideoById(videoId: youtubeId, startSeconds: start);
     }
   }
 
@@ -235,6 +240,9 @@ class _YouTubePlayback implements KidPlayback {
 
   @override
   Stream<PlayerEvent> get events => _events.stream;
+
+  @override
+  Future<int> position() async => (await _controller.currentTime).floor();
 
   @override
   Future<void> play() => _controller.playVideo();

@@ -157,7 +157,7 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
 const checklistJson = <String, Object?>{
   'version': '2026-11-11',
   'long_from_seconds': 1200,
-  'youngest_max_seconds': 1800,
+  'youngest_max_seconds': 3600,
   'groups': [
     {
       'id': 'antes',

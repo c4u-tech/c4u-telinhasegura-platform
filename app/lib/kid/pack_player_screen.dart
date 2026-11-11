@@ -154,7 +154,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     _events = playback.events.listen(_on);
     _beats = BeatLoop(
       playId: play.playId,
-      beat: (id, playing) => services.child.beat(id, playing: playing),
+      beat: (id, playing, _) => services.child.beat(id, playing: playing),
       reopen: (closed) => services.child.play(video.id, continues: closed),
       // The day ran out mid-video: the home reads its catalogue and
       // sleeps.

@@ -23,7 +23,10 @@ class ManualTimer implements Timer {
 }
 
 class Rig {
-  Rig({this.onBeat, this.onReopen});
+  Rig({this.onBeat, this.onReopen, this.sendPosition = false, this.position});
+
+  final bool sendPosition;
+  Future<int> Function()? position;
 
   final beats = <String>[];
   final timers = <ManualTimer>[];
@@ -36,8 +39,10 @@ class Rig {
 
   late final loop = BeatLoop(
     playId: 'p1',
-    beat: (id, playing) {
-      beats.add('$id $playing');
+    sendPosition: sendPosition,
+    position: () => position?.call() ?? Future.value(0),
+    beat: (id, playing, at) {
+      beats.add(at == null ? '$id $playing' : '$id $playing @$at');
       return onBeat?.call(id, playing) ?? Future.value(ok);
     },
     reopen: (closed) {
@@ -84,6 +89,67 @@ void main() {
     r.loop.stop();
     await settle();
     expect(r.beats, hasLength(3));
+  });
+
+  test('with sendPosition every beat carries where the video is', () async {
+    var at = 754;
+    final r = Rig(sendPosition: true, position: () async => at);
+    r.loop.playing();
+    await settle();
+    at = 784;
+    r.timers.single.fire();
+    await settle();
+    at = 790;
+    r.loop.paused();
+    await settle();
+    expect(r.beats, ['p1 true @754', 'p1 true @784', 'p1 false @790']);
+  });
+
+  test('without sendPosition no beat carries a position', () async {
+    var asked = 0;
+    final r = Rig(
+      position: () async {
+        asked++;
+        return 754;
+      },
+    );
+    r.loop.playing();
+    await settle();
+    r.loop.paused();
+    await settle();
+    expect(r.beats, ['p1 true', 'p1 false']);
+    expect(asked, 0);
+  });
+
+  test('a position that cannot be read still beats, without one', () async {
+    final r = Rig(
+      sendPosition: true,
+      position: () => Future.error(StateError('no player')),
+    );
+    r.loop.playing();
+    await settle();
+    expect(r.beats, ['p1 true']);
+  });
+
+  test('a beat after a reopen carries the position too', () async {
+    final r = Rig(
+      sendPosition: true,
+      position: () async => 900,
+      onReopen: (_) async => const KidPlay(
+        playId: 'p2',
+        youtubeId: 'yt1',
+        remaining: Duration.zero,
+        startSeconds: 754,
+        family: true,
+      ),
+      onBeat: (id, playing) => id == 'p1'
+          ? Future.error(const ApiError(status: 409, code: 'play_closed'))
+          : Future.value(ok),
+    );
+    r.loop.playing();
+    await settle();
+    await settle();
+    expect(r.beats, ['p1 true @900', 'p2 true @900']);
   });
 
   test('a stop while playing beats false once', () async {

@@ -17,12 +17,23 @@ class BeatLoop {
     required this._reopen,
     required this._onTimeUp,
     required this._onDoesNotFit,
+    this._position,
+    this._sendPosition = false,
     Timer Function(Duration, void Function(Timer))? periodic,
   }) : _periodic = periodic ?? Timer.periodic;
 
   static const interval = Duration(seconds: 30);
 
-  final Future<KidTime> Function(String, bool) _beat;
+  /// The play id, whether it plays, and where the video is when that is
+  /// sent.
+  final Future<KidTime> Function(String, bool, int?) _beat;
+
+  /// Reads where the video is.
+  final Future<int> Function()? _position;
+
+  /// Whether the beats say where the video is: a family work's do. A
+  /// reopened play says it again for itself.
+  bool _sendPosition;
   final Future<KidPlay> Function(String closedPlayId) _reopen;
   final void Function() _onTimeUp;
   final void Function() _onDoesNotFit;
@@ -67,7 +78,7 @@ class BeatLoop {
   Future<void> _once(bool playing) async {
     try {
       // Bounded, so one hung call cannot stall the serialized queue.
-      await _beat(_playId, playing).timeout(interval);
+      await _beat(_playId, playing, await _at()).timeout(interval);
     } on ApiError catch (e) {
       // Only a beat that says "playing" brings a closed play back; a pause
       // or stop beat on a closed play has nothing left to tell.
@@ -79,10 +90,26 @@ class BeatLoop {
     }
   }
 
+  /// Where the video is, or null when it is not sent or cannot be read: a
+  /// beat without a position still counts the time.
+  Future<int?> _at() async {
+    final read = _position;
+    if (!_sendPosition || read == null) return null;
+    try {
+      return await read().timeout(const Duration(seconds: 5));
+    } on Object {
+      return null;
+    }
+  }
+
   Future<void> _reopenPlay() async {
     try {
-      _playId = (await _reopen(_playId).timeout(interval)).playId;
-      if (_playing) await _beat(_playId, true).timeout(interval);
+      final reopened = await _reopen(_playId).timeout(interval);
+      _playId = reopened.playId;
+      _sendPosition = reopened.family;
+      if (_playing) {
+        await _beat(_playId, true, await _at()).timeout(interval);
+      }
     } on ApiError catch (e) {
       if (e.code == 'time_up' || doesNotFit(e)) {
         // Said only if the video was still meant to play: a screen that
