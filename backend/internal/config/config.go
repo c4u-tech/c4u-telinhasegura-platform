@@ -31,8 +31,8 @@ type Config struct {
 	YouTubeAPIKey               string // empty: a suggestion needing YouTube answers 503
 	YouTubeSearchDailyLimit     int    // search.list calls per Pacific day
 	CurationMinApprovals        int
-	CurationMaxDuration         time.Duration // the absolute ceiling of a video
-	CurationYoungestMaxDuration time.Duration // the ceiling for the youngest age band
+	CurationMaxDuration         time.Duration // the ceiling for a child of an older age band watching alone
+	CurationYoungestMaxDuration time.Duration // the same for the youngest age band
 	// The ceilings of a video watched with the family; the two above are
 	// the ceilings of a child watching alone.
 	CurationFamilyMaxDuration         time.Duration

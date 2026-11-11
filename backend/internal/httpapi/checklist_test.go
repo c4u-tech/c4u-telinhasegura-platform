@@ -58,7 +58,7 @@ func TestChecklistOverHTTP(t *testing.T) {
 	if c24 := last.Items[len(last.Items)-1]; last.ID != "ritmo" || last.Title != "Ritmo e canal" || c24.ID != "c24" || c24.Rule != "doubt" {
 		t.Fatalf("ritmo %+v", last)
 	}
-	if body.LongFromSeconds != 1200 || body.YoungestMaxSeconds != 1800 {
+	if body.LongFromSeconds != 1200 || body.YoungestMaxSeconds != 3600 {
 		t.Fatalf("limits %d %d", body.LongFromSeconds, body.YoungestMaxSeconds)
 	}
 	long := body.Groups[6]

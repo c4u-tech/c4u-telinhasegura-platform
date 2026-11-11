@@ -2,6 +2,7 @@ package curation_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -168,5 +169,37 @@ func TestFamilyCatalogKeepsATooLongVideoFromTheYoungestBand(t *testing.T) {
 	}
 	if len(page) != 1 || page[0].Video.ID != short {
 		t.Fatalf("page %+v", page)
+	}
+}
+
+func TestFamilyCatalogMarksAFamilySession(t *testing.T) {
+	f := newFixture(t)
+	fam, ana := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	bebe := f.minor(fam, family.AgeUpTo4)
+	long := f.published(nthID(1), "bichos", family.Age5To8)
+	short := f.published(nthID(2), "musica", family.Age5To8)
+	over := f.published(nthID(3), "bichos", family.Age5To8)
+	mid4 := f.published(nthID(4), "bichos", family.AgeUpTo4)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((50 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, short, int((10 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, over, int((121 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, mid4, int((40 * time.Minute).Seconds()))
+
+	page, _, err := f.svc.FamilyCatalog(ctx, ana, lia.MinorID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, x := range page {
+		got[x.Video.ID] = x.FamilySession
+	}
+	want := map[string]bool{long: true, mid4: false, short: false}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("5-8 sessions %v, want %v", got, want)
+	}
+	page, _, err = f.svc.FamilyCatalog(ctx, ana, bebe.MinorID, 0)
+	if err != nil || len(page) != 1 || page[0].Video.ID != mid4 || !page[0].FamilySession {
+		t.Fatalf("2-4 page %+v, %v", page, err)
 	}
 }

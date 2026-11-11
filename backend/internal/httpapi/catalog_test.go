@@ -139,6 +139,7 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 		Theme           string         `json:"theme"`
 		MinAgeBand      string         `json:"min_age_band"`
 		Hidden          bool           `json:"hidden"`
+		FamilySession   *bool          `json:"family_session"`
 		Provenance      map[string]any `json:"provenance"`
 	}
 	var page struct {
@@ -151,7 +152,7 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 	}
 	got := page.Videos[0]
 	if got.ID != v || got.YouTubeID != "dQw4w9WgXcQ" || got.Title != "Vídeo dQw4w9WgXcQ" || got.ChannelTitle != "Canal" || got.DurationSeconds != 300 ||
-		got.Theme != "bichos" || got.MinAgeBand != "ate-4" || got.Hidden {
+		got.Theme != "bichos" || got.MinAgeBand != "ate-4" || got.Hidden || got.FamilySession == nil || *got.FamilySession {
 		t.Fatalf("item %+v", got)
 	}
 	if approvals, _ := got.Provenance["approvals"].(map[string]any); approvals["mae-pai"] != float64(1) || got.Provenance["last_reviewed_at"] == nil {
@@ -170,6 +171,14 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 	}
 	if r := a.do(http.MethodDelete, hidden, nil, bearer(ana)...); r.Code != http.StatusNoContent {
 		t.Fatalf("unhide: %d %s", r.Code, r.Body)
+	}
+	// A video longer than a 5-to-8 child may watch alone is a family session.
+	if _, err := a.pool.Exec(context.Background(), `UPDATE videos SET duration_seconds = 3000 WHERE id = $1::uuid`, v); err != nil {
+		t.Fatal(err)
+	}
+	getJSON(t, a.do(http.MethodGet, path, nil, bearer(ana)...), &page)
+	if len(page.Videos) != 1 || page.Videos[0].FamilySession == nil || !*page.Videos[0].FamilySession {
+		t.Fatalf("a 50-minute video %+v", page.Videos)
 	}
 
 	for _, c := range []struct{ method, path string }{

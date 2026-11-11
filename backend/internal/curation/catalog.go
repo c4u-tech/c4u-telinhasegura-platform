@@ -39,18 +39,55 @@ type Shelf struct {
 // length came to be stored, such a video never reaches a child of the
 // youngest band.
 func (s *Service) bandRankSQL() string {
-	youngest := strconv.Itoa(int(s.d.FamilyYoungestMaxDuration / time.Second))
-	return `CASE WHEN v.min_age_band = 'ate-4' AND v.duration_seconds > ` + youngest + ` THEN 2
+	return `CASE WHEN v.min_age_band = 'ate-4' AND v.duration_seconds > ` + seconds(s.d.FamilyYoungestMaxDuration) + ` THEN 2
 		WHEN v.min_age_band = 'ate-4' THEN 1 WHEN v.min_age_band = '5-8' THEN 2 WHEN v.min_age_band = '9-12' THEN 3 END`
 }
 
-// eligibleSQL is the condition of a video a child may see, over
-// videos v, with $1 the child, $2 its family and $3 its band's rank.
-// Every child-facing read uses it, so they cannot disagree.
-func (s *Service) eligibleSQL() string {
+// seconds is d as an SQL integer literal of whole seconds.
+func seconds(d time.Duration) string { return strconv.Itoa(int(d / time.Second)) }
+
+// ceilingSQL is, in seconds, youngest for a child of the youngest band
+// ($3 = 1) and older for any other.
+func ceilingSQL(youngest, older time.Duration) string {
+	return `(CASE WHEN $3 = 1 THEN ` + seconds(youngest) + ` ELSE ` + seconds(older) + ` END)`
+}
+
+// soloCeilingSQL is the longest a video may run, in seconds, for the
+// child to watch it alone, by the child's band ($3).
+func (s *Service) soloCeilingSQL() string {
+	return ceilingSQL(s.d.YoungestMaxDuration, s.d.MaxDuration)
+}
+
+// familyCeilingSQL is the longest a video may run, in seconds, for the
+// child to watch it with the family, by the child's band ($3).
+func (s *Service) familyCeilingSQL() string {
+	return ceilingSQL(s.d.FamilyYoungestMaxDuration, s.d.FamilyMaxDuration)
+}
+
+// shownSQL is a video approved, within the child's band and not reported
+// by the family, over videos v, with $2 the family and $3 the band's rank.
+func (s *Service) shownSQL() string {
 	return `v.state = 'approved' AND ` + s.bandRankSQL() + ` <= $3
-	AND NOT EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id)
 	AND NOT EXISTS (SELECT 1 FROM video_reports r WHERE r.family_id = $2::uuid AND r.video_id = v.id)`
+}
+
+// notHiddenSQL is a video not hidden for the child $1, over videos v.
+const notHiddenSQL = `NOT EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id)`
+
+// eligibleSQL is the condition of a video a child may see and watch
+// alone, over videos v, with $1 the child, $2 its family and $3 its
+// band's rank. Every child-facing read uses it, so they cannot disagree.
+func (s *Service) eligibleSQL() string {
+	return s.shownSQL() + ` AND ` + notHiddenSQL + `
+	AND v.duration_seconds <= ` + s.soloCeilingSQL()
+}
+
+// familyWorkSQL is the condition of a video the child may watch only
+// with the family: eligible but for its length, which is past the solo
+// ceiling and within the family one. Same parameters as eligibleSQL.
+func (s *Service) familyWorkSQL() string {
+	return s.shownSQL() + ` AND ` + notHiddenSQL + `
+	AND v.duration_seconds > ` + s.soloCeilingSQL() + ` AND v.duration_seconds <= ` + s.familyCeilingSQL()
 }
 
 // childBand is the rank of the child's band, read on every request so a
@@ -109,6 +146,19 @@ func (s *Service) Catalog(ctx context.Context, c Child, loc *time.Location) ([]S
 // a malformed ID included, is ErrVideoNotAllowed, so the answer never
 // says why.
 func (s *Service) eligibleVideo(ctx context.Context, c Child, videoID string) (Video, error) {
+	return s.videoWhere(ctx, c, videoID, s.eligibleSQL())
+}
+
+// FamilyWork is the video when the child may watch it only with the
+// family. Anything else, a malformed ID or a video the child may watch
+// alone included, is ErrVideoNotAllowed.
+func (s *Service) FamilyWork(ctx context.Context, c Child, videoID string) (Video, error) {
+	return s.videoWhere(ctx, c, videoID, s.familyWorkSQL())
+}
+
+// videoWhere is the video when cond, over the parameters of eligibleSQL,
+// holds for the child; otherwise ErrVideoNotAllowed.
+func (s *Service) videoWhere(ctx context.Context, c Child, videoID, cond string) (Video, error) {
 	rank, err := childBand(ctx, s.d.Pool, c)
 	if err != nil {
 		return Video{}, err
@@ -116,7 +166,7 @@ func (s *Service) eligibleVideo(ctx context.Context, c Child, videoID string) (V
 	if !validID(videoID) {
 		return Video{}, ErrVideoNotAllowed
 	}
-	v, err := scanVideo(s.d.Pool.QueryRow(ctx, `SELECT `+videoCols+` FROM videos v WHERE v.id = $4::uuid AND `+s.eligibleSQL(),
+	v, err := scanVideo(s.d.Pool.QueryRow(ctx, `SELECT `+videoCols+` FROM videos v WHERE v.id = $4::uuid AND `+cond,
 		c.MinorID, c.FamilyID, rank, videoID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Video{}, ErrVideoNotAllowed

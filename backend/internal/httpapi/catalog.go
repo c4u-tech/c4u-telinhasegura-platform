@@ -196,13 +196,14 @@ func (s *Server) minorCatalog(w http.ResponseWriter, r *http.Request) {
 		Theme           string `json:"theme"`
 		MinAgeBand      string `json:"min_age_band"`
 		Hidden          bool   `json:"hidden"`
+		FamilySession   bool   `json:"family_session"`
 		Provenance      any    `json:"provenance"`
 	}
 	out := make([]item, 0, len(items))
 	for _, x := range items {
 		v := x.Video
 		out = append(out, item{v.ID, v.YouTubeID, v.Title, v.ChannelTitle, v.DurationSeconds, v.Theme, string(v.MinAgeBand), x.Hidden,
-			provenanceBody(x.Provenance)})
+			x.FamilySession, provenanceBody(x.Provenance)})
 	}
 	packs := []familyPackOut{}
 	if offset == 0 {
