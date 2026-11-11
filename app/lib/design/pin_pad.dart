@@ -26,6 +26,7 @@ class PinPad extends StatefulWidget {
     this.autofocus = true,
     this.confirmLabel = 'Confirmar',
     this.onTyped,
+    this.confirmEnabled = true,
   });
 
   static const minLength = 4;
@@ -47,6 +48,10 @@ class PinPad extends StatefulWidget {
   /// Told each time a digit is typed, never which one: a long screen
   /// brings the whole pad into view on the first.
   final VoidCallback? onTyped;
+
+  /// False while another filled action on the screen stands for the same
+  /// step (a retry): the filled key waits, so only one is offered.
+  final bool confirmEnabled;
 
   @override
   State<PinPad> createState() => _PinPadState();
@@ -103,7 +108,7 @@ class _PinPadState extends State<PinPad> {
   }
 
   void _submit() {
-    if (_ready) widget.onSubmit(_digits);
+    if (_ready && widget.confirmEnabled) widget.onSubmit(_digits);
   }
 
   KeyEventResult _onKey(FocusNode _, KeyEvent event) {
@@ -186,7 +191,9 @@ class _PinPadState extends State<PinPad> {
                 kind: _KeyKind.confirm,
                 label: widget.confirmLabel,
                 icon: Icons.arrow_forward_rounded,
-                onPressed: on && _ready ? _submit : null,
+                onPressed: on && _ready && widget.confirmEnabled
+                    ? _submit
+                    : null,
               ),
             ]),
           ],

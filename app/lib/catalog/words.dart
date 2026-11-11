@@ -170,13 +170,24 @@ abstract final class CatalogWords {
   static String dayLeft(String nickname, Duration left) =>
       'Hoje $nickname ainda tem ${CurationWords.duration(left)}.';
 
-  /// The day has no time now: spent, or outside the hours.
+  /// The server refused a start: the day has no time now.
   static String notNow(String nickname) => 'Agora não é hora para $nickname.';
 
+  /// The day as read before the start, when it has no time now: spent, or
+  /// outside the hours (more time lifts either).
+  static String daySpent(String nickname) =>
+      'Hoje o tempo de $nickname acabou.';
+
+  static String outsideHours(String nickname) =>
+      'Agora está fora do horário de $nickname.';
+
   /// How much more the work needs than the day leaves; the length stays
-  /// with its verb on a line.
+  /// with its verb on a line. Outside the hours it is said for now.
   static String toFit(Duration missing) =>
       'Para caber hoje, faltam$_nbsp${CurationWords.duration(missing)}.';
+
+  static String toFitNow(Duration missing) =>
+      'Para caber agora, faltam$_nbsp${CurationWords.duration(missing)}.';
 
   /// What is left of a work stopped partway, in its length's place.
   static String workLeft(Duration left) =>

@@ -278,21 +278,71 @@ void main() {
     expect(find.byType(PinPad), findsNothing);
   });
 
-  testWidgets('outside her hours the day line says it is not the time', (
-    tester,
-  ) async {
-    await starting(
-      tester,
-      rules: () => today(0, used: 10, state: 'outside_window'),
-    );
+  group('a day with no time now', () {
+    http.Response spent() => today(0, used: 90, state: 'time_up');
+    http.Response outside() => today(0, used: 10, state: 'outside_window');
 
-    // Outside the hours more time opens them only for its own minutes,
-    // and 60 cannot hold a film of 1 h 30 min.
-    expect(
-      plain('Agora não é hora para Lia. Esse filme não cabe mais hoje.'),
-      findsOneWidget,
-    );
-    expect(find.byType(PinPad), findsNothing);
+    testWidgets('spent: it says so, and more time that makes the rest fit '
+        'is chosen, with the pad', (tester) async {
+      await starting(tester, videos: [liaFilmResumed], rules: spent);
+
+      expect(
+        plain('Hoje o tempo de Lia acabou. Para caber hoje, faltam 58 min.'),
+        findsOneWidget,
+      );
+      expect(chosen(tester), 'Mais 60 min');
+      expect(waits(tester, 'Mais 30 min'), isTrue);
+      expect(find.byType(PinPad), findsOneWidget);
+    });
+
+    testWidgets('spent, with no time that could make it fit: neither the '
+        'choice nor the pad', (tester) async {
+      await starting(tester, rules: spent);
+
+      expect(
+        plain('Hoje o tempo de Lia acabou. Esse filme não cabe mais hoje.'),
+        findsOneWidget,
+      );
+      expect(find.byType(SelectableRow), findsNothing);
+      expect(find.byType(PinPad), findsNothing);
+    });
+
+    testWidgets('outside her hours: it says so, and more time, which opens '
+        'them, is chosen when it makes the rest fit', (tester) async {
+      await starting(tester, videos: [liaFilmResumed], rules: outside);
+
+      expect(
+        plain(
+          'Agora está fora do horário de Lia. Para caber agora, faltam 58 min.',
+        ),
+        findsOneWidget,
+      );
+      expect(chosen(tester), 'Mais 60 min');
+      expect(find.byType(PinPad), findsOneWidget);
+    });
+
+    testWidgets('outside her hours, with no time that could make it fit: '
+        'neither the choice nor the pad', (tester) async {
+      // More time opens the hours only for its own minutes, and 60 cannot
+      // hold a film of 1 h 30 min.
+      await starting(tester, rules: outside);
+
+      expect(
+        plain(
+          'Agora está fora do horário de Lia. Esse filme não cabe mais hoje.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(PinPad), findsNothing);
+    });
+
+    testWidgets('"Agora não é hora" is only the server\'s refusal', (
+      tester,
+    ) async {
+      await starting(tester, videos: [liaFilmResumed], rules: spent);
+
+      expect(find.textContaining('Agora não é hora'), findsNothing);
+    });
   });
 
   testWidgets('"Começar" starts with the PIN and the time chosen, hands the '
@@ -479,6 +529,18 @@ void main() {
       expect(find.byType(ErrorNote), findsOneWidget);
       expect(modules(tester).where((m) => m), hasLength(4));
       expect(chosen(tester), 'Mais 30 min');
+      // "Tentar de novo" is the one filled action: the pad's key waits.
+      expect(
+        tester
+            .widget<TextButton>(
+              find.descendant(
+                of: find.bySemanticsLabel(CatalogWords.begin),
+                matching: find.byType(TextButton),
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
 
       await tester.ensureVisible(
         find.widgetWithText(FilledButton, 'Tentar de novo'),

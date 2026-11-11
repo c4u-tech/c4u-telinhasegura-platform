@@ -280,15 +280,20 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
     // What has to fit is what is left of the work, as the server counts.
     final fit = SessionFit(day, v.left);
     final smallest = fit.smallest;
-    final now = day.today.time.state == KidTimeState.ok
-        ? CatalogWords.dayLeft(nickname, fit.left)
-        : CatalogWords.notNow(nickname);
+    final state = day.today.time.state;
+    final now = switch (state) {
+      KidTimeState.ok => CatalogWords.dayLeft(nickname, fit.left),
+      KidTimeState.timeUp => CatalogWords.daySpent(nickname),
+      KidTimeState.outsideWindow => CatalogWords.outsideHours(nickname),
+    };
     final dayLine = [
       now,
       if (smallest == null)
         CatalogWords.noFit
       else if (smallest > 0)
-        CatalogWords.toFit(fit.shortfall),
+        state == KidTimeState.outsideWindow
+            ? CatalogWords.toFitNow(fit.shortfall)
+            : CatalogWords.toFit(fit.shortfall),
     ].join(' ');
     final idle = !_start.blocked && !_handOver.blocked;
     final message = _start.message ?? _handOver.message;
@@ -344,6 +349,8 @@ class _FamilySessionScreenState extends State<FamilySessionScreen> {
             enabled: idle,
             autofocus: false,
             confirmLabel: CatalogWords.begin,
+            // While "Tentar de novo" stands, it is the one filled action.
+            confirmEnabled: _retry == null,
             onSubmit: (pin) => _begin(minor, pin),
           ),
         ),
