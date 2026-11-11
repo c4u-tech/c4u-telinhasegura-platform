@@ -22,10 +22,12 @@ func timeBody(t screentime.Time) map[string]any {
 	return out
 }
 
-// beat credits an open play.
+// beat credits an open play. A family work's beat may carry where the
+// playback stands, so the work resumes there.
 func (s *Server) beat(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Playing *bool `json:"playing"`
+		Playing  *bool `json:"playing"`
+		Position *int  `json:"position_seconds"`
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
@@ -35,7 +37,7 @@ func (s *Server) beat(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, screentime.ErrValidation)
 		return
 	}
-	t, err := s.ScreenTime.Beat(r.Context(), stOf(r), r.PathValue("id"), *in.Playing)
+	t, err := s.ScreenTime.Beat(r.Context(), stOf(r), r.PathValue("id"), *in.Playing, in.Position)
 	if err != nil {
 		s.fail(w, err)
 		return

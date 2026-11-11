@@ -54,12 +54,18 @@ func (s *Service) Usage(ctx context.Context, accountID, minorID string) ([]DayUs
 	return out, nil
 }
 
-// Sweep applies retention: plays after 30 days, day rows and
-// extensions after 90. The sweep runs it every SWEEP_INTERVAL; it is
+// Sweep applies retention: plays and resume points after 30 days, day
+// rows and extensions after 90, family sessions after a day. The sweep runs it every SWEEP_INTERVAL; it is
 // idempotent, so replicas may each run it.
 func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
 	if _, err := s.d.Pool.Exec(ctx, `DELETE FROM plays WHERE started_at < $1`, now.Add(-playRetention)); err != nil {
+		return err
+	}
+	if _, err := s.d.Pool.Exec(ctx, `DELETE FROM play_positions WHERE updated_at < $1`, now.Add(-playRetention)); err != nil {
+		return err
+	}
+	if _, err := s.d.Pool.Exec(ctx, `DELETE FROM family_sessions WHERE created_at < $1`, now.Add(-sessionRetention)); err != nil {
 		return err
 	}
 	cutoff := now.Add(-dayRetention).Format(time.DateOnly)

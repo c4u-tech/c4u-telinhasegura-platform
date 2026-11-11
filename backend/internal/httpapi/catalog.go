@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -137,8 +138,10 @@ func (s *Server) childThumb(w http.ResponseWriter, r *http.Request) {
 	writeThumb(w, b)
 }
 
-// play re-checks a video (curation: may this child see it?), then opens
-// a play (screentime: may they watch now?).
+// play re-checks a video (curation: may this child see it, alone or
+// only with the family?), then opens a play (screentime: may they watch
+// now?). A family work also needs the session a guardian started, and
+// answers where it resumes.
 func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		VideoID   string `json:"video_id"`
@@ -148,18 +151,28 @@ func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	family := false
 	youtubeID, err := s.Curation.Play(r.Context(), kidOf(r), in.VideoID)
+	if errors.Is(err, curation.ErrVideoNotAllowed) {
+		var v curation.Video
+		if v, err = s.Curation.FamilyWork(r.Context(), kidOf(r), in.VideoID); err == nil {
+			youtubeID, family = v.YouTubeID, true
+		}
+	}
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID, in.Continues)
+	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID, in.Continues, family)
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"play_id": p.ID, "youtube_id": youtubeID,
-		"remaining_seconds": int(p.Time.Remaining / time.Second)})
+	out := map[string]any{"play_id": p.ID, "youtube_id": youtubeID, "remaining_seconds": int(p.Time.Remaining / time.Second)}
+	if family {
+		out["start_seconds"] = p.StartSeconds
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 // unavailable answers 202 for any video the child may see: the outcome

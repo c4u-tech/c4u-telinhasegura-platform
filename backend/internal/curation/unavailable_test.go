@@ -141,3 +141,26 @@ func TestUnavailableNeedsAnEligibleVideo(t *testing.T) {
 		t.Fatalf("YouTube called for a refused video: %v", calls)
 	}
 }
+
+// A family work the child is watching with the family can fail to play
+// too, so the child may report it; a video past the family ceiling may not.
+func TestUnavailableAcceptsAFamilyWork(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	work := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	f.length(work, 50*time.Minute)
+	tooLong := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	f.length(tooLong, 121*time.Minute)
+	f.source.Add(curationtest.Kids(nthID(1), "Filme"))
+
+	if err := f.svc.ReportUnavailable(ctx, lia, work); err != nil {
+		t.Fatal(err)
+	}
+	if calls := f.source.Calls(); len(calls) != 1 || calls[0] != nthID(1) {
+		t.Fatalf("calls %v", calls)
+	}
+	if err := f.svc.ReportUnavailable(ctx, lia, tooLong); !errors.Is(err, curation.ErrVideoNotAllowed) {
+		t.Fatalf("past the family ceiling: %v", err)
+	}
+}

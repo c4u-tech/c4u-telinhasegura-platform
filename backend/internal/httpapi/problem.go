@@ -180,6 +180,7 @@ var screentimeProblems = []struct {
 	{screentime.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{screentime.ErrPlayClosed, http.StatusConflict, "play_closed"},
 	{screentime.ErrOverCap, http.StatusUnprocessableEntity, "over_cap"},
+	{screentime.ErrNoFamilySession, http.StatusForbidden, "video_not_allowed"},
 }
 
 // fail maps a domain error to its problem. Unknown errors are logged and

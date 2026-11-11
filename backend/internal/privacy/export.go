@@ -145,6 +145,7 @@ type Family struct {
 	ScreenTimeDays       []ScreenTimeDay       `json:"screen_time_days"`
 	ScreenTimeExtensions []ScreenTimeExtension `json:"screen_time_extensions"`
 	Plays                []Play                `json:"plays"`
+	PlayPositions        []PlayPosition        `json:"play_positions"`
 }
 
 type Guardian struct {
@@ -235,6 +236,16 @@ type Play struct {
 	VideoTitle string    `json:"video_title"`
 	StartedAt  time.Time `json:"started_at"`
 	Seconds    int       `json:"seconds"`
+}
+
+// PlayPosition is where a child stopped a work watched with the family,
+// kept so the next session resumes there.
+type PlayPosition struct {
+	MinorID         string    `json:"minor_id"`
+	YouTubeID       string    `json:"youtube_id"`
+	VideoTitle      string    `json:"video_title"`
+	PositionSeconds int       `json:"position_seconds"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // Export reads everything the platform holds about the account and its
@@ -636,10 +647,24 @@ func readScreenTime(ctx context.Context, tx pgx.Tx, f *Family) error {
 	if err != nil {
 		return err
 	}
-	f.Plays, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (Play, error) {
+	if f.Plays, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (Play, error) {
 		var x Play
 		err := r.Scan(&x.MinorID, &x.YouTubeID, &x.VideoTitle, &x.StartedAt, &x.Seconds)
 		x.StartedAt = x.StartedAt.UTC()
+		return x, err
+	}); err != nil {
+		return err
+	}
+	rows, err = tx.Query(ctx, `SELECT p.minor_id::text, v.youtube_id, v.title, p.position_seconds, p.updated_at
+		FROM play_positions p JOIN minors m ON m.id = p.minor_id JOIN videos v ON v.id = p.video_id
+		WHERE m.family_id = $1::uuid ORDER BY p.updated_at, p.minor_id, p.video_id`, f.ID)
+	if err != nil {
+		return err
+	}
+	f.PlayPositions, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlayPosition, error) {
+		var x PlayPosition
+		err := r.Scan(&x.MinorID, &x.YouTubeID, &x.VideoTitle, &x.PositionSeconds, &x.UpdatedAt)
+		x.UpdatedAt = x.UpdatedAt.UTC()
 		return x, err
 	})
 	return err

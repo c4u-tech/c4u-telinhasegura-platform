@@ -74,6 +74,7 @@ const (
 	PackRemoved                 Event = "pack_removed"
 	ScreenTimeRulesChanged      Event = "screen_time_rules_changed"
 	ScreenTimeExtended          Event = "screen_time_extended"
+	FamilySessionStarted        Event = "family_session_started"
 	MFAEnrolled                 Event = "mfa_enrolled"
 	MFAChallengeSucceeded       Event = "mfa_challenge_succeeded"
 	MFAChallengeFailed          Event = "mfa_challenge_failed"
