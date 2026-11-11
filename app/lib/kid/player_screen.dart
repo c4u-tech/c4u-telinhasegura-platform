@@ -146,6 +146,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       // A family work's beats say where the video is, so the next session
       // starts there; a solo play's never do.
       sendPosition: play.family,
+      startSeconds: play.startSeconds,
       position: playback.position,
       beat: (id, playing, position) =>
           services.child.beat(id, playing: playing, position: position),

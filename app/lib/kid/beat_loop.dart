@@ -19,8 +19,12 @@ class BeatLoop {
     required this._onDoesNotFit,
     this._position,
     this._sendPosition = false,
+    int startSeconds = 0,
     Timer Function(Duration, void Function(Timer))? periodic,
-  }) : _periodic = periodic ?? Timer.periodic;
+  }) : _periodic = periodic ?? Timer.periodic,
+       // A family play starts at its saved place, so a read taken before
+       // the player has sought there (0) never replaces it.
+       _last = _sendPosition ? startSeconds : null;
 
   static const interval = Duration(seconds: 30);
 
@@ -127,7 +131,11 @@ class BeatLoop {
       final reopened = await _reopen(_playId).timeout(interval);
       _playId = reopened.playId;
       _sendPosition = reopened.family;
-      if (!reopened.family) _last = null;
+      if (!reopened.family) {
+        _last = null;
+      } else {
+        _last ??= reopened.startSeconds;
+      }
       if (_playing) {
         await _beat(_playId, true, await _at()).timeout(interval);
       }

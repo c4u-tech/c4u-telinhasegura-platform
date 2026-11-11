@@ -23,7 +23,15 @@ class ManualTimer implements Timer {
 }
 
 class Rig {
-  Rig({this.onBeat, this.onReopen, this.sendPosition = false, this.position});
+  Rig({
+    this.onBeat,
+    this.onReopen,
+    this.sendPosition = false,
+    this.position,
+    this.startSeconds = 0,
+  });
+
+  final int startSeconds;
 
   final bool sendPosition;
   Future<int> Function()? position;
@@ -40,6 +48,7 @@ class Rig {
   late final loop = BeatLoop(
     playId: 'p1',
     sendPosition: sendPosition,
+    startSeconds: startSeconds,
     position: () => position?.call() ?? Future.value(0),
     beat: (id, playing, at) {
       beats.add(at == null ? '$id $playing' : '$id $playing @$at');
@@ -104,6 +113,24 @@ void main() {
     await settle();
     expect(r.beats, ['p1 true @754', 'p1 true @784', 'p1 false @790']);
   });
+
+  test(
+    'a family play started at 812 whose first read is 0 sends 812',
+    () async {
+      var at = 0;
+      final r = Rig(
+        sendPosition: true,
+        startSeconds: 812,
+        position: () async => at,
+      );
+      r.loop.playing();
+      await settle();
+      at = 842;
+      r.timers.single.fire();
+      await settle();
+      expect(r.beats, ['p1 true @812', 'p1 true @842']);
+    },
+  );
 
   test('without sendPosition no beat carries a position', () async {
     var asked = 0;
