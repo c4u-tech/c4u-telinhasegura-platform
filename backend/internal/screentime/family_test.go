@@ -42,6 +42,14 @@ func (f *fixture) position(c screentime.Child, videoID string) int {
 
 func at(n int) *int { return &n }
 
+// beatAt beats a play with a position and fails the test on an error.
+func (f *fixture) beatAt(c screentime.Child, playID string, position int) {
+	f.t.Helper()
+	if _, err := f.svc.Beat(ctx, c, playID, true, at(position)); err != nil {
+		f.t.Fatalf("beat at %d: %v", position, err)
+	}
+}
+
 // A 50-minute work with 40 minutes left does not fit; with 15 more
 // minutes, granted first, it does, and the session waits ten minutes.
 func TestStartFamilySessionFitsAfterTheExtension(t *testing.T) {
@@ -267,18 +275,18 @@ func TestAPositionNearTheEndClearsTheResume(t *testing.T) {
 	v := f.video("dQw4w9WgXcQ", 50*60)
 	f.start(owner, c, v, 0)
 	p := f.openFamily(c, v, "")
-	f.svc.Beat(ctx, c, p.ID, true, at(50*60-61))
+	f.beatAt(c, p.ID, 50*60-61)
 	if got := f.position(c, v); got != 50*60-61 {
 		t.Fatalf("61 s before the end: %d", got)
 	}
 	f.now = f.now.Add(10 * time.Second)
-	f.svc.Beat(ctx, c, p.ID, true, at(50*60-60))
+	f.beatAt(c, p.ID, 50*60-60)
 	if got := f.position(c, v); got != -1 {
 		t.Fatalf("60 s before the end: %d", got)
 	}
 	// Past the length, a position is clamped to it: the end, so cleared.
 	f.now = f.now.Add(10 * time.Second)
-	f.svc.Beat(ctx, c, p.ID, true, at(600))
+	f.beatAt(c, p.ID, 600)
 	f.now = f.now.Add(10 * time.Second)
 	if _, err := f.svc.Beat(ctx, c, p.ID, true, at(99*60)); err != nil {
 		t.Fatalf("over the length: %v", err)
@@ -305,5 +313,89 @@ func TestASoloVideoKeepsNoPosition(t *testing.T) {
 	}
 	if f.count(`SELECT count(*) FROM play_positions`) != 0 {
 		t.Fatal("a solo video's position was stored")
+	}
+}
+
+// A viewing carries on through reopens that name its last play, each
+// mid-work; the chain keeps the session it began on.
+func TestAFamilyWorkReopensMidWorkThroughAChain(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	v := f.video("dQw4w9WgXcQ", 50*60)
+	s := f.start(owner, c, v, 0)
+	p := f.openFamily(c, v, "")
+	f.beatAt(c, p.ID, 600)
+	for range 2 {
+		f.now = f.now.Add(2 * time.Minute)
+		next := f.openFamily(c, v, p.ID)
+		if next.StartSeconds != 600 {
+			t.Fatalf("start_seconds %d", next.StartSeconds)
+		}
+		f.beatAt(c, next.ID, 600)
+		p = next
+	}
+	if f.count(`SELECT count(*) FROM plays WHERE session_id = $1::uuid AND family`, s.ID) != 3 {
+		t.Fatal("the reopens did not keep the session")
+	}
+	// The session row may be swept; the plays keep its id.
+	f.exec(`DELETE FROM family_sessions`)
+	f.now = f.now.Add(2 * time.Minute)
+	f.openFamily(c, v, p.ID)
+}
+
+// Once the work reached its end, naming its last play opens nothing: a
+// new viewing takes a new session.
+func TestAFinishedFamilyWorkDoesNotReopen(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	v := f.video("dQw4w9WgXcQ", 50*60)
+	f.start(owner, c, v, 0)
+	p := f.openFamily(c, v, "")
+	f.beatAt(c, p.ID, 600)
+	f.now = f.now.Add(2 * time.Minute)
+	next := f.openFamily(c, v, p.ID)
+	f.beatAt(c, next.ID, 50*60-30) // the end: the resume point is cleared
+	f.now = f.now.Add(2 * time.Minute)
+	for _, id := range []string{next.ID, p.ID} {
+		if _, err := f.svc.Open(ctx, c, v, id, true); !errors.Is(err, screentime.ErrNoFamilySession) {
+			t.Fatalf("reopen of %s: %v", id, err)
+		}
+	}
+}
+
+// Credited time counts across the chain: once the plays of one session
+// add up to the work's length, it is watched, whatever the positions say.
+func TestAFamilyWorkWatchedThroughIsFinished(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	v := f.video("dQw4w9WgXcQ", 50*60)
+	f.start(owner, c, v, 0)
+	p := f.openFamily(c, v, "")
+	f.exec(`UPDATE plays SET seconds = 30*60 WHERE id = $1::uuid`, p.ID)
+	f.beatAt(c, p.ID, 600)
+	f.now = f.now.Add(time.Minute)
+	next := f.openFamily(c, v, p.ID)
+	f.exec(`UPDATE plays SET seconds = 20*60 WHERE id = $1::uuid`, next.ID)
+	f.beatAt(c, next.ID, 600)
+	f.now = f.now.Add(time.Minute)
+	if _, err := f.svc.Open(ctx, c, v, next.ID, true); !errors.Is(err, screentime.ErrNoFamilySession) {
+		t.Fatalf("reopen: %v", err)
+	}
+}
+
+// A solo play of the same video, or a family play of another child, is
+// no way into a family work.
+func TestAFamilyReopenNeedsAFamilyPlay(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	v := f.video("dQw4w9WgXcQ", 20*60)
+	solo := f.open(c, v)
+	f.beat(c, solo.ID, 0, true)
+	if _, err := f.svc.Open(ctx, c, v, solo.ID, true); !errors.Is(err, screentime.ErrNoFamilySession) {
+		t.Fatalf("a solo play: %v", err)
 	}
 }

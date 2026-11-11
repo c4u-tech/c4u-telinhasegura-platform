@@ -26,7 +26,9 @@ type Play struct {
 // A new start of a family work uses up an unused, unexpired session for
 // the child and video, in the same transaction as the play, so a refused
 // open leaves the session for a later one. Its fit counts only what is
-// left past the resume point.
+// left past the resume point. A family work reopens without a session
+// only when continues names a play of a viewing still under way
+// (familyResume); the new play carries that viewing's session.
 func (s *Service) Open(ctx context.Context, c Child, videoID, continues string, family bool) (Play, error) {
 	if ok, wait := s.d.PlayLimiter.Allow(c.MinorID); !ok {
 		return Play{}, &ThrottledError{RetryAfter: wait}
@@ -42,10 +44,9 @@ func (s *Service) Open(ctx context.Context, c Child, videoID, continues string, 
 	if t.State != OK {
 		return Play{}, &TimeUpError{Reason: t.Reason}
 	}
-	// An app that knows family works names the play it carries on; without
-	// one, the open of a family work is a new start.
+	// A family work's reopen is decided with its session, below.
 	resumed := false
-	if !family || continues != "" {
+	if !family {
 		if resumed, err = s.resumes(ctx, m.ID, videoID, continues); err != nil {
 			return Play{}, err
 		}
@@ -57,15 +58,25 @@ func (s *Service) Open(ctx context.Context, c Child, videoID, continues string, 
 	p := Play{Time: t}
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		var left time.Duration
+		var session any
 		if family {
+			var err error
 			if left, p.StartSeconds, err = leftOf(ctx, tx, m.ID, videoID); err != nil {
 				return err
 			}
-			if !resumed {
-				if err := s.useSession(ctx, tx, m.ID, videoID); err != nil {
+			id := ""
+			if continues != "" {
+				if id, err = s.familyResume(ctx, tx, m.ID, videoID, continues); err != nil {
 					return err
 				}
 			}
+			resumed = id != ""
+			if !resumed {
+				if id, err = s.useSession(ctx, tx, m.ID, videoID); err != nil {
+					return err
+				}
+			}
+			session = id
 		} else {
 			var duration int
 			if err := tx.QueryRow(ctx, `SELECT duration_seconds FROM videos WHERE id = $1::uuid`, videoID).Scan(&duration); err != nil {
@@ -76,9 +87,9 @@ func (s *Service) Open(ctx context.Context, c Child, videoID, continues string, 
 		if !resumed && !Fits(t, left) {
 			return &NotFitError{Remaining: t.Remaining}
 		}
-		return tx.QueryRow(ctx, `INSERT INTO plays (minor_id, video_id, device_id, started_at, last_beat_at, playing, family)
-			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $4, false, $5) RETURNING id::text`,
-			m.ID, videoID, device, s.now(), family).Scan(&p.ID)
+		return tx.QueryRow(ctx, `INSERT INTO plays (minor_id, video_id, device_id, started_at, last_beat_at, playing, family, session_id)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $4, false, $5, $6::uuid) RETURNING id::text`,
+			m.ID, videoID, device, s.now(), family, session).Scan(&p.ID)
 	})
 	if err != nil {
 		return Play{}, err
@@ -169,7 +180,7 @@ func (s *Service) Beat(ctx context.Context, c Child, playID string, playing bool
 			return err
 		}
 		if family && position != nil {
-			if err := s.keepPosition(ctx, tx, m.ID, videoID, duration, *position); err != nil {
+			if err := s.keepPosition(ctx, tx, playID, m.ID, videoID, duration, *position); err != nil {
 				return err
 			}
 		}

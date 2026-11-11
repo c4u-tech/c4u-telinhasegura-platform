@@ -26,4 +26,11 @@ CREATE TABLE play_positions (
 CREATE INDEX play_positions_updated ON play_positions (updated_at);
 
 -- A play opened on a family session: only its beats keep a position.
+-- session_id names the session the viewing began on, carried to every
+-- reopen of it; it is a plain id, so the session's own sweep leaves the
+-- plays alone. finished marks a play whose playback reached the end.
 ALTER TABLE plays ADD COLUMN family boolean NOT NULL DEFAULT false;
+ALTER TABLE plays ADD COLUMN session_id uuid;
+ALTER TABLE plays ADD COLUMN finished boolean NOT NULL DEFAULT false;
+ALTER TABLE plays ADD CONSTRAINT plays_session_family CHECK (session_id IS NULL OR family);
+CREATE INDEX plays_session ON plays (session_id) WHERE session_id IS NOT NULL;

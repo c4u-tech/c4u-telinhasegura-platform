@@ -108,32 +108,62 @@ func leftOf(ctx context.Context, q querier, minorID, videoID string) (time.Durat
 }
 
 // useSession consumes the child's oldest unused, unexpired session for
-// the video under its row lock, so two opens cannot both use it.
-func (s *Service) useSession(ctx context.Context, tx pgx.Tx, minorID, videoID string) error {
+// the video under its row lock, so two opens cannot both use it, and
+// answers its ID.
+func (s *Service) useSession(ctx context.Context, tx pgx.Tx, minorID, videoID string) (string, error) {
 	now := s.now()
 	var id string
 	err := tx.QueryRow(ctx, `SELECT id::text FROM family_sessions
 		WHERE minor_id = $1::uuid AND video_id = $2::uuid AND used_at IS NULL AND expires_at > $3
 		ORDER BY created_at LIMIT 1 FOR UPDATE`, minorID, videoID, now).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNoFamilySession
+		return "", ErrNoFamilySession
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	_, err = tx.Exec(ctx, `UPDATE family_sessions SET used_at = $2 WHERE id = $1::uuid`, id, now)
-	return err
+	return id, err
+}
+
+// familyResume answers the session of the viewing that the play
+// continues carries on, or "" when it carries on none. The play must be a
+// family play of this child and video, opened on a session, that beat
+// within the resume window; and the viewing must be under way: no play of
+// its session reached the end (a position within a minute of it), and
+// together they were credited less than the work's length. Credit is
+// summed over the whole session, so a chain of reopens cannot replay a
+// work a little at a time.
+func (s *Service) familyResume(ctx context.Context, tx pgx.Tx, minorID, videoID, continues string) (string, error) {
+	if !validID(continues) {
+		return "", nil
+	}
+	var id string
+	err := tx.QueryRow(ctx, `SELECT p.session_id::text FROM plays p JOIN videos v ON v.id = p.video_id
+		WHERE p.id = $1::uuid AND p.minor_id = $2::uuid AND p.video_id = $3::uuid AND p.family
+		AND p.session_id IS NOT NULL AND p.last_beat_at >= $4
+		AND NOT EXISTS (SELECT 1 FROM plays q WHERE q.session_id = p.session_id AND q.finished)
+		AND (SELECT sum(q.seconds) FROM plays q WHERE q.session_id = p.session_id) < v.duration_seconds`,
+		continues, minorID, videoID, s.now().Add(-continueWithin)).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
 }
 
 // keepPosition stores where a family work's play stands: a negative
 // position is ignored, one past the length counts as the end, and one
-// within a minute of the end clears the resume point.
-func (s *Service) keepPosition(ctx context.Context, tx pgx.Tx, minorID, videoID string, duration, position int) error {
+// within a minute of the end clears the resume point and marks the play
+// finished, so its viewing cannot be reopened.
+func (s *Service) keepPosition(ctx context.Context, tx pgx.Tx, playID, minorID, videoID string, duration, position int) error {
 	if position < 0 {
 		return nil
 	}
 	position = min(position, duration)
 	if position >= duration-int(endMargin/time.Second) {
+		if _, err := tx.Exec(ctx, `UPDATE plays SET finished = true WHERE id = $1::uuid`, playID); err != nil {
+			return err
+		}
 		_, err := tx.Exec(ctx, `DELETE FROM play_positions WHERE minor_id = $1::uuid AND video_id = $2::uuid`, minorID, videoID)
 		return err
 	}

@@ -216,3 +216,43 @@ func TestReportAFamilyWorkUnavailableOverHTTP(t *testing.T) {
 		t.Fatalf("report: %d %s", r.Code, r.Body)
 	}
 }
+
+// A position the player reports in fractions, or out of all range, never
+// fails the beat: it is cut to whole seconds and held to the work's length.
+func TestBeatPositionIsCutToWholeSeconds(t *testing.T) {
+	a := newAPI(t)
+	guardian, kid, minor, work := a.familySetup()
+	if r := a.startSession(guardian, minor, map[string]any{"video_id": work, "pin": "2580"}); r.Code != http.StatusCreated {
+		t.Fatalf("start: %d %s", r.Code, r.Body)
+	}
+	var p struct {
+		PlayID string `json:"play_id"`
+	}
+	_ = json.Unmarshal(a.playFamily(kid, work, "").Body.Bytes(), &p)
+	path := "/v1/child/plays/" + p.PlayID + "/beat"
+	if r := a.do(http.MethodPost, path, `{"playing": true, "position_seconds": 612.4}`, kid...); r.Code != http.StatusOK {
+		t.Fatalf("612.4: %d %s", r.Code, r.Body)
+	}
+	if a.count(`SELECT position_seconds FROM play_positions WHERE minor_id = $1::uuid`, minor) != 612 {
+		t.Fatal("612.4 was not kept as 612")
+	}
+	// No number is no position: the last one stays.
+	for _, bad := range []string{`null`, `"abc"`, `-3`, `{}`} {
+		if r := a.do(http.MethodPost, path, `{"playing": true, "position_seconds": `+bad+`}`, kid...); r.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", bad, r.Code, r.Body)
+		}
+	}
+	if a.count(`SELECT position_seconds FROM play_positions WHERE minor_id = $1::uuid`, minor) != 612 {
+		t.Fatal("a position that is no number moved the resume point")
+	}
+	a.now = a.now.Add(10 * time.Second)
+	r := a.do(http.MethodPost, path, `{"playing": true, "position_seconds": 1e30}`, kid...)
+	var tm timeResp
+	getJSON(t, r, &tm)
+	if tm.State != "ok" || a.count(`SELECT count(*) FROM play_positions`) != 0 {
+		t.Fatalf("1e30: %+v", tm)
+	}
+	if s := a.count(`SELECT coalesce(sum(seconds), 0) FROM screentime_days WHERE minor_id = $1::uuid`, minor); s != 10 {
+		t.Fatalf("the beat lost its credit: %d", s)
+	}
+}
