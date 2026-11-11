@@ -111,8 +111,9 @@ func TestTimeUpRefusesAPlayButTheOpenOneFinishes(t *testing.T) {
 	if s, _ := f.used(c); s != 960 {
 		t.Fatalf("the open play stopped being credited: %d", s)
 	}
-	// Past the video's length plus a minute, nothing more counts.
-	for range 2 {
+	// Past the video's length plus a minute, nothing more counts: the third
+	// beat lands past the cap and adds nothing.
+	for range 3 {
 		f.beat(c, p.ID, 30*time.Second, true)
 	}
 	if s, _ := f.used(c); s != 1020 {
@@ -342,5 +343,68 @@ func TestContinuesIgnoredWhenNotTheSamePlay(t *testing.T) {
 	f.now = f.now.Add(31 * time.Minute) // past the last beat by more than the continue window
 	if _, err := f.svc.Open(ctx, c, v, p.ID); !errors.As(err, &nf) {
 		t.Errorf("stale play: %v", err)
+	}
+}
+
+// watched runs a play of videoID for n half-minute beats, then lets it close.
+func (f *fixture) watched(c screentime.Child, videoID string, n int) screentime.Play {
+	f.t.Helper()
+	p := f.open(c, videoID)
+	f.beat(c, p.ID, 0, true)
+	for range n {
+		f.beat(c, p.ID, 30*time.Second, true)
+	}
+	f.now = f.now.Add(50 * time.Second) // the play closes
+	return p
+}
+
+func TestWithoutContinuesARecentUnfinishedPlayOfTheVideoSkipsTheFit(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	f.watched(c, v, 20) // 10 minutes of 14
+	if _, err := f.svc.Open(ctx, c, v, ""); err != nil {
+		t.Fatalf("reopen without continues: %v", err)
+	}
+}
+
+func TestWithoutContinuesAFinishedPlayIsANewStart(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	f.watched(c, v, 28) // the whole 14 minutes
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, v, ""); !errors.As(err, &nf) {
+		t.Fatalf("finished play: %v", err)
+	}
+}
+
+func TestWithoutContinuesAStalePlayIsANewStart(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	v := f.video("dQw4w9WgXcQ", 14*60)
+	f.watched(c, v, 20)
+	f.now = f.now.Add(31 * time.Minute)
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, v, ""); !errors.As(err, &nf) {
+		t.Fatalf("stale play: %v", err)
+	}
+}
+
+func TestWithoutContinuesAPlayOfAnotherVideoIsANewStart(t *testing.T) {
+	f := newFixture(t)
+	fam, owner := f.family("ana@example.com")
+	c := f.minor(fam, "5-8")
+	f.rules15(owner, c)
+	f.watched(c, f.video("aaaaaaaaaaa", 12*60), 20) // 10 minutes of 12
+	var nf *screentime.NotFitError
+	if _, err := f.svc.Open(ctx, c, f.video("dQw4w9WgXcQ", 14*60), ""); !errors.As(err, &nf) {
+		t.Fatalf("another video: %v", err)
 	}
 }

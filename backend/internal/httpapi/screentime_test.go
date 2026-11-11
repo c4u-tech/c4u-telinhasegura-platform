@@ -254,7 +254,7 @@ func TestCurationRefusalWinsOverNotFit(t *testing.T) {
 	}
 }
 
-func TestReopenWithContinuesOpens(t *testing.T) {
+func TestReopenOpensWithOrWithoutContinues(t *testing.T) {
 	a := newAPI(t)
 	tok, minor := a.lockedSession("ana@example.com")
 	kid := bearer(tok)
@@ -266,11 +266,13 @@ func TestReopenWithContinuesOpens(t *testing.T) {
 	a.lengthen(v, 20*60)               // what is left no longer covers it
 	a.now = a.now.Add(2 * time.Minute) // past the play's close, within the resume window
 
-	if r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": v}, kid...); r.Code != http.StatusForbidden || r.problemCode() != "does_not_fit" {
-		t.Fatalf("without continues: %d %s", r.Code, r.Body)
-	}
 	r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": v, "continues": id}, kid...)
 	if r.Code != http.StatusCreated {
 		t.Fatalf("with continues: %d %s", r.Code, r.Body)
+	}
+	// An app that predates continues reopens without it: the unfinished
+	// play of the same video still counts as the same viewing.
+	if r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": v}, kid...); r.Code != http.StatusCreated {
+		t.Fatalf("without continues: %d %s", r.Code, r.Body)
 	}
 }

@@ -17,7 +17,7 @@ type Play struct {
 // Open opens a play when the day allows it. The caller has
 // checked that the child may see videoID (curation.Play). A play opens
 // paused: time counts from the first beat that says it plays. A video
-// that does not fit the time left is refused, unless continues names this
+// that does not fit the time left is refused, unless the open resumes this
 // child's recent play of the same video: resuming it is not a new start.
 func (s *Service) Open(ctx context.Context, c Child, videoID, continues string) (Play, error) {
 	if ok, wait := s.d.PlayLimiter.Allow(c.MinorID); !ok {
@@ -34,7 +34,11 @@ func (s *Service) Open(ctx context.Context, c Child, videoID, continues string) 
 	if t.State != OK {
 		return Play{}, &TimeUpError{Reason: t.Reason}
 	}
-	if !s.resumes(ctx, m.ID, videoID, continues) {
+	resumed, err := s.resumes(ctx, m.ID, videoID, continues)
+	if err != nil {
+		return Play{}, err
+	}
+	if !resumed {
 		var duration int
 		if err := s.d.Pool.QueryRow(ctx, `SELECT duration_seconds FROM videos WHERE id = $1::uuid`, videoID).Scan(&duration); err != nil {
 			return Play{}, err
@@ -56,16 +60,25 @@ func (s *Service) Open(ctx context.Context, c Child, videoID, continues string) 
 	return Play{ID: id, Time: t}, nil
 }
 
-// resumes tells whether continues is a play of this child and video that
-// beat recently enough to count as the same viewing.
-func (s *Service) resumes(ctx context.Context, minorID, videoID, continues string) bool {
-	if !validID(continues) {
-		return false
-	}
+// resumes tells whether the open carries on a play of this child and
+// video that beat recently enough to count as the same viewing. A named
+// continues must be that play, or the open is a new start. An app that
+// predates the field reopens without it, so without one any such play the
+// child has not watched to its end counts.
+func (s *Service) resumes(ctx context.Context, minorID, videoID, continues string) (bool, error) {
+	since := s.now().Add(-continueWithin)
 	var ok bool
-	err := s.d.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM plays WHERE id = $1::uuid AND minor_id = $2::uuid
-		AND video_id = $3::uuid AND last_beat_at >= $4)`, continues, minorID, videoID, s.now().Add(-continueWithin)).Scan(&ok)
-	return err == nil && ok
+	var err error
+	switch {
+	case continues == "":
+		err = s.d.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM plays p JOIN videos v ON v.id = p.video_id
+			WHERE p.minor_id = $1::uuid AND p.video_id = $2::uuid AND p.last_beat_at >= $3
+			AND p.seconds < v.duration_seconds)`, minorID, videoID, since).Scan(&ok)
+	case validID(continues):
+		err = s.d.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM plays WHERE id = $1::uuid AND minor_id = $2::uuid
+			AND video_id = $3::uuid AND last_beat_at >= $4)`, continues, minorID, videoID, since).Scan(&ok)
+	}
+	return ok, err
 }
 
 // Beat credits an open play: the wall time since the last beat,
