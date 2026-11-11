@@ -121,6 +121,29 @@ void main() {
     expect(h.location(tester), '/crianca');
   });
 
+  testWidgets('a reopen refused for not fitting pauses and returns to the '
+      'shelves with the note', (tester) async {
+    var opened = 0;
+    final h = kid(
+      play: (_) => opened++ == 0
+          ? json(201, {
+              'play_id': 'p1',
+              'youtube_id': 'yt1',
+              'remaining_seconds': 600,
+            })
+          : problem(403, 'does_not_fit'),
+      beat: (_) => problem(409, 'play_closed'),
+    );
+    await watching(tester, harness: h);
+    final playback = current(h);
+    playback.emit(const PlayerPlaying());
+    await tester.pumpAndSettle();
+    expect(playback.calls, contains('pause'));
+    expect(playback.closed, isTrue);
+    expect(h.location(tester), '/crianca');
+    expect(find.text(PlayerScreen.doesNotFit), findsOneWidget);
+  });
+
   testWidgets('a thumbnail plays once and opens the player with the video '
       'the server returned', (tester) async {
     final h = await watching(tester);

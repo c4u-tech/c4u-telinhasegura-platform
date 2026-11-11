@@ -264,7 +264,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
           return;
         } on Object catch (e) {
           refused = e;
-          if (refusesEvery(e) || (e is ApiError && e.code == 'does_not_fit')) {
+          if (refusesEvery(e) || doesNotFit(e)) {
             break;
           }
         }

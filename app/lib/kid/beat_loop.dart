@@ -2,10 +2,12 @@ import 'dart:async';
 
 import '../auth/api_error.dart';
 import '../screentime/kid_time.dart';
+import 'player_screen.dart' show doesNotFit;
 
 /// Tells the server how long a play plays: a beat when the video starts, every [interval] while it
 /// plays, and one when it stops. Beats go one after another. A closed play
-/// (a long pause) is reopened; a day without time stops the loop.
+/// (a long pause) is reopened; a day without time, or a video whose rest
+/// no longer fits it, stops the loop and the screen is told.
 /// Anything else is quiet: the server never credits more than 45 s, and
 /// the video plays on.
 class BeatLoop {
@@ -14,6 +16,7 @@ class BeatLoop {
     required this._beat,
     required this._reopen,
     required this._onTimeUp,
+    required this._onDoesNotFit,
     Timer Function(Duration, void Function(Timer))? periodic,
   }) : _periodic = periodic ?? Timer.periodic;
 
@@ -22,6 +25,7 @@ class BeatLoop {
   final Future<KidTime> Function(String, bool) _beat;
   final Future<KidPlay> Function(String closedPlayId) _reopen;
   final void Function() _onTimeUp;
+  final void Function() _onDoesNotFit;
   final Timer Function(Duration, void Function(Timer)) _periodic;
 
   String _playId;
@@ -80,18 +84,19 @@ class BeatLoop {
       _playId = (await _reopen(_playId).timeout(interval)).playId;
       if (_playing) await _beat(_playId, true).timeout(interval);
     } on ApiError catch (e) {
-      if (e.code == 'time_up') {
+      if (e.code == 'time_up' || doesNotFit(e)) {
         // Said only if the video was still meant to play: a screen that
-        // paused or went has no one left to tell.
+        // paused or went has no one left to tell. A screen told stops the
+        // video: left playing, nothing would count it.
         final wasPlaying = _playing && !_stopped;
         _halt();
         _stopped = true;
-        if (wasPlaying) _onTimeUp();
-      } else if (e.code == 'does_not_fit') {
-        // The rest of the video no longer fits the day: stop quietly and
-        // let it end where it is.
-        _halt();
-        _stopped = true;
+        if (!wasPlaying) return;
+        if (e.code == 'time_up') {
+          _onTimeUp();
+        } else {
+          _onDoesNotFit();
+        }
       }
     } on Object {
       // Tried again on the next play.

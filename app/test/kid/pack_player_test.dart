@@ -44,6 +44,7 @@ Map<String, Object?> opened(String videoId) => {
 Harness packKid({
   Map<String, Object?> Function()? catalog,
   FutureOr<http.Response> Function(String videoId)? play,
+  FutureOr<http.Response> Function(http.Request)? beat,
 }) => Harness(
   signedIn: true,
   api: (req) {
@@ -56,7 +57,8 @@ Harness packKid({
       return http.Response.bytes(pixel, 200);
     }
     if (path.endsWith('/beat')) {
-      return json(200, {'state': 'ok', 'remaining_seconds': 600});
+      return (beat ??
+          (_) => json(200, {'state': 'ok', 'remaining_seconds': 600}))(req);
     }
     if (path == '/v1/child/plays') {
       final id =
@@ -373,6 +375,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(plays(h), ['v1', 'v2']);
+    expect(find.byType(PackGoodbye), findsOneWidget);
+  });
+
+  testWidgets('a reopen refused for not fitting pauses the video and ends '
+      'the pacotinho with the goodbye', (tester) async {
+    var asked = 0;
+    final h = await inPack(
+      tester,
+      harness: packKid(
+        play: (id) =>
+            asked++ == 0 ? json(201, opened(id)) : problem(403, 'does_not_fit'),
+        beat: (_) => problem(409, 'play_closed'),
+      ),
+    );
+    final first = current(h);
+    first.emit(const PlayerPlaying());
+    await tester.pumpAndSettle();
+
+    expect(first.calls, contains('pause'));
+    expect(plays(h), ['v1', 'v1']);
     expect(find.byType(PackGoodbye), findsOneWidget);
   });
 

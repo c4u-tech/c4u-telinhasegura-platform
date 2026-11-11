@@ -144,6 +144,17 @@ class _PlayerScreenState extends State<PlayerScreen>
         unawaited(_playback?.pause());
         if (mounted) _leave();
       },
+      // A pause outlived the play and the rest of the video no longer fits
+      // the day: stopped, back to the shelves, which say why.
+      onDoesNotFit: () {
+        unawaited(_playback?.pause());
+        if (!mounted) return;
+        AppScope.of(context).kidReturn.value = (
+          note: PlayerScreen.doesNotFit,
+          refetch: refetchAfter(PlayerScreen.doesNotFit),
+        );
+        _leave();
+      },
     );
   }
 
@@ -305,6 +316,11 @@ String? refusalNote(Object error) => switch (error) {
 bool refusesEvery(Object error) =>
     error is ApiError &&
     (error.code == 'time_up' || error.code == 'consent_required');
+
+/// A refusal for a video longer than the time left: a shorter one may
+/// still play, but the time left only shrinks.
+bool doesNotFit(Object error) =>
+    error is ApiError && error.code == 'does_not_fit';
 
 /// Whether the shelves must be read again after a refusal worded [note]:
 /// the video left them, the day ran out, or the profile is paused.

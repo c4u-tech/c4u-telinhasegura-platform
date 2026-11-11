@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../auth/api_error.dart';
 import '../curation/kid_catalog.dart';
 import '../design/espiadinha.dart';
 import '../design/theme.dart';
@@ -163,6 +162,14 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
         unawaited(_playback?.pause());
         if (mounted) _leave();
       },
+      // A pause outlived the play and the rest of the video no longer fits
+      // the day: stopped, and the pacotinho ends with its goodbye.
+      onDoesNotFit: () {
+        unawaited(_playback?.pause());
+        if (!mounted || _leaving) return;
+        unawaited(_close());
+        _goodbye();
+      },
     );
   }
 
@@ -250,7 +257,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
         }
         // The time left only shrinks, so the pacotinho ends here with the
         // goodbye rather than reaching for another video.
-        if (e is ApiError && e.code == 'does_not_fit') {
+        if (doesNotFit(e)) {
           setState(() => _advancing = false);
           _goodbye();
           return;
