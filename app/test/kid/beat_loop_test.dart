@@ -131,6 +131,50 @@ void main() {
     expect(r.beats, ['p1 true']);
   });
 
+  test('the stop beat asks the position at once, before the player can '
+      'close', () async {
+    var closed = false;
+    final r = Rig(sendPosition: true, position: () async => closed ? 0 : 812);
+    r.loop.playing();
+    await settle();
+    r.loop.stop();
+    // The screen closes the player in the same tick it stops the loop.
+    closed = true;
+    await settle();
+    expect(r.beats, ['p1 true @812', 'p1 false @812']);
+  });
+
+  test('a stopped player answering 0 never sends 0 over the last position '
+      'read', () async {
+    var at = 754;
+    final r = Rig(sendPosition: true, position: () async => at);
+    r.loop.playing();
+    await settle();
+    r.timers.single.fire();
+    at = 0;
+    r.loop.stop();
+    await settle();
+    expect(r.beats, ['p1 true @754', 'p1 true @754', 'p1 false @754']);
+  });
+
+  test(
+    'a stop whose position read fails sends the last position read',
+    () async {
+      var fail = false;
+      final r = Rig(
+        sendPosition: true,
+        position: () =>
+            fail ? Future.error(StateError('closed')) : Future.value(754),
+      );
+      r.loop.playing();
+      await settle();
+      fail = true;
+      r.loop.stop();
+      await settle();
+      expect(r.beats, ['p1 true @754', 'p1 false @754']);
+    },
+  );
+
   test('a beat after a reopen carries the position too', () async {
     final r = Rig(
       sendPosition: true,

@@ -34,6 +34,9 @@ class BeatLoop {
   /// Whether the beats say where the video is: a family work's do. A
   /// reopened play says it again for itself.
   bool _sendPosition;
+
+  /// The last position read, the floor of every later one.
+  int? _last;
   final Future<KidPlay> Function(String closedPlayId) _reopen;
   final void Function() _onTimeUp;
   final void Function() _onDoesNotFit;
@@ -63,7 +66,15 @@ class BeatLoop {
 
   /// The player is going: a last beat if it played, then nothing more.
   void stop() {
-    paused();
+    if (!_stopped && _playing) {
+      _halt();
+      // The screen closes the player in the same tick it stops the loop,
+      // and a stopped or closed embed answers 0. The position is asked
+      // now, before the close reaches the player, and a failed read falls
+      // back to the last one: the family's place is never wiped.
+      final at = _at(stopping: true);
+      _queue = _queue.then((_) => _once(false, at));
+    }
     _stopped = true;
   }
 
@@ -73,12 +84,15 @@ class BeatLoop {
     _timer = null;
   }
 
-  void _send(bool playing) => _queue = _queue.then((_) => _once(playing));
+  void _send(bool playing) =>
+      _queue = _queue.then((_) => _once(playing, _at()));
 
-  Future<void> _once(bool playing) async {
+  /// One beat; [at] is its position read, started when the beat was
+  /// asked for.
+  Future<void> _once(bool playing, Future<int?> at) async {
     try {
       // Bounded, so one hung call cannot stall the serialized queue.
-      await _beat(_playId, playing, await _at()).timeout(interval);
+      await _beat(_playId, playing, await at).timeout(interval);
     } on ApiError catch (e) {
       // Only a beat that says "playing" brings a closed play back; a pause
       // or stop beat on a closed play has nothing left to tell.
@@ -91,14 +105,20 @@ class BeatLoop {
   }
 
   /// Where the video is, or null when it is not sent or cannot be read: a
-  /// beat without a position still counts the time.
-  Future<int?> _at() async {
+  /// beat without a position still counts the time. A stopping read that
+  /// fails sends the last position read instead.
+  Future<int?> _at({bool stopping = false}) async {
     final read = _position;
     if (!_sendPosition || read == null) return null;
     try {
-      return await read().timeout(const Duration(seconds: 5));
+      final at = await read().timeout(const Duration(seconds: 5));
+      // The child's player has no seek control, so the video only moves
+      // forward; a lower answer is a player that was stopped or reset.
+      final last = _last;
+      if (last != null && at < last) return last;
+      return _last = at;
     } on Object {
-      return null;
+      return stopping ? _last : null;
     }
   }
 
@@ -107,6 +127,7 @@ class BeatLoop {
       final reopened = await _reopen(_playId).timeout(interval);
       _playId = reopened.playId;
       _sendPosition = reopened.family;
+      if (!reopened.family) _last = null;
       if (_playing) {
         await _beat(_playId, true, await _at()).timeout(interval);
       }

@@ -42,7 +42,8 @@ class FakePlayback implements KidPlayback {
   /// The second the screen asked the video to start at.
   final int start;
 
-  /// Where the video is, as [position] answers it.
+  /// Where the video is, as [position] answers it while open; a closed
+  /// player answers 0, as a stopped YouTube embed does.
   int at = 0;
 
   /// What the screen asked, in order: `play`, `pause`, `close`.
@@ -67,7 +68,7 @@ class FakePlayback implements KidPlayback {
   Stream<PlayerEvent> get events => _events.stream;
 
   @override
-  Future<int> position() async => at;
+  Future<int> position() async => closed ? 0 : at;
 
   @override
   Future<void> play() async => calls.add('play');

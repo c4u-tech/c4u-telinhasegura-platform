@@ -132,6 +132,31 @@ void main() {
     ]);
   });
 
+  testWidgets('leaving a family work sends where it stopped, not the 0 of '
+      'a closed player', (tester) async {
+    final h = kid(
+      play: (_) => json(201, {
+        'play_id': 'p1',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+        'start_seconds': 754,
+      }),
+    );
+    await watching(tester, harness: h);
+    current(h).at = 812;
+    current(h).emit(const PlayerPlaying());
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel(PlayerScreen.back));
+    await tester.pumpAndSettle();
+
+    expect(current(h).closed, isTrue);
+    expect(
+      beats(h).last,
+      'POST /v1/child/plays/p1/beat {"playing":false,"position_seconds":812}',
+    );
+  });
+
   testWidgets('a family work reopened after a long pause keeps saying where '
       'the video is', (tester) async {
     var opened = 0;
