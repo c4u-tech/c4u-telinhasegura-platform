@@ -104,7 +104,7 @@ func (s *Service) youngestFits(ctx context.Context, tx pgx.Tx, videoID string, r
 	if err != nil {
 		return err
 	}
-	if fast || time.Duration(seconds)*time.Second > s.d.YoungestMaxDuration {
+	if fast || time.Duration(seconds)*time.Second > s.d.FamilyYoungestMaxDuration {
 		return ErrChecklistBand
 	}
 	return nil

@@ -128,14 +128,18 @@ type Deps struct {
 	CheckVideoLimiter   *ratelimit.Limiter // one YouTube re-check per video per hour
 	CheckChildLimiter   *ratelimit.Limiter // 10 unavailable checks per child per hour
 	MinApprovals        int                // approvals that publish a round
-	MaxDuration         time.Duration      // a longer video is refused
-	YoungestMaxDuration time.Duration      // the ceiling for the youngest age band
-	LongFrom            time.Duration      // from this length a video counts as long
-	RevisitAfter        time.Duration      // from a publication to its revisit
-	ShelfSize           int                // videos per theme on a child's shelf
-	PackMaxDuration     time.Duration      // the longest total of a pack's videos
-	PackRowSize         int                // packs in a child's row
-	Log                 *slog.Logger       // source failures, never the key or the link
+	MaxDuration         time.Duration      // the longest video a child may watch alone
+	YoungestMaxDuration time.Duration      // the same for the youngest age band
+	// The ceilings of a video watched with the family: a longer video is
+	// refused, and a longer one is kept from the youngest band.
+	FamilyMaxDuration         time.Duration
+	FamilyYoungestMaxDuration time.Duration
+	LongFrom                  time.Duration // from this length a video counts as long
+	RevisitAfter              time.Duration // from a publication to its revisit
+	ShelfSize                 int           // videos per theme on a child's shelf
+	PackMaxDuration           time.Duration // the longest total of a pack's videos
+	PackRowSize               int           // packs in a child's row
+	Log                       *slog.Logger  // source failures, never the key or the link
 }
 
 type Service struct {

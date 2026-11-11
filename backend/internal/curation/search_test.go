@@ -48,7 +48,7 @@ func TestSearchMarksEachHit(t *testing.T) {
 	live := curationtest.Kids("l1", "Ao vivo")
 	live.Live = "live"
 	long := curationtest.Kids("t1", "Longo")
-	long.Duration = 45*time.Minute + time.Second
+	long.Duration = 120*time.Minute + time.Second
 	notEmbeddable := curationtest.Kids("e1", "Sem incorporar")
 	notEmbeddable.Embeddable = false
 	videos := []curation.Metadata{curationtest.Kids("k1", "Baby Shark"), notForKids, live, long, notEmbeddable}

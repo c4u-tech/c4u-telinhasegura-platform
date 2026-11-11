@@ -255,7 +255,7 @@ func TestALongVideoAnswersTheLongQuestions(t *testing.T) {
 		"a long video with one missing":   {long, with(family.Age5To8, oneMissing, nil), curation.ErrValidation},
 		"a long video not licensed":       {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c26": appears}), curation.ErrChecklistRefuses},
 		"a long video rated above Livre":  {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c27": appears}), curation.ErrChecklistRefuses},
-		"over 30 minutes for 2 to 4":      {31 * time.Minute, with(family.AgeUpTo4, cleanLong(), nil), curation.ErrChecklistBand},
+		"over 60 minutes for 2 to 4":      {61 * time.Minute, with(family.AgeUpTo4, cleanLong(), nil), curation.ErrChecklistBand},
 		"a bad answer on a long question": {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c28": "maybe"}), curation.ErrValidation},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -281,7 +281,7 @@ func TestALongVideoIsApprovedWithItsLongAnswers(t *testing.T) {
 	}{
 		"25 minutes for 5 to 8":         {25 * time.Minute, family.Age5To8, cleanLong(), 26},
 		"ads in the middle":             {25 * time.Minute, family.Age5To8, withAnswer(cleanLong(), "c28", curation.AnswerAppears), 26},
-		"exactly 30 minutes for 2 to 4": {30 * time.Minute, family.AgeUpTo4, cleanLong(), 26},
+		"exactly 60 minutes for 2 to 4": {60 * time.Minute, family.AgeUpTo4, cleanLong(), 26},
 		"exactly 20 minutes is short":   {20 * time.Minute, family.Age5To8, clean(), 23},
 	} {
 		t.Run(name, func(t *testing.T) {

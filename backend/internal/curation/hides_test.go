@@ -160,7 +160,7 @@ func TestFamilyCatalogKeepsATooLongVideoFromTheYoungestBand(t *testing.T) {
 	bebe := f.minor(fam, family.AgeUpTo4)
 	long := f.published(nthID(1), "bichos", family.AgeUpTo4)
 	short := f.published(nthID(2), "bichos", family.AgeUpTo4)
-	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((31 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((61 * time.Minute).Seconds()))
 
 	page, _, err := f.svc.FamilyCatalog(ctx, ana, bebe.MinorID, 0)
 	if err != nil {

@@ -141,7 +141,7 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		}
 		// A video too long for the youngest band cannot go to it; a doubt
 		// with no band leaves that to the moderator.
-		if e.decision != Reject && length > s.d.YoungestMaxDuration && in.MinAgeBand == family.AgeUpTo4 {
+		if e.decision != Reject && length > s.d.FamilyYoungestMaxDuration && in.MinAgeBand == family.AgeUpTo4 {
 			return ErrChecklistBand
 		}
 		rv = Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,

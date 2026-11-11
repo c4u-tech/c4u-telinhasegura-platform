@@ -190,17 +190,17 @@ func TestATooLongVideoLeavesTheYoungestBand(t *testing.T) {
 	bebe := f.minor(fam, family.AgeUpTo4)
 	long := f.published(nthID(1), "bichos", family.AgeUpTo4)
 	edge := f.published(nthID(2), "musica", family.AgeUpTo4)
-	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((31 * time.Minute).Seconds()))
-	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, edge, int((30 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((61 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, edge, int((60 * time.Minute).Seconds()))
 
 	if f.shown(bebe, long) {
-		t.Fatal("a 31-minute video reached a 2-to-4 child")
+		t.Fatal("a 61-minute video reached a 2-to-4 child")
 	}
 	if !f.shown(bebe, edge) {
-		t.Fatal("a 30-minute video left the 2-to-4 band")
+		t.Fatal("a 60-minute video left the 2-to-4 band")
 	}
 	if !f.shown(lia, long) {
-		t.Fatal("a 31-minute video left the 5-to-8 band")
+		t.Fatal("a 61-minute video left the 5-to-8 band")
 	}
 	if _, err := f.svc.Play(ctx, bebe, long); !errors.Is(err, curation.ErrVideoNotAllowed) {
 		t.Fatalf("play for 2 to 4: %v", err)

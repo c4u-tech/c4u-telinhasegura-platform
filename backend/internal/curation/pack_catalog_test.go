@@ -263,9 +263,9 @@ func TestATooLongVideoKeepsItsPackFromTheYoungestBand(t *testing.T) {
 	if got := f.kidPacks(bebe); len(got) != 1 || got[0].ID != id {
 		t.Fatalf("before: %+v", got)
 	}
-	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((31 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((61 * time.Minute).Seconds()))
 	if got := f.kidPacks(bebe); len(got) != 0 {
-		t.Fatalf("a 31-minute video let a 2-to-4 child see the pack: %+v", got)
+		t.Fatalf("a 61-minute video let a 2-to-4 child see the pack: %+v", got)
 	}
 	if got := f.kidPacks(lia); len(got) != 1 || got[0].ID != id {
 		t.Fatalf("5-8 child: %+v", got)

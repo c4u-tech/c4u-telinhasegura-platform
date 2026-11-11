@@ -39,7 +39,7 @@ type Shelf struct {
 // length came to be stored, such a video never reaches a child of the
 // youngest band.
 func (s *Service) bandRankSQL() string {
-	youngest := strconv.Itoa(int(s.d.YoungestMaxDuration / time.Second))
+	youngest := strconv.Itoa(int(s.d.FamilyYoungestMaxDuration / time.Second))
 	return `CASE WHEN v.min_age_band = 'ate-4' AND v.duration_seconds > ` + youngest + ` THEN 2
 		WHEN v.min_age_band = 'ate-4' THEN 1 WHEN v.min_age_band = '5-8' THEN 2 WHEN v.min_age_band = '9-12' THEN 3 END`
 }
