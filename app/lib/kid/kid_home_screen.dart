@@ -218,6 +218,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// time says nothing and fetches them, to sleep.
   Future<void> _play(KidVideo video) async {
     if (_pending) return;
+    if (!video.fits) return _rest(PlayerScreen.doesNotFit);
     final services = AppScope.of(context);
     final router = GoRouter.of(context);
     setState(() {
@@ -244,6 +245,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// video; with none left, the shelves say why the last one did not open.
   Future<void> _openPack(KidPack pack) async {
     if (_pending) return;
+    if (!pack.fits) return _rest(PlayerScreen.packDoesNotFit);
     final services = AppScope.of(context);
     final router = GoRouter.of(context);
     setState(() {
@@ -277,6 +279,9 @@ class _KidHomeScreenState extends State<KidHomeScreen>
       if (mounted) setState(() => _pending = false);
     }
   }
+
+  /// A resting tile tapped: nothing to ask the server, only why.
+  void _rest(String note) => setState(() => _notice = note);
 
   Widget _note(String message) => Padding(
     padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),

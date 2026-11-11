@@ -71,8 +71,10 @@ class PackTile extends StatelessWidget {
       ? wide
       : narrow;
 
-  static String label(KidPack pack) =>
-      '${pack.title}, pacotinho de ${pack.videos.length} vídeos';
+  static String label(KidPack pack) => VideoTile.label(
+    '${pack.title}, pacotinho de ${pack.videos.length} vídeos',
+    resting: !pack.fits,
+  );
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -96,6 +98,7 @@ class PackTile extends StatelessWidget {
             size: size,
             thumbnail: thumbnail,
             onTap: onTap,
+            resting: !pack.fits,
           ),
           const SizedBox(height: Space.sm),
           PackModules(count: pack.videos.length, filled: 0, height: module),

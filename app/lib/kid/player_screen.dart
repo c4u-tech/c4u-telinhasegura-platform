@@ -51,6 +51,11 @@ class PlayerScreen extends StatefulWidget {
       'Esse vídeo é mais comprido que o tempo que falta hoje. '
       'Escolha um mais curto.';
 
+  /// A pacotinho whose videos together are longer than the time left.
+  static const packDoesNotFit =
+      'Esse pacotinho é mais comprido que o tempo que falta hoje. '
+      'Escolha um mais curto.';
+
   /// A play that failed for another reason (network, server).
   static const cannotOpen = 'Não deu para abrir o vídeo agora.';
 
