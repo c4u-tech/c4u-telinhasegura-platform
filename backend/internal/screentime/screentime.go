@@ -42,6 +42,12 @@ type Time struct {
 	Remaining time.Duration
 }
 
+// Fits reports whether a viewing of length d may start in day state t: the
+// day is open and d is within what is left plus the tolerance.
+func Fits(t Time, d time.Duration) bool {
+	return t.State == OK && d <= t.Remaining+fitTolerance
+}
+
 // Child is a child principal as screentime needs it (parental.Principal).
 // DeviceID is "" for a session locked to the child.
 type Child struct {

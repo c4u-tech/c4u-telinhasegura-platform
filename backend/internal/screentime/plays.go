@@ -43,7 +43,7 @@ func (s *Service) Open(ctx context.Context, c Child, videoID, continues string) 
 		if err := s.d.Pool.QueryRow(ctx, `SELECT duration_seconds FROM videos WHERE id = $1::uuid`, videoID).Scan(&duration); err != nil {
 			return Play{}, err
 		}
-		if time.Duration(duration)*time.Second > t.Remaining+fitTolerance {
+		if !Fits(t, time.Duration(duration)*time.Second) {
 			return Play{}, &NotFitError{Remaining: t.Remaining}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/screentime"
 )
 
 // kidOf is the request's child principal as curation needs it.
@@ -19,6 +20,7 @@ type kidVideoOut struct {
 	ID              string `json:"id"`
 	Title           string `json:"title"`
 	DurationSeconds int    `json:"duration_seconds"`
+	Fits            bool   `json:"fits"` // the video may start in the time left
 }
 
 type kidPackOut struct {
@@ -26,16 +28,23 @@ type kidPackOut struct {
 	Title        string        `json:"title"`
 	CoverVideoID string        `json:"cover_video_id"`
 	Videos       []kidVideoOut `json:"videos"`
+	Fits         bool          `json:"fits"` // all its videos together fit the time left
 }
 
-func kidPacksBody(ps []curation.KidPack) []kidPackOut {
+func kidVideoBody(v curation.KidVideo, t screentime.Time) kidVideoOut {
+	return kidVideoOut{v.ID, v.Title, v.DurationSeconds, screentime.Fits(t, time.Duration(v.DurationSeconds)*time.Second)}
+}
+
+func kidPacksBody(ps []curation.KidPack, t screentime.Time) []kidPackOut {
 	out := make([]kidPackOut, 0, len(ps))
 	for _, p := range ps {
 		vs := make([]kidVideoOut, 0, len(p.Videos))
+		var total time.Duration
 		for _, v := range p.Videos {
-			vs = append(vs, kidVideoOut{v.ID, v.Title, v.DurationSeconds})
+			vs = append(vs, kidVideoBody(v, t))
+			total += time.Duration(v.DurationSeconds) * time.Second
 		}
-		out = append(out, kidPackOut{p.ID, p.Title, p.CoverVideoID, vs})
+		out = append(out, kidPackOut{p.ID, p.Title, p.CoverVideoID, vs, screentime.Fits(t, total)})
 	}
 	return out
 }
@@ -78,6 +87,11 @@ func (s *Server) childCatalog(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	t, err := s.ScreenTime.Time(r.Context(), stOf(r))
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
 	shelves, err := s.Curation.Catalog(r.Context(), kidOf(r), loc)
 	if err != nil {
 		s.fail(w, err)
@@ -91,7 +105,7 @@ func (s *Server) childCatalog(w http.ResponseWriter, r *http.Request) {
 	for _, sh := range shelves {
 		vs := make([]kidVideoOut, 0, len(sh.Videos))
 		for _, v := range sh.Videos {
-			vs = append(vs, kidVideoOut{v.ID, v.Title, v.DurationSeconds})
+			vs = append(vs, kidVideoBody(v, t))
 		}
 		out = append(out, shelf{sh.Theme, vs})
 	}
@@ -100,12 +114,7 @@ func (s *Server) childCatalog(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	t, err := s.ScreenTime.Time(r.Context(), stOf(r))
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"themes": out, "packs": kidPacksBody(packs), "time": timeBody(t)})
+	writeJSON(w, http.StatusOK, map[string]any{"themes": out, "packs": kidPacksBody(packs, t), "time": timeBody(t)})
 }
 
 // writeThumb sends a cached thumbnail, a JPEG the fetch checked; the
