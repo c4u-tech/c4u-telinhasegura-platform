@@ -169,10 +169,18 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 			return err
 		}
 		rv.DisplayRole = DisplayRole(role)
+		length := time.Duration(seconds) * time.Second
 		if e.decision != Reject {
-			length := time.Duration(seconds) * time.Second
 			if err := lengthRule(in.Answers, in.MinAgeBand, length, s.d.LongFrom, s.d.YoungestMaxDuration); err != nil {
 				return err
+			}
+		} else if length <= s.d.LongFrom {
+			// A short video is never asked the long-video questions, so
+			// its rejection cannot cite them.
+			for _, id := range e.failed {
+				if checklistItem[id].LongOnly {
+					return ErrValidation
+				}
 			}
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,

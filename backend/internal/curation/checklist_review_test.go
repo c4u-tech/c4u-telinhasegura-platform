@@ -329,3 +329,32 @@ func withAnswer(answers map[string]curation.Answer, id string, a curation.Answer
 	answers[id] = a
 	return answers
 }
+
+// A rejection cites only the questions asked of the video: a short video
+// is never asked the long-video ones.
+func TestARejectionOfAShortVideoCitesNoLongQuestion(t *testing.T) {
+	for name, tc := range map[string]struct {
+		length time.Duration
+		want   error
+		stored int
+	}{
+		"a short video":               {5 * time.Minute, curation.ErrValidation, 0},
+		"exactly 20 minutes is short": {20 * time.Minute, curation.ErrValidation, 0},
+		"a long video":                {25 * time.Minute, nil, 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.curator("c1@example.com", curation.MaePai)
+			v := f.longVideo(ytID, tc.length)
+			in := curation.ReviewInput{Decision: curation.Reject, ChecklistVersion: curation.ChecklistVersion,
+				FailedItems: []string{"c04", "c26"}}
+			f.now = f.now.Add(time.Minute)
+			if _, _, err := f.svc.Review(ctx, c, v, in); !errors.Is(err, tc.want) {
+				t.Fatalf("%v, want %v", err, tc.want)
+			}
+			if n := f.count(`SELECT count(*) FROM video_reviews WHERE checklist = '["c04", "c26"]'::jsonb`); n != tc.stored {
+				t.Fatalf("%d rows stored, want %d", n, tc.stored)
+			}
+		})
+	}
+}
