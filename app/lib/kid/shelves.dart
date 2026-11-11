@@ -194,7 +194,7 @@ class _VideoTileState extends State<VideoTile> {
           fit: StackFit.expand,
           children: [
             ColorFiltered(colorFilter: _grey, child: picture),
-            ColoredBox(color: p.ground.withValues(alpha: .55)),
+            ColoredBox(color: p.ground.withValues(alpha: .38)),
           ],
         );
 
@@ -215,7 +215,11 @@ class _VideoTileState extends State<VideoTile> {
     );
     final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
     final rest = widget.resting
-        ? BorderSide(color: p.outline, width: VideoTile.restingStroke)
+        ? BorderSide(
+            color: p.outline,
+            width: VideoTile.restingStroke,
+            strokeAlign: BorderSide.strokeAlignInside,
+          )
         : BorderSide.none;
     return Semantics(
       container: true,
@@ -229,47 +233,54 @@ class _VideoTileState extends State<VideoTile> {
           child: DecoratedBox(
             position: DecorationPosition.foreground,
             decoration: ShapeDecoration(
-              shape: shape.copyWith(side: ring ?? rest),
+              shape: shape.copyWith(side: ring ?? BorderSide.none),
             ),
-            child: Material(
-              type: MaterialType.transparency,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _picture(
-                    FutureBuilder(
-                      future: _bytes,
-                      builder: (context, snap) => switch (snap) {
-                        AsyncSnapshot(hasData: true, :final data!) =>
-                          Image.memory(
-                            data,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                            errorBuilder: (_, _, _) => const HollowThumbnail(),
+            // The resting stroke sits inside the frame and the focus ring
+            // outside it, so a focused resting tile keeps both signs.
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(shape: shape.copyWith(side: rest)),
+              child: Material(
+                type: MaterialType.transparency,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _picture(
+                      FutureBuilder(
+                        future: _bytes,
+                        builder: (context, snap) => switch (snap) {
+                          AsyncSnapshot(hasData: true, :final data!) =>
+                            Image.memory(
+                              data,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              errorBuilder: (_, _, _) =>
+                                  const HollowThumbnail(),
+                            ),
+                          AsyncSnapshot(hasError: true) =>
+                            const HollowThumbnail(),
+                          _ => ColoredBox(
+                            color: p.outline.withValues(alpha: .24),
                           ),
-                        AsyncSnapshot(hasError: true) =>
-                          const HollowThumbnail(),
-                        _ => ColoredBox(
-                          color: p.outline.withValues(alpha: .24),
-                        ),
-                      },
+                        },
+                      ),
+                      p,
                     ),
-                    p,
-                  ),
-                  InkWell(
-                    onTap: widget.onTap,
-                    // Kept focusable while a play is pending: the ring
-                    // stays where the child left it.
-                    canRequestFocus: true,
-                    onFocusChange: (f) => setState(() => _focused = f),
-                    focusColor: Colors.transparent,
-                    hoverColor: p.outline.withValues(alpha: .08),
-                    highlightColor: p.outline.withValues(alpha: .12),
-                    splashColor: p.outline.withValues(alpha: .12),
-                  ),
-                ],
+                    InkWell(
+                      onTap: widget.onTap,
+                      // Kept focusable while a play is pending: the ring
+                      // stays where the child left it.
+                      canRequestFocus: true,
+                      onFocusChange: (f) => setState(() => _focused = f),
+                      focusColor: Colors.transparent,
+                      hoverColor: p.outline.withValues(alpha: .08),
+                      highlightColor: p.outline.withValues(alpha: .12),
+                      splashColor: p.outline.withValues(alpha: .12),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

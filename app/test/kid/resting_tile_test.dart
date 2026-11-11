@@ -113,4 +113,48 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('a resting tile tapped on a lower shelf brings the note into '
+      'view', (tester) async {
+    const themes = [
+      'bichos',
+      'musica',
+      'historias',
+      'aprender',
+      'brincar',
+      'natureza',
+    ];
+    final six = {
+      'themes': [
+        for (final (i, t) in themes.indexed)
+          {
+            'theme': t,
+            'videos': [
+              {...video('x$i', 'Vídeo $t'), 'fits': i != themes.length - 1},
+            ],
+          },
+      ],
+    };
+    final h = await shelves(
+      tester,
+      catalog: () => json(200, six),
+      size: const Size(360, 640),
+    );
+
+    final last = tilesIn(shelfOf(VideoTheme.natureza));
+    await tester.ensureVisible(last);
+    await tester.pumpAndSettle();
+    await tester.tap(last);
+    await tester.pumpAndSettle();
+
+    expect(playsAsked(h), 0);
+    final note = tester.getRect(find.byType(KidErrorNote));
+    final screen =
+        Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
+    expect(
+      screen.contains(note.topLeft) && screen.contains(note.bottomRight),
+      isTrue,
+      reason: 'the note at $note is outside the screen $screen',
+    );
+  });
 }

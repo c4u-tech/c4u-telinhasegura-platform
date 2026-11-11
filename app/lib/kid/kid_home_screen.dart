@@ -280,10 +280,21 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
-  /// A resting tile tapped: nothing to ask the server, only why.
-  void _rest(String note) => setState(() => _notice = note);
+  /// A resting tile tapped: nothing to ask the server, only why. The note
+  /// sits above the first shelf, so a tap from a lower shelf brings it into
+  /// view at once (no scroll animation: the shelves add no motion).
+  void _rest(String note) {
+    setState(() => _notice = note);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final at = _noteKey.currentContext;
+      if (at != null && at.mounted) unawaited(Scrollable.ensureVisible(at));
+    });
+  }
+
+  final _noteKey = GlobalKey();
 
   Widget _note(String message) => Padding(
+    key: _noteKey,
     padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
     child: KidErrorNote(message),
   );
