@@ -47,6 +47,7 @@ func TestExportScreenTime(t *testing.T) {
 		`"screen_time_extensions":[{"minor_id":"` + lia + `","date":"2026-10-04","minutes":15,"via":"guardian"`,
 		`"plays":[{"minor_id":"` + lia + `","youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","started_at":"2026-10-04T12:00:00Z","seconds":300}]`,
 		`"play_positions":[{"minor_id":"` + lia + `","youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","position_seconds":1200,"updated_at":"2026-10-04T12:00:00Z"}]`,
+		`"family_sessions":[{"minor_id":"` + lia + `","youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","created_at":"2026-10-04T12:00:00Z","expires_at":"2026-10-04T12:00:00Z","used_at":null}]`,
 	} {
 		if !strings.Contains(js, key) {
 			t.Errorf("missing %s in %s", key, js)

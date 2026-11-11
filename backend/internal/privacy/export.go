@@ -146,6 +146,7 @@ type Family struct {
 	ScreenTimeExtensions []ScreenTimeExtension `json:"screen_time_extensions"`
 	Plays                []Play                `json:"plays"`
 	PlayPositions        []PlayPosition        `json:"play_positions"`
+	FamilySessions       []FamilySession       `json:"family_sessions"`
 }
 
 type Guardian struct {
@@ -246,6 +247,18 @@ type PlayPosition struct {
 	VideoTitle      string    `json:"video_title"`
 	PositionSeconds int       `json:"position_seconds"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// FamilySession is a family session a guardian started for a child and a
+// work: when it was started, when it lapses and when its one open was
+// used (null until then).
+type FamilySession struct {
+	MinorID    string     `json:"minor_id"`
+	YouTubeID  string     `json:"youtube_id"`
+	VideoTitle string     `json:"video_title"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	UsedAt     *time.Time `json:"used_at"`
 }
 
 // Export reads everything the platform holds about the account and its
@@ -661,10 +674,28 @@ func readScreenTime(ctx context.Context, tx pgx.Tx, f *Family) error {
 	if err != nil {
 		return err
 	}
-	f.PlayPositions, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlayPosition, error) {
+	if f.PlayPositions, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlayPosition, error) {
 		var x PlayPosition
 		err := r.Scan(&x.MinorID, &x.YouTubeID, &x.VideoTitle, &x.PositionSeconds, &x.UpdatedAt)
 		x.UpdatedAt = x.UpdatedAt.UTC()
+		return x, err
+	}); err != nil {
+		return err
+	}
+	rows, err = tx.Query(ctx, `SELECT s.minor_id::text, v.youtube_id, v.title, s.created_at, s.expires_at, s.used_at
+		FROM family_sessions s JOIN minors m ON m.id = s.minor_id JOIN videos v ON v.id = s.video_id
+		WHERE m.family_id = $1::uuid ORDER BY s.created_at, s.id`, f.ID)
+	if err != nil {
+		return err
+	}
+	f.FamilySessions, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (FamilySession, error) {
+		var x FamilySession
+		err := r.Scan(&x.MinorID, &x.YouTubeID, &x.VideoTitle, &x.CreatedAt, &x.ExpiresAt, &x.UsedAt)
+		x.CreatedAt, x.ExpiresAt = x.CreatedAt.UTC(), x.ExpiresAt.UTC()
+		if x.UsedAt != nil {
+			u := x.UsedAt.UTC()
+			x.UsedAt = &u
+		}
 		return x, err
 	})
 	return err
