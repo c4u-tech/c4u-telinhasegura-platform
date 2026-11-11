@@ -160,6 +160,19 @@ void main() {
     expect(find.text(PlayerScreen.videoGone), findsOneWidget);
   });
 
+  testWidgets('a first video that does not fit is not passed over: the '
+      'shelves say so', (tester) async {
+    final h = packKid(play: (_) => problem(403, 'does_not_fit'));
+    await h.pump(tester, initial: '/crianca');
+    await tester.tap(packTile);
+    await tester.pumpAndSettle();
+
+    expect(plays(h), ['v1']);
+    expect(h.location(tester), '/crianca');
+    expect(find.text(PlayerScreen.doesNotFit), findsOneWidget);
+    expect(find.byType(SleepingTelinha), findsNothing);
+  });
+
   testWidgets('a first play refused for time sends the home to sleep', (
     tester,
   ) async {

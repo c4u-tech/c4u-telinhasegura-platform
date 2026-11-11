@@ -248,8 +248,8 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
           _leave();
           return;
         }
-        // Every next video is no shorter than the time left allows, so the
-        // pacotinho ends here with the goodbye rather than skipping on.
+        // The time left only shrinks, so the pacotinho ends here with the
+        // goodbye rather than reaching for another video.
         if (e is ApiError && e.code == 'does_not_fit') {
           setState(() => _advancing = false);
           _goodbye();

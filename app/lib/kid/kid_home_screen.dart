@@ -239,8 +239,9 @@ class _KidHomeScreenState extends State<KidHomeScreen>
 
   /// Opens a pacotinho on its first video the server lets play:
   /// a video refused is passed over for the next; a day without time
-  /// sleeps, and a paused profile says so; with none left, the shelves say why the last one did not
-  /// open.
+  /// sleeps, a paused profile says so, and a video longer than the time
+  /// left stops the search, since no pacotinho should open past its first
+  /// video; with none left, the shelves say why the last one did not open.
   Future<void> _openPack(KidPack pack) async {
     if (_pending) return;
     final services = AppScope.of(context);
@@ -263,7 +264,9 @@ class _KidHomeScreenState extends State<KidHomeScreen>
           return;
         } on Object catch (e) {
           refused = e;
-          if (refusesEvery(e)) break;
+          if (refusesEvery(e) || (e is ApiError && e.code == 'does_not_fit')) {
+            break;
+          }
         }
       }
       if (!mounted || refused == null) return;
