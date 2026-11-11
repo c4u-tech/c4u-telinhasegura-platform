@@ -3,7 +3,6 @@ package curation
 import (
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 )
@@ -127,7 +126,7 @@ func Checklist() []ChecklistGroup {
 // youngest band. It reports whether the review is a doubt: an explicit
 // "doubt", or a yes on a question that asks for a moderator. The questions
 // asked of a long video only are checked when present; whether they must be
-// is the video's length, which lengthRule judges.
+// is the video's length, which the caller knows.
 func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
 	for _, id := range checklistOrder {
 		if _, ok := answers[id]; !ok && !checklistItem[id].LongOnly {
@@ -172,26 +171,6 @@ func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
 		return false, ErrChecklistBand
 	}
 	return doubt, nil
-}
-
-// lengthRule holds a review to the video's length. A video longer than
-// longFrom is long: its review must answer every long question, and a
-// shorter one's must answer none. A video longer than youngestMax cannot go
-// to the youngest band; a doubt with no band leaves that to the moderator.
-func lengthRule(answers map[string]Answer, band family.AgeBand, length, longFrom, youngestMax time.Duration) error {
-	long := length > longFrom
-	for _, id := range checklistOrder {
-		if !checklistItem[id].LongOnly {
-			continue
-		}
-		if _, ok := answers[id]; ok != long {
-			return ErrValidation
-		}
-	}
-	if length > youngestMax && band == family.AgeUpTo4 {
-		return ErrChecklistBand
-	}
-	return nil
 }
 
 // failedItems checks a rejection's questions: one or more, each one whose

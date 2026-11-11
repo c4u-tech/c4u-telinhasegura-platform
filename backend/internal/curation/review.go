@@ -115,19 +115,11 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		return Review{}, "", ErrNotFound
 	}
 	in.Note = strings.TrimSpace(in.Note)
-	e, err := prepare(in)
-	if err != nil {
-		return Review{}, "", err
-	}
 	now := s.now()
-	rv := Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,
-		ChecklistVersion: ChecklistVersion, FailedItems: e.failed, ReviewedAt: now}
-	if e.decision != Reject {
-		rv.Answers = maps.Clone(in.Answers)
-	}
+	var rv Review
 	var state State
 	var event audit.Event
-	err = s.inTx(ctx, func(tx pgx.Tx) error {
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		var st string
 		var round int
 		var due *time.Time
@@ -140,6 +132,20 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		if err != nil {
 			return err
 		}
+		// The review is judged once the length is known: it decides which
+		// questions the video was asked.
+		length := time.Duration(seconds) * time.Second
+		e, err := prepare(in, length > s.d.LongFrom)
+		if err != nil {
+			return err
+		}
+		// A video too long for the youngest band cannot go to it; a doubt
+		// with no band leaves that to the moderator.
+		if e.decision != Reject && length > s.d.YoungestMaxDuration && in.MinAgeBand == family.AgeUpTo4 {
+			return ErrChecklistBand
+		}
+		rv = Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,
+			ChecklistVersion: ChecklistVersion, Answers: e.answers, FailedItems: e.failed, ReviewedAt: now}
 		state = State(st)
 		var own, reviewed bool
 		if err := tx.QueryRow(ctx, `SELECT
@@ -169,20 +175,6 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 			return err
 		}
 		rv.DisplayRole = DisplayRole(role)
-		length := time.Duration(seconds) * time.Second
-		if e.decision != Reject {
-			if err := lengthRule(in.Answers, in.MinAgeBand, length, s.d.LongFrom, s.d.YoungestMaxDuration); err != nil {
-				return err
-			}
-		} else if length <= s.d.LongFrom {
-			// A short video is never asked the long-video questions, so
-			// its rejection cannot cite them.
-			for _, id := range e.failed {
-				if checklistItem[id].LongOnly {
-					return ErrValidation
-				}
-			}
-		}
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
 			min_age_band, reason, reviewed_at, checklist_version, checklist) VALUES ($1::uuid, $2, $3::uuid, $4, $5,
 			nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb)`,
@@ -301,14 +293,18 @@ func published(approvals []approval) (string, family.AgeBand) {
 // entry is a review as the ledger stores it.
 type entry struct {
 	decision  Decision
-	reason    string   // a rejection's failed questions and note; a doubt's note
-	checklist []byte   // the answers, or the failed questions
-	failed    []string // a rejection's questions, in the list's order
+	reason    string            // a rejection's failed questions and note; a doubt's note
+	checklist []byte            // the answers, or the failed questions
+	failed    []string          // a rejection's questions, in the list's order
+	answers   map[string]Answer // an approval's or a doubt's, as stored
 }
 
-// prepare checks a review before any lookup and turns it into its ledger
-// entry. A refused review stores nothing.
-func prepare(in ReviewInput) (entry, error) {
+// prepare checks a review of a video, long or not, and turns it into its
+// ledger entry. A refused review stores nothing. A long video is asked the
+// long-video questions and must answer them all; a short one is not, so
+// its rejection cannot cite them, and the answers to them an app built
+// before them still sends are dropped unjudged, as if never sent.
+func prepare(in ReviewInput, long bool) (entry, error) {
 	if in.Decision != Approve && in.Decision != Reject {
 		return entry{}, ErrValidation
 	}
@@ -326,6 +322,11 @@ func prepare(in ReviewInput) (entry, error) {
 		if err != nil {
 			return entry{}, err
 		}
+		for _, it := range items {
+			if it.LongOnly && !long {
+				return entry{}, ErrValidation
+			}
+		}
 		ids := make([]string, len(items))
 		for i, it := range items {
 			ids[i] = it.ID
@@ -339,7 +340,19 @@ func prepare(in ReviewInput) (entry, error) {
 	if named && (!validTheme(in.Theme) || bandRank(in.MinAgeBand) == 0) || in.FailedItems != nil {
 		return entry{}, ErrValidation
 	}
-	doubt, err := judge(in.Answers, in.MinAgeBand)
+	answers := maps.Clone(in.Answers)
+	for _, id := range checklistOrder {
+		if !checklistItem[id].LongOnly {
+			continue
+		}
+		if _, ok := answers[id]; long && !ok {
+			return entry{}, ErrValidation
+		}
+		if !long {
+			delete(answers, id)
+		}
+	}
+	doubt, err := judge(answers, in.MinAgeBand)
 	if err != nil {
 		return entry{}, err
 	}
@@ -348,11 +361,11 @@ func prepare(in ReviewInput) (entry, error) {
 	if !doubt && (in.Note != "" || !named) {
 		return entry{}, ErrValidation
 	}
-	list, err := json.Marshal(in.Answers)
+	list, err := json.Marshal(answers)
 	if doubt {
-		return entry{decision: Doubt, reason: in.Note, checklist: list}, err
+		return entry{decision: Doubt, reason: in.Note, checklist: list, answers: answers}, err
 	}
-	return entry{decision: Approve, checklist: list}, err
+	return entry{decision: Approve, checklist: list, answers: answers}, err
 }
 
 // VideoDetail reads a video, its current round's reviews and its

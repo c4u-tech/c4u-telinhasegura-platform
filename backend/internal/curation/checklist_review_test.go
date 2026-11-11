@@ -255,7 +255,6 @@ func TestALongVideoAnswersTheLongQuestions(t *testing.T) {
 		"a long video with one missing":   {long, with(family.Age5To8, oneMissing, nil), curation.ErrValidation},
 		"a long video not licensed":       {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c26": appears}), curation.ErrChecklistRefuses},
 		"a long video rated above Livre":  {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c27": appears}), curation.ErrChecklistRefuses},
-		"a short video with them":         {5 * time.Minute, with(family.Age5To8, cleanLong(), nil), curation.ErrValidation},
 		"over 30 minutes for 2 to 4":      {31 * time.Minute, with(family.AgeUpTo4, cleanLong(), nil), curation.ErrChecklistBand},
 		"a bad answer on a long question": {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c28": "maybe"}), curation.ErrValidation},
 	} {
@@ -322,6 +321,71 @@ func TestALongDoubtWithoutABandIsStored(t *testing.T) {
 	if err != nil || state != curation.Held || r.Decision != curation.Doubt {
 		t.Fatalf("doubt: %+v %s %v", r, state, err)
 	}
+}
+
+// An app built before the long-video questions answers every question it
+// is served, those included: a short video's review drops them, unjudged
+// and unstored, as if they were never sent.
+func TestAShortVideoDropsTheLongAnswers(t *testing.T) {
+	appears := curation.AnswerAppears
+	for name, tc := range map[string]struct {
+		length  time.Duration
+		in      curation.ReviewInput
+		want    error
+		outcome curation.Decision
+	}{
+		"all ok":                       {5 * time.Minute, approveLong("bichos", family.Age5To8, nil), nil, curation.Approve},
+		"not licensed":                 {5 * time.Minute, approveLong("bichos", family.Age5To8, map[string]curation.Answer{"c26": appears}), nil, curation.Approve},
+		"rated above Livre at 20:00":   {20 * time.Minute, approveLong("bichos", family.Age5To8, map[string]curation.Answer{"c27": appears}), nil, curation.Approve},
+		"a malformed long answer":      {5 * time.Minute, approveLong("bichos", family.Age5To8, map[string]curation.Answer{"c28": "maybe"}), nil, curation.Approve},
+		"a doubt":                      {5 * time.Minute, doubtLong(map[string]curation.Answer{"c13": curation.AnswerDoubt, "c28": curation.AnswerDoubt}, "Não sei."), nil, curation.Doubt},
+		"a doubt only on ads, unnamed": {5 * time.Minute, doubtLong(map[string]curation.Answer{"c28": curation.AnswerDoubt}, ""), curation.ErrValidation, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.curator("c1@example.com", curation.MaePai)
+			v := f.longVideo(ytID, tc.length)
+			f.now = f.now.Add(time.Minute)
+			r, _, err := f.svc.Review(ctx, c, v, tc.in)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("%v, want %v", err, tc.want)
+			}
+			if tc.want != nil {
+				if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+					t.Fatalf("a refused review was stored: %d rows", n)
+				}
+				return
+			}
+			if r.Decision != tc.outcome || len(r.Answers) != len(clean()) {
+				t.Fatalf("review %+v", r)
+			}
+			for _, id := range []string{"c26", "c27", "c28"} {
+				if _, ok := r.Answers[id]; ok {
+					t.Fatalf("%s kept in the review", id)
+				}
+			}
+			if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND decision = $2
+				AND (SELECT count(*) FROM jsonb_object_keys(checklist)) = $3
+				AND NOT checklist ?| array['c26', 'c27', 'c28']`, v, string(tc.outcome), len(clean())); n != 1 {
+				t.Fatal("the long answers were stored")
+			}
+		})
+	}
+}
+
+// approveLong is approve with every long answer too, then changed.
+func approveLong(theme string, band family.AgeBand, changed map[string]curation.Answer) curation.ReviewInput {
+	in := approve(theme, band)
+	in.Answers = cleanLong()
+	maps.Copy(in.Answers, changed)
+	return in
+}
+
+// doubtLong is approveLong with no theme and no band, and note.
+func doubtLong(changed map[string]curation.Answer, note string) curation.ReviewInput {
+	in := approveLong("", "", changed)
+	in.Note = note
+	return in
 }
 
 // withAnswer is answers with id answered a.
