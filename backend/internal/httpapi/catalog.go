@@ -132,7 +132,8 @@ func (s *Server) childThumb(w http.ResponseWriter, r *http.Request) {
 // a play (screentime: may they watch now?).
 func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		VideoID string `json:"video_id"`
+		VideoID   string `json:"video_id"`
+		Continues string `json:"continues"` // a recent play of this video being resumed
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
@@ -143,7 +144,7 @@ func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID, "")
+	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID, in.Continues)
 	if err != nil {
 		s.fail(w, err)
 		return

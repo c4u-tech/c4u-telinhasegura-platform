@@ -212,3 +212,65 @@ func TestPlayOpenLimitOverHTTP(t *testing.T) {
 		t.Fatalf("31st: %d %v", r.Code, r.Header())
 	}
 }
+
+// limitTo sets the child's daily allowance, keeping the default window. A
+// kid-mode session cannot reach the guardian routes, so it writes the rules.
+func (a *api) limitTo(minor string, minutes int) {
+	a.t.Helper()
+	a.exec(`INSERT INTO screentime_rules (minor_id, daily_minutes, window_start, window_end, updated_at)
+		VALUES ($1::uuid, $2, 480, 1170, $3)`, minor, minutes, a.now)
+}
+
+func (a *api) lengthen(videoID string, seconds int) {
+	a.t.Helper()
+	a.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, videoID, seconds)
+}
+
+func TestPlayThatDoesNotFitIs403(t *testing.T) {
+	a := newAPI(t)
+	tok, minor := a.lockedSession("ana@example.com")
+	a.limitTo(minor, 15)
+	v := a.published("dQw4w9WgXcQ", "bichos", "ate-4")
+	a.lengthen(v, 20*60)
+	r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": v}, bearer(tok)...)
+	var body struct {
+		Remaining int `json:"remaining_seconds"`
+	}
+	_ = json.Unmarshal(r.Body.Bytes(), &body)
+	if r.Code != http.StatusForbidden || r.problemCode() != "does_not_fit" || body.Remaining != 900 {
+		t.Fatalf("play: %d %s", r.Code, r.Body)
+	}
+}
+
+func TestCurationRefusalWinsOverNotFit(t *testing.T) {
+	a := newAPI(t)
+	tok, minor := a.lockedSession("ana@example.com")
+	a.limitTo(minor, 15)
+	strict := a.published("aaaaaaaaaaa", "musica", "9-12")
+	a.lengthen(strict, 2*3600)
+	r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": strict}, bearer(tok)...)
+	if r.Code != http.StatusForbidden || r.problemCode() != "video_not_allowed" {
+		t.Fatalf("play: %d %s", r.Code, r.Body)
+	}
+}
+
+func TestReopenWithContinuesOpens(t *testing.T) {
+	a := newAPI(t)
+	tok, minor := a.lockedSession("ana@example.com")
+	kid := bearer(tok)
+	a.limitTo(minor, 15)
+	v := a.published("dQw4w9WgXcQ", "bichos", "ate-4")
+	a.lengthen(v, 10*60) // fits the 15 minutes
+	id := a.openPlay(kid, v)
+	a.beat(kid, id, true)
+	a.lengthen(v, 20*60)               // what is left no longer covers it
+	a.now = a.now.Add(2 * time.Minute) // past the play's close, within the resume window
+
+	if r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": v}, kid...); r.Code != http.StatusForbidden || r.problemCode() != "does_not_fit" {
+		t.Fatalf("without continues: %d %s", r.Code, r.Body)
+	}
+	r := a.do(http.MethodPost, "/v1/child/plays", map[string]string{"video_id": v, "continues": id}, kid...)
+	if r.Code != http.StatusCreated {
+		t.Fatalf("with continues: %d %s", r.Code, r.Body)
+	}
+}
