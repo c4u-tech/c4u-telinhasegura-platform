@@ -114,26 +114,28 @@ func (e *SearchUnavailableError) Error() string { return "curation: search is un
 func (e *SearchUnavailableError) Unwrap() error { return ErrSearchUnavailable }
 
 type Deps struct {
-	Pool              *pgxpool.Pool
-	Audit             audit.Recorder
-	Now               func() time.Time
-	Source            VideoSource        // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
-	Thumbs            ThumbSource        // YouTube's image host, no key
-	Search            SearchSource       // nil while YOUTUBE_API_KEY is empty: a search answers 503
-	SearchLimiter     *ratelimit.Limiter // 20 searches per guardian per 24 h, keyed by account
-	SearchBudget      *ratelimit.Daily   // search.list calls per YouTube quota day, for every account
-	SuggestLimiter    *ratelimit.Limiter // 10 suggestion calls per guardian per 24 h, keyed by account
-	ReportLimiter     *ratelimit.Limiter // 20 report calls per account per 24 h
-	ReportThreshold   int                // distinct families' reports that hold a video
-	CheckVideoLimiter *ratelimit.Limiter // one YouTube re-check per video per hour
-	CheckChildLimiter *ratelimit.Limiter // 10 unavailable checks per child per hour
-	MinApprovals      int                // approvals that publish a round
-	MaxDuration       time.Duration      // a longer video is refused
-	RevisitAfter      time.Duration      // from a publication to its revisit
-	ShelfSize         int                // videos per theme on a child's shelf
-	PackMaxDuration   time.Duration      // the longest total of a pack's videos
-	PackRowSize       int                // packs in a child's row
-	Log               *slog.Logger       // source failures, never the key or the link
+	Pool                *pgxpool.Pool
+	Audit               audit.Recorder
+	Now                 func() time.Time
+	Source              VideoSource        // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
+	Thumbs              ThumbSource        // YouTube's image host, no key
+	Search              SearchSource       // nil while YOUTUBE_API_KEY is empty: a search answers 503
+	SearchLimiter       *ratelimit.Limiter // 20 searches per guardian per 24 h, keyed by account
+	SearchBudget        *ratelimit.Daily   // search.list calls per YouTube quota day, for every account
+	SuggestLimiter      *ratelimit.Limiter // 10 suggestion calls per guardian per 24 h, keyed by account
+	ReportLimiter       *ratelimit.Limiter // 20 report calls per account per 24 h
+	ReportThreshold     int                // distinct families' reports that hold a video
+	CheckVideoLimiter   *ratelimit.Limiter // one YouTube re-check per video per hour
+	CheckChildLimiter   *ratelimit.Limiter // 10 unavailable checks per child per hour
+	MinApprovals        int                // approvals that publish a round
+	MaxDuration         time.Duration      // a longer video is refused
+	YoungestMaxDuration time.Duration      // the ceiling for the youngest age band
+	LongFrom            time.Duration      // from this length a video counts as long
+	RevisitAfter        time.Duration      // from a publication to its revisit
+	ShelfSize           int                // videos per theme on a child's shelf
+	PackMaxDuration     time.Duration      // the longest total of a pack's videos
+	PackRowSize         int                // packs in a child's row
+	Log                 *slog.Logger       // source failures, never the key or the link
 }
 
 type Service struct {

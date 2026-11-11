@@ -19,7 +19,7 @@ func TestUnavailableHoldsWhatYouTubeNoLongerPasses(t *testing.T) {
 	notForKids.MadeForKids = false
 	notEmbeddable.Embeddable = false
 	live.Live = "live"
-	tooLong.Duration = 21 * time.Minute
+	tooLong.Duration = 45*time.Minute + time.Second
 	for name, m := range map[string]*curation.Metadata{
 		"gone": nil, "not for kids": &notForKids, "not embeddable": &notEmbeddable, "live": &live, "too long": &tooLong,
 	} {

@@ -50,7 +50,7 @@ func TestSuggestRefusals(t *testing.T) {
 		curation.RefusedNotForKids:    func(m *curation.Metadata) { m.MadeForKids = false },
 		curation.RefusedNotEmbeddable: func(m *curation.Metadata) { m.Embeddable = false },
 		curation.RefusedLive:          func(m *curation.Metadata) { m.Live = "upcoming" },
-		curation.RefusedTooLong:       func(m *curation.Metadata) { m.Duration = 20*time.Minute + time.Second },
+		curation.RefusedTooLong:       func(m *curation.Metadata) { m.Duration = 45*time.Minute + time.Second },
 	}
 	i := 0
 	for reason, change := range cases {
@@ -80,11 +80,11 @@ func TestSuggestRefusals(t *testing.T) {
 		t.Fatalf("a refusal stored %d rows", n)
 	}
 
-	limit := curationtest.Kids("exactly20mi", "Vinte minutos")
-	limit.Duration = 20 * time.Minute
+	limit := curationtest.Kids("exactly44mi", "Quarenta e quatro minutos")
+	limit.Duration = 44 * time.Minute
 	f.source.Add(limit)
-	if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/exactly20mi"); err != nil || !created {
-		t.Fatalf("a 20:00 video: %v %v", created, err)
+	if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/exactly44mi"); err != nil || !created {
+		t.Fatalf("a 44:00 video: %v %v", created, err)
 	}
 }
 
