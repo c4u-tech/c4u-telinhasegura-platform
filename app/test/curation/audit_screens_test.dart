@@ -23,7 +23,7 @@ Map<String, Object?> approvalOf(String role, Map<String, String>? answers) => {
   'theme': 'bichos',
   'min_age_band': '5-8',
   'reason': null,
-  'checklist_version': answers == null ? null : '2026-10-21',
+  'checklist_version': answers == null ? null : '2026-11-11',
   'answers': answers,
   'failed_items': null,
   'reviewed_at': '2026-10-04T12:00:00Z',

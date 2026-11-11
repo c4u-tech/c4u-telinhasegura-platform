@@ -8,14 +8,17 @@ import (
 )
 
 type checklistResp struct {
-	Version string `json:"version"`
-	Groups  []struct {
+	Version            string `json:"version"`
+	LongFromSeconds    int    `json:"long_from_seconds"`
+	YoungestMaxSeconds int    `json:"youngest_max_seconds"`
+	Groups             []struct {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 		Items []struct {
-			ID   string `json:"id"`
-			Text string `json:"text"`
-			Rule string `json:"rule"`
+			ID       string `json:"id"`
+			Text     string `json:"text"`
+			Rule     string `json:"rule"`
+			LongOnly *bool  `json:"long_only"`
 		} `json:"items"`
 	} `json:"groups"`
 }
@@ -54,6 +57,24 @@ func TestChecklistOverHTTP(t *testing.T) {
 	last := body.Groups[5]
 	if c24 := last.Items[len(last.Items)-1]; last.ID != "ritmo" || last.Title != "Ritmo e canal" || c24.ID != "c24" || c24.Rule != "doubt" {
 		t.Fatalf("ritmo %+v", last)
+	}
+	if body.LongFromSeconds != 1200 || body.YoungestMaxSeconds != 1800 {
+		t.Fatalf("limits %d %d", body.LongFromSeconds, body.YoungestMaxSeconds)
+	}
+	long := body.Groups[6]
+	if long.ID != "longo" || long.Title != "Vídeo longo" || len(long.Items) != 3 {
+		t.Fatalf("longo %+v", long)
+	}
+	for _, g := range body.Groups {
+		for _, it := range g.Items {
+			wantLong := it.ID == "c26" || it.ID == "c27" || it.ID == "c28"
+			if wantLong != (it.LongOnly != nil) || (it.LongOnly != nil && !*it.LongOnly) {
+				t.Fatalf("%s long_only %v", it.ID, it.LongOnly)
+			}
+		}
+	}
+	if c28 := long.Items[2]; c28.ID != "c28" || c28.Rule != "notes" {
+		t.Fatalf("c28 %+v", c28)
 	}
 	plain := a.familyOwner("caio@example.com")
 	if r := a.do(http.MethodGet, "/v1/curation/checklist", nil, bearer(plain)...); r.Code != http.StatusForbidden || r.problemCode() != "not_staff" {

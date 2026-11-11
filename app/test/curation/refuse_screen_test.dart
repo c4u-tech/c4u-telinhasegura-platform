@@ -160,7 +160,7 @@ void main() {
     expect(posts(h), hasLength(1));
     expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
       'decision': 'reject',
-      'checklist_version': '2026-10-21',
+      'checklist_version': '2026-11-11',
       'failed_items': ['c04'],
       'note': 'Tem um susto no fim.',
     });
@@ -181,7 +181,7 @@ void main() {
 
     expect(jsonDecode(posts(h).single.split(' ').skip(2).join(' ')), {
       'decision': 'reject',
-      'checklist_version': '2026-10-21',
+      'checklist_version': '2026-11-11',
       'failed_items': ['c03', 'c04'],
     });
   });

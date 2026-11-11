@@ -149,5 +149,11 @@ func NewService(d Deps) *Service {
 	return s
 }
 
+// LengthLimits is the length from which a video counts as long, and the
+// longest a video may run for the youngest age band.
+func (s *Service) LengthLimits() (longFrom, youngestMax time.Duration) {
+	return s.d.LongFrom, s.d.YoungestMaxDuration
+}
+
 // now is the clock at the precision Postgres stores, in UTC.
 func (s *Service) now() time.Time { return s.d.Now().Truncate(time.Microsecond).UTC() }

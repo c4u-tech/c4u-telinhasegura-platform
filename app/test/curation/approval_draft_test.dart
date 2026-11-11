@@ -3,7 +3,8 @@ import 'package:telinha_segura/curation/approval_draft.dart';
 import 'package:telinha_segura/curation/curation.dart';
 import 'package:telinha_segura/family/family.dart' show AgeBand;
 
-/// "Antes de começar" and two steps: one question of each rule.
+/// "Antes de começar" and two steps: one question of each rule; then a
+/// step asked only of a long video.
 const list = Checklist(
   version: '2026-10-21',
   groups: [
@@ -39,16 +40,37 @@ const list = Checklist(
         ),
       ],
     ),
+    ChecklistGroup(
+      id: 'longo',
+      title: 'Vídeo longo',
+      items: [
+        ChecklistItem(
+          id: 'c26',
+          text: 'Canal não oficial?',
+          rule: ChecklistRule.refuses,
+          longOnly: true,
+        ),
+        ChecklistItem(
+          id: 'c28',
+          text: 'Anúncios?',
+          rule: ChecklistRule.notes,
+          longOnly: true,
+        ),
+      ],
+    ),
   ],
 );
+
+/// Short of the list's long video, which runs past 20 minutes.
+const short = Duration(minutes: 5);
 
 ChecklistItem item(String id) => list.item(id)!;
 ChecklistGroup group(int i) => list.groups[i];
 
 /// Every group answered "Não", standing on the last step.
 ApprovalDraft atLastStep() {
-  final d = ApprovalDraft(list);
-  for (final g in list.groups) {
+  final d = ApprovalDraft(list, length: short);
+  for (final g in d.checklist.groups) {
     d.noneOf(g);
   }
   d
@@ -60,7 +82,7 @@ ApprovalDraft atLastStep() {
 void main() {
   test('starts on "Antes de começar"; a page goes on only once every '
       'question is answered', () {
-    final d = ApprovalDraft(list);
+    final d = ApprovalDraft(list, length: short);
     expect(d.page, 0);
     expect(d.stepCount, 2);
     expect(d.topicPage, 3);
@@ -78,7 +100,7 @@ void main() {
   });
 
   test('a tie to the channel stops the flow on its first page', () {
-    final d = ApprovalDraft(list)
+    final d = ApprovalDraft(list, length: short)
       ..answer(item('c25'), ChecklistAnswer.appears)
       ..answer(item('c03'), ChecklistAnswer.ok);
     expect(d.conflict, isTrue);
@@ -87,7 +109,7 @@ void main() {
 
   test('"Nada disso acontece" answers Não to every question of the group, '
       'each still open to change', () {
-    final d = ApprovalDraft(list)..noneOf(group(1));
+    final d = ApprovalDraft(list, length: short)..noneOf(group(1));
     expect(d.answered(group(1)), isTrue);
     expect(d.answerOf(item('c04')), ChecklistAnswer.ok);
     d.answer(item('c04'), ChecklistAnswer.appears);
@@ -97,8 +119,8 @@ void main() {
 
   test('the outcome: a Sim that refuses wins, then a Não sei or a Sim the '
       'team decides, else an approval', () {
-    final d = ApprovalDraft(list);
-    for (final g in list.groups) {
+    final d = ApprovalDraft(list, length: short);
+    for (final g in d.checklist.groups) {
       d.noneOf(g);
     }
     expect(d.outcome, ApprovalOutcome.approve);
@@ -160,7 +182,7 @@ void main() {
       ..forward();
     expect(team.back(), isTrue);
     expect(team.page, 2);
-    final first = ApprovalDraft(list);
+    final first = ApprovalDraft(list, length: short);
     expect(first.back(), isFalse);
     expect(first.page, 0);
   });
@@ -248,7 +270,7 @@ void main() {
   });
 
   test('says when going on opens the review', () {
-    final d = ApprovalDraft(list);
+    final d = ApprovalDraft(list, length: short);
     expect(d.nextIsReview, isFalse);
     final team = atLastStep()..answer(item('c07'), ChecklistAnswer.doubt);
     expect(team.nextIsReview, isTrue);
@@ -270,5 +292,75 @@ void main() {
     d.band = AgeBand.from5To8;
     d.answer(item('c22'), ChecklistAnswer.appears);
     expect(d.band, AgeBand.from5To8);
+  });
+
+  test('a long video asks its own step before the theme and band; a short '
+      'one has no such step and sends none of its answers', () {
+    final long = ApprovalDraft(list, length: const Duration(minutes: 25));
+    expect(long.stepCount, 3);
+    expect(long.checklist.groups.last.title, 'Vídeo longo');
+    for (final g in long.checklist.groups) {
+      long.noneOf(g);
+    }
+    expect(long.answers.keys, contains('c28'));
+
+    final shortOne = ApprovalDraft(list, length: short);
+    expect(shortOne.stepCount, 2);
+    expect(shortOne.checklist.groups.map((g) => g.id), [
+      'antes',
+      'violencia',
+      'ritmo',
+    ]);
+    for (final g in list.groups) {
+      shortOne.noneOf(g);
+    }
+    expect(shortOne.answers.keys, isNot(contains('c26')));
+    expect(shortOne.answers.keys, isNot(contains('c28')));
+  });
+
+  test('exactly 20 minutes is not long', () {
+    final d = ApprovalDraft(list, length: const Duration(minutes: 20));
+    expect(d.stepCount, 2);
+  });
+
+  test('a question kept for the team never changes the outcome, even '
+      'answered Sim or Não sei', () {
+    final d = ApprovalDraft(list, length: const Duration(minutes: 25));
+    for (final g in d.checklist.groups) {
+      d.noneOf(g);
+    }
+    d.answer(item('c28'), ChecklistAnswer.doubt);
+    expect(d.outcome, ApprovalOutcome.approve);
+    d.answer(item('c28'), ChecklistAnswer.appears);
+    expect(d.outcome, ApprovalOutcome.approve);
+    expect(d.answers['c28'], ChecklistAnswer.appears);
+  });
+
+  test('a video past 30 minutes keeps "2 a 4 anos" out, as a fast pace '
+      'does; up to 30 minutes it does not', () {
+    final long = ApprovalDraft(list, length: const Duration(minutes: 31));
+    expect(long.tooLongForYoungest, isTrue);
+    expect(long.youngestBarred, isFalse, reason: 'the pace is not marked');
+    long.band = AgeBand.upTo4;
+    long.answer(item('c25'), ChecklistAnswer.ok);
+    expect(long.band, isNull);
+    expect(
+      ApprovalDraft(
+        list,
+        length: const Duration(minutes: 30),
+      ).tooLongForYoungest,
+      isFalse,
+    );
+  });
+
+  test('the limits come from the list', () {
+    const strict = Checklist(
+      version: 'v',
+      longFrom: Duration(minutes: 1),
+      youngestMax: Duration(minutes: 2),
+      groups: [],
+    );
+    final d = ApprovalDraft(strict, length: const Duration(minutes: 3));
+    expect(d.tooLongForYoungest, isTrue);
   });
 }
