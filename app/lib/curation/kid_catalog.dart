@@ -8,12 +8,14 @@ class KidVideo {
     required this.id,
     required this.title,
     required this.duration,
+    this.fits = true,
   });
 
   factory KidVideo.fromJson(Map<String, dynamic> j) => KidVideo(
     id: j['id'] as String,
     title: j['title'] as String,
     duration: Duration(seconds: j['duration_seconds'] as int),
+    fits: j['fits'] as bool? ?? true,
   );
 
   final String id;
@@ -21,6 +23,10 @@ class KidVideo {
   /// For screen readers only: a pre-reader finds a video by its picture.
   final String title;
   final Duration duration;
+
+  /// Whether the video may start in the time left today; an older server
+  /// does not say, and every video then reads as fitting.
+  final bool fits;
 }
 
 /// One theme's videos, at most the server's shelf size.
@@ -39,6 +45,7 @@ class KidPack {
     required this.title,
     required this.coverVideoId,
     required this.videos,
+    this.fits = true,
   });
 
   factory KidPack.fromJson(Map<String, dynamic> j) => KidPack(
@@ -49,6 +56,7 @@ class KidPack {
       for (final v in j['videos'] as List<dynamic>)
         KidVideo.fromJson(v as Map<String, dynamic>),
     ],
+    fits: j['fits'] as bool? ?? true,
   );
 
   final String id;
@@ -60,6 +68,10 @@ class KidPack {
   /// fetch it.
   final String coverVideoId;
   final List<KidVideo> videos;
+
+  /// Whether all its videos together fit the time left today; true when
+  /// an older server does not say.
+  final bool fits;
 }
 
 /// The child's shelves in the server's theme order.
