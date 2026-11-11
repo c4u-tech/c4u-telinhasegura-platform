@@ -22,6 +22,9 @@ type FamilyVideo struct {
 	// FamilySession marks a video longer than the child may watch alone:
 	// it plays only in a session with the family.
 	FamilySession bool
+	// ResumeSeconds is, for a family session's video, where this child
+	// last stopped it (0 before any stop); nil for a video watched alone.
+	ResumeSeconds *int
 	Provenance    *Provenance
 }
 
@@ -68,8 +71,8 @@ func liveVideo(ctx context.Context, q querier, videoID string) error {
 // FamilyCatalog lists, by theme order then title, the approved videos
 // whose band fits the child, within the length the child may watch with
 // the family, and that the family has not reported, each with whether it
-// is hidden for the child, whether it needs a family session and its
-// provenance, in one snapshot. more reports a further page at offset + 50.
+// is hidden for the child, whether it needs a family session (and then
+// where the child last stopped it) and its provenance, in one snapshot. more reports a further page at offset + 50.
 func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, offset int) ([]FamilyVideo, bool, error) {
 	if offset < 0 {
 		return nil, false, ErrValidation
@@ -85,8 +88,10 @@ func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, 
 	}
 	rows, err := tx.Query(ctx, `SELECT `+videoCols+`,
 			EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id),
-			v.duration_seconds > `+s.soloCeilingSQL()+`
-		FROM videos v WHERE `+s.shownSQL()+` AND v.duration_seconds <= `+s.familyCeilingSQL()+`
+			v.duration_seconds > `+s.soloCeilingSQL()+`,
+			CASE WHEN v.duration_seconds > `+s.soloCeilingSQL()+` THEN COALESCE(p.position_seconds, 0) END
+		FROM videos v LEFT JOIN play_positions p ON p.minor_id = $1::uuid AND p.video_id = v.id
+		WHERE `+s.shownSQL()+` AND v.duration_seconds <= `+s.familyCeilingSQL()+`
 		ORDER BY array_position($4::text[], v.theme), v.title, v.id LIMIT $5 OFFSET $6`,
 		c.MinorID, c.FamilyID, rank, themes, familyPage+1, offset)
 	if err != nil {
@@ -95,7 +100,7 @@ func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, 
 	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (FamilyVideo, error) {
 		var x FamilyVideo
 		var err error
-		x.Video, err = scanVideo(r, &x.Hidden, &x.FamilySession)
+		x.Video, err = scanVideo(r, &x.Hidden, &x.FamilySession, &x.ResumeSeconds)
 		return x, err
 	})
 	if err != nil {

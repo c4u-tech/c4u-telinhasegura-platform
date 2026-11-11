@@ -210,13 +210,15 @@ func (s *Server) minorCatalog(w http.ResponseWriter, r *http.Request) {
 		MinAgeBand      string `json:"min_age_band"`
 		Hidden          bool   `json:"hidden"`
 		FamilySession   bool   `json:"family_session"`
-		Provenance      any    `json:"provenance"`
+		// Only a family session's video says where the child stopped it.
+		ResumeSeconds *int `json:"resume_seconds,omitempty"`
+		Provenance    any  `json:"provenance"`
 	}
 	out := make([]item, 0, len(items))
 	for _, x := range items {
 		v := x.Video
 		out = append(out, item{v.ID, v.YouTubeID, v.Title, v.ChannelTitle, v.DurationSeconds, v.Theme, string(v.MinAgeBand), x.Hidden,
-			x.FamilySession, provenanceBody(x.Provenance)})
+			x.FamilySession, x.ResumeSeconds, provenanceBody(x.Provenance)})
 	}
 	packs := []familyPackOut{}
 	if offset == 0 {

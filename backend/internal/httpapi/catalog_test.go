@@ -140,6 +140,7 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 		MinAgeBand      string         `json:"min_age_band"`
 		Hidden          bool           `json:"hidden"`
 		FamilySession   *bool          `json:"family_session"`
+		ResumeSeconds   *int           `json:"resume_seconds"`
 		Provenance      map[string]any `json:"provenance"`
 	}
 	var page struct {
@@ -152,7 +153,8 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 	}
 	got := page.Videos[0]
 	if got.ID != v || got.YouTubeID != "dQw4w9WgXcQ" || got.Title != "Vídeo dQw4w9WgXcQ" || got.ChannelTitle != "Canal" || got.DurationSeconds != 300 ||
-		got.Theme != "bichos" || got.MinAgeBand != "ate-4" || got.Hidden || got.FamilySession == nil || *got.FamilySession {
+		got.Theme != "bichos" || got.MinAgeBand != "ate-4" || got.Hidden || got.FamilySession == nil || *got.FamilySession ||
+		got.ResumeSeconds != nil {
 		t.Fatalf("item %+v", got)
 	}
 	if approvals, _ := got.Provenance["approvals"].(map[string]any); approvals["mae-pai"] != float64(1) || got.Provenance["last_reviewed_at"] == nil {
@@ -177,8 +179,19 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	getJSON(t, a.do(http.MethodGet, path, nil, bearer(ana)...), &page)
-	if len(page.Videos) != 1 || page.Videos[0].FamilySession == nil || !*page.Videos[0].FamilySession {
+	if len(page.Videos) != 1 || page.Videos[0].FamilySession == nil || !*page.Videos[0].FamilySession ||
+		page.Videos[0].ResumeSeconds == nil || *page.Videos[0].ResumeSeconds != 0 {
 		t.Fatalf("a 50-minute video %+v", page.Videos)
+	}
+	// Where the child stopped it rides along, for the guardian's start.
+	if _, err := a.pool.Exec(context.Background(), `INSERT INTO play_positions (minor_id, video_id, position_seconds, updated_at)
+		VALUES ($1::uuid, $2::uuid, 1234, now())`, lia, v); err != nil {
+		t.Fatal(err)
+	}
+	page.Videos = nil
+	getJSON(t, a.do(http.MethodGet, path, nil, bearer(ana)...), &page)
+	if len(page.Videos) != 1 || page.Videos[0].ResumeSeconds == nil || *page.Videos[0].ResumeSeconds != 1234 {
+		t.Fatalf("resumed %+v", page.Videos)
 	}
 
 	for _, c := range []struct{ method, path string }{
