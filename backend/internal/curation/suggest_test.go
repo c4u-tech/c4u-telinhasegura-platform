@@ -80,11 +80,17 @@ func TestSuggestRefusals(t *testing.T) {
 		t.Fatalf("a refusal stored %d rows", n)
 	}
 
-	limit := curationtest.Kids("exactly44mi", "Quarenta e quatro minutos")
-	limit.Duration = 44 * time.Minute
-	f.source.Add(limit)
-	if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/exactly44mi"); err != nil || !created {
-		t.Fatalf("a 44:00 video: %v %v", created, err)
+	for id, d := range map[string]time.Duration{
+		"exactly44mi": 44 * time.Minute,
+		"exactly45mi": 45 * time.Minute,
+		"over30min01": 30*time.Minute + time.Second,
+	} {
+		m := curationtest.Kids(id, "Longo o bastante")
+		m.Duration = d
+		f.source.Add(m)
+		if _, created, err := f.svc.Suggest(ctx, ana, "https://youtu.be/"+id); err != nil || !created {
+			t.Fatalf("a %s video: %v %v", d, created, err)
+		}
 	}
 }
 

@@ -217,6 +217,22 @@ func TestDecideDoubtRaisedInARevisit(t *testing.T) {
 // A moderator cannot place in the youngest band a video the curators could
 // not: one longer than its ceiling, or one a reviewer of the round found
 // fast-paced. The next band up takes it.
+// The youngest band takes a video of up to 30 minutes, that one included.
+func TestDecideDoubtGivesAThirtyMinuteVideoTheYoungestBand(t *testing.T) {
+	f := newFixture(t)
+	mod := f.account("mia@example.com")
+	v := f.doubted(ytID)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, v, int((30 * time.Minute).Seconds()))
+	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
+	if err := f.svc.DecideDoubt(ctx, m, v, young); err != nil {
+		t.Fatalf("2 to 4: %v", err)
+	}
+	if got := f.detail(v).Video; got.State != curation.Approved || got.MinAgeBand != family.AgeUpTo4 {
+		t.Fatalf("published %+v", got)
+	}
+}
+
 func TestDecideDoubtKeepsALongOrFastVideoFromTheYoungestBand(t *testing.T) {
 	for name, held := range map[string]func(f *fixture) string{
 		"over 30 minutes": func(f *fixture) string {
