@@ -46,6 +46,11 @@ class PlayerScreen extends StatefulWidget {
   /// The player could not play it.
   static const videoFailed = 'Esse vídeo não abriu. Escolha outro.';
 
+  /// The video is longer than the time left today.
+  static const doesNotFit =
+      'Esse vídeo é mais comprido que o tempo que falta hoje. '
+      'Escolha um mais curto.';
+
   /// A play that failed for another reason (network, server).
   static const cannotOpen = 'Não deu para abrir o vídeo agora.';
 
@@ -131,7 +136,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     _beats = BeatLoop(
       playId: play.playId,
       beat: (id, playing) => services.child.beat(id, playing: playing),
-      reopen: () => services.child.play(widget.videoId),
+      reopen: (closed) =>
+          services.child.play(widget.videoId, continues: closed),
       // The day ran out between videos: leaving, the home reads the
       // catalogue again and sleeps.
       onTimeUp: () {
@@ -290,6 +296,7 @@ String? refusalNote(Object error) => switch (error) {
   ApiError(code: 'time_up') => null,
   ApiError(code: 'video_not_allowed' || 'not_found') => PlayerScreen.videoGone,
   ApiError(code: 'consent_required') => PausedProfile.line,
+  ApiError(code: 'does_not_fit') => PlayerScreen.doesNotFit,
   _ => PlayerScreen.cannotOpen,
 };
 

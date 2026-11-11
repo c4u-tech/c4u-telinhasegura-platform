@@ -119,10 +119,18 @@ class ChildApi {
   )).bodyBytes;
 
   /// Re-checks a video and opens a play: its id for the beats and the
-  /// YouTube id for the player. A day without time answers `time_up`.
-  Future<KidPlay> play(String videoId) async => KidPlay.fromJson(
-    await _json('POST', '/v1/child/plays', body: {'video_id': videoId}),
-  );
+  /// YouTube id for the player. A day without time answers `time_up`; a
+  /// video longer than the time left, `does_not_fit`. [continues] is the
+  /// closed play this one picks up, so a video reopened mid-way is not taken
+  /// for a new start.
+  Future<KidPlay> play(String videoId, {String? continues}) async =>
+      KidPlay.fromJson(
+        await _json(
+          'POST',
+          '/v1/child/plays',
+          body: {'video_id': videoId, 'continues': ?continues},
+        ),
+      );
 
   /// Tells the server the play is still going ([playing]) or stopped;
   /// answers the day.

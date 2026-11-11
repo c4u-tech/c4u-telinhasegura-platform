@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../auth/api_error.dart';
 import '../curation/kid_catalog.dart';
 import '../design/espiadinha.dart';
 import '../design/theme.dart';
@@ -155,7 +156,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     _beats = BeatLoop(
       playId: play.playId,
       beat: (id, playing) => services.child.beat(id, playing: playing),
-      reopen: () => services.child.play(video.id),
+      reopen: (closed) => services.child.play(video.id, continues: closed),
       // The day ran out mid-video: the home reads its catalogue and
       // sleeps.
       onTimeUp: () {
@@ -245,6 +246,13 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
         if (!mounted || _leaving) return;
         if (refusesEvery(e)) {
           _leave();
+          return;
+        }
+        // Every next video is no shorter than the time left allows, so the
+        // pacotinho ends here with the goodbye rather than skipping on.
+        if (e is ApiError && e.code == 'does_not_fit') {
+          setState(() => _advancing = false);
+          _goodbye();
           return;
         }
       }

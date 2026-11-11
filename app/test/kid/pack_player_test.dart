@@ -346,6 +346,23 @@ void main() {
     expect(find.byType(PackGoodbye), findsOneWidget);
   });
 
+  testWidgets('a next video that does not fit ends the pacotinho with the '
+      'goodbye', (tester) async {
+    final h = await inPack(
+      tester,
+      harness: packKid(
+        play: (id) =>
+            id == 'v1' ? json(201, opened(id)) : problem(403, 'does_not_fit'),
+      ),
+    );
+    await end(tester, h);
+    await tester.tap(find.byType(PackBreath));
+    await tester.pumpAndSettle();
+
+    expect(plays(h), ['v1', 'v2']);
+    expect(find.byType(PackGoodbye), findsOneWidget);
+  });
+
   testWidgets('a video other than the pacotinho\'s is stopped at once and '
       'the shelves return', (tester) async {
     final h = await inPack(tester);

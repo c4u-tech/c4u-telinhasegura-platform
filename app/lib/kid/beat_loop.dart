@@ -20,7 +20,7 @@ class BeatLoop {
   static const interval = Duration(seconds: 30);
 
   final Future<KidTime> Function(String, bool) _beat;
-  final Future<KidPlay> Function() _reopen;
+  final Future<KidPlay> Function(String closedPlayId) _reopen;
   final void Function() _onTimeUp;
   final Timer Function(Duration, void Function(Timer)) _periodic;
 
@@ -77,7 +77,7 @@ class BeatLoop {
 
   Future<void> _reopenPlay() async {
     try {
-      _playId = (await _reopen().timeout(interval)).playId;
+      _playId = (await _reopen(_playId).timeout(interval)).playId;
       if (_playing) await _beat(_playId, true).timeout(interval);
     } on ApiError catch (e) {
       if (e.code == 'time_up') {
@@ -87,6 +87,11 @@ class BeatLoop {
         _halt();
         _stopped = true;
         if (wasPlaying) _onTimeUp();
+      } else if (e.code == 'does_not_fit') {
+        // The rest of the video no longer fits the day: stop quietly and
+        // let it end where it is.
+        _halt();
+        _stopped = true;
       }
     } on Object {
       // Tried again on the next play.

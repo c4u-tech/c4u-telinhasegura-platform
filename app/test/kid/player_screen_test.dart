@@ -182,6 +182,18 @@ void main() {
     });
   }
 
+  test('does_not_fit says the video is longer than the time left', () {
+    const e = ApiError(status: 403, code: 'does_not_fit');
+    expect(refusalNote(e), PlayerScreen.doesNotFit);
+    expect(
+      PlayerScreen.doesNotFit,
+      'Esse vídeo é mais comprido que o tempo que falta hoje. '
+      'Escolha um mais curto.',
+    );
+    expect(refusesEvery(e), isFalse);
+    expect(refetchAfter(refusalNote(e)), isFalse);
+  });
+
   test(
     'a paused profile\'s refusal says so, and the shelves are read again',
     () {
