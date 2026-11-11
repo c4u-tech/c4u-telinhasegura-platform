@@ -16,8 +16,10 @@ type Play struct {
 
 // Open opens a play when the day allows it. The caller has
 // checked that the child may see videoID (curation.Play). A play opens
-// paused: time counts from the first beat that says it plays.
-func (s *Service) Open(ctx context.Context, c Child, videoID string) (Play, error) {
+// paused: time counts from the first beat that says it plays. A video
+// that does not fit the time left is refused, unless continues names this
+// child's recent play of the same video: resuming it is not a new start.
+func (s *Service) Open(ctx context.Context, c Child, videoID, continues string) (Play, error) {
 	if ok, wait := s.d.PlayLimiter.Allow(c.MinorID); !ok {
 		return Play{}, &ThrottledError{RetryAfter: wait}
 	}
@@ -32,6 +34,15 @@ func (s *Service) Open(ctx context.Context, c Child, videoID string) (Play, erro
 	if t.State != OK {
 		return Play{}, &TimeUpError{Reason: t.Reason}
 	}
+	if !s.resumes(ctx, m.ID, videoID, continues) {
+		var duration int
+		if err := s.d.Pool.QueryRow(ctx, `SELECT duration_seconds FROM videos WHERE id = $1::uuid`, videoID).Scan(&duration); err != nil {
+			return Play{}, err
+		}
+		if time.Duration(duration)*time.Second > t.Remaining+fitTolerance {
+			return Play{}, &NotFitError{Remaining: t.Remaining}
+		}
+	}
 	var device any
 	if validID(c.DeviceID) {
 		device = c.DeviceID
@@ -43,6 +54,18 @@ func (s *Service) Open(ctx context.Context, c Child, videoID string) (Play, erro
 		return Play{}, err
 	}
 	return Play{ID: id, Time: t}, nil
+}
+
+// resumes tells whether continues is a play of this child and video that
+// beat recently enough to count as the same viewing.
+func (s *Service) resumes(ctx context.Context, minorID, videoID, continues string) bool {
+	if !validID(continues) {
+		return false
+	}
+	var ok bool
+	err := s.d.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM plays WHERE id = $1::uuid AND minor_id = $2::uuid
+		AND video_id = $3::uuid AND last_beat_at >= $4)`, continues, minorID, videoID, s.now().Add(-continueWithin)).Scan(&ok)
+	return err == nil && ok
 }
 
 // Beat credits an open play: the wall time since the last beat,

@@ -143,7 +143,7 @@ func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID)
+	p, err := s.ScreenTime.Open(r.Context(), stOf(r), in.VideoID, "")
 	if err != nil {
 		s.fail(w, err)
 		return
