@@ -21,12 +21,13 @@ Future<Harness> refusing(
   WidgetTester tester, {
   FutureOr<http.Response> Function(http.Request)? review,
   FutureOr<http.Response> Function()? checklist,
+  FutureOr<http.Response> Function(String id)? video,
   String initial = '/curadoria/v1/recusar',
 }) async {
   final h =
       Harness(
           signedIn: true,
-          api: curatorApi(review: review, checklist: checklist),
+          api: curatorApi(review: review, checklist: checklist, video: video),
         )
         ..family = ownerFamily
         ..roles = ['curator'];
@@ -118,6 +119,74 @@ void main() {
 
     await tick(tester, 'Alguém bate de propósito?');
     expect(primary(tester).onPressed, isNotNull);
+  });
+
+  group('the long-video questions', () {
+    const unlicensed = 'É filme de um canal que não é o oficial?';
+    const rated = 'A obra tem classificação acima de Livre?';
+    FutureOr<http.Response> Function(String) lasting(int minutes) =>
+        (id) => detailOf(
+          queuedJson(
+            id,
+            'Baby Shark',
+            channel: 'Canal Baby Shark',
+            seconds: minutes * 60,
+          ),
+        );
+
+    testWidgets('a short video is not offered them, even ticked by a link', (
+      tester,
+    ) async {
+      final h = await refusing(
+        tester,
+        video: lasting(20),
+        initial: '/curadoria/v1/recusar?itens=c26',
+      );
+
+      expect(find.text('Vídeo longo'), findsNothing);
+      expect(item(unlicensed), findsNothing);
+      expect(item(rated), findsNothing);
+      expect(primary(tester).onPressed, isNull, reason: 'nothing ticked');
+      await refuse(tester);
+      expect(
+        (jsonDecode(posts(h).single.split(' ').skip(2).join(' '))
+            as Map<String, dynamic>)['failed_items'],
+        ['c04'],
+      );
+    });
+
+    testWidgets('a long video is offered them', (tester) async {
+      await refusing(
+        tester,
+        video: lasting(25),
+        initial: '/curadoria/v1/recusar?itens=c26',
+      );
+
+      expect(find.text('Vídeo longo'), findsOneWidget);
+      expect(item(unlicensed), findsOneWidget);
+      expect(item(rated), findsOneWidget);
+      expect(ticked(tester, unlicensed), isTrue);
+      expect(
+        find.text('Aparecem anúncios no meio do vídeo?'),
+        findsNothing,
+        reason: 'only the questions that refuse',
+      );
+    });
+
+    testWidgets('a video that fails to read offers to try again: its length '
+        'decides the questions', (tester) async {
+      var fail = true;
+      await refusing(
+        tester,
+        video: (id) => fail ? http.Response('', 500) : lasting(25)(id),
+      );
+      expect(item('Alguém bate de propósito?'), findsNothing);
+      expect(find.text(Copy.genericRetry), findsOneWidget);
+
+      fail = false;
+      await tapPrimary(tester);
+      expect(item(unlicensed), findsOneWidget);
+    });
   });
 
   testWidgets('arriving from an approval, its questions are ticked', (
