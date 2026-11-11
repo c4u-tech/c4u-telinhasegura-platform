@@ -34,7 +34,7 @@ type Shelf struct {
 }
 
 // bandRankSQL is bandRank over videos v, except that a video stored for
-// the youngest band but longer than that band's ceiling counts as the next
+// the youngest band but longer than the youngest band's family ceiling counts as the next
 // band up. The reads hold the rule themselves, so however the band or the
 // length came to be stored, such a video never reaches a child of the
 // youngest band.
