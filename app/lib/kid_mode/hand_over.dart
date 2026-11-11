@@ -16,14 +16,21 @@ import '../shell/services.dart';
 /// PIN goes to the first run, which creates it and then hands the device
 /// to the same child. A child the family
 /// no longer holds says so, calls [onGone] and reads the family again.
+///
+/// With [then], a place on the child's side, the device lands there
+/// instead of the child home once handed over: the player a guardian
+/// started a long work in.
 Future<void> handOverTo(
   BuildContext context,
   FamilyWrite write,
   Minor minor, {
   VoidCallback? onGone,
+  String? then,
 }) async {
   final services = AppScope.of(context);
-  await write.write(
+  // Taken now: the screen that asked goes as the mode moves.
+  final router = GoRouter.of(context);
+  final ok = await write.write(
     () => services.appMode.handOver(minor.id),
     overrides: const {'not_found': Copy.childGone},
     handle: (e) {
@@ -45,4 +52,5 @@ Future<void> handOverTo(
       return false;
     },
   );
+  if (ok && then != null) router.go(then);
 }

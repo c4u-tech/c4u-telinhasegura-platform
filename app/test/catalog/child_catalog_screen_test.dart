@@ -431,6 +431,91 @@ void main() {
     });
   });
 
+  group('to watch together (family works in the guardian\'s catalogue)', () {
+    testWidgets('a header section after today\'s pacotinhos and before the '
+        'first theme, closed by its muted line; a family work is never '
+        'under a theme', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await catalogue(
+        tester,
+        catalog: (_, offset) => page(liaWithFamily, packs: liaPacks),
+      );
+
+      final order = [
+        find.text(CatalogWords.lead('Lia')),
+        find.text(packsHeading),
+        find.text(packsDaily),
+        find.text(familyHeading),
+        row('A grande viagem do sapo'),
+        row('Histórias do fundo do mar'),
+        find.text(familyNote),
+        find.text('Bichos'),
+        row('O sapo que pulava alto'),
+      ];
+      for (final f in order) {
+        expect(f, findsOneWidget);
+      }
+      final tops = [for (final f in order) tester.getTopLeft(f).dy];
+      expect(tops, [...tops]..sort());
+      expect(find.text('Histórias'), findsNothing, reason: 'its only video');
+      expect(
+        tester.getSemantics(find.text(familyHeading)),
+        isSemantics(label: familyHeading, isHeader: true),
+      );
+      final text = Theme.of(tester.element(find.text(familyHeading))).textTheme;
+      expect(
+        tester.widget<Text>(find.text(familyHeading)).style?.fontSize,
+        text.titleMedium?.fontSize,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('a family work is a video row: "Canal · 1 h 30 min"', (
+      tester,
+    ) async {
+      await catalogue(tester, catalog: (_, _) => page(liaWithFamily));
+
+      expect(
+        find.descendant(
+          of: row('A grande viagem do sapo'),
+          matching: find.text(nbt('Cinema Pequeno · 1 h 30 min')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row('A grande viagem do sapo'),
+          matching: find.byType(VideoThumb),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('without family works the section is absent', (tester) async {
+      await catalogue(tester);
+
+      expect(find.text(familyHeading), findsNothing);
+      expect(find.text(familyNote), findsNothing);
+    });
+
+    testWidgets('with family works only, the catalogue is not called empty', (
+      tester,
+    ) async {
+      await catalogue(tester, catalog: (_, _) => page([liaFilm]));
+
+      expect(find.text(familyHeading), findsOneWidget);
+      expect(find.text(CatalogWords.empty(AgeBand.from5To8)), findsNothing);
+    });
+
+    testWidgets('a family work opens its video\'s screen', (tester) async {
+      final h = await catalogue(tester, catalog: (_, _) => page(liaWithFamily));
+
+      await tapOn(tester, row('A grande viagem do sapo'));
+
+      expect(h.location(tester), '/familia/videos/m1/f1');
+    });
+  });
+
   testWidgets('back returns to the child\'s page', (tester) async {
     final h = await catalogue(tester);
 

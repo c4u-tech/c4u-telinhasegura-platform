@@ -24,6 +24,7 @@ class PinPad extends StatefulWidget {
     this.controller,
     this.enabled = true,
     this.autofocus = true,
+    this.confirmLabel = 'Confirmar',
   });
 
   static const minLength = 4;
@@ -37,6 +38,10 @@ class PinPad extends StatefulWidget {
   /// False while a check is pending or the cooldown runs.
   final bool enabled;
   final bool autofocus;
+
+  /// What the filled key is read as: the action the PIN completes
+  /// ("Confirmar", or "Começar" where it starts something).
+  final String confirmLabel;
 
   @override
   State<PinPad> createState() => _PinPadState();
@@ -173,7 +178,7 @@ class _PinPadState extends State<PinPad> {
               digit('0'),
               _Key(
                 kind: _KeyKind.confirm,
-                label: 'Confirmar',
+                label: widget.confirmLabel,
                 icon: Icons.arrow_forward_rounded,
                 onPressed: on && _ready ? _submit : null,
               ),

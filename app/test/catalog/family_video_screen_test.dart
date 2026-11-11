@@ -33,6 +33,11 @@ Finder get hide => find.widgetWithText(FilledButton, CatalogWords.hide('Lia'));
 Finder get show => find.widgetWithText(FilledButton, CatalogWords.show('Lia'));
 Finder get report => find.widgetWithText(QuietAction, 'Denunciar este vídeo');
 
+Finder get watch =>
+    find.widgetWithText(FilledButton, CatalogWords.watchWith('Lia'));
+Finder get quietHide =>
+    find.widgetWithText(QuietAction, CatalogWords.hide('Lia'));
+
 List<String> writes(Harness h) => h.actions
     .where((a) => a.startsWith('PUT') || a.startsWith('DELETE'))
     .toList();
@@ -235,5 +240,105 @@ void main() {
 
     expect(h.location(tester), '/familia/criancas/m1');
     expect(find.widgetWithText(Notice, videoGone), findsOneWidget);
+  });
+
+  group('a work watched with the family', () {
+    Future<Harness> film(
+      WidgetTester tester, {
+      bool hidden = false,
+      FutureOr<http.Response> Function(http.Request)? write,
+    }) => video(
+      tester,
+      title: 'A grande viagem do sapo',
+      catalog: (_, _) => page([
+        familyItem(
+          'f1',
+          'A grande viagem do sapo',
+          channel: 'Cinema Pequeno',
+          seconds: 90 * 60,
+          familySession: true,
+          hidden: hidden,
+        ),
+      ]),
+      write: write,
+    );
+
+    testWidgets('reads in order: the heading, "Melhor assistir junto.", the '
+        'provenance, the player, "Assistir com Lia" as the one primary, '
+        'then hiding and the report quiet at the foot', (tester) async {
+      await film(tester);
+
+      final order = [
+        find.text('A grande viagem do sapo'),
+        find.text(nb('Cinema Pequeno · 1 h 30 min')),
+        find.text(familyTogether),
+        plainText(provenanceLine),
+        window,
+        watch,
+        quietHide,
+        report,
+      ];
+      for (final f in order) {
+        expect(f, findsOneWidget);
+      }
+      final tops = [for (final f in order) tester.getTopLeft(f).dy];
+      expect(tops, [...tops]..sort());
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(tester.widget<QuietAction>(quietHide).destructive, isFalse);
+      final text = Theme.of(tester.element(watch)).textTheme;
+      expect(
+        tester.widget<Text>(find.text(familyTogether)).style?.fontSize,
+        text.bodyMedium?.fontSize,
+      );
+    });
+
+    testWidgets('with no resume point in the guardian\'s read, no hint under '
+        'the primary', (tester) async {
+      await film(tester);
+
+      expect(find.text('Continua de onde parou.'), findsNothing);
+    });
+
+    testWidgets('"Assistir com Lia" opens the start, the video paused '
+        'beneath it', (tester) async {
+      final h = await film(tester);
+
+      await tapOn(tester, watch);
+
+      expect(h.location(tester), '/familia/videos/m1/f1/assistir');
+      expect(h.adultPlayer.current!.calls, contains('pause'));
+    });
+
+    testWidgets('hidden, there is nothing to start: "Mostrar para Lia de '
+        'novo" is the primary', (tester) async {
+      await film(tester, hidden: true);
+
+      expect(watch, findsNothing);
+      expect(show, findsOneWidget);
+      expect(find.text(familyTogether), findsOneWidget);
+    });
+
+    testWidgets('hiding it from the foot takes the start away and the '
+        'primary flips to "Mostrar", with its notice', (tester) async {
+      final h = await film(tester);
+
+      await tapOn(tester, quietHide);
+
+      expect(writes(h), ['PUT /v1/family/minors/m1/hidden/f1']);
+      expect(watch, findsNothing);
+      expect(show, findsOneWidget);
+      expect(
+        find.widgetWithText(Notice, CatalogWords.hidden('Lia')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a video watched alone says none of it', (tester) async {
+      await video(tester);
+
+      expect(find.text(familyTogether), findsNothing);
+      expect(watch, findsNothing);
+      expect(hide, findsOneWidget);
+    });
   });
 }

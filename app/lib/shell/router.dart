@@ -47,6 +47,7 @@ import '../access/signup_screen.dart';
 import '../access/verify_email_screen.dart';
 import '../auth/api_client.dart';
 import '../catalog/child_catalog_screen.dart';
+import '../catalog/family_session_screen.dart';
 import '../catalog/family_video_screen.dart';
 import '../catalog/pack_screen.dart';
 import '../catalog/report_screen.dart';
@@ -328,6 +329,14 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
                   video: _familyVideo(state),
                 ),
                 routes: [
+                  GoRoute(
+                    path: 'assistir',
+                    builder: (_, state) => FamilySessionScreen(
+                      minorId: state.pathParameters['crianca']!,
+                      videoId: state.pathParameters['video']!,
+                      video: _familyVideo(state),
+                    ),
+                  ),
                   GoRoute(
                     path: 'denunciar',
                     builder: (_, state) => ReportScreen(

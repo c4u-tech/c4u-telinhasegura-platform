@@ -12,6 +12,7 @@ import '../curation/adult_window.dart';
 import '../curation/family_catalog.dart';
 import '../curation/video_heading.dart';
 import '../design/field_layout.dart';
+import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/child_page.dart' show leaveForGoneChild;
 import '../family/family.dart';
@@ -52,6 +53,11 @@ Future<FamilyVideo?> findFamilyVideo(
 /// links in the browser), then "Esconder para Lia" or "Mostrar para Lia
 /// de novo" as the primary, done in place, and "Denunciar
 /// este vídeo" quiet in clay at the foot.
+///
+/// A long work the child watches only with the family says so under its
+/// heading, and while it is not hidden its primary is "Assistir com Lia",
+/// the start behind the PIN; hiding then waits quiet at the foot, so the
+/// screen keeps one filled action.
 class FamilyVideoScreen extends StatefulWidget {
   const FamilyVideoScreen({
     super.key,
@@ -166,6 +172,12 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
     });
   }
 
+  void _watch(FamilyVideo v) {
+    // The video waits, paused, beneath the start.
+    unawaited(playback?.pause());
+    context.go(Routes.familySession(widget.minorId, widget.videoId), extra: v);
+  }
+
   void _report(FamilyVideo v) {
     // The video waits, paused, beneath the report.
     unawaited(playback?.pause());
@@ -204,12 +216,24 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
     final text = Theme.of(context).textTheme;
     final idle = !_write.blocked;
     final nickname = minor.nickname;
+    // A hidden work cannot be started: showing it again comes first.
+    final startable = v.familySession && !_hidden;
+    final toggle = _hidden
+        ? CatalogWords.show(nickname)
+        : CatalogWords.hide(nickname);
     return [
       VideoHeading.parts(
         title: v.title,
         channelTitle: v.channelTitle,
         duration: v.duration,
       ),
+      if (v.familySession) ...[
+        const SizedBox(height: Space.xs),
+        Text(
+          familyTogether,
+          style: text.bodyMedium?.copyWith(color: context.palette.muted),
+        ),
+      ],
       if (v.provenance case final p?) ...[
         const SizedBox(height: Space.lg),
         Text(CatalogWords.provenance(p, clock.now()), style: text.bodyLarge),
@@ -224,14 +248,25 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
         Notice(done),
         const SizedBox(height: Space.lg),
       ],
-      PrimaryButton(
-        label: _hidden
-            ? CatalogWords.show(nickname)
-            : CatalogWords.hide(nickname),
-        busy: _write.busy,
-        onPressed: idle ? () => _toggle(nickname) : null,
-      ),
-      const SizedBox(height: Space.xxl),
+      if (startable) ...[
+        PrimaryButton(
+          label: CatalogWords.watchWith(nickname),
+          onPressed: idle ? () => _watch(v) : null,
+        ),
+        const SizedBox(height: Space.xxl),
+        QuietAction(
+          label: toggle,
+          busy: _write.busy,
+          onPressed: idle ? () => _toggle(nickname) : null,
+        ),
+      ] else ...[
+        PrimaryButton(
+          label: toggle,
+          busy: _write.busy,
+          onPressed: idle ? () => _toggle(nickname) : null,
+        ),
+        const SizedBox(height: Space.xxl),
+      ],
       QuietAction(
         label: 'Denunciar este vídeo',
         destructive: true,
