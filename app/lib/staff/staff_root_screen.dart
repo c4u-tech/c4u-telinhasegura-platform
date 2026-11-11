@@ -12,6 +12,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
+import '../shell/list_detail.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 
@@ -241,7 +242,7 @@ class _StaffRootScreenState extends State<StaffRootScreen> {
       title: title,
       selected: ShellFrame.isChosen(context, path),
       semanticsLabel: [title, ?waiting?.spoken].join(', '),
-      onTap: () => context.go(path),
+      onTap: () => openItem(context, path),
       trailing: figure == null
           ? null
           : Text(
@@ -263,6 +264,6 @@ class _StaffRootScreenState extends State<StaffRootScreen> {
   DoorRow _tool(String title, String path) => DoorRow(
     title: title,
     selected: ShellFrame.isChosen(context, path),
-    onTap: () => context.go(path),
+    onTap: () => openItem(context, path),
   );
 }

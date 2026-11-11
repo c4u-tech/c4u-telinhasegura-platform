@@ -46,6 +46,7 @@ class ShellFrame extends InheritedWidget {
     required this.rises,
     this.pane = Pane.single,
     this.chosen,
+    this.chosenAtFirstLevel = false,
     this.paneRoot,
     required super.child,
   });
@@ -61,6 +62,10 @@ class ShellFrame extends InheritedWidget {
 
   /// In the list pane, the path of the item the detail shows.
   final String? chosen;
+
+  /// In the list pane, whether the detail shows the chosen item at its
+  /// first level, so opening it again would change nothing.
+  final bool chosenAtFirstLevel;
 
   /// In the detail pane, whether a page (named by its route's path
   /// pattern) is an item's first level: the list beside it is the way
@@ -82,6 +87,7 @@ class ShellFrame extends InheritedWidget {
       old.rises != rises ||
       old.pane != pane ||
       old.chosen != chosen ||
+      old.chosenAtFirstLevel != chosenAtFirstLevel ||
       old.paneRoot != paneRoot;
 }
 

@@ -49,7 +49,7 @@ void main() {
       ]),
     );
 
-    expect(find.text('Curadoria'), findsOneWidget);
+    expect(find.text('Revisar vídeos'), findsOneWidget);
     expect(find.byType(DoorRow), findsNWidgets(2));
     final first = tester.getTopLeft(find.text('Galinha Pintadinha')).dy;
     final second = tester.getTopLeft(find.text('Os sons da fazenda')).dy;

@@ -3,12 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/display_title.dart';
+import 'package:telinha_segura/family/children_screen.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
 import 'package:telinha_segura/shell/list_detail.dart';
+import 'package:telinha_segura/shell/router.dart' show staffFirstItem;
 
 import '../access/harness.dart';
+import '../account/sessions_screen_test.dart'
+    show atNow, endActions, sessionsScreen;
 import '../family/child_page_test.dart' show pageApi;
 import '../family/fixtures.dart';
 
@@ -179,7 +183,7 @@ void main() {
     for (final (path, roles, list, item, title) in [
       ('/familia', <String>[], 'Sua família', 'Crianças', 'Crianças'),
       ('/conta', <String>[], 'Sua conta', 'E-⁠mail', 'Trocar o e-⁠mail'),
-      ('/equipe', ['curator'], 'Equipe', 'Revisar vídeos', 'Curadoria'),
+      ('/equipe', ['curator'], 'Equipe', 'Revisar vídeos', 'Revisar vídeos'),
       ('/equipe', ['admin'], 'Equipe', 'Vídeos retidos', 'Vídeos retidos'),
     ]) {
       testWidgets('$path for $roles opens $item on arrival, chosen in the '
@@ -278,7 +282,7 @@ void main() {
       expect(h.location(tester), '/curadoria');
       expect(inList(titled('Equipe')), findsOneWidget);
       expect(chosen(tester), 'Revisar vídeos');
-      expect(inDetail(titled('Curadoria')), findsOneWidget);
+      expect(inDetail(titled('Revisar vídeos')), findsOneWidget);
     });
 
     for (final path in [
@@ -412,6 +416,124 @@ void main() {
       expect(h.location(tester), '/familia/criancas/m1');
       expect(listPane, findsNothing);
       expect(titled('Lia'), findsOneWidget);
+    });
+  });
+
+  group('the list and its open item', () {
+    /// What the platform was asked to do: closing the app is
+    /// "SystemNavigator.pop".
+    List<String> platformCalls(WidgetTester tester) {
+      final calls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          calls.add(call.method);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      return calls;
+    }
+
+    for (final (path, roles) in [
+      ('/familia/criancas', <String>[]),
+      ('/familia/responsaveis', <String>[]),
+      ('/conta/email', <String>[]),
+      ('/curadoria', ['curator']),
+    ]) {
+      testWidgets('one system back from $path leaves the place, as from '
+          'its root on a phone', (tester) async {
+        final h = await appAt(tester, path, roles: roles);
+        final calls = platformCalls(tester);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(calls, contains('SystemNavigator.pop'));
+        expect(h.location(tester), path);
+      });
+    }
+
+    testWidgets('below an item\'s first level, system back still walks the '
+        'detail', (tester) async {
+      final h = await appAt(tester, '/familia/criancas/m1');
+      final calls = platformCalls(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(calls, isNot(contains('SystemNavigator.pop')));
+      expect(h.location(tester), '/familia/criancas');
+    });
+
+    for (final path in ['/familia', '/familia/criancas']) {
+      testWidgets('on $path the open row does nothing', (tester) async {
+        final h = await appAt(tester, path);
+
+        await tester.tap(inList(door('Crianças')));
+        await tester.pump();
+
+        expect(h.location(tester), path);
+        expect(find.byType(ChildrenScreen), findsOneWidget);
+        // No page moved in over the open one.
+        expect(
+          find.byType(ChildrenScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets('deeper in the item, the open row returns to its first level', (
+      tester,
+    ) async {
+      final h = await appAt(tester, '/familia/criancas/m1');
+
+      await tester.tap(inList(door('Crianças')));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/familia/criancas');
+      expect(inDetail(titled('Crianças')), findsOneWidget);
+    });
+
+    testWidgets('ending a session beside the list counts again in the list', (
+      tester,
+    ) async {
+      await atNow(() async {
+        await sessionsScreen(tester, size: tablet);
+        expect(
+          find.descendant(
+            of: inList(door('Aparelhos conectados')),
+            matching: find.text('3 aparelhos'),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(inDetail(endActions).first);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.descendant(
+            of: inList(door('Aparelhos conectados')),
+            matching: find.text('2 aparelhos'),
+          ),
+          findsOneWidget,
+        );
+      });
+    });
+
+    testWidgets('Equipe before the roles are read waits in the detail, '
+        'never blank', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Builder(builder: (_) => staffFirstItem(null))),
+      );
+
+      expect(find.byType(FamilyPlaceholder), findsOneWidget);
+      expect(find.bySemanticsLabel('Carregando a equipe'), findsOneWidget);
     });
   });
 }

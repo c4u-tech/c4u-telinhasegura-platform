@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/api_client.dart';
@@ -99,6 +100,27 @@ class _GuardianShellState extends State<GuardianShell> {
     super.dispose();
   }
 
+  /// Whether the place shows its list beside the open item.
+  bool _split = false;
+
+  /// Beside the list, an item's first level is the place itself, as the
+  /// root is on a phone: system back leaves the app from it rather than
+  /// landing on the root, which would show the same item again. A
+  /// dialog over the shell, and the second factor's screens, which ask
+  /// before letting recovery codes go, keep their own back.
+  Future<bool> _leaveFromItem() async {
+    final path = widget.path;
+    if (!_split ||
+        !Panes.isPaneRoot(path) ||
+        Panes.roots.contains(path) ||
+        Routes.isMfaScreen(path) ||
+        !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      return false;
+    }
+    await SystemNavigator.pop();
+    return true;
+  }
+
   bool get _active {
     final model = _services.familyModel;
     return _services.appMode.mode is Guardian &&
@@ -136,6 +158,7 @@ class _GuardianShellState extends State<GuardianShell> {
                 box.maxWidth >= ShellSizes.listDetailBreakpoint &&
                 ListDetail.fits(room, scale) &&
                 !Panes.isFocus(widget.path);
+            _split = split;
             final area = split
                 ? ListDetail(
                     listWidth: ListDetail.listWidthAt(scale),
@@ -147,6 +170,7 @@ class _GuardianShellState extends State<GuardianShell> {
                         widget.path,
                         _services.familyModel.roles,
                       ),
+                      chosenAtFirstLevel: Panes.isPaneRoot(widget.path),
                       child: KeyedSubtree(key: ValueKey(current), child: list),
                     ),
                     detail: ShellFrame(
@@ -176,7 +200,10 @@ class _GuardianShellState extends State<GuardianShell> {
                     child: MediaQuery.removePadding(
                       context: context,
                       removeLeft: true,
-                      child: area,
+                      child: BackButtonListener(
+                        onBackButtonPressed: _leaveFromItem,
+                        child: area,
+                      ),
                     ),
                   ),
                 ],

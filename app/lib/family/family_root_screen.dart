@@ -8,6 +8,7 @@ import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../kid_mode/kid_mode_door.dart';
+import '../shell/list_detail.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'avatars.dart';
@@ -78,7 +79,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
         title: 'Crianças',
         selected: ShellFrame.isChosen(context, Routes.children),
         semanticsLabel: 'Crianças, $childWords',
-        onTap: () => context.go(Routes.children),
+        onTap: () => openItem(context, Routes.children),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -101,7 +102,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
         title: 'Responsáveis',
         selected: ShellFrame.isChosen(context, Routes.adults),
         semanticsLabel: 'Responsáveis, $adultWords',
-        onTap: () => context.go(Routes.adults),
+        onTap: () => openItem(context, Routes.adults),
         child: CapacityRow(
           filled: adults,
           total: kMaxAdults,
@@ -113,7 +114,7 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
           title: 'Convites',
           selected: ShellFrame.isChosen(context, Routes.invitations),
           semanticsLabel: 'Convites, $waiting',
-          onTap: () => context.go(Routes.invitations),
+          onTap: () => openItem(context, Routes.invitations),
           child: _muted(waiting),
         ),
       // Every member's, owner or not.

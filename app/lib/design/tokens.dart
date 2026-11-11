@@ -148,9 +148,9 @@ abstract final class FieldSizes {
   static const columnMaxWidth = 400.0;
 
   /// From this much room for its column, a page of sections (a child's
-  /// page) sets its first two side by side, each still close to a
-  /// column's width.
-  static const pairedMinWidth = 760.0;
+  /// page) sets its first two side by side: two 300 px columns, as wide
+  /// as a small phone's, 24 px apart.
+  static const pairedMinWidth = 2 * 300.0 + Space.xl;
 }
 
 /// The guardian's navigation: the ink rail on a wide window and the bar

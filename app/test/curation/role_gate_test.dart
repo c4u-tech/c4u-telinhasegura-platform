@@ -149,7 +149,7 @@ void main() {
 
     for (final (path, title, back) in [
       ('/sugestoes', 'Sugestões', '/'),
-      ('/curadoria', 'Curadoria', '/equipe'),
+      ('/curadoria', 'Revisar vídeos', '/equipe'),
       ('/admin/numeros', 'Números da plataforma', '/equipe'),
     ]) {
       testWidgets('opened directly, $path reads the session for its '

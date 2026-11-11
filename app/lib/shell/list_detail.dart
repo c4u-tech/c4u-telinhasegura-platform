@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../auth/auth_api.dart' show PlatformRole;
 import '../design/field_layout.dart';
@@ -63,6 +64,20 @@ class ListDetail extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// Opens a place's [item] from its list: the item already open at its
+/// first level stays as it is, with no page moving in over itself;
+/// anything deeper in it returns to that first level.
+void openItem(BuildContext context, String item) {
+  final frame = ShellFrame.maybeOf(context);
+  if (frame != null &&
+      frame.pane == Pane.list &&
+      frame.chosen == item &&
+      frame.chosenAtFirstLevel) {
+    return;
+  }
+  context.go(item);
 }
 
 /// Which item of a place a path opens, and which paths leave the list

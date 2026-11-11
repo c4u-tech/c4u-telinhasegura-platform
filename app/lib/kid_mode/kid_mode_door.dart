@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../access/widgets.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/widgets.dart';
+import '../shell/list_detail.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'kid_mode_status.dart';
@@ -50,7 +50,7 @@ class _KidModeDoorState extends State<KidModeDoor> {
         title: 'Modo criança',
         selected: ShellFrame.isChosen(context, Routes.kidMode),
         semanticsLabel: ['Modo criança', ...lines].join(', '),
-        onTap: () => context.go(Routes.kidMode),
+        onTap: () => openItem(context, Routes.kidMode),
         child: switch (status) {
           final status? => Column(
             crossAxisAlignment: CrossAxisAlignment.start,

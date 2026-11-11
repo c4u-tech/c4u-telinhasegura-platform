@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -333,7 +334,11 @@ class _ChildPageState extends State<ChildPage> with RefetchOnReturn {
   Widget _layout(BuildContext context, Minor? minor, double width) {
     final paired =
         (ShellFrame.maybeOf(context)?.rail ?? false) &&
-        FieldLayout.roomIn(context, width) >= FieldSizes.pairedMinWidth;
+        // Large text needs the room in proportion, or the columns would
+        // read a word to a line.
+        FieldLayout.roomIn(context, width) >=
+            FieldSizes.pairedMinWidth *
+                math.max(1, MediaQuery.textScalerOf(context).scale(1) / 1.5);
     return FieldLayout(
       columnWidth: paired
           ? 2 * FieldSizes.columnMaxWidth + Space.xl

@@ -160,12 +160,18 @@ void main() {
       );
     });
 
-    for (final size in [
-      phone,
-      const Size(1000, 800),
-      // A 10 to 11 inch tablet in landscape: its detail is too narrow.
-      const Size(1317, 823),
-    ]) {
+    testWidgets('a 10 to 11 inch tablet in landscape sets Hoje and Vídeos '
+        'side by side beside the list, nothing clipped', (tester) async {
+      await childPage(tester, size: const Size(1317, 823));
+
+      final today = rectOf(tester, ChildPage.todayKey);
+      final videos = rectOf(tester, ChildPage.videosKey);
+      expect(videos.top, today.top);
+      expect(videos.left, greaterThan(today.right));
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final size in [phone, const Size(900, 800)]) {
       testWidgets('at ${size.width} keeps one column', (tester) async {
         await childPage(tester, size: size);
 

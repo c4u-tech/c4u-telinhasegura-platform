@@ -92,6 +92,9 @@ import '../staff/accounts.dart' show AccountSheet;
 import '../staff/audit_screen.dart';
 import '../staff/staff_gate.dart';
 import '../staff/staff_root_screen.dart';
+import '../design/field_layout.dart';
+import '../family/widgets.dart' show FamilyPlaceholder;
+import '../auth/auth_api.dart' show PlatformRole;
 import 'guardian_shell.dart';
 import 'list_detail.dart';
 import 'routes.dart';
@@ -347,12 +350,7 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     builder: (_, state) => ListRoot(
       path: state.uri.path,
       root: Routes.staffHome,
-      first: (_) =>
-          switch (Panes.firstOf(Routes.staffHome, services.familyModel.roles)) {
-            Routes.curation => const QueueScreen(),
-            Routes.heldVideos => _heldVideos(null),
-            _ => const SizedBox.shrink(),
-          },
+      first: (_) => staffFirstItem(services.familyModel.roles),
       child: const StaffRootScreen(),
     ),
   ),
@@ -667,6 +665,19 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     ],
   ),
 ];
+
+/// Equipe's first item beside its list, for [roles]: the queue for a
+/// curator, the held videos for a moderator or an admin; while the roles
+/// are read, the place waiting.
+Widget staffFirstItem(Set<PlatformRole>? roles) =>
+    switch (Panes.firstOf(Routes.staffHome, roles)) {
+      Routes.curation => const QueueScreen(),
+      Routes.heldVideos => _heldVideos(null),
+      _ => const FieldLayout(
+        title: 'Para revisar',
+        children: [FamilyPlaceholder(label: 'Carregando a equipe')],
+      ),
+    };
 
 /// The held videos, behind the second factor's gate.
 Widget _heldVideos(String? notice) => StaffGate(

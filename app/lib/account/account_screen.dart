@@ -15,6 +15,7 @@ import '../design/tokens.dart';
 import '../family/family_model.dart';
 import '../family/widgets.dart';
 import '../legal/legal_links.dart';
+import '../shell/list_detail.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/mfa.dart';
@@ -75,6 +76,21 @@ class _AccountScreenState extends State<AccountScreen> {
     _rolesRead();
     _router = GoRouter.of(context).routerDelegate..addListener(_moved);
     _away = !_here;
+    // A session ended on the devices screen standing beside this list
+    // changes the count at once.
+    _ended = services.auth.sessionsEnded..addListener(_sessionsEnded);
+  }
+
+  late final ValueNotifier<int> _ended;
+
+  /// Only as the list beside the devices: under them on a phone, the
+  /// count is read again on returning.
+  void _sessionsEnded() {
+    if (!mounted || ShellFrame.maybeOf(context)?.pane != Pane.list) return;
+    final sessions = _readSessions();
+    setState(() {
+      _sessions = sessions;
+    });
   }
 
   bool get _here => _router.currentConfiguration.uri.path == Routes.account;
@@ -111,6 +127,7 @@ class _AccountScreenState extends State<AccountScreen> {
   void dispose() {
     _model.removeListener(_rolesRead);
     _router.removeListener(_moved);
+    _ended.removeListener(_sessionsEnded);
     _resend.dispose();
     _signOut.dispose();
     super.dispose();
@@ -216,7 +233,7 @@ class _AccountScreenState extends State<AccountScreen> {
       title: title,
       selected: ShellFrame.isChosen(context, path),
       semanticsLabel: line.isEmpty ? title : '$title, $line',
-      onTap: () => context.go(path),
+      onTap: () => openItem(context, path),
       child: switch (line) {
         '' => null,
         _ when address => AddressText(line, style: style),
