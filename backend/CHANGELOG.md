@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.2.1...backend-v0.3.0) (2026-11-12)
+
+
+### Features
+
+* allow longer videos by age band and family sessions for films ([#102](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/102)) ([c515e27](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/c515e2760ac14a68c0238978f7296591f405a792))
+
+
+### Bug Fixes
+
+* **api:** keep the previous terms and consent valid for two weeks while the new app reaches the stores ([#104](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/104)) ([8996974](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/89969749d2adde45617cd69d8f89c73d81cb50b3))
+
 ## [0.2.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.2.0...backend-v0.2.1) (2026-11-08)
 
 
