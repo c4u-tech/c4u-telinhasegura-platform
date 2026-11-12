@@ -92,7 +92,8 @@ func requireVerified(ctx context.Context, q querier, accountID string) (string, 
 }
 
 // loadFamily reads the family as the caller with the given role sees it.
-func loadFamily(ctx context.Context, q querier, familyID string, role Role, now time.Time) (Family, error) {
+// consents lists the consent texts in force at now.
+func loadFamily(ctx context.Context, q querier, familyID string, role Role, now time.Time, consents []string) (Family, error) {
 	f := Family{ID: familyID, Role: role}
 	rows, err := q.Query(ctx, `SELECT m.account_id::text, a.email, m.role, m.joined_at
 		FROM family_members m JOIN accounts a ON a.id = m.account_id
@@ -108,8 +109,8 @@ func loadFamily(ctx context.Context, q querier, familyID string, role Role, now 
 	}
 	rows, err = q.Query(ctx, `SELECT id::text, nickname, avatar, age_band, created_at, updated_at,
 		EXISTS (SELECT 1 FROM minor_consents c WHERE c.minor_id = minors.id
-			AND c.policy_version = $2 AND c.withdrawn_at IS NULL)
-		FROM minors WHERE family_id = $1::uuid ORDER BY created_at, id`, familyID, ConsentPolicyVersion)
+			AND c.policy_version = ANY($2) AND c.withdrawn_at IS NULL)
+		FROM minors WHERE family_id = $1::uuid ORDER BY created_at, id`, familyID, consents)
 	if err != nil {
 		return Family{}, err
 	}

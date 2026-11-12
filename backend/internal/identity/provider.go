@@ -117,7 +117,7 @@ func (s *Service) ProviderSignUp(ctx context.Context, ticket string, adultDeclar
 	if !adultDeclaration {
 		return "", ErrValidation
 	}
-	if err := checkTerms(termsVersion); err != nil {
+	if err := s.checkTerms(termsVersion); err != nil {
 		return "", err
 	}
 	if err := s.d.Store.consumeTicket(ctx, hash, now); err != nil {

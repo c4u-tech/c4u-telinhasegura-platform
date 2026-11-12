@@ -152,13 +152,13 @@ void main() {
       expect(find.text('3 de 6 vagas: 2 adultos e 1 convite'), findsOneWidget);
     });
 
-    testWidgets('back returns to the family home', (tester) async {
+    testWidgets('back returns to Família', (tester) async {
       final h = await adults(tester);
 
       await tester.tap(find.byTooltip('Voltar'));
       await tester.pumpAndSettle();
 
-      expect(h.location(tester), '/');
+      expect(h.location(tester), '/familia');
     });
   });
 

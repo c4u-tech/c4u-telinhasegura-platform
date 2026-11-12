@@ -68,7 +68,7 @@ class _DeleteFamilyScreenState extends State<DeleteFamilyScreen> {
     listenable: Listenable.merge([_model, _write]),
     builder: (context, _) => FieldLayout(
       title: 'Excluir família',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch (_model.state) {
         FamilyReady(:final family) => _confirmation(family),
         _ => familyPending(_model),

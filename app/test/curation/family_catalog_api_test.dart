@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/curation.dart';
+import 'package:telinha_segura/curation/family_catalog.dart';
 import 'package:telinha_segura/curation/family_catalog_api.dart';
 import 'package:telinha_segura/family/family.dart';
 
@@ -45,6 +46,32 @@ http.Response familyContract(http.Request req) {
 }
 
 void main() {
+  test('a family work is marked; a video without the flag is not', () {
+    expect(FamilyVideo.fromJson(familyVideoJson).familySession, isFalse);
+    expect(
+      FamilyVideo.fromJson({
+        ...familyVideoJson,
+        'duration_seconds': 5400,
+        'family_session': true,
+      }).familySession,
+      isTrue,
+    );
+  });
+
+  test('a family work says where the child stopped it; a video watched '
+      'alone, and an older server, say nothing', () {
+    expect(FamilyVideo.fromJson(familyVideoJson).resumeSeconds, 0);
+    expect(
+      FamilyVideo.fromJson({
+        ...familyVideoJson,
+        'duration_seconds': 5400,
+        'family_session': true,
+        'resume_seconds': 1920,
+      }).resumeSeconds,
+      1920,
+    );
+  });
+
   test('every call hits its contract path', () async {
     final t = build(ClientKind.mobile, familyContract);
     final api = FamilyCatalogApi(t.client);

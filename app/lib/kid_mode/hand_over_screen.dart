@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../access/copy.dart';
 import '../access/reauth_prompt.dart';
 import '../access/widgets.dart';
 import '../design/field_layout.dart';
@@ -17,11 +16,16 @@ import '../family/profile_fields.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
+import 'hand_over.dart';
 import 'kid_mode_screen.dart';
 
-const _howToLeave =
-    'Escolha quem vai usar este aparelho. Para sair do modo criança, um '
-    'adulto segura o canto da tela e digita o PIN.';
+/// How the child's screen is left, said before handing the device over.
+const howToLeave =
+    'Para sair do modo criança, um adulto segura o canto da tela e digita '
+    'o PIN.';
+
+/// Over the children as a choice of one, before the hand-over.
+const chooseAndLeave = 'Escolha quem vai usar este aparelho. $howToLeave';
 
 /// `/modo-crianca/entregar`: hands this device to a child.
 /// The children as a choice of one, none chosen; "Entregar para
@@ -56,31 +60,12 @@ class _HandOverScreenState extends State<HandOverScreen> {
     super.dispose();
   }
 
-  Future<void> _handOver(Minor minor) async {
-    await _write.write(
-      () => AppScope.of(context).appMode.handOver(minor.id),
-      overrides: const {'not_found': Copy.childGone},
-      handle: (e) {
-        switch (e.code) {
-          case 'consent_required':
-            // The child's profile waits for a new authorization: the
-            // adult gives it, then comes back here.
-            if (mounted) {
-              context.go(Routes.reconsent(minor.id, then: Routes.handOver));
-            }
-            return true;
-          case 'pin_not_set':
-            // The PIN went meanwhile: back to the guide's first step.
-            if (mounted) context.go(Routes.kidMode);
-            return true;
-          case 'not_found':
-            setState(() => _chosen = null);
-            unawaited(_model.refresh());
-        }
-        return false;
-      },
-    );
-  }
+  Future<void> _handOver(Minor minor) => handOverTo(
+    context,
+    _write,
+    minor,
+    onGone: () => setState(() => _chosen = null),
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -109,7 +94,7 @@ class _HandOverScreenState extends State<HandOverScreen> {
     final chosen = minors.where((m) => m.id == _chosen).firstOrNull;
     final busy = _write.busy;
     return [
-      Text(_howToLeave, style: Theme.of(context).textTheme.bodyLarge),
+      Text(chooseAndLeave, style: Theme.of(context).textTheme.bodyLarge),
       const SizedBox(height: Space.xl),
       Wrap(
         spacing: Space.sm,

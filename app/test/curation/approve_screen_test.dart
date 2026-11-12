@@ -192,6 +192,13 @@ double scrolled(WidgetTester tester) => tester
     .pixels;
 
 void main() {
+  test('the length line names the 60-minute bar of the youngest band', () {
+    expect(
+      tooLongForYoungestLine,
+      'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.',
+    );
+  });
+
   group('Antes de começar', () {
     testWidgets('says what the app checked, asks the tie with Não and Sim '
         'only, and waits on "Começar as perguntas" until both are '
@@ -687,6 +694,93 @@ void main() {
     });
   });
 
+  group('a long video', () {
+    /// The flow over "Baby Shark" running [minutes] minutes, opened
+    /// directly.
+    Future<Harness> longApproving(WidgetTester tester, int minutes) =>
+        approving(
+          tester,
+          video: (id) => detailOf(
+            queuedJson(
+              id,
+              'Baby Shark',
+              channel: 'Canal Baby Shark',
+              seconds: minutes * 60,
+            ),
+          ),
+        );
+
+    testWidgets('past 20 minutes adds the "Vídeo longo" step and sends its '
+        'answers', (tester) async {
+      final h = await longApproving(tester, 25);
+      await start(tester);
+      expect(find.text('Etapa 1 de 6'), findsOneWidget);
+      await clearSteps(tester, to: 5);
+      expect(find.text('Etapa 6 de 6'), findsOneWidget);
+      expect(find.text('Vídeo longo'), findsOneWidget);
+      await noneOfThis(tester);
+      await answer(tester, 'Aparecem anúncios no meio do vídeo?', 'Sim');
+      await tapPrimary(tester);
+      await choose(tester, 'Música');
+      await choose(tester, '2 a 4 anos');
+      await tapPrimary(tester);
+      expect(primary(tester).label, approveLabel, reason: 'ads only noted');
+      await tapPrimary(tester);
+
+      expect(sent(h)['answers'], {
+        ...allNos,
+        'c26': 'ok',
+        'c27': 'ok',
+        'c28': 'appears',
+      });
+    });
+
+    testWidgets('a video that fails to read offers to try again: its length '
+        'decides the questions', (tester) async {
+      var fail = true;
+      await approving(
+        tester,
+        video: (id) => fail
+            ? http.Response('', 500)
+            : detailOf(queuedJson(id, 'Baby Shark', seconds: 25 * 60)),
+      );
+      expect(find.text(tie), findsNothing);
+      expect(find.text(Copy.genericRetry), findsOneWidget);
+
+      fail = false;
+      await tapPrimary(tester);
+      expect(find.text(tie), findsOneWidget);
+      await start(tester);
+      expect(find.text('Etapa 1 de 6'), findsOneWidget);
+    });
+
+    testWidgets('past 60 minutes disables "2 a 4 anos" and says why', (
+      tester,
+    ) async {
+      await longApproving(tester, 61);
+      await start(tester);
+      await clearSteps(tester, to: 6);
+
+      expect(find.text(tooLongForYoungestLine), findsOneWidget);
+      expect(find.text(fastPaceLine), findsNothing);
+      expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+    });
+
+    testWidgets('past 60 minutes with a fast pace says both', (tester) async {
+      await longApproving(tester, 61);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      await noneOfThis(tester);
+      await answer(tester, fast, 'Sim');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 6, to: 6);
+
+      expect(find.text(tooLongForYoungestLine), findsOneWidget);
+      expect(find.text(fastPaceLine), findsOneWidget);
+      expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+    });
+  });
+
   group('the review', () {
     testWidgets('sums up each step, "tudo Não" or its Sim and Não sei, each '
         'with "mudar", and the reminder', (tester) async {
@@ -803,7 +897,7 @@ void main() {
         'decision': 'approve',
         'theme': 'musica',
         'min_age_band': '5-8',
-        'checklist_version': '2026-10-21',
+        'checklist_version': '2026-11-11',
         'answers': allNos,
       });
       expect(find.widgetWithText(Notice, approved), findsOneWidget);
@@ -831,7 +925,7 @@ void main() {
 
       expect(sent(h), {
         'decision': 'approve',
-        'checklist_version': '2026-10-21',
+        'checklist_version': '2026-11-11',
         'answers': {...allNos, 'c07': 'doubt'},
         'note': 'A tristeza é o tema.',
       });

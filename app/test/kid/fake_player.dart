@@ -27,17 +27,24 @@ class FakeKidPlayer implements KidPlayer {
   FakePlayback? get current => opened.isEmpty ? null : opened.last;
 
   @override
-  FakePlayback open(String youtubeId) {
-    final playback = FakePlayback(youtubeId);
+  FakePlayback open(String youtubeId, {int start = 0}) {
+    final playback = FakePlayback(youtubeId, start: start);
     opened.add(playback);
     return playback;
   }
 }
 
 class FakePlayback implements KidPlayback {
-  FakePlayback(this.youtubeId);
+  FakePlayback(this.youtubeId, {this.start = 0});
 
   final String youtubeId;
+
+  /// The second the screen asked the video to start at.
+  final int start;
+
+  /// Where the video is, as [position] answers it while open; a closed
+  /// player answers 0, as a stopped YouTube embed does.
+  int at = 0;
 
   /// What the screen asked, in order: `play`, `pause`, `close`.
   final calls = <String>[];
@@ -59,6 +66,9 @@ class FakePlayback implements KidPlayback {
 
   @override
   Stream<PlayerEvent> get events => _events.stream;
+
+  @override
+  Future<int> position() async => closed ? 0 : at;
 
   @override
   Future<void> play() async => calls.add('play');

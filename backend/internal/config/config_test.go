@@ -46,23 +46,28 @@ func TestLoadAppliesDefaultsAndSplitsOrigins(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := config.Config{
-		Addr:                    ":8080",
-		DatabaseURL:             "postgres://x",
-		AppBaseURL:              "https://app.test",
-		AllowedOrigins:          []string{"https://app.test", "http://localhost:5000"},
-		MailDir:                 "tmp/mail",
-		HIBPEnabled:             true,
-		YouTubeSearchDailyLimit: 95,
-		CurationMinApprovals:    2,
-		CurationMaxDuration:     20 * time.Minute,
-		CurationRevisitDays:     180,
-		CatalogShelfSize:        12,
-		CurationReportThreshold: 3,
-		SweepInterval:           time.Hour,
-		PackMaxDuration:         20 * time.Minute,
-		PackRowSize:             6,
-		MailAllowed:             noMailAllowlist(t),
-		MailPollInterval:        5 * time.Second,
+		Addr:                              ":8080",
+		DatabaseURL:                       "postgres://x",
+		AppBaseURL:                        "https://app.test",
+		AllowedOrigins:                    []string{"https://app.test", "http://localhost:5000"},
+		MailDir:                           "tmp/mail",
+		HIBPEnabled:                       true,
+		YouTubeSearchDailyLimit:           95,
+		CurationMinApprovals:              2,
+		CurationMaxDuration:               45 * time.Minute,
+		CurationYoungestMaxDuration:       30 * time.Minute,
+		CurationFamilyMaxDuration:         120 * time.Minute,
+		CurationFamilyYoungestMaxDuration: 60 * time.Minute,
+		CurationLongFrom:                  20 * time.Minute,
+		CurationRevisitDays:               180,
+		CatalogShelfSize:                  12,
+		CurationReportThreshold:           3,
+		SweepInterval:                     time.Hour,
+		PackMaxDuration:                   20 * time.Minute,
+		PackRowSize:                       6,
+		MailAllowed:                       noMailAllowlist(t),
+		MailPollInterval:                  5 * time.Second,
+		LegalGraceUntil:                   time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC),
 	}
 	if !reflect.DeepEqual(c, want) {
 		t.Fatalf("got %+v, want %+v", c, want)
@@ -127,10 +132,12 @@ func TestLoadRequiresTheAndroidPackageWithApple(t *testing.T) {
 func TestLoadReadsCurationSettings(t *testing.T) {
 	c, err := config.Load(env(map[string]string{
 		"DATABASE_URL": "x", "APP_BASE_URL": "y",
-		"YOUTUBE_API_KEY":        " AIza-test ",
-		"CURATION_MIN_APPROVALS": "3",
-		"CURATION_MAX_DURATION":  "15m",
-		"CURATION_REVISIT_DAYS":  "90",
+		"YOUTUBE_API_KEY":                " AIza-test ",
+		"CURATION_MIN_APPROVALS":         "3",
+		"CURATION_MAX_DURATION":          "15m",
+		"CURATION_YOUNGEST_MAX_DURATION": "12m",
+		"CURATION_LONG_FROM":             "10m",
+		"CURATION_REVISIT_DAYS":          "90",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -141,11 +148,70 @@ func TestLoadReadsCurationSettings(t *testing.T) {
 	}
 }
 
+func TestLoadRefusesMisorderedCeilings(t *testing.T) {
+	for name, values := range map[string]map[string]string{
+		"CURATION_YOUNGEST_MAX_DURATION":        {"CURATION_YOUNGEST_MAX_DURATION": "50m"},
+		"CURATION_LONG_FROM":                    {"CURATION_LONG_FROM": "31m"},
+		"CURATION_FAMILY_MAX_DURATION":          {"CURATION_FAMILY_MAX_DURATION": "44m"},
+		"CURATION_FAMILY_YOUNGEST_MAX_DURATION": {"CURATION_FAMILY_YOUNGEST_MAX_DURATION": "29m"},
+	} {
+		values["DATABASE_URL"], values["APP_BASE_URL"] = "x", "y"
+		_, err := config.Load(env(values))
+		if err == nil || !strings.Contains(err.Error(), name) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+func TestLoadRefusesFamilyYoungestAboveFamilyMax(t *testing.T) {
+	_, err := config.Load(env(map[string]string{
+		"DATABASE_URL": "x", "APP_BASE_URL": "y",
+		"CURATION_FAMILY_MAX_DURATION":          "90m",
+		"CURATION_FAMILY_YOUNGEST_MAX_DURATION": "91m",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "CURATION_FAMILY_YOUNGEST_MAX_DURATION") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoadReadsFamilyCeilingSettings(t *testing.T) {
+	c, err := config.Load(env(map[string]string{
+		"DATABASE_URL": "x", "APP_BASE_URL": "y",
+		"CURATION_FAMILY_MAX_DURATION":          "100m",
+		"CURATION_FAMILY_YOUNGEST_MAX_DURATION": "50m",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.CurationFamilyMaxDuration != 100*time.Minute || c.CurationFamilyYoungestMaxDuration != 50*time.Minute {
+		t.Fatalf("got %+v", c)
+	}
+}
+
+func TestLoadReadsCeilingSettings(t *testing.T) {
+	c, err := config.Load(env(map[string]string{
+		"DATABASE_URL": "x", "APP_BASE_URL": "y",
+		"CURATION_MAX_DURATION":          "60m",
+		"CURATION_YOUNGEST_MAX_DURATION": "40m",
+		"CURATION_LONG_FROM":             "25m",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.CurationMaxDuration != 60*time.Minute || c.CurationYoungestMaxDuration != 40*time.Minute || c.CurationLongFrom != 25*time.Minute {
+		t.Fatalf("got %+v", c)
+	}
+}
+
 func TestLoadRefusesBadCurationSettings(t *testing.T) {
 	for name, values := range map[string][]string{
-		"CURATION_MIN_APPROVALS": {"0", "-1", "two", "1.5"},
-		"CURATION_MAX_DURATION":  {"20", "0s", "-5m", "forever"},
-		"CURATION_REVISIT_DAYS":  {"0", "x", "36501"},
+		"CURATION_MIN_APPROVALS":                {"0", "-1", "two", "1.5"},
+		"CURATION_MAX_DURATION":                 {"20", "0s", "-5m", "forever"},
+		"CURATION_YOUNGEST_MAX_DURATION":        {"30", "0s", "-5m", "forever"},
+		"CURATION_LONG_FROM":                    {"20", "0s", "-5m", "forever"},
+		"CURATION_FAMILY_MAX_DURATION":          {"20", "0s", "-5m", "forever"},
+		"CURATION_FAMILY_YOUNGEST_MAX_DURATION": {"20", "0s", "-5m", "forever"},
+		"CURATION_REVISIT_DAYS":                 {"0", "x", "36501"},
 	} {
 		for _, v := range values {
 			_, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", name: v}))
@@ -407,6 +473,53 @@ func TestLoadReadsTheSearchDailyLimit(t *testing.T) {
 	for _, v := range []string{"0", "-1", "x"} {
 		_, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "YOUTUBE_SEARCH_DAILY_LIMIT": v}))
 		if err == nil || !strings.Contains(err.Error(), "YOUTUBE_SEARCH_DAILY_LIMIT") {
+			t.Errorf("%q: %v", v, err)
+		}
+	}
+}
+
+// lookup reads m as the process environment does: a key present with an
+// empty value is set, unlike a missing one.
+func lookup(m map[string]string) func(string) (string, bool) {
+	return func(k string) (string, bool) {
+		if k == "STAFF_MFA_REQUIRED" {
+			return "false", true
+		}
+		v, ok := m[k]
+		return v, ok
+	}
+}
+
+func TestLegalGraceDefaultsToTheEndOf25NovemberInSaoPaulo(t *testing.T) {
+	want := time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC) // midnight in São Paulo, UTC-3
+	c, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y"}))
+	if err != nil || !c.LegalGraceUntil.Equal(want) {
+		t.Fatalf("Load default: %s %v", c.LegalGraceUntil, err)
+	}
+	c, err = config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y"}))
+	if err != nil || !c.LegalGraceUntil.Equal(want) {
+		t.Fatalf("LoadLookup default: %s %v", c.LegalGraceUntil, err)
+	}
+}
+
+func TestLegalGraceReadsADateAsTheEndOfThatDayInSaoPaulo(t *testing.T) {
+	c, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": " 2026-12-01 "}))
+	if want := time.Date(2026, 12, 2, 3, 0, 0, 0, time.UTC); err != nil || !c.LegalGraceUntil.Equal(want) {
+		t.Fatalf("%s %v", c.LegalGraceUntil, err)
+	}
+}
+
+func TestLegalGraceSetButEmptyMeansNoGrace(t *testing.T) {
+	c, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": ""}))
+	if err != nil || !c.LegalGraceUntil.IsZero() {
+		t.Fatalf("%s %v", c.LegalGraceUntil, err)
+	}
+}
+
+func TestLegalGraceRefusesAnInvalidDate(t *testing.T) {
+	for _, v := range []string{"25/11/2026", "2026-11-31", "2026-11-25T00:00:00Z", "soon"} {
+		_, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": v}))
+		if err == nil || !strings.Contains(err.Error(), "LEGAL_GRACE_UNTIL") {
 			t.Errorf("%q: %v", v, err)
 		}
 	}

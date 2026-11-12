@@ -19,11 +19,16 @@ enum ApprovalOutcome {
 /// to [stepCount] are the steps, one per remaining group, then the theme
 /// and band ([topicPage]), asked only when the video can be approved, and
 /// the review ([reviewPage]). It lives as long as the screen: leaving the
-/// flow drops it.
+/// flow drops it. The list is the one a video of [length] is asked: a
+/// short video has no long-video step and sends none of its answers.
 class ApprovalDraft {
-  ApprovalDraft(this.checklist);
+  ApprovalDraft(Checklist list, {required this.length})
+    : checklist = list.askedOf(length);
 
   final Checklist checklist;
+
+  /// The video's length.
+  final Duration length;
   final _answers = <String, ChecklistAnswer>{};
   int _page = 0;
 
@@ -46,11 +51,11 @@ class ApprovalDraft {
   /// Null until answered.
   ChecklistAnswer? answerOf(ChecklistItem item) => _answers[item.id];
 
-  /// Answers [item]. A fast pace takes back "2 a 4 anos" if it was
-  /// chosen, so the band is asked again.
+  /// Answers [item]. A fast pace, or a video too long for it, takes
+  /// back "2 a 4 anos" if it was chosen, so the band is asked again.
   void answer(ChecklistItem item, ChecklistAnswer a) {
     _answers[item.id] = a;
-    if (youngestBarred && band == AgeBand.upTo4) band = null;
+    if (upTo4Barred && band == AgeBand.upTo4) band = null;
   }
 
   /// "Nada disso acontece no vídeo": every question of [g] answered "Não",
@@ -79,10 +84,22 @@ class ApprovalDraft {
   /// A fast pace: "2 a 4 anos" is not offered.
   bool get youngestBarred => _yes(ChecklistRule.band).isNotEmpty;
 
+  /// A video longer than the youngest band allows: "2 a 4 anos" is not
+  /// offered.
+  bool get tooLongForYoungest => length > checklist.youngestMax;
+
+  /// "2 a 4 anos" is not offered, for the pace or for the length.
+  bool get upTo4Barred => youngestBarred || tooLongForYoungest;
+
   /// The team decides: a "Não sei", or a Sim on a question that asks for
-  /// it.
+  /// it. A question only kept for the team decides nothing, whatever its
+  /// answer.
   bool get doubt =>
-      _answers.containsValue(ChecklistAnswer.doubt) ||
+      checklist.items.any(
+        (i) =>
+            i.rule != ChecklistRule.notes &&
+            _answers[i.id] == ChecklistAnswer.doubt,
+      ) ||
       _yes(ChecklistRule.doubt).isNotEmpty;
 
   ApprovalOutcome get outcome => refusing.isNotEmpty

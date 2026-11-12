@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/legal"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/mail"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/ratelimit"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,7 +34,20 @@ const (
 
 // ConsentPolicyVersion names the consent text the app shows before a
 // minor is created. The Dart constant kConsentPolicyVersion must equal it.
-const ConsentPolicyVersion = "2026-10-17"
+const ConsentPolicyVersion = "2026-11-11"
+
+// PreviousConsentPolicyVersion is the consent text before
+// ConsentPolicyVersion. It still counts until the grace end the service
+// is given, because the server changes before the app that shows the new
+// text reaches the stores: a family on the previous app has no update to
+// install yet. Starting a family session still asks for the current text.
+const PreviousConsentPolicyVersion = "2026-10-17"
+
+// ConsentVersion is the consent text in force, with the previous one
+// counting until graceUntil; a zero graceUntil means no grace.
+func ConsentVersion(graceUntil time.Time) legal.Version {
+	return legal.Version{Current: ConsentPolicyVersion, Previous: PreviousConsentPolicyVersion, GraceUntil: graceUntil}
+}
 
 // Avatars are the preset avatar keys; the app maps each key to its art.
 var Avatars = []string{"fox", "owl", "cat", "dog", "rabbit", "bear", "turtle", "whale", "lion", "panda", "frog", "penguin"}
@@ -82,7 +96,8 @@ type Minor struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// ConsentCurrent is true when a guardian has authorized the profile
-	// under the current consent text.
+	// under a consent text in force: the current one, or the previous one
+	// during its grace.
 	ConsentCurrent bool
 }
 
@@ -140,6 +155,9 @@ type Deps struct {
 	InviteLimiter *ratelimit.Limiter // keyed by family
 	TokenLimiter  *ratelimit.Limiter // keyed by account: lookup and accept
 	Log           *slog.Logger       // post-commit notice failures
+	// GraceUntil is when the previous consent text stops counting; zero
+	// means it never does.
+	GraceUntil time.Time
 }
 
 type Service struct{ d Deps }
@@ -149,6 +167,8 @@ func NewService(d Deps) *Service { return &Service{d: d} }
 // now is the clock at the precision Postgres stores, so a returned time
 // equals the one a later read gives.
 func (s *Service) now() time.Time { return s.d.Now().Truncate(time.Microsecond) }
+
+func (s *Service) consent() legal.Version { return ConsentVersion(s.d.GraceUntil) }
 
 // notify sends committed-change notices on a best-effort basis: every
 // message is attempted, a failure is logged without its address

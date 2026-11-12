@@ -99,6 +99,10 @@ func (h *hookedAudit) fire(e audit.Event) {
 	}
 }
 
+// graceEnd is when the previous terms and consent text stop counting in
+// these tests.
+var graceEnd = time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC)
+
 func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 	a := &api{t: t, mail: &mailtest.Recorder{}, now: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC), tokens: &idtokentest.Fake{}, apple: &appleFake{}}
 	pool := dbtest.New(t)
@@ -118,6 +122,7 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		Now:        clock,
 		AppBaseURL: "https://app.test",
 		IDTokens:   a.tokens,
+		GraceUntil: graceEnd,
 	})
 	a.ids = ids
 	fam := family.NewService(family.Deps{
@@ -129,42 +134,47 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		InviteLimiter: ratelimit.New(20, 24*time.Hour, clock),
 		TokenLimiter:  ratelimit.New(10, time.Minute, clock),
 		Log:           log,
+		GraceUntil:    graceEnd,
 	})
 	a.par = parental.NewService(parental.Deps{
-		Pool:           pool,
-		Mail:           a.mail,
-		Audit:          auditRec,
-		Now:            clock,
-		Hash:           identity.HashParams{Memory: 64, Time: 1, Threads: 1},
-		AppBaseURL:     "https://app.test",
-		CodeLimiter:    ratelimit.New(20, time.Hour, clock),
-		Log:            log,
-		ConsentVersion: family.ConsentPolicyVersion,
+		Pool:        pool,
+		Mail:        a.mail,
+		Audit:       auditRec,
+		Now:         clock,
+		Hash:        identity.HashParams{Memory: 64, Time: 1, Threads: 1},
+		AppBaseURL:  "https://app.test",
+		CodeLimiter: ratelimit.New(20, time.Hour, clock),
+		Log:         log,
+		Consent:     family.ConsentVersion(graceEnd),
 	})
 	a.videos = &curationtest.Fake{}
 	a.thumbs = &curationtest.Thumbs{}
 	a.search = &curationtest.Search{}
 	a.cur = curation.NewService(curation.Deps{
-		Pool:              pool,
-		Audit:             auditRec,
-		Now:               clock,
-		Source:            a.videos,
-		SuggestLimiter:    ratelimit.New(10, 24*time.Hour, clock),
-		MinApprovals:      2,
-		MaxDuration:       20 * time.Minute,
-		RevisitAfter:      180 * 24 * time.Hour,
-		Thumbs:            a.thumbs,
-		Search:            a.search,
-		SearchLimiter:     ratelimit.New(20, 24*time.Hour, clock),
-		SearchBudget:      ratelimit.NewDaily(95, pacific, clock),
-		ShelfSize:         12,
-		PackMaxDuration:   20 * time.Minute,
-		PackRowSize:       6,
-		ReportLimiter:     ratelimit.New(20, 24*time.Hour, clock),
-		ReportThreshold:   3,
-		CheckVideoLimiter: ratelimit.New(1, time.Hour, clock),
-		CheckChildLimiter: ratelimit.New(10, time.Hour, clock),
-		Log:               log,
+		Pool:                      pool,
+		Audit:                     auditRec,
+		Now:                       clock,
+		Source:                    a.videos,
+		SuggestLimiter:            ratelimit.New(10, 24*time.Hour, clock),
+		MinApprovals:              2,
+		MaxDuration:               45 * time.Minute,
+		YoungestMaxDuration:       30 * time.Minute,
+		FamilyMaxDuration:         120 * time.Minute,
+		FamilyYoungestMaxDuration: 60 * time.Minute,
+		LongFrom:                  20 * time.Minute,
+		RevisitAfter:              180 * 24 * time.Hour,
+		Thumbs:                    a.thumbs,
+		Search:                    a.search,
+		SearchLimiter:             ratelimit.New(20, 24*time.Hour, clock),
+		SearchBudget:              ratelimit.NewDaily(95, pacific, clock),
+		ShelfSize:                 12,
+		PackMaxDuration:           20 * time.Minute,
+		PackRowSize:               6,
+		ReportLimiter:             ratelimit.New(20, 24*time.Hour, clock),
+		ReportThreshold:           3,
+		CheckVideoLimiter:         ratelimit.New(1, time.Hour, clock),
+		CheckChildLimiter:         ratelimit.New(10, time.Hour, clock),
+		Log:                       log,
 	})
 	a.team = staff.NewService(staff.Deps{Pool: pool, Audit: auditRec, Now: clock, MFAKey: testMFAKey, Mail: a.mail, Log: log,
 		Accounts: ids, Sessions: sessions, Families: fam, Devices: a.par, Content: a.cur,

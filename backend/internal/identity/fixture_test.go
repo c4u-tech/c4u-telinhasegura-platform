@@ -20,6 +20,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// graceEnd is when the previous terms stop counting in these tests.
+var graceEnd = time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC)
+
 const (
 	goodPassword  = "uma senha longa o bastante"
 	otherPassword = "outra senha longa o bastante"
@@ -49,6 +52,7 @@ func (f *fakeRevoker) RevokeAll(_ context.Context, accountID, except string) err
 type fixture struct {
 	t        *testing.T
 	svc      *identity.Service
+	deps     identity.Deps
 	pool     *pgxpool.Pool
 	mail     *mailtest.Recorder
 	audit    *audittest.Recorder
@@ -70,7 +74,7 @@ func newFixture(t *testing.T) *fixture {
 		tokens:   &idtokentest.Fake{},
 		now:      time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC),
 	}
-	f.svc = identity.NewService(identity.Deps{
+	f.deps = identity.Deps{
 		Store:      identity.Store{Pool: f.pool},
 		Policy:     identity.PasswordPolicy{Breaches: fakeBreaches{hook: f.policyHook}, Log: slog.New(slog.DiscardHandler)},
 		Hash:       identity.HashParams{Memory: 64, Time: 1, Threads: 1}, // cheap for tests; production uses DefaultHashParams
@@ -80,8 +84,17 @@ func newFixture(t *testing.T) *fixture {
 		IDTokens:   f.tokens,
 		Now:        func() time.Time { return f.now },
 		AppBaseURL: "https://app.test",
-	})
+		GraceUntil: graceEnd,
+	}
+	f.svc = identity.NewService(f.deps)
 	return f
+}
+
+// svcWith is a service on the fixture's dependencies as edit changes them.
+func (f *fixture) svcWith(edit func(*identity.Deps)) *identity.Service {
+	d := f.deps
+	edit(&d)
+	return identity.NewService(d)
 }
 
 func (f *fixture) policyHook() {

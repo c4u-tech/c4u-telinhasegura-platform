@@ -238,13 +238,15 @@ enum ChecklistAnswer {
 }
 
 /// What a Sim ([ChecklistAnswer.appears]) does to a review: it refuses
-/// the video, sends it to the team, rules out the youngest band, or keeps
-/// the curator from reviewing it.
+/// the video, sends it to the team, rules out the youngest band, keeps
+/// the curator from reviewing it, or ([notes]) nothing: the answer is only
+/// kept for the team.
 enum ChecklistRule {
   refuses('refuses'),
   doubt('doubt'),
   band('band'),
   conflict('conflict'),
+  notes('notes'),
   unknown('');
 
   const ChecklistRule(this.wire);
@@ -262,17 +264,22 @@ class ChecklistItem {
     required this.id,
     required this.text,
     required this.rule,
+    this.longOnly = false,
   });
 
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
     id: j['id'] as String,
     text: j['text'] as String,
     rule: ChecklistRule.parse(j['rule']),
+    longOnly: j['long_only'] as bool? ?? false,
   );
 
   final String id;
   final String text;
   final ChecklistRule rule;
+
+  /// Asked only of a video longer than [Checklist.longFrom].
+  final bool longOnly;
 }
 
 class ChecklistGroup {
@@ -296,10 +303,26 @@ class ChecklistGroup {
   final List<ChecklistItem> items;
 }
 
+/// The question of a fast pace: a Sim rules out the youngest band, in
+/// every review of the round, also when a moderator decides.
+const fastPaceItem = 'c22';
+
+/// From this length a video counts as long, when the server does not say.
+const defaultLongFrom = Duration(minutes: 20);
+
+/// The longest a video may run for the youngest age band, when the server
+/// does not say.
+const defaultYoungestMax = Duration(minutes: 60);
+
 /// The list every review answers, as the server holds it: the app renders
 /// it and sends its [version] back with the answers.
 class Checklist {
-  const Checklist({required this.version, required this.groups});
+  const Checklist({
+    required this.version,
+    required this.groups,
+    this.longFrom = defaultLongFrom,
+    this.youngestMax = defaultYoungestMax,
+  });
 
   factory Checklist.fromJson(Map<String, dynamic> j) => Checklist(
     version: j['version'] as String,
@@ -307,10 +330,43 @@ class Checklist {
       for (final g in j['groups'] as List<dynamic>)
         ChecklistGroup.fromJson(g as Map<String, dynamic>),
     ],
+    longFrom: switch (j['long_from_seconds']) {
+      final int s => Duration(seconds: s),
+      _ => defaultLongFrom,
+    },
+    youngestMax: switch (j['youngest_max_seconds']) {
+      final int s => Duration(seconds: s),
+      _ => defaultYoungestMax,
+    },
   );
 
   final String version;
   final List<ChecklistGroup> groups;
+
+  /// A video longer than this is asked the long-only questions.
+  final Duration longFrom;
+
+  /// A video longer than this is not for the youngest age band.
+  final Duration youngestMax;
+
+  /// The list as a video of [length] is asked it: a video no longer than
+  /// [longFrom] is not asked the long-only questions, and a group left with
+  /// none is not asked at all.
+  Checklist askedOf(Duration length) => length > longFrom
+      ? this
+      : Checklist(
+          version: version,
+          longFrom: longFrom,
+          youngestMax: youngestMax,
+          groups: [
+            for (final g in groups)
+              if (!g.items.any((i) => i.longOnly))
+                g
+              else if (g.items.where((i) => !i.longOnly).toList()
+                  case final items when items.isNotEmpty)
+                ChecklistGroup(id: g.id, title: g.title, items: items),
+          ],
+        );
 
   Iterable<ChecklistItem> get items => groups.expand((g) => g.items);
 

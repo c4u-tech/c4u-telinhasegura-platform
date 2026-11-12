@@ -24,6 +24,9 @@ class PinPad extends StatefulWidget {
     this.controller,
     this.enabled = true,
     this.autofocus = true,
+    this.confirmLabel = 'Confirmar',
+    this.onTyped,
+    this.confirmEnabled = true,
   });
 
   static const minLength = 4;
@@ -37,6 +40,18 @@ class PinPad extends StatefulWidget {
   /// False while a check is pending or the cooldown runs.
   final bool enabled;
   final bool autofocus;
+
+  /// What the filled key is read as: the action the PIN completes
+  /// ("Confirmar", or "Começar" where it starts something).
+  final String confirmLabel;
+
+  /// Told each time a digit is typed, never which one: a long screen
+  /// brings the whole pad into view on the first.
+  final VoidCallback? onTyped;
+
+  /// False while another filled action on the screen stands for the same
+  /// step (a retry): the filled key waits, so only one is offered.
+  final bool confirmEnabled;
 
   @override
   State<PinPad> createState() => _PinPadState();
@@ -82,6 +97,7 @@ class _PinPadState extends State<PinPad> {
   void _type(String digit) {
     if (_digits.length < PinPad.maxLength) {
       setState(() => _digits += digit);
+      widget.onTyped?.call();
     }
   }
 
@@ -92,7 +108,7 @@ class _PinPadState extends State<PinPad> {
   }
 
   void _submit() {
-    if (_ready) widget.onSubmit(_digits);
+    if (_ready && widget.confirmEnabled) widget.onSubmit(_digits);
   }
 
   KeyEventResult _onKey(FocusNode _, KeyEvent event) {
@@ -173,9 +189,11 @@ class _PinPadState extends State<PinPad> {
               digit('0'),
               _Key(
                 kind: _KeyKind.confirm,
-                label: 'Confirmar',
+                label: widget.confirmLabel,
                 icon: Icons.arrow_forward_rounded,
-                onPressed: on && _ready ? _submit : null,
+                onPressed: on && _ready && widget.confirmEnabled
+                    ? _submit
+                    : null,
               ),
             ]),
           ],

@@ -15,6 +15,8 @@ class FamilyVideo {
     required this.minAgeBand,
     required this.hidden,
     this.provenance,
+    this.familySession = false,
+    this.resumeSeconds = 0,
   });
 
   factory FamilyVideo.fromJson(Map<String, dynamic> j) => FamilyVideo(
@@ -29,6 +31,8 @@ class FamilyVideo {
     provenance: j['provenance'] == null
         ? null
         : Provenance.fromJson(j['provenance'] as Map<String, dynamic>),
+    familySession: j['family_session'] as bool? ?? false,
+    resumeSeconds: (j['resume_seconds'] as num?)?.floor() ?? 0,
   );
 
   final String id;
@@ -44,6 +48,20 @@ class FamilyVideo {
   /// Hidden for this child by a guardian; unhiding brings it back.
   final bool hidden;
   final Provenance? provenance;
+
+  /// A long work the child watches only with the family, started by a
+  /// guardian; it stays off the child's own shelves.
+  final bool familySession;
+
+  /// For a family work, the second the child last stopped it at; 0 before
+  /// any stop, and for a video watched alone.
+  final int resumeSeconds;
+
+  /// What is left to watch from where the child stopped.
+  Duration get left {
+    final rest = duration - Duration(seconds: resumeSeconds);
+    return rest.isNegative ? Duration.zero : rest;
+  }
 }
 
 /// A video of a pacotinho as a guardian sees it: [hidden] when it is

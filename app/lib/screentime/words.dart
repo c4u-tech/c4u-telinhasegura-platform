@@ -1,4 +1,3 @@
-import 'kid_time.dart';
 import 'screentime_api.dart';
 
 /// PT-BR words for a child's screen time, as the guardian reads it
@@ -19,31 +18,10 @@ abstract final class ScreenTimeWords {
   static int limit(ScreenTimeRules rules) =>
       rules.dailyMinutes + rules.today.extensionMinutes;
 
-  /// Today's state on the children's list.
-  static String state(ScreenTimeRules rules) =>
-      switch (rules.today.time.state) {
-        KidTimeState.ok =>
-          '${rules.today.used.inMinutes} de ${limit(rules)} min hoje',
-        KidTimeState.timeUp => 'Acabou por hoje',
-        KidTimeState.outsideWindow => 'Fora do horário',
-      };
-
-  /// The hub's line for today.
-  static String today(ScreenTimeRules rules) {
-    final used = rules.today.used.inMinutes;
-    if (used < 1) return 'Ainda não assistiu hoje.';
-    return 'Assistiu $used min de ${limit(rules)}.';
-  }
-
-  /// The hub's second line, only when today has an extension.
-  static String? extension(ScreenTimeRules rules) =>
-      rules.today.extensionMinutes > 0
-      ? 'Mais ${rules.today.extensionMinutes} min dados hoje.'
-      : null;
-
-  /// "90 min por dia · das 08:00 às 19:30".
+  /// "90 min por dia · das 08:00 às 19:30", its dot glued to both
+  /// neighbours so it never ends or opens a line.
   static String rules(ScreenTimeRules rules) =>
-      '${rules.dailyMinutes} min por dia · das ${rules.windowStart} às '
+      '${rules.dailyMinutes} min por dia\u00A0·\u00A0das ${rules.windowStart} às '
       '${rules.windowEnd}';
 
   static const _weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];

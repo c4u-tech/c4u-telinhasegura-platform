@@ -73,3 +73,15 @@ func TestDecideDoubtOverHTTP(t *testing.T) {
 		t.Fatalf("a stale re-auth: %d %q", r.Code, r.problemCode())
 	}
 }
+
+func TestDecideDoubtKeepsALongVideoFromTheYoungestBandOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	mod := a.moderator(admin, "mia@example.com")
+	v := a.doubtedBy(admin, ytID)
+	a.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, v, int((61 * time.Minute).Seconds()))
+	young := map[string]any{"decision": "approve", "theme": "musica", "min_age_band": "ate-4", "reason": "Sem risco no vídeo."}
+	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+v+"/decide", young, bearer(mod)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "checklist_band" {
+		t.Fatalf("2 to 4: %d %q", r.Code, r.problemCode())
+	}
+}

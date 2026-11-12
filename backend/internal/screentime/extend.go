@@ -39,45 +39,52 @@ func (s *Service) extend(ctx context.Context, m minor, minutes int, via, account
 	}
 	var t Time
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		r, err := rulesOf(ctx, tx, m)
-		if err != nil {
-			return err
-		}
-		loc, err := r.location()
-		if err != nil {
-			return err
-		}
-		now := s.now()
-		local := now.In(loc)
-		date := local.Format(time.DateOnly)
-		var d day
-		if err := tx.QueryRow(ctx, `INSERT INTO screentime_days (minor_id, day) VALUES ($1::uuid, $2::date)
-			ON CONFLICT (minor_id, day) DO UPDATE SET minor_id = EXCLUDED.minor_id
-			RETURNING seconds, outside_seconds, extension_minutes`, m.ID, date).Scan(&d.Seconds, &d.OutsideSeconds, &d.ExtensionMinutes); err != nil {
-			return err
-		}
-		if r.DailyMinutes+d.ExtensionMinutes+minutes > MaxDailyMinutes {
-			return ErrOverCap
-		}
-		if _, err := tx.Exec(ctx, `UPDATE screentime_days SET extension_minutes = extension_minutes + $3
-			WHERE minor_id = $1::uuid AND day = $2::date`, m.ID, date, minutes); err != nil {
-			return err
-		}
-		var account any
-		if validID(accountID) {
-			account = accountID
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO screentime_extensions (minor_id, day, minutes, via, account_id, created_at)
-			VALUES ($1::uuid, $2::date, $3, $4, $5::uuid, $6)`, m.ID, date, minutes, via, account, now); err != nil {
-			return err
-		}
-		d.ExtensionMinutes += minutes
-		t = stateAt(r, d, local)
-		return nil
+		var err error
+		t, err = s.extendTx(ctx, tx, m, minutes, via, accountID)
+		return err
 	})
 	if err != nil {
 		return Time{}, err
 	}
 	s.d.Audit.Record(ctx, accountID, audit.ScreenTimeExtended)
 	return t, nil
+}
+
+// extendTx is extend inside the caller's transaction, which audits the
+// grant once it commits. It answers the day state with the grant.
+func (s *Service) extendTx(ctx context.Context, tx pgx.Tx, m minor, minutes int, via, accountID string) (Time, error) {
+	r, err := rulesOf(ctx, tx, m)
+	if err != nil {
+		return Time{}, err
+	}
+	loc, err := r.location()
+	if err != nil {
+		return Time{}, err
+	}
+	now := s.now()
+	local := now.In(loc)
+	date := local.Format(time.DateOnly)
+	var d day
+	if err := tx.QueryRow(ctx, `INSERT INTO screentime_days (minor_id, day) VALUES ($1::uuid, $2::date)
+		ON CONFLICT (minor_id, day) DO UPDATE SET minor_id = EXCLUDED.minor_id
+		RETURNING seconds, outside_seconds, extension_minutes`, m.ID, date).Scan(&d.Seconds, &d.OutsideSeconds, &d.ExtensionMinutes); err != nil {
+		return Time{}, err
+	}
+	if r.DailyMinutes+d.ExtensionMinutes+minutes > MaxDailyMinutes {
+		return Time{}, ErrOverCap
+	}
+	if _, err := tx.Exec(ctx, `UPDATE screentime_days SET extension_minutes = extension_minutes + $3
+		WHERE minor_id = $1::uuid AND day = $2::date`, m.ID, date, minutes); err != nil {
+		return Time{}, err
+	}
+	var account any
+	if validID(accountID) {
+		account = accountID
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO screentime_extensions (minor_id, day, minutes, via, account_id, created_at)
+		VALUES ($1::uuid, $2::date, $3, $4, $5::uuid, $6)`, m.ID, date, minutes, via, account, now); err != nil {
+		return Time{}, err
+	}
+	d.ExtensionMinutes += minutes
+	return stateAt(r, d, local), nil
 }

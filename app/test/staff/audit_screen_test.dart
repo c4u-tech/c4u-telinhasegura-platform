@@ -40,34 +40,37 @@ Future<Harness> auditOf(
 }
 
 void main() {
-  testWidgets('"Auditoria" reads the muted line, then each action as a '
-      'read row, never a door', (tester) async {
-    final h = await auditOf(
-      tester,
-      (_) => auditPage([entry(2), entry(1, event: 'video_hidden')]),
-    );
+  testWidgets(
+    '"Registro da equipe" reads the muted line, then each action as a '
+    'read row, never a door',
+    (tester) async {
+      final h = await auditOf(
+        tester,
+        (_) => auditPage([entry(2), entry(1, event: 'video_hidden')]),
+      );
 
-    expect(find.text('Auditoria'), findsWidgets);
-    expect(find.text(intro), findsOneWidget);
-    expect(find.byType(AuditActionRow), findsNWidgets(2));
-    expect(
-      tester.getTopLeft(find.text('Conta buscada')).dy,
-      lessThan(tester.getTopLeft(find.text('Outra ação da equipe')).dy),
-    );
-    expect(
-      find.descendant(
-        of: find.byType(AuditActionRow),
-        matching: find.byType(InkWell),
-      ),
-      findsNothing,
-    );
-    expect(find.text('Ver mais'), findsNothing);
+      expect(find.text('Registro da equipe'), findsWidgets);
+      expect(find.text(intro), findsOneWidget);
+      expect(find.byType(AuditActionRow), findsNWidgets(2));
+      expect(
+        tester.getTopLeft(find.text('Conta buscada')).dy,
+        lessThan(tester.getTopLeft(find.text('Outra ação da equipe')).dy),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AuditActionRow),
+          matching: find.byType(InkWell),
+        ),
+        findsNothing,
+      );
+      expect(find.text('Ver mais'), findsNothing);
 
-    await tester.tap(find.text('Conta buscada'));
-    await tester.pumpAndSettle();
-    expect(h.location(tester), '/admin/auditoria');
-    expect(audits(h), ['GET /v1/admin/audit']);
-  });
+      await tester.tap(find.text('Conta buscada'));
+      await tester.pumpAndSettle();
+      expect(h.location(tester), '/admin/auditoria');
+      expect(audits(h), ['GET /v1/admin/audit']);
+    },
+  );
 
   testWidgets('"Ver mais" appends the next page while there is one', (
     tester,
@@ -130,12 +133,12 @@ void main() {
     );
   });
 
-  testWidgets('back goes to Administração', (tester) async {
+  testWidgets('back goes to Equipe', (tester) async {
     final h = await auditOf(tester, (_) => auditPage([]));
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/admin');
+    expect(h.location(tester), '/equipe');
   });
 }

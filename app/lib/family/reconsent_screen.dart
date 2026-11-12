@@ -18,7 +18,7 @@ import 'family_write.dart';
 import 'profile_fields.dart';
 import 'widgets.dart';
 
-/// What a child's row and hub say while the profile waits for a guardian
+/// What a child's row and page say while the profile waits for a guardian
 /// to authorize it again.
 const needsConsent = 'Precisa de nova autorização';
 

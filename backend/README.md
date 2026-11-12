@@ -74,13 +74,28 @@ Curation:
 - `YOUTUBE_SEARCH_DAILY_LIMIT`: the most YouTube searches made per day
   (default `95`); a positive integer.
 - `CURATION_MIN_APPROVALS` (default 2), `CURATION_MAX_DURATION`
-  (default `20m`) and `CURATION_REVISIT_DAYS` (default 180).
+  (default `45m`, the longest video a child may watch alone) and
+  `CURATION_REVISIT_DAYS` (default 180). `CURATION_YOUNGEST_MAX_DURATION`
+  (default `30m`) is the same ceiling for the youngest band and
+  `CURATION_LONG_FROM` (default `20m`) the length from which a video
+  counts as long. `CURATION_FAMILY_MAX_DURATION` (default `120m`) is the
+  longest video that can be approved, to watch with the family, and
+  `CURATION_FAMILY_YOUNGEST_MAX_DURATION` (default `60m`) its ceiling for
+  the youngest band. They must satisfy long-from <= youngest <= max <=
+  family-max and youngest <= family-youngest <= family-max.
 - `CATALOG_SHELF_SIZE` (default 12, at most 50): videos per theme on a
   child's shelf. `CURATION_REPORT_THRESHOLD` (default 3): distinct
   families whose reports hold a video for the admin.
 - `PACK_MAX_DURATION` (default `20m`): the longest total a pacotinho's
   videos may run. `PACK_ROW_SIZE` (default 6, from 1 to 12): pacotinhos in
   a child's row, chosen by the daily rotation.
+- `LEGAL_GRACE_UNTIL` (default `2026-11-25`): a date, read as the end of
+  that day in São Paulo, until which the previous terms of use and the
+  previous consent text still count as accepted, so families on an app
+  that still shows them keep working while the new app reaches the
+  stores. Starting a family session always asks for the current consent
+  text. Set but empty means no grace; an invalid date stops the API from
+  starting.
 
 Privileged MFA:
 

@@ -104,7 +104,7 @@ func serve(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	cfg, err := config.Load(os.Getenv)
+	cfg, err := config.LoadLookup(os.LookupEnv)
 	if err != nil {
 		return err
 	}
@@ -140,6 +140,7 @@ func serve(log *slog.Logger) error {
 		IDTokens:   idTokens,
 		Now:        now,
 		AppBaseURL: cfg.AppBaseURL,
+		GraceUntil: cfg.LegalGraceUntil,
 	})
 	fam := family.NewService(family.Deps{
 		Pool:          pool,
@@ -150,17 +151,18 @@ func serve(log *slog.Logger) error {
 		InviteLimiter: ratelimit.New(20, 24*time.Hour, now),
 		TokenLimiter:  ratelimit.New(10, time.Minute, now),
 		Log:           log,
+		GraceUntil:    cfg.LegalGraceUntil,
 	})
 	par := parental.NewService(parental.Deps{
-		Pool:           pool,
-		Mail:           outbox,
-		Audit:          auditStore,
-		Now:            now,
-		Hash:           identity.DefaultHashParams,
-		AppBaseURL:     cfg.AppBaseURL,
-		CodeLimiter:    ratelimit.New(20, time.Hour, now),
-		Log:            log,
-		ConsentVersion: family.ConsentPolicyVersion,
+		Pool:        pool,
+		Mail:        outbox,
+		Audit:       auditStore,
+		Now:         now,
+		Hash:        identity.DefaultHashParams,
+		AppBaseURL:  cfg.AppBaseURL,
+		CodeLimiter: ratelimit.New(20, time.Hour, now),
+		Log:         log,
+		Consent:     family.ConsentVersion(cfg.LegalGraceUntil),
 	})
 	var videos curation.VideoSource // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
 	if cfg.YouTubeAPIKey != "" {
@@ -200,26 +202,30 @@ func serve(log *slog.Logger) error {
 		BaseURL: curation.ThumbBaseURL,
 	}
 	cur := curation.NewService(curation.Deps{
-		Pool:              pool,
-		Audit:             auditStore,
-		Now:               now,
-		Source:            videos,
-		Search:            search,
-		SearchLimiter:     ratelimit.New(20, 24*time.Hour, now),
-		SearchBudget:      ratelimit.NewDaily(cfg.YouTubeSearchDailyLimit, pacific, now),
-		SuggestLimiter:    ratelimit.New(10, 24*time.Hour, now),
-		MinApprovals:      cfg.CurationMinApprovals,
-		MaxDuration:       cfg.CurationMaxDuration,
-		RevisitAfter:      time.Duration(cfg.CurationRevisitDays) * 24 * time.Hour,
-		Thumbs:            thumbs,
-		ShelfSize:         cfg.CatalogShelfSize,
-		PackMaxDuration:   cfg.PackMaxDuration,
-		PackRowSize:       cfg.PackRowSize,
-		ReportLimiter:     ratelimit.New(20, 24*time.Hour, now),
-		ReportThreshold:   cfg.CurationReportThreshold,
-		CheckVideoLimiter: ratelimit.New(1, time.Hour, now),
-		CheckChildLimiter: ratelimit.New(10, time.Hour, now),
-		Log:               log,
+		Pool:                      pool,
+		Audit:                     auditStore,
+		Now:                       now,
+		Source:                    videos,
+		Search:                    search,
+		SearchLimiter:             ratelimit.New(20, 24*time.Hour, now),
+		SearchBudget:              ratelimit.NewDaily(cfg.YouTubeSearchDailyLimit, pacific, now),
+		SuggestLimiter:            ratelimit.New(10, 24*time.Hour, now),
+		MinApprovals:              cfg.CurationMinApprovals,
+		MaxDuration:               cfg.CurationMaxDuration,
+		YoungestMaxDuration:       cfg.CurationYoungestMaxDuration,
+		FamilyMaxDuration:         cfg.CurationFamilyMaxDuration,
+		FamilyYoungestMaxDuration: cfg.CurationFamilyYoungestMaxDuration,
+		LongFrom:                  cfg.CurationLongFrom,
+		RevisitAfter:              time.Duration(cfg.CurationRevisitDays) * 24 * time.Hour,
+		Thumbs:                    thumbs,
+		ShelfSize:                 cfg.CatalogShelfSize,
+		PackMaxDuration:           cfg.PackMaxDuration,
+		PackRowSize:               cfg.PackRowSize,
+		ReportLimiter:             ratelimit.New(20, 24*time.Hour, now),
+		ReportThreshold:           cfg.CurationReportThreshold,
+		CheckVideoLimiter:         ratelimit.New(1, time.Hour, now),
+		CheckChildLimiter:         ratelimit.New(10, time.Hour, now),
+		Log:                       log,
 	})
 	st := screentime.NewService(screentime.Deps{Pool: pool, Audit: auditStore, Now: now, BeatLimiter: ratelimit.New(20, time.Minute, now), PlayLimiter: ratelimit.New(30, time.Minute, now)})
 	stf := staff.NewService(staff.Deps{Pool: pool, Audit: auditStore, Now: now, MFAKey: cfg.StaffMFAKey,

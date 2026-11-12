@@ -45,8 +45,9 @@ class PlayerStrayed extends PlayerEvent {
 /// embed, so widget tests run without a WebView.
 abstract interface class KidPlayer {
   /// A player for [youtubeId] that starts on its own: the child's tap on
-  /// the thumbnail was the choice.
-  KidPlayback open(String youtubeId);
+  /// the thumbnail was the choice. [start] is the second it starts at: a
+  /// long work watched with the family picks up where it stopped.
+  KidPlayback open(String youtubeId, {int start = 0});
 }
 
 /// One open player.
@@ -55,6 +56,9 @@ abstract interface class KidPlayback {
   Widget get view;
 
   Stream<PlayerEvent> get events;
+
+  /// Where the video is now, in whole seconds.
+  Future<int> position();
 
   Future<void> play();
 

@@ -11,7 +11,6 @@ import '../design/field_layout.dart';
 import '../design/tokens.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import 'confirm.dart';
 import 'family.dart';
 import 'family_model.dart';
 import 'family_write.dart';
@@ -22,8 +21,8 @@ import 'widgets.dart';
 /// Under "Salvar" while nothing differs from the stored profile.
 const unchangedHint = 'Altere um campo para salvar.';
 
-/// `/familia/criancas/:id`: the child's three fields to edit, and
-/// "Excluir perfil". Only what changed is
+/// `/familia/criancas/:id/editar`: the child's three fields to edit,
+/// opened from the child's page and returning to it. Only what changed is
 /// sent; an unknown stored avatar or band is shown, never sent back.
 class ChildScreen extends StatefulWidget {
   const ChildScreen({super.key, required this.id});
@@ -45,8 +44,8 @@ class _ChildScreenState extends State<ChildScreen> {
   Avatar? _avatar;
   AgeBand? _band;
 
-  /// Set once the screen hands back to the list: the child vanishing
-  /// from the family is then expected, not news.
+  /// Set once the screen hands back: the child vanishing from the family
+  /// is then expected, not news.
   bool _leaving = false;
 
   @override
@@ -112,31 +111,10 @@ class _ChildScreenState extends State<ChildScreen> {
       ),
       handle: _gone,
     );
-    if (ok) await _toList();
-  }
-
-  Future<void> _delete() async {
-    final api = AppScope.of(context).family;
-    final nickname = _stored!.nickname;
-    final confirmed = await confirmDestructive(
-      context,
-      title: 'Excluir perfil',
-      body: [
-        'O perfil de $nickname será apagado na hora: o apelido, o avatar, '
-            'a faixa de idade e o que a criança assistiu, os vídeos e os '
-            'totais de tempo de tela.',
-        'O consentimento que você deu para o cadastro é retirado. Guardamos '
-            'apenas o registro de que você consentiu e quando, sem nenhum '
-            'dado da criança.',
-      ],
-      action: 'Excluir perfil',
-    );
-    if (!confirmed || !mounted) return;
-    final ok = await _write.write(
-      () => api.deleteMinor(widget.id),
-      handle: _gone,
-    );
-    if (ok) await _toList();
+    if (!ok || !mounted) return;
+    _leaving = true;
+    await _model.refresh();
+    if (mounted) context.go(Routes.child(widget.id));
   }
 
   @override
@@ -156,7 +134,7 @@ class _ChildScreenState extends State<ChildScreen> {
       if (minor != null && _stored == null) _fill(minor);
       return FieldLayout(
         title: 'Editar perfil',
-        onBack: () => context.go(Routes.children),
+        onBack: () => context.go(Routes.child(widget.id)),
         children: switch (_stored) {
           final stored? => _form(stored),
           null => familyPending(_model),
@@ -217,12 +195,6 @@ class _ChildScreenState extends State<ChildScreen> {
         onPressed: _changed && idle ? _save : null,
       ),
       SubmitHint(unchangedHint, visible: !_changed),
-      const SizedBox(height: Space.xxl),
-      QuietAction(
-        label: 'Excluir perfil',
-        destructive: true,
-        onPressed: idle ? _delete : null,
-      ),
     ];
   }
 }

@@ -234,7 +234,7 @@ void main() {
     expect(h.location(tester), '/crianca');
   });
 
-  testWidgets('pin_not_set returns to the guide at Passo 1 de 2', (
+  testWidgets('pin_not_set opens the first run at the PIN, for that child', (
     tester,
   ) async {
     final h = await handOver(
@@ -246,9 +246,9 @@ void main() {
 
     await tapOn(tester, find.text('Entregar para Lia'));
 
-    expect(h.location(tester), '/modo-crianca');
+    expect(h.location(tester), '/comecar?crianca=m1');
     final step = tester.widget<StepMarks>(find.byType(StepMarks));
-    expect((step.step, step.of), (1, 2));
+    expect((step.step, step.of), (2, 3));
     expect(h.services.appMode.mode, const Guardian());
   });
 

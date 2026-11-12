@@ -29,6 +29,7 @@ Future<Harness> refusing(
   required String code,
   required bool Function(http.Request req) refuses,
   FutureOr<http.Response>? Function(http.Request req)? answer,
+  List<String> roles = const ['admin', 'moderator'],
 }) async {
   final seen = <String>{};
   final h =
@@ -53,7 +54,7 @@ Future<Harness> refusing(
           ),
         )
         ..family = ownerFamily
-        ..roles = ['admin', 'moderator'];
+        ..roles = roles;
   await h.pump(tester, initial: initial);
   return h;
 }
@@ -108,9 +109,9 @@ void main() {
       ('/admin/equipe/a2', '/v1/admin/staff', 'Tirar da curadoria'),
       ('/moderacao/retidos', '/v1/moderation/videos', 'Vídeos retidos'),
       ('/moderacao/retidos/v1', '/v1/moderation/videos', 'Remover de vez'),
-      ('/admin/pacotinhos', '/v1/admin/packs', 'Nenhum pacotinho ainda.'),
-      ('/admin/pacotinhos/p1', '/v1/admin/packs/p1', 'Remover de vez'),
-      ('/admin', '/v1/admin/metrics', 'Contas'),
+      ('/pacotinhos', '/v1/admin/packs', 'Nenhum pacotinho ainda.'),
+      ('/pacotinhos/p1', '/v1/admin/packs/p1', 'Remover de vez'),
+      ('/admin/numeros', '/v1/admin/metrics', 'Contas'),
       ('/admin/auditoria', '/v1/admin/audit', 'Nenhuma ação da equipe ainda.'),
     ]) {
       testWidgets('$initial: elevation_required shows the challenge, then '
@@ -168,32 +169,12 @@ void main() {
       expect(find.text('Nomear alguém'), findsOneWidget);
     });
 
-    testWidgets('the Administração counts refused together ask once, then '
-        'each is read again', (tester) async {
-      final h = await refusing(
-        tester,
-        initial: '/admin',
-        code: 'elevation_required',
-        refuses: (req) => req.method == 'GET',
-      );
-
-      expect(find.text(challengeTitle), findsOneWidget);
-      await pass(tester);
-
-      expect(sent(h, 'POST /v1/staff/mfa/challenge'), hasLength(1));
-      expect(sent(h, 'GET /v1/admin/staff'), hasLength(2));
-      expect(sent(h, 'GET /v1/moderation/videos'), hasLength(2));
-      expect(sent(h, 'GET /v1/admin/packs'), hasLength(2));
-      expect(sent(h, 'GET /v1/admin/metrics'), hasLength(2));
-      expect(find.text('2 pessoas'), findsOneWidget);
-    });
-
     testWidgets('"Ver mais" refused asks, then reads the page again', (
       tester,
     ) async {
       final h = await refusing(
         tester,
-        initial: '/admin/pacotinhos',
+        initial: '/pacotinhos',
         code: 'elevation_required',
         refuses: (req) =>
             req.url.path == '/v1/admin/packs' &&
@@ -426,7 +407,7 @@ void main() {
       const remove = '/v1/admin/packs/p1/remove';
       final h = await refusing(
         tester,
-        initial: '/admin/pacotinhos/p1',
+        initial: '/pacotinhos/p1',
         code: 'elevation_required',
         refuses: post(remove),
       );
@@ -436,7 +417,28 @@ void main() {
       await pass(tester);
 
       expect(sent(h, 'POST $remove'), hasLength(2));
-      expect(h.location(tester), '/admin/pacotinhos');
+      expect(h.location(tester), '/pacotinhos');
+    });
+
+    testWidgets('an admin who curates removes from the review screen, '
+        'asked the same way', (tester) async {
+      const remove = '/v1/admin/packs/p1/remove';
+      final h = await refusing(
+        tester,
+        initial: '/pacotinhos/p1',
+        code: 'elevation_required',
+        refuses: post(remove),
+        roles: ['admin', 'curator'],
+      );
+      expect(find.text('Revisar pacotinho'), findsWidgets);
+
+      await tapOn(tester, find.widgetWithText(QuietAction, 'Remover de vez'));
+      await tapOn(tester, confirming('Remover de vez'));
+      expect(find.text(challengeTitle), findsOneWidget);
+      await pass(tester);
+
+      expect(sent(h, 'POST $remove'), hasLength(2));
+      expect(h.location(tester), '/pacotinhos');
     });
   });
 }

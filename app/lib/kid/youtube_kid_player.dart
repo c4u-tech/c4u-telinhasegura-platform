@@ -91,6 +91,20 @@ KidNavigation decideNavigation(
   return KidNavigation.block;
 }
 
+/// Where the embed says the video is, in whole seconds. An answer that is
+/// not a time (empty, undefined, negative) is an error, never the start.
+int parsePosition(Object? raw) {
+  final seconds = switch (raw) {
+    final num n => n.toDouble(),
+    final String s => double.tryParse(s),
+    _ => null,
+  };
+  if (seconds == null || !seconds.isFinite || seconds < 0) {
+    throw FormatException('not a player position', '$raw');
+  }
+  return seconds.floor();
+}
+
 /// The production [KidPlayer]: the YouTube IFrame embed through
 /// `youtube_player_iframe`, with the package's own widget left out (its
 /// fullscreen gestures, overlay and placeholder thumbnail would break the
@@ -103,13 +117,14 @@ class YouTubeKidPlayer implements KidPlayer {
   final FrameHardener hardenFrame;
 
   @override
-  KidPlayback open(String youtubeId) {
+  KidPlayback open(String youtubeId, {int start = 0}) {
     final origin = appOrigin();
     return _YouTubePlayback(
       youtubeId,
       origin: origin,
       params: kidPlayerParams(origin: origin),
       autoplay: true,
+      start: start,
       hardenFrame: hardenFrame,
     );
   }
@@ -122,13 +137,14 @@ class YouTubeKidPlayer implements KidPlayer {
 /// [PlayerStrayed]; the screen decides (`followAdultPlayer`).
 class YouTubeAdultPlayer implements KidPlayer {
   @override
-  KidPlayback open(String youtubeId) {
+  KidPlayback open(String youtubeId, {int start = 0}) {
     final origin = appOrigin();
     return _YouTubePlayback(
       youtubeId,
       origin: origin,
       params: adultPlayerParams(origin: origin),
       autoplay: false,
+      start: start,
     );
   }
 }
@@ -139,6 +155,7 @@ class _YouTubePlayback implements KidPlayback {
     required String? origin,
     required YoutubePlayerParams params,
     required this._autoplay,
+    required this._start,
     FrameHardener? hardenFrame,
   }) {
     _controller = YoutubePlayerController(params: params, key: youtubeId);
@@ -174,7 +191,7 @@ class _YouTubePlayback implements KidPlayback {
     _values = _controller.stream.listen(_onValue);
     _loaded = safe;
     if (safe) {
-      unawaited(_start(params));
+      unawaited(_load(params));
     } else {
       _failed = true;
       // After the screen has subscribed to [events].
@@ -186,19 +203,22 @@ class _YouTubePlayback implements KidPlayback {
 
   final String youtubeId;
   final bool _autoplay;
+  final int _start;
   late final YoutubePlayerController _controller;
   late final StreamSubscription<YoutubePlayerValue> _values;
   final _events = StreamController<PlayerEvent>.broadcast();
   PlayerState _state = PlayerState.unknown;
   bool _failed = false;
   late final bool _loaded;
+  bool _closing = false;
 
-  Future<void> _start(YoutubePlayerParams params) async {
+  Future<void> _load(YoutubePlayerParams params) async {
     await _controller.initWithParams(params: params);
+    final start = _start > 0 ? _start.toDouble() : null;
     if (_autoplay) {
-      await _controller.loadVideoById(videoId: youtubeId);
+      await _controller.loadVideoById(videoId: youtubeId, startSeconds: start);
     } else {
-      await _controller.cueVideoById(videoId: youtubeId);
+      await _controller.cueVideoById(videoId: youtubeId, startSeconds: start);
     }
   }
 
@@ -236,6 +256,18 @@ class _YouTubePlayback implements KidPlayback {
   @override
   Stream<PlayerEvent> get events => _events.stream;
 
+  /// Asks the embed itself: the package's own `currentTime` reads an
+  /// answer it cannot parse as 0, which would send the video's start.
+  @override
+  Future<int> position() async {
+    if (_closing) throw StateError('the player is closed');
+    return parsePosition(
+      await _controller.webViewController.runJavaScriptReturningResult(
+        'player.getCurrentTime();',
+      ),
+    );
+  }
+
   @override
   Future<void> play() => _controller.playVideo();
 
@@ -244,6 +276,7 @@ class _YouTubePlayback implements KidPlayback {
 
   @override
   Future<void> close() async {
+    _closing = true;
     await _values.cancel();
     await _events.close();
     // A player that never loaded has nothing to stop, and would never

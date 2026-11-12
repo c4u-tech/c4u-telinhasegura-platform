@@ -32,6 +32,18 @@ const packsDaily = 'Mudam a cada dia, como as prateleiras.';
 /// Back on the child's catalogue when a pacotinho is not among today's.
 const packGone = 'Esse pacotinho não está mais entre os de hoje.';
 
+/// The section of the long works a child watches only with the family,
+/// and the line that closes it, its last word never alone on a line.
+const familyHeading = 'Para assistir junto';
+const familyNote =
+    'Filmes e histórias longas. Começam só com você, pelo${_nbsp}PIN.';
+
+/// Under a family work's heading.
+const familyTogether = 'Melhor assistir junto.';
+
+/// Under a family work's primary, once the child stopped it partway.
+const familyResumes = 'Continua de onde parou.';
+
 /// A non-breaking hyphen: "mostrá‑lo" never parts at its hyphen.
 const _nbhy = '\u2011';
 
@@ -91,7 +103,7 @@ abstract final class CatalogWords {
   static String packCount(FamilyPack p, String nickname) {
     final playing = p.videos.where((v) => !v.hidden).toList();
     final total = p.videos.length;
-    return CurationWords.joined([
+    return CurationWords.tight([
       if (playing.length == total)
         CurationWords.videos(total)
       else
@@ -128,12 +140,6 @@ abstract final class CatalogWords {
     AgeBand.unknown => null,
   };
 
-  /// A child's row on the children's list.
-  static String bandRow(AgeBand band) => switch (_band(band)) {
-    final b? => 'Vídeos de $b',
-    null => 'Vídeos da faixa de idade da criança',
-  };
-
   /// An empty catalogue.
   static String empty(AgeBand band) => switch (_band(band)) {
     final b? => 'Ainda não há vídeos aprovados para crianças de $b.',
@@ -150,6 +156,46 @@ abstract final class CatalogWords {
 
   static String show(String nickname) => 'Mostrar para $nickname de novo';
 
+  /// A family work's primary: the start, with the PIN, for [nickname].
+  static String watchWith(String nickname) => 'Assistir com $nickname';
+
+  /// The start of a family work: the PIN's heading and the pad's key.
+  static const pinHeading = 'PIN dos pais';
+  static const begin = 'Começar';
+
+  /// The choice of going without more time today.
+  static const noMoreTime = 'Sem mais tempo';
+
+  /// What is left of [nickname]'s day, said before the start.
+  static String dayLeft(String nickname, Duration left) =>
+      'Hoje $nickname ainda tem ${CurationWords.duration(left)}.';
+
+  /// The server refused a start: the day has no time now.
+  static String notNow(String nickname) => 'Agora não é hora para $nickname.';
+
+  /// The day as read before the start, when it has no time now: spent, or
+  /// outside the hours (more time lifts either).
+  static String daySpent(String nickname) =>
+      'Hoje o tempo de $nickname acabou.';
+
+  static String outsideHours(String nickname) =>
+      'Agora está fora do horário de $nickname.';
+
+  /// How much more the work needs than the day leaves; the length stays
+  /// with its verb on a line. Outside the hours it is said for now.
+  static String toFit(Duration missing) =>
+      'Para caber hoje, faltam$_nbsp${CurationWords.duration(missing)}.';
+
+  static String toFitNow(Duration missing) =>
+      'Para caber agora, faltam$_nbsp${CurationWords.duration(missing)}.';
+
+  /// What is left of a work stopped partway, in its length's place.
+  static String workLeft(Duration left) =>
+      'Faltam ${CurationWords.duration(left)} do filme';
+
+  /// No more time today could make the work fit.
+  static const noFit = 'Esse filme não cabe mais hoje.';
+
   /// The notices once it is done.
   static String hidden(String nickname) =>
       '$nickname não vai mais ver este vídeo.';
@@ -157,6 +203,6 @@ abstract final class CatalogWords {
   static String shown(String nickname) =>
       '$nickname pode ver este vídeo de novo.';
 
-  /// The report's way back.
-  static String backTo(String nickname) => 'Voltar para os vídeos de $nickname';
+  /// The report's way back, to the child's page.
+  static String backTo(String nickname) => 'Voltar para $nickname';
 }

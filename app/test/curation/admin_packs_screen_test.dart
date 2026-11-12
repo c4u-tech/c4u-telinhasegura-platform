@@ -13,14 +13,13 @@ import '../access/harness.dart';
 import '../family/fixtures.dart';
 import 'fixtures.dart';
 import 'appoint_screen_test.dart' show tapOn;
-import 'queue_screen_test.dart' show goTo;
 
 Future<Harness> adminPacks(
   WidgetTester tester, {
   FutureOr<http.Response> Function(http.Request)? list,
   FutureOr<http.Response> Function(String id)? pack,
   FutureOr<http.Response> Function(http.Request)? remove,
-  String initial = '/admin/pacotinhos',
+  String initial = '/pacotinhos',
 }) async {
   final packs = packApi(list: list, pack: pack, write: remove);
   final h =
@@ -47,44 +46,110 @@ int listReads(Harness h) => h.actions
 Finder get removeForGood => find.widgetWithText(QuietAction, 'Remover de vez');
 
 void main() {
-  group('the admin door', () {
-    testWidgets('"Pacotinhos" follows "Vídeos retidos" with its count and '
-        'opens the list', (tester) async {
+  group('the one area', () {
+    testWidgets('an admin who is not a curator reaches it from Equipe\'s '
+        '"Pacotinhos", read through the admin\'s routes', (tester) async {
       final h = await adminPacks(
         tester,
-        initial: '/admin',
-        list: (_) =>
-            packPage([packOf('p1', 'Hora do banho'), packOf('p2', 'Bichos')]),
+        initial: '/equipe',
+        list: (_) => packPage([packOf('p1', 'Hora do banho')]),
       );
 
-      expect(find.widgetWithText(DoorRow, 'Pacotinhos'), findsOneWidget);
-      expect(find.text('2 pacotinhos'), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.text('Vídeos retidos')).dy,
-        lessThan(tester.getTopLeft(find.text('Pacotinhos')).dy),
-      );
-      await tapOn(tester, find.text('Pacotinhos'));
-      expect(h.location(tester), '/admin/pacotinhos');
+      await tapOn(tester, find.widgetWithText(DoorRow, 'Pacotinhos'));
+
+      expect(h.location(tester), '/pacotinhos');
+      expect(find.text('Hora do banho'), findsOneWidget);
+      expect(h.actions, contains('GET /v1/admin/packs'));
+      expect(h.actions, isNot(contains('GET /v1/curation/packs')));
+      // Composing stays the curators'.
+      expect(find.text('Montar um pacotinho'), findsNothing);
     });
 
-    testWidgets('a first page with more reads "Mais de N pacotinhos"; one '
-        'reads "1 pacotinho"', (tester) async {
-      var more = true;
-      await adminPacks(
-        tester,
-        initial: '/admin',
-        list: (_) => more
-            ? packPage([packOf('p1', 'A'), packOf('p2', 'B')], hasMore: true)
-            : packPage([packOf('p1', 'A')]),
-      );
-      expect(find.text('Mais de 2 pacotinhos'), findsOneWidget);
+    for (final (from, to) in [
+      ('/admin/pacotinhos', '/pacotinhos'),
+      ('/admin/pacotinhos/p1', '/pacotinhos/p1'),
+    ]) {
+      testWidgets('the old $from leads to $to', (tester) async {
+        final h = await adminPacks(tester, initial: from);
 
-      more = false;
-      goTo(tester, '/admin/equipe');
-      await tester.pumpAndSettle();
-      goTo(tester, '/admin');
-      await tester.pumpAndSettle();
-      expect(find.text('1 pacotinho'), findsOneWidget);
+        expect(h.location(tester), to);
+      });
+    }
+
+    for (final path in [
+      '/pacotinhos/novo',
+      '/pacotinhos/p1/aprovar',
+      '/pacotinhos/p1/mudar',
+    ]) {
+      testWidgets('$path stays the curators\': an admin goes home', (
+        tester,
+      ) async {
+        final h = await adminPacks(tester, initial: path);
+
+        expect(h.location(tester), '/');
+      });
+    }
+  });
+
+  group('an admin who is also a curator', () {
+    Future<Harness> both(
+      WidgetTester tester, {
+      List<String> roles = const ['admin', 'curator'],
+      FutureOr<http.Response> Function(http.Request)? remove,
+    }) async {
+      final packs = packApi(write: remove);
+      final h =
+          Harness(
+              signedIn: true,
+              api: (req) => req.url.path.contains('/packs')
+                  ? packs(req)
+                  : adminApi()(req),
+            )
+            ..family = ownerFamily
+            ..roles = roles;
+      await h.pump(tester, initial: '/pacotinhos/p1');
+      return h;
+    }
+
+    testWidgets('reviews and removes on the same pacotinho\'s screen', (
+      tester,
+    ) async {
+      final h = await both(tester);
+
+      expect(find.text('Revisar pacotinho'), findsWidgets);
+      expect(find.text('Aprovar'), findsOneWidget);
+      expect(h.actions, contains('GET /v1/curation/packs/p1'));
+      expect(
+        tester.getTopLeft(removeForGood).dy,
+        greaterThan(
+          tester
+              .getTopLeft(find.widgetWithText(QuietAction, 'Mudar o pacotinho'))
+              .dy,
+        ),
+      );
+
+      await tapOn(tester, removeForGood);
+      await tapOn(
+        tester,
+        find.descendant(
+          of: find.byType(DestructiveConfirmation),
+          matching: find.widgetWithText(FilledButton, 'Remover de vez'),
+        ),
+      );
+
+      expect(writes(h), ['POST /v1/admin/packs/p1/remove']);
+      expect(h.location(tester), '/pacotinhos');
+      expect(
+        find.widgetWithText(Notice, packRemoved('Hora do banho')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a curator who is not an admin has no removal', (tester) async {
+      await both(tester, roles: ['curator']);
+
+      expect(find.text('Aprovar'), findsOneWidget);
+      expect(removeForGood, findsNothing);
     });
   });
 
@@ -106,7 +171,7 @@ void main() {
       expect(find.textContaining('para você'), findsNothing);
 
       await tapOn(tester, find.text('Hora do banho'));
-      expect(h.location(tester), '/admin/pacotinhos/p1');
+      expect(h.location(tester), '/pacotinhos/p1');
     });
 
     testWidgets('"Ver mais" appends the next page', (tester) async {
@@ -137,7 +202,7 @@ void main() {
       FutureOr<http.Response> Function(http.Request)? remove,
     }) => adminPacks(
       tester,
-      initial: '/admin/pacotinhos/p1',
+      initial: '/pacotinhos/p1',
       pack: (_) => json(
         200,
         pack ??
@@ -209,7 +274,7 @@ void main() {
       );
 
       expect(writes(h), ['POST /v1/admin/packs/p1/remove']);
-      expect(h.location(tester), '/admin/pacotinhos');
+      expect(h.location(tester), '/pacotinhos');
       expect(
         find.widgetWithText(Notice, packRemoved('Hora do banho')),
         findsOneWidget,
@@ -223,7 +288,7 @@ void main() {
       await tapOn(tester, find.text('Cancelar'));
 
       expect(writes(h), isEmpty);
-      expect(h.location(tester), '/admin/pacotinhos/p1');
+      expect(h.location(tester), '/pacotinhos/p1');
     });
 
     testWidgets('state_conflict goes back to the list, read again, saying '
@@ -236,7 +301,7 @@ void main() {
       await tapOn(tester, removeForGood);
       await tapOn(tester, find.widgetWithText(FilledButton, 'Remover de vez'));
 
-      expect(h.location(tester), '/admin/pacotinhos');
+      expect(h.location(tester), '/pacotinhos');
       expect(find.widgetWithText(Notice, packAlreadyRemoved), findsOneWidget);
       expect(listReads(h), 1);
     });
@@ -263,7 +328,7 @@ void main() {
             )
             ..family = ownerFamily
             ..roles = ['admin'];
-      await h.pump(tester, initial: '/admin/pacotinhos/p1');
+      await h.pump(tester, initial: '/pacotinhos/p1');
 
       await tapOn(tester, removeForGood);
       await tapOn(tester, find.widgetWithText(FilledButton, 'Remover de vez'));
@@ -278,17 +343,17 @@ void main() {
         'POST /v1/session/reauth',
         'POST /v1/admin/packs/p1/remove',
       ]);
-      expect(h.location(tester), '/admin/pacotinhos');
+      expect(h.location(tester), '/pacotinhos');
     });
 
     testWidgets('not_found on the read goes back to the list', (tester) async {
       final h = await adminPacks(
         tester,
-        initial: '/admin/pacotinhos/p1',
+        initial: '/pacotinhos/p1',
         pack: (_) => problem(404, 'not_found'),
       );
 
-      expect(h.location(tester), '/admin/pacotinhos');
+      expect(h.location(tester), '/pacotinhos');
       expect(find.widgetWithText(Notice, packGone), findsOneWidget);
     });
   });

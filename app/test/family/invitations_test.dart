@@ -173,13 +173,13 @@ void main() {
       expect(findAddress('carla@example.com'), findsNothing);
     });
 
-    testWidgets('back returns to the family home', (tester) async {
+    testWidgets('back returns to Família', (tester) async {
       final h = await invitations(tester);
 
       await tester.tap(find.byTooltip('Voltar'));
       await tester.pumpAndSettle();
 
-      expect(h.location(tester), '/');
+      expect(h.location(tester), '/familia');
     });
   });
 
@@ -305,8 +305,9 @@ void main() {
       );
       expect(h.location(tester), '/');
       expect(find.text(notOwner), findsOneWidget);
-      await tapOn(tester, find.text('Responsáveis'));
-      await tapOn(tester, find.byTooltip('Voltar'));
+      // Away to Família and back: the notice was said once.
+      await tapOn(tester, find.text('Família'));
+      await tapOn(tester, find.text('Início'));
       expect(h.location(tester), '/');
       expect(find.text(notOwner), findsNothing);
     });

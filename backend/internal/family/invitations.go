@@ -275,7 +275,7 @@ func (s *Service) accept(ctx context.Context, accountID string,
 		if err != nil {
 			return err
 		}
-		f, err = loadFamily(ctx, tx, inv.FamilyID, Guardian, now)
+		f, err = loadFamily(ctx, tx, inv.FamilyID, Guardian, now, s.consent().Accepted(now))
 		return err
 	})
 	if err != nil {

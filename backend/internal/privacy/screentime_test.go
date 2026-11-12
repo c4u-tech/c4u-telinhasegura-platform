@@ -26,6 +26,10 @@ func screenTimeRows(f *fixture) (ana, bia, fam, lia string) {
 		VALUES ($1::uuid, '2026-10-04', 15, 'guardian', $2::uuid, $3)`, lia, bia, f.now)
 	f.exec(`INSERT INTO plays (minor_id, video_id, started_at, last_beat_at, playing, seconds)
 		VALUES ($1::uuid, $2::uuid, $3, $3, false, 300)`, lia, video, f.now)
+	f.exec(`INSERT INTO play_positions (minor_id, video_id, position_seconds, updated_at) VALUES ($1::uuid, $2::uuid, 1200, $3)`,
+		lia, video, f.now)
+	f.exec(`INSERT INTO family_sessions (minor_id, video_id, account_id, created_at, expires_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $4)`, lia, video, bia, f.now)
 	return ana, bia, fam, lia
 }
 
@@ -42,6 +46,8 @@ func TestExportScreenTime(t *testing.T) {
 		`"screen_time_days":[{"minor_id":"` + lia + `","date":"2026-10-04","seconds":1800,"outside_seconds":0,"extension_minutes":15}]`,
 		`"screen_time_extensions":[{"minor_id":"` + lia + `","date":"2026-10-04","minutes":15,"via":"guardian"`,
 		`"plays":[{"minor_id":"` + lia + `","youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","started_at":"2026-10-04T12:00:00Z","seconds":300}]`,
+		`"play_positions":[{"minor_id":"` + lia + `","youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","position_seconds":1200,"updated_at":"2026-10-04T12:00:00Z"}]`,
+		`"family_sessions":[{"minor_id":"` + lia + `","youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","created_at":"2026-10-04T12:00:00Z","expires_at":"2026-10-04T12:00:00Z","used_at":null}]`,
 	} {
 		if !strings.Contains(js, key) {
 			t.Errorf("missing %s in %s", key, js)
@@ -56,11 +62,13 @@ func TestErasingScreenTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.count(`SELECT count(*) FROM screentime_rules WHERE updated_by IS NULL`) != 1 ||
-		f.count(`SELECT count(*) FROM screentime_extensions WHERE account_id IS NULL`) != 1 {
+		f.count(`SELECT count(*) FROM screentime_extensions WHERE account_id IS NULL`) != 1 ||
+		f.count(`SELECT count(*) FROM family_sessions WHERE account_id IS NULL`) != 1 {
 		t.Fatal("the erased guardian's rows were not kept without them")
 	}
 	f.exec(`DELETE FROM minors WHERE id = $1::uuid`, lia)
-	for _, table := range []string{"screentime_rules", "screentime_days", "screentime_extensions", "plays"} {
+	for _, table := range []string{"screentime_rules", "screentime_days", "screentime_extensions", "plays",
+		"play_positions", "family_sessions"} {
 		if n := f.count(`SELECT count(*) FROM ` + table); n != 0 {
 			t.Errorf("%d %s outlived the child", n, table)
 		}

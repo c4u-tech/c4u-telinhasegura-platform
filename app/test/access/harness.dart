@@ -268,6 +268,12 @@ class Harness {
       )
       .toList();
 
+  /// [actions] without the home's read of each child's day: for a test
+  /// about something else that lands on the home on its way.
+  List<String> get actionsPastHome => actions
+      .where((c) => !RegExp(r'^GET /v1/screentime/minors/[^/]+$').hasMatch(c))
+      .toList();
+
   /// The router's current location, query included.
   String location(WidgetTester tester) =>
       GoRouter.of(tester.element(find.byType(Scaffold).first))

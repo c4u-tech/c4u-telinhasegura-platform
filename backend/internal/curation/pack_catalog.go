@@ -53,8 +53,8 @@ func (p servedPack) coverOf() string {
 // packsFor chooses the packs child c gets today. A pack
 // is kept when it is approved, every approved video of its published
 // round is within the child's band (rank), and at least two of them are
-// playable: eligible for the child (approved, in band, not hidden, not
-// reported by the family). Videos that are not approved drop out of the
+// playable: eligible for the child (approved, in band, within the child's solo
+// ceiling, not hidden, not reported by the family). Videos that are not approved drop out of the
 // pack without blocking the band, and come back in place once approved
 // again. A video with no band is out of every band: it blocks the pack
 // rather than letting it through (bool_and skips NULLs). At most
@@ -66,7 +66,7 @@ func (s *Service) packsFor(ctx context.Context, q querier, c Child, rank int, lo
 	rows, err := q.Query(ctx, `WITH items AS (
 			SELECT p.id AS pack_id, p.published_round, p.last_reviewed_at, pr.title AS pack_title, pr.cover_video_id,
 				pr.composer_role, it.position, v.id AS video_id, v.title, v.duration_seconds,
-				coalesce((`+bandRankSQL+` <= $3), false) AS in_band, coalesce((`+eligible+`), false) AS playable
+				coalesce((`+s.bandRankSQL()+` <= $3), false) AS in_band, coalesce((`+s.eligibleSQL()+`), false) AS playable
 			FROM packs p
 			JOIN pack_rounds pr ON pr.pack_id = p.id AND pr.round = p.published_round
 			JOIN pack_items it ON it.pack_id = p.id AND it.round = p.published_round

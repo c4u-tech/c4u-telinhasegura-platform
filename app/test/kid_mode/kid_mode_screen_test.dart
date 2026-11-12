@@ -280,12 +280,12 @@ void main() {
     });
   });
 
-  testWidgets('back returns to the family home', (tester) async {
+  testWidgets('back returns to Família', (tester) async {
     final h = await kidMode(tester, pinSet: true);
 
     await open(tester, find.byTooltip('Voltar'));
 
-    expect(h.location(tester), '/');
+    expect(h.location(tester), '/familia');
   });
 
   testWidgets('coming back from a kid-mode screen reads the state again, '

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/design/theme.dart';
@@ -92,3 +93,11 @@ void expectAddressBreaks(List<String> lines) {
 /// Finds [address] set by the Plain Address Rule: shown with its break
 /// marks ([addressBreaks]), so a plain `find.text(address)` misses it.
 Finder findAddress(String address) => find.text(addressBreaks(address));
+
+/// The brand files a widget subtree loads, with the height each is shown at.
+List<(String, double?)> brandAssets(WidgetTester tester, Finder within) => [
+  for (final s in tester.widgetList<SvgPicture>(
+    find.descendant(of: within, matching: find.byType(SvgPicture)),
+  ))
+    ((s.bytesLoader as SvgAssetLoader).assetName, s.height),
+];

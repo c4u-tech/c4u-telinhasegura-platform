@@ -250,3 +250,44 @@ func TestKidPacksOfAGoneChild(t *testing.T) {
 		t.Fatalf("gone child: %v", err)
 	}
 }
+
+func TestATooLongVideoKeepsItsPackFromTheYoungestBand(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	bebe := f.minor(fam, family.AgeUpTo4)
+	a := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	b := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	long := f.published(nthID(3), "bichos", family.AgeUpTo4)
+	id := f.publishedPack(a, b, long)
+	if got := f.kidPacks(bebe); len(got) != 1 || got[0].ID != id {
+		t.Fatalf("before: %+v", got)
+	}
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((61 * time.Minute).Seconds()))
+	if got := f.kidPacks(bebe); len(got) != 0 {
+		t.Fatalf("a 61-minute video let a 2-to-4 child see the pack: %+v", got)
+	}
+	if got := f.kidPacks(lia); len(got) != 1 || got[0].ID != id {
+		t.Fatalf("5-8 child: %+v", got)
+	}
+}
+
+// A pack keeps every video a child may watch alone; one past that ceiling
+// only drops out of the child's list, as a hidden one does.
+func TestAPackServesOnlyVideosWithinTheSoloCeiling(t *testing.T) {
+	f := newFixture(t)
+	fam, _ := f.family("ana@example.com")
+	bebe := f.minor(fam, family.AgeUpTo4)
+	a := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	b := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	c := f.published(nthID(3), "bichos", family.AgeUpTo4)
+	id := f.publishedPack(a, b, c)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, a, int((30 * time.Minute).Seconds()))
+	if got := f.kidPacks(bebe); len(got) != 1 || got[0].ID != id || !slices.Equal(packVideoIDs(got[0]), []string{a, b, c}) {
+		t.Fatalf("within the solo ceiling: %+v", got)
+	}
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, a, int((40 * time.Minute).Seconds()))
+	if got := f.kidPacks(bebe); len(got) != 1 || !slices.Equal(packVideoIDs(got[0]), []string{b, c}) {
+		t.Fatalf("past the solo ceiling: %+v", got)
+	}
+}

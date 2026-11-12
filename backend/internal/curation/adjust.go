@@ -17,9 +17,15 @@ const familyPage = 50
 // FamilyVideo is a video as a guardian browses what one child can see,
 // with its provenance. Provenance never reaches a child.
 type FamilyVideo struct {
-	Video      Video
-	Hidden     bool
-	Provenance *Provenance
+	Video  Video
+	Hidden bool
+	// FamilySession marks a video longer than the child may watch alone:
+	// it plays only in a session with the family.
+	FamilySession bool
+	// ResumeSeconds is, for a family session's video, where this child
+	// last stopped it (0 before any stop); nil for a video watched alone.
+	ResumeSeconds *int
+	Provenance    *Provenance
 }
 
 // familyOf is the account's family; an account in none is ErrNotFound.
@@ -63,9 +69,10 @@ func liveVideo(ctx context.Context, q querier, videoID string) error {
 }
 
 // FamilyCatalog lists, by theme order then title, the approved videos
-// whose band fits the child and that the family has not reported, each
-// with whether it is hidden for the child and its provenance, in one
-// snapshot. more reports a further page at offset + 50.
+// whose band fits the child, within the length the child may watch with
+// the family, and that the family has not reported, each with whether it
+// is hidden for the child, whether it needs a family session (and then
+// where the child last stopped it) and its provenance, in one snapshot. more reports a further page at offset + 50.
 func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, offset int) ([]FamilyVideo, bool, error) {
 	if offset < 0 {
 		return nil, false, ErrValidation
@@ -80,9 +87,11 @@ func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, 
 		return nil, false, err
 	}
 	rows, err := tx.Query(ctx, `SELECT `+videoCols+`,
-			EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id)
-		FROM videos v WHERE v.state = 'approved' AND `+bandRankSQL+` <= $3
-		AND NOT EXISTS (SELECT 1 FROM video_reports r WHERE r.family_id = $2::uuid AND r.video_id = v.id)
+			EXISTS (SELECT 1 FROM video_hides h WHERE h.minor_id = $1::uuid AND h.video_id = v.id),
+			v.duration_seconds > `+s.soloCeilingSQL()+`,
+			CASE WHEN v.duration_seconds > `+s.soloCeilingSQL()+` THEN COALESCE(p.position_seconds, 0) END
+		FROM videos v LEFT JOIN play_positions p ON p.minor_id = $1::uuid AND p.video_id = v.id
+		WHERE `+s.shownSQL()+` AND v.duration_seconds <= `+s.familyCeilingSQL()+`
 		ORDER BY array_position($4::text[], v.theme), v.title, v.id LIMIT $5 OFFSET $6`,
 		c.MinorID, c.FamilyID, rank, themes, familyPage+1, offset)
 	if err != nil {
@@ -91,7 +100,7 @@ func (s *Service) FamilyCatalog(ctx context.Context, accountID, minorID string, 
 	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (FamilyVideo, error) {
 		var x FamilyVideo
 		var err error
-		x.Video, err = scanVideo(r, &x.Hidden)
+		x.Video, err = scanVideo(r, &x.Hidden, &x.FamilySession, &x.ResumeSeconds)
 		return x, err
 	})
 	if err != nil {

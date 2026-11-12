@@ -51,6 +51,29 @@ void main() {
     );
   });
 
+  test('a play names the play it continues only when given one', () async {
+    final t = build(
+      ClientKind.mobile,
+      (_) => json(201, {
+        'play_id': 'p2',
+        'youtube_id': 'yt1',
+        'remaining_seconds': 600,
+      }),
+    );
+    final api = ChildApi(
+      t.client,
+      devices: MemoryDeviceCredentialStore('dev-token'),
+    );
+
+    await api.play('v1');
+    await api.play('v1', continues: 'p1');
+
+    expect(t.calls, [
+      'POST /v1/child/plays {"video_id":"v1"}',
+      'POST /v1/child/plays {"video_id":"v1","continues":"p1"}',
+    ]);
+  });
+
   test('without one, child calls go through the session', () async {
     final seen = <http.Request>[];
     final t = build(ClientKind.web, childContract, seen: seen);

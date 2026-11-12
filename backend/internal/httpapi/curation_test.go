@@ -58,11 +58,14 @@ func (a *api) suggest(tok mobileTokens, id string) videoResp {
 	return decodeVideo(a.t, r)
 }
 
-// cleanAnswers answers every question of the current list with "ok".
+// cleanAnswers answers every question a short video is asked with "ok".
 func cleanAnswers() map[string]string {
 	out := map[string]string{}
 	for _, g := range curation.Checklist() {
 		for _, it := range g.Items {
+			if it.LongOnly {
+				continue
+			}
 			out[it.ID] = string(curation.AnswerOK)
 		}
 	}
