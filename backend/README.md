@@ -89,6 +89,13 @@ Curation:
 - `PACK_MAX_DURATION` (default `20m`): the longest total a pacotinho's
   videos may run. `PACK_ROW_SIZE` (default 6, from 1 to 12): pacotinhos in
   a child's row, chosen by the daily rotation.
+- `LEGAL_GRACE_UNTIL` (default `2026-11-25`): a date, read as the end of
+  that day in São Paulo, until which the previous terms of use and the
+  previous consent text still count as accepted, so families on an app
+  that still shows them keep working while the new app reaches the
+  stores. Starting a family session always asks for the current consent
+  text. Set but empty means no grace; an invalid date stops the API from
+  starting.
 
 Privileged MFA:
 

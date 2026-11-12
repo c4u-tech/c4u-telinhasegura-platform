@@ -29,7 +29,7 @@ func (s *Service) CreateMinor(ctx context.Context, accountID string, in MinorInp
 		if policyVersion == "" {
 			return ErrValidation
 		}
-		if policyVersion != ConsentPolicyVersion {
+		if !s.consent().Accepts(policyVersion, now) {
 			return ErrPolicyOutdated
 		}
 		m = Minor{Nickname: in.Nickname, Avatar: in.Avatar, AgeBand: in.AgeBand, CreatedAt: now, UpdatedAt: now, ConsentCurrent: true}
@@ -82,8 +82,8 @@ func (s *Service) UpdateMinor(ctx context.Context, accountID, minorID string, p 
 			WHERE id = $1::uuid AND family_id = $2::uuid
 			RETURNING id::text, nickname, avatar, age_band, created_at, updated_at,
 				EXISTS (SELECT 1 FROM minor_consents c WHERE c.minor_id = minors.id
-					AND c.policy_version = $7 AND c.withdrawn_at IS NULL)`,
-			minorID, st.FamilyID, p.Nickname, p.Avatar, band, now, ConsentPolicyVersion)
+					AND c.policy_version = ANY($7) AND c.withdrawn_at IS NULL)`,
+			minorID, st.FamilyID, p.Nickname, p.Avatar, band, now, s.consent().Accepted(now))
 		if err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (s *Service) DeleteMinor(ctx context.Context, accountID, minorID string) er
 }
 
 // GrantConsent records a guardian's authorization of a child's profile under
-// the current consent text, for a profile created under an older one.
+// a consent text in force, for a profile created under an older one.
 // Authorizing again under the same text changes nothing.
 func (s *Service) GrantConsent(ctx context.Context, accountID, minorID, policyVersion string) error {
 	now := s.now()
@@ -149,7 +149,7 @@ func (s *Service) GrantConsent(ctx context.Context, accountID, minorID, policyVe
 		if policyVersion == "" {
 			return ErrValidation
 		}
-		if policyVersion != ConsentPolicyVersion {
+		if !s.consent().Accepts(policyVersion, now) {
 			return ErrPolicyOutdated
 		}
 		var exists bool

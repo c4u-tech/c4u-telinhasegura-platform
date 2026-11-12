@@ -29,6 +29,9 @@ type fixture struct {
 	now   time.Time
 }
 
+// graceEnd is when the previous consent text stops counting in these tests.
+var graceEnd = time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC)
+
 func newFixture(t *testing.T) *fixture {
 	f := &fixture{
 		t:     t,
@@ -47,6 +50,7 @@ func newFixture(t *testing.T) *fixture {
 		InviteLimiter: ratelimit.New(20, 24*time.Hour, clock),
 		TokenLimiter:  ratelimit.New(10, time.Minute, clock),
 		Log:           slog.New(slog.DiscardHandler),
+		GraceUntil:    graceEnd,
 	}
 	f.svc = family.NewService(f.deps)
 	return f

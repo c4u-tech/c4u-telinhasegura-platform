@@ -29,7 +29,7 @@ func (s *Service) Create(ctx context.Context, accountID string) (Family, error) 
 		if err != nil {
 			return err
 		}
-		f, err = loadFamily(ctx, tx, familyID, Owner, now)
+		f, err = loadFamily(ctx, tx, familyID, Owner, now, s.consent().Accepted(now))
 		return err
 	})
 	if err != nil {
@@ -50,7 +50,8 @@ func (s *Service) Get(ctx context.Context, accountID string) (Family, error) {
 	if err != nil {
 		return Family{}, err
 	}
-	return loadFamily(ctx, s.d.Pool, st.FamilyID, st.Role, s.now())
+	now := s.now()
+	return loadFamily(ctx, s.d.Pool, st.FamilyID, st.Role, now, s.consent().Accepted(now))
 }
 
 // RemoveGuardian takes a guardian out of the owner's family and tells them.
@@ -134,7 +135,7 @@ func (s *Service) TransferOwnership(ctx context.Context, accountID, newOwnerID s
 		if newEmail, _, err = accountEmail(ctx, tx, newOwnerID); err != nil {
 			return err
 		}
-		f, err = loadFamily(ctx, tx, st.FamilyID, Guardian, now)
+		f, err = loadFamily(ctx, tx, st.FamilyID, Guardian, now, s.consent().Accepted(now))
 		return err
 	})
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	_ "time/tzdata" // the grace's zone loads on a host without zoneinfo
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/appleid"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/clientip"
@@ -47,6 +48,9 @@ type Config struct {
 	StaffMFARequired                  bool           // admin and moderator routes need an elevation
 	StaffMFAKey                       []byte         // seals TOTP secrets; nil: the MFA routes answer 503
 	TrustedProxies                    []netip.Prefix // peers whose X-Forwarded-For is believed
+	// LegalGraceUntil is when the previous terms and consent text stop
+	// counting as accepted; zero means they do not count at all.
+	LegalGraceUntil time.Time
 
 	SMTPHost         string // empty: mail goes to .eml files under MAIL_DIR
 	SMTPPort         int    // 465 means implicit TLS
@@ -62,7 +66,26 @@ type Config struct {
 	AppleKey    *ecdsa.PrivateKey
 }
 
+// legalGraceDefault is the last day the previous terms and consent text
+// count, giving the app that shows the new ones time to reach the stores.
+const legalGraceDefault = "2026-11-25"
+
+// Load reads the settings through getenv, where an empty value is unset.
 func Load(getenv func(string) string) (Config, error) {
+	return LoadLookup(func(k string) (string, bool) {
+		v := getenv(k)
+		return v, v != ""
+	})
+}
+
+// LoadLookup reads the settings through lookup, as os.LookupEnv answers:
+// a setting may be present but empty, which LEGAL_GRACE_UNTIL tells apart
+// from an unset one.
+func LoadLookup(lookup func(string) (string, bool)) (Config, error) {
+	getenv := func(k string) string {
+		v, _ := lookup(k)
+		return v
+	}
 	c := Config{
 		Addr:           orDefault(getenv("HTTP_ADDR"), ":8080"),
 		DatabaseURL:    getenv("DATABASE_URL"),
@@ -98,6 +121,9 @@ func Load(getenv func(string) string) (Config, error) {
 		if c.AppleKey, err = appleid.ParseKey(getenv("APPLE_PRIVATE_KEY")); err != nil {
 			return Config{}, fmt.Errorf("config: APPLE_PRIVATE_KEY: %w", err) // ParseKey never quotes the key
 		}
+	}
+	if c.LegalGraceUntil, err = graceSetting(lookup, "LEGAL_GRACE_UNTIL", legalGraceDefault); err != nil {
+		return Config{}, err
 	}
 	if c.TrustedProxies, err = clientip.ParseList(getenv("TRUSTED_PROXIES")); err != nil {
 		return Config{}, fmt.Errorf("config: TRUSTED_PROXIES: %w", err)
@@ -250,6 +276,29 @@ func durationSetting(getenv func(string) string, name string, def time.Duration)
 		return 0, fmt.Errorf("config: %s must be a positive duration such as 20m, got %q", name, v)
 	}
 	return d, nil
+}
+
+// graceSetting reads a date (2026-11-25) as the end of that day in São
+// Paulo, where the families are, or def when unset. Set but empty is the
+// zero time: no grace.
+func graceSetting(lookup func(string) (string, bool), name, def string) (time.Time, error) {
+	v, ok := lookup(name)
+	v = strings.TrimSpace(v)
+	switch {
+	case !ok:
+		v = def
+	case v == "":
+		return time.Time{}, nil
+	}
+	saoPaulo, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		return time.Time{}, fmt.Errorf("config: %s: load the São Paulo time zone: %w", name, err)
+	}
+	day, err := time.ParseInLocation(time.DateOnly, v, saoPaulo)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("config: %s must be a date such as 2026-11-25, or empty for none, got %q", name, v)
+	}
+	return day.AddDate(0, 0, 1).UTC(), nil
 }
 
 // keySetting reads a 32-byte key in standard base64, or nil when unset.

@@ -35,6 +35,9 @@ type Deps struct {
 	IDTokens   idtoken.Verifier
 	Now        func() time.Time
 	AppBaseURL string
+	// GraceUntil is when the previous terms stop counting as accepted;
+	// zero means they never do.
+	GraceUntil time.Time
 }
 
 type Service struct {
@@ -70,7 +73,7 @@ func (s *Service) SignUp(ctx context.Context, email, password string, adultDecla
 	if !adultDeclaration || !ValidEmail(email) {
 		return "", ErrValidation
 	}
-	if err := checkTerms(termsVersion); err != nil {
+	if err := s.checkTerms(termsVersion); err != nil {
 		return "", err
 	}
 	password = NormalizePassword(password)
@@ -186,7 +189,7 @@ type AccountView struct {
 	Email         string
 	EmailVerified bool
 	Status        Status // GET /v1/session carries it
-	TermsAccepted bool   // the account accepted the current terms
+	TermsAccepted bool   // the account's terms count as accepted now
 }
 
 func (s *Service) Account(ctx context.Context, id string) (AccountView, error) {
@@ -194,7 +197,7 @@ func (s *Service) Account(ctx context.Context, id string) (AccountView, error) {
 	if err != nil {
 		return AccountView{}, err
 	}
-	return AccountView{ID: a.ID, Email: a.Email, EmailVerified: a.EmailVerified, Status: a.Status, TermsAccepted: a.TermsAccepted}, nil
+	return AccountView{ID: a.ID, Email: a.Email, EmailVerified: a.EmailVerified, Status: a.Status, TermsAccepted: s.terms().Accepts(a.TermsVersion, s.d.Now())}, nil
 }
 
 // Authenticated is a password sign-in and the credential version its

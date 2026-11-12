@@ -126,8 +126,10 @@ func (s *Service) Profile(ctx context.Context, p Principal) (Profile, error) {
 }
 
 // ConsentedChild answers the family of a child of the account's family
-// whose consent is current, for a gate a guardian opens for that child
-// from their own session. A malformed, unknown or foreign child is
+// whose consent is under the current text, for a gate a guardian opens
+// for that child from their own session. The previous text does not
+// count here even during its grace: only an app that shows the current
+// text can open this gate. A malformed, unknown or foreign child is
 // ErrNotFound, checked before anything else, the PIN included.
 func (s *Service) ConsentedChild(ctx context.Context, accountID, minorID string) (string, error) {
 	familyID, err := familyOf(ctx, s.d.Pool, accountID)
@@ -137,7 +139,7 @@ func (s *Service) ConsentedChild(ctx context.Context, accountID, minorID string)
 	if err := minorOfFamily(ctx, s.d.Pool, familyID, minorID); err != nil {
 		return "", err
 	}
-	ok, err := s.consentCurrent(ctx, s.d.Pool, minorID)
+	ok, err := consentUnder(ctx, s.d.Pool, minorID, []string{s.d.Consent.Current})
 	if err != nil {
 		return "", err
 	}

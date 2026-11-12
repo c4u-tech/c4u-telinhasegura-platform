@@ -99,6 +99,10 @@ func (h *hookedAudit) fire(e audit.Event) {
 	}
 }
 
+// graceEnd is when the previous terms and consent text stop counting in
+// these tests.
+var graceEnd = time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC)
+
 func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 	a := &api{t: t, mail: &mailtest.Recorder{}, now: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC), tokens: &idtokentest.Fake{}, apple: &appleFake{}}
 	pool := dbtest.New(t)
@@ -118,6 +122,7 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		Now:        clock,
 		AppBaseURL: "https://app.test",
 		IDTokens:   a.tokens,
+		GraceUntil: graceEnd,
 	})
 	a.ids = ids
 	fam := family.NewService(family.Deps{
@@ -129,17 +134,18 @@ func newAPI(t *testing.T, opts ...func(*httpapi.Server)) *api {
 		InviteLimiter: ratelimit.New(20, 24*time.Hour, clock),
 		TokenLimiter:  ratelimit.New(10, time.Minute, clock),
 		Log:           log,
+		GraceUntil:    graceEnd,
 	})
 	a.par = parental.NewService(parental.Deps{
-		Pool:           pool,
-		Mail:           a.mail,
-		Audit:          auditRec,
-		Now:            clock,
-		Hash:           identity.HashParams{Memory: 64, Time: 1, Threads: 1},
-		AppBaseURL:     "https://app.test",
-		CodeLimiter:    ratelimit.New(20, time.Hour, clock),
-		Log:            log,
-		ConsentVersion: family.ConsentPolicyVersion,
+		Pool:        pool,
+		Mail:        a.mail,
+		Audit:       auditRec,
+		Now:         clock,
+		Hash:        identity.HashParams{Memory: 64, Time: 1, Threads: 1},
+		AppBaseURL:  "https://app.test",
+		CodeLimiter: ratelimit.New(20, time.Hour, clock),
+		Log:         log,
+		Consent:     family.ConsentVersion(graceEnd),
 	})
 	a.videos = &curationtest.Fake{}
 	a.thumbs = &curationtest.Thumbs{}
