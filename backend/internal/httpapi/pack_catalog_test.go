@@ -57,12 +57,12 @@ func TestChildCatalogCarriesPacks(t *testing.T) {
 		t.Fatalf("packs %s", r.Body)
 	}
 	p := cat.Packs[0]
-	if len(p) != 4 || p["id"] != id || p["title"] != "Pacotinho" || p["cover_video_id"] != v[0] {
+	if len(p) != 5 || p["fits"] != true || p["id"] != id || p["title"] != "Pacotinho" || p["cover_video_id"] != v[0] {
 		t.Fatalf("a child's pack carries %v", p)
 	}
 	videos, _ := p["videos"].([]any)
 	first, _ := videos[0].(map[string]any)
-	if len(videos) != 3 || len(first) != 3 || first["id"] != v[0] || first["title"] != "Vídeo aaaaaaaaaaa" ||
+	if len(videos) != 3 || len(first) != 4 || first["fits"] != true || first["id"] != v[0] || first["title"] != "Vídeo aaaaaaaaaaa" ||
 		first["duration_seconds"] != float64(300) {
 		t.Fatalf("a child's pack videos %v", videos)
 	}

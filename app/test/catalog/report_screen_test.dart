@@ -153,8 +153,8 @@ void main() {
     expect(find.text('500 de 500'), findsOneWidget);
   });
 
-  testWidgets('a new report ends on its done state; back on the '
-      'catalogue, the video is gone', (tester) async {
+  testWidgets('a new report ends on its done state; back on the child\'s '
+      'page, the video is gone', (tester) async {
     final h = await reporting(tester);
     h.api = catalogApi(catalog: (_, _) => page(liaVideos.skip(1).toList()));
 
@@ -168,9 +168,9 @@ void main() {
       tester,
       find.widgetWithText(FilledButton, CatalogWords.backTo('Lia')),
     );
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
     expect(row('O sapo que pulava alto'), findsNothing);
-    expect(row('Gatinhos no quintal'), findsOneWidget);
+    expect(row('A canção das cores'), findsOneWidget);
   });
 
   testWidgets('a report the family had already made says so', (tester) async {
@@ -224,14 +224,14 @@ void main() {
     );
   });
 
-  testWidgets('a video no longer there goes back to the catalogue with a '
-      'notice', (tester) async {
+  testWidgets('a video no longer there goes back to the child\'s page with '
+      'a notice', (tester) async {
     final h = await reporting(tester, write: (_) => problem(404, 'not_found'));
 
     await tapOn(tester, reason('Assustador'));
     await tapOn(tester, send);
 
-    expect(h.location(tester), '/familia/videos/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
     expect(find.widgetWithText(Notice, videoGone), findsOneWidget);
   });
 

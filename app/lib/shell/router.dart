@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../screentime/kid_time.dart';
-import '../screentime/child_time_screen.dart';
 import '../screentime/more_time_screen.dart';
-import '../screentime/screen_time_screen.dart';
 import '../screentime/time_rules_screen.dart';
 import '../access/check_email_screen.dart';
 import '../account/account_screen.dart';
@@ -20,10 +18,13 @@ import '../access/entry_screen.dart';
 import '../access/forgot_password_screen.dart';
 import '../family/accept_invitation_screen.dart';
 import '../family/adults_screen.dart';
+import '../family/child_page.dart';
 import '../family/child_screen.dart';
 import '../family/children_screen.dart';
 import '../family/delete_family_screen.dart';
 import '../family/family_home_screen.dart';
+import '../family/family_root_screen.dart';
+import '../family/first_run.dart';
 import '../family/invitations_screen.dart';
 import '../family/new_child_screen.dart';
 import '../family/reconsent_screen.dart';
@@ -45,8 +46,8 @@ import '../access/reset_password_screen.dart';
 import '../access/signup_screen.dart';
 import '../access/verify_email_screen.dart';
 import '../auth/api_client.dart';
-import '../catalog/catalog_children_screen.dart';
 import '../catalog/child_catalog_screen.dart';
+import '../catalog/family_session_screen.dart';
 import '../catalog/family_video_screen.dart';
 import '../catalog/pack_screen.dart';
 import '../catalog/report_screen.dart';
@@ -55,13 +56,14 @@ import '../curation/admin_pack_screen.dart';
 import '../curation/audit_sample_screen.dart';
 import '../curation/audit_video_screen.dart';
 import '../curation/admin_packs_screen.dart';
-import '../curation/admin_screen.dart';
 import '../curation/appoint_screen.dart' show AppointScreen;
 import '../curation/compose_pack_screen.dart';
 import '../curation/pack.dart';
 import '../curation/pack_draft.dart';
 import '../curation/pack_decision_screens.dart';
 import '../curation/pack_review_screen.dart';
+import '../curation/numbers_screen.dart';
+import '../curation/pack_area.dart';
 import '../curation/packs_screen.dart';
 import '../curation/held_video_screen.dart';
 import '../curation/held_videos_screen.dart';
@@ -90,6 +92,12 @@ import '../staff/account_sheet_screen.dart';
 import '../staff/accounts.dart' show AccountSheet;
 import '../staff/audit_screen.dart';
 import '../staff/staff_gate.dart';
+import '../staff/staff_root_screen.dart';
+import '../design/field_layout.dart';
+import '../family/widgets.dart' show FamilyPlaceholder;
+import '../auth/auth_api.dart' show PlatformRole;
+import 'guardian_shell.dart';
+import 'list_detail.dart';
 import 'routes.dart';
 import 'services.dart';
 
@@ -151,13 +159,14 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
             null => Routes.home,
           },
         AuthStatus.signedIn
-            when Routes.isFamilyScreen(path) || Routes.isKidModeScreen(path) =>
+            when Routes.isFamilyScreen(path) ||
+                Routes.isKidModeScreen(path) ||
+                path == Routes.firstRun =>
           _familyRedirect(family.state, path),
-        AuthStatus.signedIn
-            when Routes.isCuratorScreen(path) ||
-                Routes.isAdminScreen(path) ||
-                Routes.isModerationScreen(path) =>
-          roleRedirect(family.roles, path),
+        AuthStatus.signedIn when Routes.isStaffScreen(path) => roleRedirect(
+          family.roles,
+          path,
+        ),
         // The second factor is for platform role holders (MFA screens,
         // Routes); roles not read yet decide nothing.
         AuthStatus.signedIn
@@ -167,30 +176,77 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
       };
     },
     routes: [
-      GoRoute(
-        path: Routes.home,
-        // Arriving from an unlock, the child's screen closes back onto the
-        // band; any other arrival is the ordinary page.
-        pageBuilder: (_, state) => BandArrivalPage(
+      // The guardian's screens, framed by the navigation once the family
+      // is ready (the shell stands aside before that). Arriving from an
+      // unlock, the child's screen closes back onto the guardian's ink
+      // field; any other arrival is the ordinary page.
+      ShellRoute(
+        pageBuilder: (_, state, child) => BandArrivalPage(
           key: state.pageKey,
           motion: state.extra == BandMotion.shrink ? BandMotion.shrink : null,
-          child: const FamilyHomeScreen(),
+          child: GuardianShell(
+            path: state.uri.path,
+            lists: const {
+              Destination.familia: FamilyRootScreen(),
+              Destination.conta: AccountScreen(),
+              Destination.equipe: StaffRootScreen(),
+            },
+            child: child,
+          ),
         ),
+        routes: _guardianRoutes(services),
       ),
-      GoRoute(path: Routes.adults, builder: (_, _) => const AdultsScreen()),
+      ..._outsideRoutes(services),
+    ],
+  );
+}
+
+/// Every route the guardian's navigation frames: the four roots and what
+/// opens from them. The family's areas nest under its root, so system back
+/// on one returns there.
+List<RouteBase> _guardianRoutes(AppServices services) => [
+  GoRoute(
+    path: Routes.home,
+    builder: (_, _) => const FamilyHomeScreen(),
+    routes: [
       GoRoute(
-        path: Routes.invitations,
-        builder: (_, _) => const InvitationsScreen(),
+        path: Routes.firstRun.substring(1),
+        builder: (_, state) =>
+            FirstRunScreen(child: state.uri.queryParameters['crianca']),
       ),
+    ],
+  ),
+  GoRoute(
+    path: Routes.family,
+    builder: (_, state) => ListRoot(
+      path: state.uri.path,
+      root: Routes.family,
+      first: (_) => const ChildrenScreen(),
+      child: const FamilyRootScreen(),
+    ),
+    routes: [
+      GoRoute(path: 'responsaveis', builder: (_, _) => const AdultsScreen()),
+      GoRoute(path: 'convites', builder: (_, _) => const InvitationsScreen()),
       GoRoute(
-        path: Routes.children,
-        builder: (_, state) => ChildrenScreen(notice: state.extra as String?),
+        path: 'criancas',
+        builder: (_, state) => ChildrenScreen(notice: _notice(state)),
         routes: [
           GoRoute(path: 'nova', builder: (_, _) => const NewChildScreen()),
           GoRoute(
             path: ':id',
-            builder: (_, state) => ChildScreen(id: state.pathParameters['id']!),
+            builder: (_, state) => ChildPage(
+              id: state.pathParameters['id']!,
+              back: state.extra == ChildPage.fromHome
+                  ? Routes.home
+                  : Routes.children,
+              notice: _notice(state),
+            ),
             routes: [
+              GoRoute(
+                path: 'editar',
+                builder: (_, state) =>
+                    ChildScreen(id: state.pathParameters['id']!),
+              ),
               GoRoute(
                 path: 'autorizar',
                 builder: (_, state) => ReconsentScreen(
@@ -204,14 +260,26 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           ),
         ],
       ),
+      // A child's screen-time errands keep their paths; the old list and
+      // hub lead to the children and to the child's page, which stands
+      // beneath the errands, so system back lands on it.
       GoRoute(
-        path: Routes.screenTime,
-        builder: (_, state) => ScreenTimeScreen(notice: state.extra as String?),
+        path: 'tempo',
+        redirect: (_, state) =>
+            state.uri.path == Routes.screenTime ? Routes.children : null,
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, state) =>
-                ChildTimeScreen(id: state.pathParameters['id']!),
+            redirect: (_, state) {
+              final id = state.pathParameters['id']!;
+              return state.uri.path == Routes.childTime(id)
+                  ? Routes.child(id)
+                  : null;
+            },
+            builder: (_, state) {
+              final id = state.pathParameters['id']!;
+              return ChildPage(id: id, path: Routes.childTime(id));
+            },
             routes: [
               GoRoute(
                 path: 'mais',
@@ -227,9 +295,12 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           ),
         ],
       ),
+      // One child's full list, its videos and pacotinhos keep their paths;
+      // the old list of children leads to the children.
       GoRoute(
-        path: Routes.familyVideos,
-        builder: (_, state) => CatalogChildrenScreen(notice: _notice(state)),
+        path: 'videos',
+        redirect: (_, state) =>
+            state.uri.path == Routes.familyVideos ? Routes.children : null,
         routes: [
           GoRoute(
             path: ':crianca',
@@ -259,6 +330,14 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
                 ),
                 routes: [
                   GoRoute(
+                    path: 'assistir',
+                    builder: (_, state) => FamilySessionScreen(
+                      minorId: state.pathParameters['crianca']!,
+                      videoId: state.pathParameters['video']!,
+                      video: _familyVideo(state),
+                    ),
+                  ),
+                  GoRoute(
                     path: 'denunciar',
                     builder: (_, state) => ReportScreen(
                       minorId: state.pathParameters['crianca']!,
@@ -272,390 +351,430 @@ GoRouter buildRouter(AppServices services, {String? initialLocation}) {
           ),
         ],
       ),
+      GoRoute(path: 'excluir', builder: (_, _) => const DeleteFamilyScreen()),
+    ],
+  ),
+  GoRoute(
+    path: Routes.staffHome,
+    builder: (_, state) => ListRoot(
+      path: state.uri.path,
+      root: Routes.staffHome,
+      first: (_) => staffFirstItem(services.familyModel.roles),
+      child: const StaffRootScreen(),
+    ),
+  ),
+  GoRoute(
+    path: Routes.kidMode,
+    builder: (_, state) => KidModeScreen(saved: state.extra as PinSaved?),
+    routes: [
+      GoRoute(path: 'pin', builder: (_, _) => const SetPinScreen()),
+      GoRoute(path: 'entregar', builder: (_, _) => const HandOverScreen()),
       GoRoute(
-        path: Routes.deleteFamily,
-        builder: (_, _) => const DeleteFamilyScreen(),
+        path: 'vincular',
+        builder: (_, state) => LinkCodeScreen(
+          back: Routes.linkCodeReturn(state.uri.queryParameters['depois']),
+        ),
       ),
+      GoRoute(path: 'aparelhos', builder: (_, _) => const DevicesScreen()),
+    ],
+  ),
+  GoRoute(
+    path: Routes.account,
+    builder: (_, state) => ListRoot(
+      path: state.uri.path,
+      root: Routes.account,
+      first: (_) => const EmailScreen(),
+      child: const AccountScreen(),
+    ),
+    routes: [
+      GoRoute(path: 'email', builder: (_, _) => const EmailScreen()),
+      GoRoute(path: 'senha', builder: (_, _) => const PasswordScreen()),
+      GoRoute(path: 'aparelhos', builder: (_, _) => const SessionsScreen()),
+      GoRoute(path: 'dados', builder: (_, _) => const DataScreen()),
       GoRoute(
-        path: Routes.kidMode,
-        builder: (_, state) => KidModeScreen(saved: state.extra as PinSaved?),
+        path: 'verificacao',
+        // Recovery codes on screen ask before any way off.
+        onExit: (_, _) => services.unkeptCodes?.call() ?? true,
+        builder: (_, state) => VerificationScreen(notice: _notice(state)),
         routes: [
-          GoRoute(path: 'pin', builder: (_, _) => const SetPinScreen()),
-          GoRoute(path: 'entregar', builder: (_, _) => const HandOverScreen()),
-          GoRoute(path: 'vincular', builder: (_, _) => const LinkCodeScreen()),
-          GoRoute(path: 'aparelhos', builder: (_, _) => const DevicesScreen()),
-        ],
-      ),
-      GoRoute(
-        path: Routes.account,
-        builder: (_, _) => const AccountScreen(),
-        routes: [
-          GoRoute(path: 'email', builder: (_, _) => const EmailScreen()),
-          GoRoute(path: 'senha', builder: (_, _) => const PasswordScreen()),
-          GoRoute(path: 'aparelhos', builder: (_, _) => const SessionsScreen()),
-          GoRoute(path: 'dados', builder: (_, _) => const DataScreen()),
           GoRoute(
-            path: 'verificacao',
-            // Recovery codes on screen ask before any way off.
+            path: 'ativar',
             onExit: (_, _) => services.unkeptCodes?.call() ?? true,
-            builder: (_, state) => VerificationScreen(notice: _notice(state)),
-            routes: [
-              GoRoute(
-                path: 'ativar',
-                onExit: (_, _) => services.unkeptCodes?.call() ?? true,
-                // `depois` returns to the staff screen that asked,
-                // only ever an admin or moderation one.
-                builder: (_, state) => EnrollmentScreen(
-                  then: Routes.staffReturn(state.uri.queryParameters['depois']),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'excluir',
-            builder: (_, _) => const DeleteAccountScreen(),
-          ),
-        ],
-      ),
-      // The curation areas; each lands its own
-      // screen and sub-routes.
-      GoRoute(
-        path: Routes.suggestions,
-        builder: (_, _) => const SuggestionsScreen(),
-        routes: [
-          GoRoute(
-            path: 'nova',
-            // The query is outside input: it is checked again here.
-            builder: (_, state) => NewSuggestionScreen(
-              initialLink: youtubeLinkIn(state.uri.queryParameters['link']),
+            // `depois` returns to the staff screen that asked,
+            // only ever an admin or moderation one.
+            builder: (_, state) => EnrollmentScreen(
+              then: Routes.staffReturn(state.uri.queryParameters['depois']),
             ),
           ),
         ],
       ),
+      GoRoute(path: 'excluir', builder: (_, _) => const DeleteAccountScreen()),
+    ],
+  ),
+  // The curation areas; each lands its own
+  // screen and sub-routes.
+  GoRoute(
+    path: Routes.suggestions,
+    builder: (_, _) => const SuggestionsScreen(),
+    routes: [
       GoRoute(
-        path: Routes.curation,
-        // Beneath a decision the extra is the video it names, not a notice.
-        builder: (_, state) => QueueScreen(
-          notice: switch (state.extra) {
-            final String notice => notice,
-            _ => null,
-          },
+        path: 'nova',
+        // The query is outside input: it is checked again here.
+        builder: (_, state) => NewSuggestionScreen(
+          initialLink: youtubeLinkIn(state.uri.queryParameters['link']),
+        ),
+      ),
+    ],
+  ),
+  GoRoute(
+    path: Routes.curation,
+    // Beneath a decision the extra is the video it names, not a notice.
+    builder: (_, state) => QueueScreen(
+      notice: switch (state.extra) {
+        final String notice => notice,
+        _ => null,
+      },
+    ),
+    routes: [
+      // Before ':id', which would take "termo" for a video.
+      GoRoute(
+        path: 'termo',
+        builder: (_, state) => CuratorTermsScreen(
+          then: Routes.curatorTermsReturn(state.uri.queryParameters['depois']),
+        ),
+      ),
+      GoRoute(
+        path: ':id',
+        builder: (_, state) => ReviewScreen(id: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'aprovar',
+            builder: (_, state) => ApproveScreen(
+              id: state.pathParameters['id']!,
+              video: state.extra as Video?,
+            ),
+          ),
+          GoRoute(
+            path: 'recusar',
+            builder: (_, state) => RefuseScreen(
+              id: state.pathParameters['id']!,
+              video: state.extra as Video?,
+              items: Routes.refuseItems(state.uri.queryParameters['itens']),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ),
+  // One pacotinhos area: a curator composes and reviews in it; an admin
+  // who is not a curator reads it behind the second factor; an admin
+  // removes a pacotinho from its own screen.
+  GoRoute(
+    path: Routes.packs,
+    builder: (_, state) => PackArea(
+      title: 'Pacotinhos',
+      path: state.uri.path,
+      curator: PacksScreen(notice: _notice(state)),
+      admin: AdminPacksScreen(notice: _notice(state)),
+    ),
+    routes: [
+      GoRoute(
+        path: 'novo',
+        builder: (_, _) => const ComposePackScreen(),
+        routes: [
+          GoRoute(
+            path: 'videos',
+            builder: (_, state) =>
+                PackPickerScreen(back: Routes.newPack, draft: _draft(state)),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: ':id',
+        builder: (_, state) => PackArea(
+          title: 'Pacotinho',
+          path: state.uri.path,
+          curator: PackReviewScreen(id: state.pathParameters['id']!),
+          admin: AdminPackScreen(id: state.pathParameters['id']!),
         ),
         routes: [
-          // Before ':id', which would take "termo" for a video.
           GoRoute(
-            path: 'termo',
-            builder: (_, state) => CuratorTermsScreen(
-              then: Routes.curatorTermsReturn(
-                state.uri.queryParameters['depois'],
-              ),
+            path: 'videos/:video',
+            builder: (_, state) => PackVideoScreen(
+              packId: state.pathParameters['id']!,
+              videoId: state.pathParameters['video']!,
             ),
           ),
           GoRoute(
-            path: ':id',
+            path: 'mudar',
             builder: (_, state) =>
-                ReviewScreen(id: state.pathParameters['id']!),
-            routes: [
-              GoRoute(
-                path: 'aprovar',
-                builder: (_, state) => ApproveScreen(
-                  id: state.pathParameters['id']!,
-                  video: state.extra as Video?,
-                ),
-              ),
-              GoRoute(
-                path: 'recusar',
-                builder: (_, state) => RefuseScreen(
-                  id: state.pathParameters['id']!,
-                  video: state.extra as Video?,
-                  items: Routes.refuseItems(state.uri.queryParameters['itens']),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      GoRoute(
-        path: Routes.packs,
-        builder: (_, state) => PacksScreen(notice: _notice(state)),
-        routes: [
-          GoRoute(
-            path: 'novo',
-            builder: (_, _) => const ComposePackScreen(),
+                ComposePackScreen(id: state.pathParameters['id']!),
             routes: [
               GoRoute(
                 path: 'videos',
                 builder: (_, state) => PackPickerScreen(
-                  back: Routes.newPack,
+                  back: Routes.recompose(state.pathParameters['id']!),
                   draft: _draft(state),
                 ),
               ),
             ],
           ),
           GoRoute(
-            path: ':id',
-            builder: (_, state) =>
-                PackReviewScreen(id: state.pathParameters['id']!),
-            routes: [
-              GoRoute(
-                path: 'videos/:video',
-                builder: (_, state) => PackVideoScreen(
-                  packId: state.pathParameters['id']!,
-                  videoId: state.pathParameters['video']!,
-                ),
-              ),
-              GoRoute(
-                path: 'mudar',
-                builder: (_, state) =>
-                    ComposePackScreen(id: state.pathParameters['id']!),
-                routes: [
-                  GoRoute(
-                    path: 'videos',
-                    builder: (_, state) => PackPickerScreen(
-                      back: Routes.recompose(state.pathParameters['id']!),
-                      draft: _draft(state),
-                    ),
-                  ),
-                ],
-              ),
-              GoRoute(
-                path: 'aprovar',
-                builder: (_, state) => ApprovePackScreen(
-                  id: state.pathParameters['id']!,
-                  pack: _pack(state),
-                ),
-              ),
-              GoRoute(
-                path: 'recusar',
-                builder: (_, state) => RefusePackScreen(
-                  id: state.pathParameters['id']!,
-                  pack: _pack(state),
-                ),
-              ),
-            ],
+            path: 'aprovar',
+            builder: (_, state) => ApprovePackScreen(
+              id: state.pathParameters['id']!,
+              pack: _pack(state),
+            ),
+          ),
+          GoRoute(
+            path: 'recusar',
+            builder: (_, state) => RefusePackScreen(
+              id: state.pathParameters['id']!,
+              pack: _pack(state),
+            ),
           ),
         ],
       ),
-      // The admin and moderation screens, each behind the second factor's
-      // gate; the curators' never are.
+    ],
+  ),
+  // The admin and moderation screens, each behind the second factor's
+  // gate; the curators' never are. `/admin` itself leads to Equipe,
+  // which lists the admin's screens.
+  GoRoute(
+    path: Routes.admin,
+    redirect: (_, state) =>
+        state.uri.path == Routes.admin ? Routes.staffHome : null,
+    routes: [
       GoRoute(
-        path: Routes.admin,
-        builder: (_, _) =>
-            const StaffGate(title: 'Administração', child: AdminScreen()),
-        routes: [
-          GoRoute(
-            path: 'equipe',
-            builder: (_, state) => StaffGate(
-              title: 'Equipe',
-              child: TeamScreen(notice: state.extra as TeamNotice?),
-            ),
-            routes: [
-              GoRoute(
-                path: 'nova',
-                builder: (_, state) => StaffGate(
-                  title: 'Nomear alguém',
-                  child: AppointScreen(
-                    email: state.uri.queryParameters['email'],
-                    role: AppointScreen.parsePapel(
-                      state.uri.queryParameters['papel'],
-                    ),
-                  ),
-                ),
-              ),
-              GoRoute(
-                path: ':id',
-                builder: (_, state) => StaffGate(
-                  title: 'Equipe',
-                  child: MemberScreen(id: state.pathParameters['id']!),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'contas',
-            builder: (_, state) => StaffGate(
-              title: 'Buscar uma conta',
-              child: AccountSearchScreen(notice: _notice(state)),
-            ),
-            routes: [
-              // The sheet lives only in memory: without the lookup's
-              // answer for this id (a reload, a link), back to the search,
-              // never a silent lookup.
-              GoRoute(
-                path: ':id',
-                redirect: (_, state) =>
-                    _sheet(state)?.accountId == state.pathParameters['id']
-                    ? null
-                    : Routes.accounts,
-                builder: (_, state) => StaffGate(
-                  title: 'Conta',
-                  child: AccountSheetScreen(sheet: _sheet(state)!),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'auditoria',
-            builder: (_, _) =>
-                const StaffGate(title: 'Auditoria', child: AuditScreen()),
-          ),
-          GoRoute(
-            path: 'pacotinhos',
-            builder: (_, state) => StaffGate(
-              title: 'Pacotinhos',
-              child: AdminPacksScreen(notice: _notice(state)),
-            ),
-            routes: [
-              GoRoute(
-                path: ':id',
-                builder: (_, state) => StaffGate(
-                  title: 'Pacotinho',
-                  child: AdminPackScreen(id: state.pathParameters['id']!),
-                ),
-              ),
-            ],
-          ),
-        ],
+        path: 'numeros',
+        builder: (_, _) => const StaffGate(
+          title: 'Números da plataforma',
+          child: NumbersScreen(),
+        ),
       ),
       GoRoute(
-        path: Routes.auditSample,
+        path: 'equipe',
         builder: (_, state) => StaffGate(
-          title: 'Auditoria das aprovações',
-          child: AuditSampleScreen(
-            // Opening a video hands its screen the candidate, not a notice.
-            notice: state.extra is String ? state.extra as String : null,
-          ),
+          title: 'Pessoas da equipe',
+          child: TeamScreen(notice: state.extra as TeamNotice?),
         ),
         routes: [
-          // The sample lives only in memory and is drawn anew on each
-          // read: without it (a reload, a link), back to the sample.
+          GoRoute(
+            path: 'nova',
+            builder: (_, state) => StaffGate(
+              title: 'Nomear alguém',
+              child: AppointScreen(
+                email: state.uri.queryParameters['email'],
+                role: AppointScreen.parsePapel(
+                  state.uri.queryParameters['papel'],
+                ),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: ':id',
+            builder: (_, state) => StaffGate(
+              title: 'Pessoas da equipe',
+              child: MemberScreen(id: state.pathParameters['id']!),
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: 'contas',
+        builder: (_, state) => StaffGate(
+          title: 'Buscar uma conta',
+          child: AccountSearchScreen(notice: _notice(state)),
+        ),
+        routes: [
+          // The sheet lives only in memory: without the lookup's
+          // answer for this id (a reload, a link), back to the search,
+          // never a silent lookup.
           GoRoute(
             path: ':id',
             redirect: (_, state) =>
-                state.extra is AuditCandidate ? null : Routes.auditSample,
+                _sheet(state)?.accountId == state.pathParameters['id']
+                ? null
+                : Routes.accounts,
             builder: (_, state) => StaffGate(
-              title: 'Conferir aprovação',
-              child: AuditVideoScreen(
-                candidate: state.extra! as AuditCandidate,
-              ),
+              title: 'Conta',
+              child: AccountSheetScreen(sheet: _sheet(state)!),
             ),
           ),
         ],
       ),
       GoRoute(
-        path: Routes.heldVideos,
-        builder: (_, state) => StaffGate(
-          title: 'Vídeos retidos',
-          child: HeldVideosScreen(
-            // Opening a held video hands its screen the video, not a notice.
-            notice: state.extra is String ? state.extra as String : null,
-          ),
-        ),
+        path: 'auditoria',
+        builder: (_, _) =>
+            const StaffGate(title: 'Registro da equipe', child: AuditScreen()),
+      ),
+      // The admin's old pacotinhos paths lead to the one area.
+      GoRoute(
+        path: 'pacotinhos',
+        redirect: (_, state) =>
+            state.uri.path == Routes.adminPacks ? Routes.packs : null,
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, state) => StaffGate(
-              title: 'Vídeo retido',
-              child: HeldVideoScreen(id: state.pathParameters['id']!),
-            ),
-            routes: [
-              GoRoute(
-                path: 'publicar',
-                builder: (_, state) => StaffGate(
-                  title: 'Publicar',
-                  child: PublishDoubtScreen(
-                    id: state.pathParameters['id']!,
-                    held: state.extra as HeldVideo?,
-                  ),
-                ),
-              ),
-            ],
+            redirect: (_, state) =>
+                Routes.packReview(state.pathParameters['id']!),
           ),
         ],
-      ),
-      GoRoute(path: Routes.pinGate, builder: (_, _) => const PinGateScreen()),
-      GoRoute(
-        path: Routes.kidHome,
-        // The guardian's band grows into the child's screen.
-        pageBuilder: (_, state) =>
-            bandGrowPage(key: state.pageKey, child: const KidHomeScreen()),
-        routes: [
-          GoRoute(path: 'sair', builder: (_, _) => const KidExitScreen()),
-          GoRoute(path: 'quem', builder: (_, _) => const ProfilePickerScreen()),
-          GoRoute(
-            path: 'pacotinho/:id',
-            builder: (_, state) => PackPlayerScreen(
-              start: switch (state.extra) {
-                final PackStart s
-                    when s.pack.id == state.pathParameters['id'] =>
-                  s,
-                _ => null,
-              },
-            ),
-          ),
-          GoRoute(
-            path: 'assistir/:id',
-            builder: (_, state) => PlayerScreen(
-              videoId: state.pathParameters['id']!,
-              play: switch (state.extra) {
-                final KidPlay p => p,
-                _ => null,
-              },
-            ),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: Routes.redeem,
-        builder: (_, state) =>
-            RedeemScreen(code: state.uri.queryParameters['codigo']),
-      ),
-      GoRoute(
-        path: Routes.acceptInvitation,
-        builder: (_, state) =>
-            AcceptInvitationScreen(token: state.uri.queryParameters['token']),
-      ),
-      GoRoute(
-        path: Routes.entry,
-        builder: (_, _) => const EntryScreen(),
-        routes: [
-          GoRoute(path: 'email', builder: (_, _) => const EmailSignInScreen()),
-        ],
-      ),
-      GoRoute(path: Routes.signup, builder: (_, _) => const SignupScreen()),
-      GoRoute(
-        path: Routes.checkEmail,
-        builder: (_, state) => CheckEmailScreen(email: state.extra as String?),
-      ),
-      GoRoute(
-        path: Routes.verifyEmail,
-        builder: (_, state) =>
-            VerifyEmailScreen(token: state.uri.queryParameters['token']),
-      ),
-      GoRoute(
-        path: Routes.forgotPassword,
-        builder: (_, _) => const ForgotPasswordScreen(),
-      ),
-      GoRoute(
-        path: Routes.resetPassword,
-        builder: (_, state) =>
-            ResetPasswordScreen(token: state.uri.queryParameters['token']),
-      ),
-      GoRoute(
-        path: Routes.providerSignup,
-        builder: (_, _) => ProviderSignupScreen(
-          step: services.pending.value as SignupRequired,
-        ),
-      ),
-      GoRoute(path: Routes.terms, builder: (_, _) => const TermsUpdateScreen()),
-      GoRoute(
-        path: Routes.linkAccount,
-        builder: (_, _) =>
-            LinkAccountScreen(step: services.pending.value as LinkRequired),
       ),
     ],
-  );
-}
+  ),
+  GoRoute(
+    path: Routes.auditSample,
+    builder: (_, state) => StaffGate(
+      title: 'Amostra de aprovações',
+      child: AuditSampleScreen(
+        // Opening a video hands its screen the candidate, not a notice.
+        notice: state.extra is String ? state.extra as String : null,
+      ),
+    ),
+    routes: [
+      // The sample lives only in memory and is drawn anew on each
+      // read: without it (a reload, a link), back to the sample.
+      GoRoute(
+        path: ':id',
+        redirect: (_, state) =>
+            state.extra is AuditCandidate ? null : Routes.auditSample,
+        builder: (_, state) => StaffGate(
+          title: 'Conferir aprovação',
+          child: AuditVideoScreen(candidate: state.extra! as AuditCandidate),
+        ),
+      ),
+    ],
+  ),
+  GoRoute(
+    path: Routes.heldVideos,
+    // Opening a held video hands its screen the video, not a notice.
+    builder: (_, state) =>
+        _heldVideos(state.extra is String ? state.extra as String : null),
+    routes: [
+      GoRoute(
+        path: ':id',
+        builder: (_, state) => StaffGate(
+          title: 'Vídeo retido',
+          child: HeldVideoScreen(id: state.pathParameters['id']!),
+        ),
+        routes: [
+          GoRoute(
+            path: 'publicar',
+            builder: (_, state) => StaffGate(
+              title: 'Publicar',
+              child: PublishDoubtScreen(
+                id: state.pathParameters['id']!,
+                held: state.extra as HeldVideo?,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ),
+];
+
+/// Equipe's first item beside its list, for [roles]: the queue for a
+/// curator, the held videos for a moderator or an admin; while the roles
+/// are read, the place waiting.
+Widget staffFirstItem(Set<PlatformRole>? roles) =>
+    switch (Panes.firstOf(Routes.staffHome, roles)) {
+      Routes.curation => const QueueScreen(),
+      Routes.heldVideos => _heldVideos(null),
+      _ => const FieldLayout(
+        title: 'Para revisar',
+        children: [FamilyPlaceholder(label: 'Carregando a equipe')],
+      ),
+    };
+
+/// The held videos, behind the second factor's gate.
+Widget _heldVideos(String? notice) => StaffGate(
+  title: 'Vídeos retidos',
+  child: HeldVideosScreen(notice: notice),
+);
+
+/// The routes outside the guardian's navigation: the PIN gate, the child's
+/// side, linking a device, an invitation's link and every access screen.
+List<RouteBase> _outsideRoutes(AppServices services) => [
+  GoRoute(path: Routes.pinGate, builder: (_, _) => const PinGateScreen()),
+  GoRoute(
+    path: Routes.kidHome,
+    // The guardian's band grows into the child's screen.
+    pageBuilder: (_, state) =>
+        bandGrowPage(key: state.pageKey, child: const KidHomeScreen()),
+    routes: [
+      GoRoute(path: 'sair', builder: (_, _) => const KidExitScreen()),
+      GoRoute(path: 'quem', builder: (_, _) => const ProfilePickerScreen()),
+      GoRoute(
+        path: 'pacotinho/:id',
+        builder: (_, state) => PackPlayerScreen(
+          start: switch (state.extra) {
+            final PackStart s when s.pack.id == state.pathParameters['id'] => s,
+            _ => null,
+          },
+        ),
+      ),
+      GoRoute(
+        path: 'assistir/:id',
+        builder: (_, state) => PlayerScreen(
+          videoId: state.pathParameters['id']!,
+          play: switch (state.extra) {
+            final KidPlay p => p,
+            _ => null,
+          },
+        ),
+      ),
+    ],
+  ),
+  GoRoute(
+    path: Routes.redeem,
+    builder: (_, state) =>
+        RedeemScreen(code: state.uri.queryParameters['codigo']),
+  ),
+  GoRoute(
+    path: Routes.acceptInvitation,
+    builder: (_, state) =>
+        AcceptInvitationScreen(token: state.uri.queryParameters['token']),
+  ),
+  GoRoute(
+    path: Routes.entry,
+    builder: (_, _) => const EntryScreen(),
+    routes: [
+      GoRoute(path: 'email', builder: (_, _) => const EmailSignInScreen()),
+    ],
+  ),
+  GoRoute(path: Routes.signup, builder: (_, _) => const SignupScreen()),
+  GoRoute(
+    path: Routes.checkEmail,
+    builder: (_, state) => CheckEmailScreen(email: state.extra as String?),
+  ),
+  GoRoute(
+    path: Routes.verifyEmail,
+    builder: (_, state) =>
+        VerifyEmailScreen(token: state.uri.queryParameters['token']),
+  ),
+  GoRoute(
+    path: Routes.forgotPassword,
+    builder: (_, _) => const ForgotPasswordScreen(),
+  ),
+  GoRoute(
+    path: Routes.resetPassword,
+    builder: (_, state) =>
+        ResetPasswordScreen(token: state.uri.queryParameters['token']),
+  ),
+  GoRoute(
+    path: Routes.providerSignup,
+    builder: (_, _) =>
+        ProviderSignupScreen(step: services.pending.value as SignupRequired),
+  ),
+  GoRoute(path: Routes.terms, builder: (_, _) => const TermsUpdateScreen()),
+  GoRoute(
+    path: Routes.linkAccount,
+    builder: (_, _) =>
+        LinkAccountScreen(step: services.pending.value as LinkRequired),
+  ),
+];
 
 /// The mode gate. A null mode routes nothing: the
 /// splash covers every route until it settles. A child's mode keeps to the

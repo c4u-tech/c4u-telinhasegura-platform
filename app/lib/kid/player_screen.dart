@@ -46,6 +46,16 @@ class PlayerScreen extends StatefulWidget {
   /// The player could not play it.
   static const videoFailed = 'Esse vídeo não abriu. Escolha outro.';
 
+  /// The video is longer than the time left today.
+  static const doesNotFit =
+      'Esse vídeo é mais comprido que o tempo que falta hoje. '
+      'Escolha um mais curto.';
+
+  /// A pacotinho whose videos together are longer than the time left.
+  static const packDoesNotFit =
+      'Esse pacotinho é mais comprido que o tempo que falta hoje. '
+      'Escolha um mais curto.';
+
   /// A play that failed for another reason (network, server).
   static const cannotOpen = 'Não deu para abrir o vídeo agora.';
 
@@ -125,18 +135,39 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _open(KidPlay play) {
     final services = AppScope.of(context);
-    final playback = services.player.open(play.youtubeId);
+    final playback = services.player.open(
+      play.youtubeId,
+      start: play.startSeconds,
+    );
     _playback = playback;
     _events = playback.events.listen(_on);
     _beats = BeatLoop(
       playId: play.playId,
-      beat: (id, playing) => services.child.beat(id, playing: playing),
-      reopen: () => services.child.play(widget.videoId),
+      // A family work's beats say where the video is, so the next session
+      // starts there; a solo play's never do.
+      sendPosition: play.family,
+      startSeconds: play.startSeconds,
+      position: playback.position,
+      beat: (id, playing, position) =>
+          services.child.beat(id, playing: playing, position: position),
+      reopen: (closed) =>
+          services.child.play(widget.videoId, continues: closed),
       // The day ran out between videos: leaving, the home reads the
       // catalogue again and sleeps.
       onTimeUp: () {
         unawaited(_playback?.pause());
         if (mounted) _leave();
+      },
+      // A pause outlived the play and the rest of the video no longer fits
+      // the day: stopped, back to the shelves, which say why.
+      onDoesNotFit: () {
+        unawaited(_playback?.pause());
+        if (!mounted) return;
+        AppScope.of(context).kidReturn.value = (
+          note: PlayerScreen.doesNotFit,
+          refetch: refetchAfter(PlayerScreen.doesNotFit),
+        );
+        _leave();
       },
     );
   }
@@ -290,14 +321,25 @@ String? refusalNote(Object error) => switch (error) {
   ApiError(code: 'time_up') => null,
   ApiError(code: 'video_not_allowed' || 'not_found') => PlayerScreen.videoGone,
   ApiError(code: 'consent_required') => PausedProfile.line,
+  ApiError(code: 'does_not_fit') => PlayerScreen.doesNotFit,
   _ => PlayerScreen.cannotOpen,
 };
+
+/// Whether [note] says only that a video or pacotinho is longer than the
+/// time left: nothing went wrong, so it is said asleep, not as an error.
+bool restsNote(String note) =>
+    note == PlayerScreen.doesNotFit || note == PlayerScreen.packDoesNotFit;
 
 /// A refusal no other video escapes: the day ran out, or the profile is
 /// paused until a guardian authorizes it again.
 bool refusesEvery(Object error) =>
     error is ApiError &&
     (error.code == 'time_up' || error.code == 'consent_required');
+
+/// A refusal for a video longer than the time left: a shorter one may
+/// still play, but the time left only shrinks.
+bool doesNotFit(Object error) =>
+    error is ApiError && error.code == 'does_not_fit';
 
 /// Whether the shelves must be read again after a refusal worded [note]:
 /// the video left them, the day ran out, or the profile is paused.

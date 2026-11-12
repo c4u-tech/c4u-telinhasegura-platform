@@ -78,7 +78,7 @@ var (
 
 	ErrChecklistOutdated   = errors.New("curation: the checklist version is not the current one")
 	ErrChecklistRefuses    = errors.New("curation: an answer refuses the video")
-	ErrChecklistBand       = errors.New("curation: the pace answered rules out the youngest band")
+	ErrChecklistBand       = errors.New("curation: the pace answered or the length rules out the youngest band")
 	ErrDeclarationRequired = errors.New("curation: the curator has not accepted the current curator terms")
 	ErrDeclarationOutdated = errors.New("curation: the curator terms version is not the current one")
 	ErrConflictOfInterest  = errors.New("curation: the curator has a tie to the channel")
@@ -114,26 +114,32 @@ func (e *SearchUnavailableError) Error() string { return "curation: search is un
 func (e *SearchUnavailableError) Unwrap() error { return ErrSearchUnavailable }
 
 type Deps struct {
-	Pool              *pgxpool.Pool
-	Audit             audit.Recorder
-	Now               func() time.Time
-	Source            VideoSource        // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
-	Thumbs            ThumbSource        // YouTube's image host, no key
-	Search            SearchSource       // nil while YOUTUBE_API_KEY is empty: a search answers 503
-	SearchLimiter     *ratelimit.Limiter // 20 searches per guardian per 24 h, keyed by account
-	SearchBudget      *ratelimit.Daily   // search.list calls per YouTube quota day, for every account
-	SuggestLimiter    *ratelimit.Limiter // 10 suggestion calls per guardian per 24 h, keyed by account
-	ReportLimiter     *ratelimit.Limiter // 20 report calls per account per 24 h
-	ReportThreshold   int                // distinct families' reports that hold a video
-	CheckVideoLimiter *ratelimit.Limiter // one YouTube re-check per video per hour
-	CheckChildLimiter *ratelimit.Limiter // 10 unavailable checks per child per hour
-	MinApprovals      int                // approvals that publish a round
-	MaxDuration       time.Duration      // a longer video is refused
-	RevisitAfter      time.Duration      // from a publication to its revisit
-	ShelfSize         int                // videos per theme on a child's shelf
-	PackMaxDuration   time.Duration      // the longest total of a pack's videos
-	PackRowSize       int                // packs in a child's row
-	Log               *slog.Logger       // source failures, never the key or the link
+	Pool                *pgxpool.Pool
+	Audit               audit.Recorder
+	Now                 func() time.Time
+	Source              VideoSource        // nil while YOUTUBE_API_KEY is empty: a YouTube call answers 503
+	Thumbs              ThumbSource        // YouTube's image host, no key
+	Search              SearchSource       // nil while YOUTUBE_API_KEY is empty: a search answers 503
+	SearchLimiter       *ratelimit.Limiter // 20 searches per guardian per 24 h, keyed by account
+	SearchBudget        *ratelimit.Daily   // search.list calls per YouTube quota day, for every account
+	SuggestLimiter      *ratelimit.Limiter // 10 suggestion calls per guardian per 24 h, keyed by account
+	ReportLimiter       *ratelimit.Limiter // 20 report calls per account per 24 h
+	ReportThreshold     int                // distinct families' reports that hold a video
+	CheckVideoLimiter   *ratelimit.Limiter // one YouTube re-check per video per hour
+	CheckChildLimiter   *ratelimit.Limiter // 10 unavailable checks per child per hour
+	MinApprovals        int                // approvals that publish a round
+	MaxDuration         time.Duration      // the longest video a child may watch alone
+	YoungestMaxDuration time.Duration      // the same for the youngest age band
+	// The ceilings of a video watched with the family: a longer video is
+	// refused, and a longer one is kept from the youngest band.
+	FamilyMaxDuration         time.Duration
+	FamilyYoungestMaxDuration time.Duration
+	LongFrom                  time.Duration // from this length a video counts as long
+	RevisitAfter              time.Duration // from a publication to its revisit
+	ShelfSize                 int           // videos per theme on a child's shelf
+	PackMaxDuration           time.Duration // the longest total of a pack's videos
+	PackRowSize               int           // packs in a child's row
+	Log                       *slog.Logger  // source failures, never the key or the link
 }
 
 type Service struct {
@@ -145,6 +151,13 @@ func NewService(d Deps) *Service {
 	s := &Service{d: d}
 	s.search = newSearchCache(24*time.Hour, 500, s.now)
 	return s
+}
+
+// LengthLimits is the length from which a video counts as long, and the
+// longest a video may run for the youngest age band, watched with the
+// family: past it, the video cannot be approved for that band.
+func (s *Service) LengthLimits() (longFrom, youngestMax time.Duration) {
+	return s.d.LongFrom, s.d.FamilyYoungestMaxDuration
 }
 
 // now is the clock at the precision Postgres stores, in UTC.

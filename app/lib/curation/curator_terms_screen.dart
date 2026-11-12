@@ -102,7 +102,7 @@ class _CuratorTermsScreenState extends State<CuratorTermsScreen> {
     listenable: _accept,
     builder: (context, _) => FieldLayout(
       title: curatorTermsTitle,
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.staffHome),
       children: _body(),
     ),
   );

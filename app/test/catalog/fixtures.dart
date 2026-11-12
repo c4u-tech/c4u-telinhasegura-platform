@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../access/harness.dart' show json, problem;
 import '../family/fixtures.dart';
+import '../screentime/fixtures.dart' show screenTimeApi;
 
 /// A guardian catalogue item as the API answers it.
 Map<String, Object?> familyItem(
@@ -16,6 +17,8 @@ Map<String, Object?> familyItem(
   bool hidden = false,
   Map<String, int>? approvals = const {'mae-pai': 2, 'pedagogo': 1},
   int reviewedDaysAgo = 3,
+  bool familySession = false,
+  int? resume,
 }) => {
   'id': id,
   'youtube_id': 'yt-$id',
@@ -25,6 +28,8 @@ Map<String, Object?> familyItem(
   'theme': theme,
   'min_age_band': 'ate-4',
   'hidden': hidden,
+  'family_session': familySession,
+  'resume_seconds': ?resume,
   'provenance': approvals == null
       ? null
       : {
@@ -118,16 +123,52 @@ final liaVideos = [
   familyItem('v3', 'A canção das cores', theme: 'musica', seconds: 150),
 ];
 
+/// A film Lia watches only with the family: 1 h 30 min.
+final liaFilm = familyItem(
+  'f1',
+  'A grande viagem do sapo',
+  channel: 'Cinema Pequeno',
+  seconds: 90 * 60,
+  familySession: true,
+);
+
+/// Lia's film, stopped 32 minutes in: 58 minutes left.
+final liaFilmResumed = familyItem(
+  'f1',
+  'A grande viagem do sapo',
+  channel: 'Cinema Pequeno',
+  seconds: 90 * 60,
+  familySession: true,
+  resume: 32 * 60,
+);
+
+/// Lia's catalogue with a film and a long story to watch with the family,
+/// each under a theme of its own on the wire.
+final liaWithFamily = [
+  liaFilm,
+  ...liaVideos,
+  familyItem(
+    'f2',
+    'Histórias do fundo do mar',
+    channel: 'Contos',
+    theme: 'historias',
+    seconds: 50 * 60,
+    familySession: true,
+  ),
+];
+
 /// The family's catalogue routes: [catalog] answers each read by minor
 /// and offset (Lia's one page by default), [write] every hide, unhide
 /// and report, and thumbnails answer two JPEG bytes unless [thumb] says
-/// otherwise.
+/// otherwise. A child's day answers as usual, for the child's page the
+/// catalogue's screens return to.
 FutureOr<http.Response> Function(http.Request) catalogApi({
   FutureOr<http.Response> Function(String minorId, int offset)? catalog,
   FutureOr<http.Response> Function(http.Request)? write,
   FutureOr<http.Response> Function(String videoId)? thumb,
 }) => (req) {
   final p = req.url.path;
+  if (p.startsWith('/v1/screentime/')) return screenTimeApi()(req);
   final read = RegExp(r'^/v1/family/minors/([^/]+)/catalog$').firstMatch(p);
   if (read != null) {
     final offset = int.parse(req.url.queryParameters['offset'] ?? '0');

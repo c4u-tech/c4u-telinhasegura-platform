@@ -55,7 +55,7 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
     listenable: _model,
     builder: (context, _) => FieldLayout(
       title: 'Crianças',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch (_model.state) {
         FamilyReady(:final family) => _list(family.minors),
         _ => familyPending(_model),

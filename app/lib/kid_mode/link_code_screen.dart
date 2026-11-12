@@ -39,7 +39,11 @@ enum _Full { devices, codes }
 /// screen is open. The code lives only in this state: never logged or
 /// stored, and leaving does not cancel it (it simply expires).
 class LinkCodeScreen extends StatefulWidget {
-  const LinkCodeScreen({super.key});
+  const LinkCodeScreen({super.key, this.back});
+
+  /// Where back leads: the screen that opened this one, when it is not
+  /// the kid-mode index.
+  final String? back;
 
   @override
   State<LinkCodeScreen> createState() => _LinkCodeScreenState();
@@ -149,7 +153,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
     listenable: Listenable.merge([_model, _write]),
     builder: (context, _) => FieldLayout(
       title: 'Vincular o aparelho da criança',
-      onBack: () => context.go(Routes.kidMode),
+      onBack: () => context.go(widget.back ?? Routes.kidMode),
       children: switch (_model.state) {
         FamilyReady(:final family) when _code != null => [
           ..._problems(),

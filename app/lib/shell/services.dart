@@ -12,6 +12,7 @@ import '../curation/curation_api.dart';
 import '../curation/family_catalog_api.dart';
 import '../family/family_api.dart';
 import '../family/family_model.dart';
+import '../family/family_session_api.dart';
 import '../kid/kid_player.dart';
 import '../kid/link_opener.dart';
 import '../kid/youtube_kid_player.dart';
@@ -61,7 +62,8 @@ class AppServices {
        staff = StaffApi(client),
        mfa = MfaApi(client),
        accounts = AccountsApi(client),
-       familyCatalog = FamilyCatalogApi(client) {
+       familyCatalog = FamilyCatalogApi(client),
+       familySessions = FamilySessionApi(client) {
     familyModel = FamilyModel(auth: auth, api: family, status: client.status);
     // Any call refused for a suspension re-reads the session; the router
     // then takes the person home (suspension screens).
@@ -100,6 +102,9 @@ class AppServices {
   /// This session's elevation as last known, for the staff routes' gate.
   final elevation = ElevationNote();
   final FamilyCatalogApi familyCatalog;
+
+  /// Starts a long work the child watches with the family.
+  final FamilySessionApi familySessions;
 
   /// The label every sign-in sends so the guardian can tell sessions
   /// apart, read once per run.

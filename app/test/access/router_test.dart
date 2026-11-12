@@ -12,6 +12,9 @@ import 'package:telinha_segura/account/password_screen.dart';
 import 'package:telinha_segura/account/sessions_screen.dart';
 import 'package:telinha_segura/family/accept_invitation_screen.dart';
 import 'package:telinha_segura/family/adults_screen.dart';
+import 'package:telinha_segura/family/child_page.dart';
+import 'package:telinha_segura/family/child_screen.dart';
+import 'package:telinha_segura/family/children_screen.dart';
 import 'package:telinha_segura/family/delete_family_screen.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/family/invitations_screen.dart';
@@ -19,9 +22,7 @@ import 'package:telinha_segura/access/reset_password_screen.dart';
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/auth/provider_sign_in.dart';
-import 'package:telinha_segura/screentime/child_time_screen.dart';
 import 'package:telinha_segura/screentime/more_time_screen.dart';
-import 'package:telinha_segura/screentime/screen_time_screen.dart';
 import 'package:telinha_segura/screentime/time_rules_screen.dart';
 import 'package:telinha_segura/shell/splash.dart';
 
@@ -316,10 +317,26 @@ void main() {
     }
   });
 
-  group('screen-time routes', () {
+  group('the old lists lead to the children and the child\'s page', () {
+    for (final (path, to, screen) in [
+      ('/familia/tempo', '/familia/criancas', ChildrenScreen),
+      ('/familia/videos', '/familia/criancas', ChildrenScreen),
+      ('/familia/tempo/m1', '/familia/criancas/m1', ChildPage),
+    ]) {
+      testWidgets('$path redirects to $to', (tester) async {
+        final h = Harness(signedIn: true)..family = ownerFamily;
+        await h.pump(tester, initial: path);
+
+        expect(h.location(tester), to);
+        expect(find.byType(screen), findsOneWidget);
+      });
+    }
+  });
+
+  group('a child\'s routes', () {
     for (final (path, screen) in [
-      ('/familia/tempo', ScreenTimeScreen),
-      ('/familia/tempo/m1', ChildTimeScreen),
+      ('/familia/criancas/m1', ChildPage),
+      ('/familia/criancas/m1/editar', ChildScreen),
       ('/familia/tempo/m1/mais', MoreTimeScreen),
       ('/familia/tempo/m1/limite', TimeRulesScreen),
     ]) {

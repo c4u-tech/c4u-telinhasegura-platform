@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show ValueNotifier;
+
 import '../legal/legal_links.dart' show kTermsVersion;
 import 'api_client.dart';
 import 'api_error.dart';
@@ -304,15 +306,29 @@ class AuthApi {
     ];
   }
 
-  Future<void> revokeSession(String id) =>
-      _client.send('DELETE', '/v1/sessions/${Uri.encodeComponent(id)}');
+  /// Counts the sessions ended from this app, so every screen that shows
+  /// how many there are reads them again.
+  final sessionsEnded = ValueNotifier(0);
+
+  Future<void> revokeSession(String id) async {
+    try {
+      await _client.send('DELETE', '/v1/sessions/${Uri.encodeComponent(id)}');
+    } finally {
+      // A session already gone changes the list too.
+      sessionsEnded.value++;
+    }
+  }
 
   /// Ends the other sessions, or every session including this one.
   Future<void> revokeSessions({required bool includeCurrent}) async {
-    await _client.send(
-      'DELETE',
-      '/v1/sessions?scope=${includeCurrent ? 'all' : 'others'}',
-    );
+    try {
+      await _client.send(
+        'DELETE',
+        '/v1/sessions?scope=${includeCurrent ? 'all' : 'others'}',
+      );
+    } finally {
+      sessionsEnded.value++;
+    }
     if (includeCurrent) await _client.forgetSession();
   }
 

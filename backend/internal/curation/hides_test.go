@@ -2,7 +2,9 @@ package curation_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
@@ -150,5 +152,89 @@ func TestFamilyCatalogPagesByFifty(t *testing.T) {
 	rest, more, err := f.svc.FamilyCatalog(ctx, ana, lia.MinorID, 50)
 	if err != nil || len(rest) != 5 || more {
 		t.Fatalf("second page: %d, more %v, %v", len(rest), more, err)
+	}
+}
+
+func TestFamilyCatalogKeepsATooLongVideoFromTheYoungestBand(t *testing.T) {
+	f := newFixture(t)
+	fam, ana := f.family("ana@example.com")
+	bebe := f.minor(fam, family.AgeUpTo4)
+	long := f.published(nthID(1), "bichos", family.AgeUpTo4)
+	short := f.published(nthID(2), "bichos", family.AgeUpTo4)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((61 * time.Minute).Seconds()))
+
+	page, _, err := f.svc.FamilyCatalog(ctx, ana, bebe.MinorID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page) != 1 || page[0].Video.ID != short {
+		t.Fatalf("page %+v", page)
+	}
+}
+
+func TestFamilyCatalogMarksAFamilySession(t *testing.T) {
+	f := newFixture(t)
+	fam, ana := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	bebe := f.minor(fam, family.AgeUpTo4)
+	long := f.published(nthID(1), "bichos", family.Age5To8)
+	short := f.published(nthID(2), "musica", family.Age5To8)
+	over := f.published(nthID(3), "bichos", family.Age5To8)
+	mid4 := f.published(nthID(4), "bichos", family.AgeUpTo4)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, long, int((50 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, short, int((10 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, over, int((121 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, mid4, int((40 * time.Minute).Seconds()))
+
+	page, _, err := f.svc.FamilyCatalog(ctx, ana, lia.MinorID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, x := range page {
+		got[x.Video.ID] = x.FamilySession
+	}
+	want := map[string]bool{long: true, mid4: false, short: false}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("5-8 sessions %v, want %v", got, want)
+	}
+	page, _, err = f.svc.FamilyCatalog(ctx, ana, bebe.MinorID, 0)
+	if err != nil || len(page) != 1 || page[0].Video.ID != mid4 || !page[0].FamilySession {
+		t.Fatalf("2-4 page %+v, %v", page, err)
+	}
+}
+
+// A family work carries where this child last stopped it, 0 before any
+// stop; another child's stop is not this child's; a video the child may
+// watch alone carries none.
+func TestFamilyCatalogCarriesAFamilyWorksResumePoint(t *testing.T) {
+	f := newFixture(t)
+	fam, ana := f.family("ana@example.com")
+	lia := f.minor(fam, family.Age5To8)
+	teo := f.minor(fam, family.Age5To8)
+	film := f.published(nthID(1), "bichos", family.Age5To8)
+	story := f.published(nthID(2), "historias", family.Age5To8)
+	short := f.published(nthID(3), "musica", family.Age5To8)
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, film, int((90 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, story, int((50 * time.Minute).Seconds()))
+	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, short, int((10 * time.Minute).Seconds()))
+	f.exec(`INSERT INTO play_positions (minor_id, video_id, position_seconds, updated_at) VALUES ($1::uuid, $2::uuid, 612, now())`, lia.MinorID, film)
+	f.exec(`INSERT INTO play_positions (minor_id, video_id, position_seconds, updated_at) VALUES ($1::uuid, $2::uuid, 900, now())`, teo.MinorID, story)
+
+	page, _, err := f.svc.FamilyCatalog(ctx, ana, lia.MinorID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]any{}
+	for _, x := range page {
+		if x.ResumeSeconds == nil {
+			got[x.Video.ID] = nil
+		} else {
+			got[x.Video.ID] = *x.ResumeSeconds
+		}
+	}
+	want := map[string]any{film: 612, story: 0, short: nil}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("resume points %v, want %v", got, want)
 	}
 }

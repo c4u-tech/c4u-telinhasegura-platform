@@ -154,13 +154,21 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     _events = playback.events.listen(_on);
     _beats = BeatLoop(
       playId: play.playId,
-      beat: (id, playing) => services.child.beat(id, playing: playing),
-      reopen: () => services.child.play(video.id),
+      beat: (id, playing, _) => services.child.beat(id, playing: playing),
+      reopen: (closed) => services.child.play(video.id, continues: closed),
       // The day ran out mid-video: the home reads its catalogue and
       // sleeps.
       onTimeUp: () {
         unawaited(_playback?.pause());
         if (mounted) _leave();
+      },
+      // A pause outlived the play and the rest of the video no longer fits
+      // the day: stopped, and the pacotinho ends with its goodbye.
+      onDoesNotFit: () {
+        unawaited(_playback?.pause());
+        if (!mounted || _leaving) return;
+        unawaited(_close());
+        _goodbye();
       },
     );
   }
@@ -245,6 +253,13 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
         if (!mounted || _leaving) return;
         if (refusesEvery(e)) {
           _leave();
+          return;
+        }
+        // The time left only shrinks, so the pacotinho ends here with the
+        // goodbye rather than reaching for another video.
+        if (doesNotFit(e)) {
+          setState(() => _advancing = false);
+          _goodbye();
           return;
         }
       }

@@ -7,9 +7,9 @@ import '../access/widgets.dart';
 import '../design/band_transition.dart';
 import '../design/pin_pad.dart';
 import '../design/tokens.dart';
-import '../family/profile_fields.dart' show SelectableRow;
 import '../parental/app_mode.dart';
 import '../parental/parental.dart' show Profile;
+import '../screentime/time_choice.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'hold_to_exit.dart';
@@ -38,7 +38,7 @@ class KidExitScreen extends StatefulWidget {
 
   /// The minutes an adult may add from the sleeping home; the
   /// server holds the day to its cap.
-  static const moreTime = [15, 30, 60];
+  static const moreTime = TimeChoice.minutes;
 
   @override
   State<KidExitScreen> createState() => _KidExitScreenState();
@@ -219,81 +219,12 @@ class _KidExitScreenState extends State<KidExitScreen> {
 
   /// More time as one row of three 64 dp keys, then the usual exit as
   /// the one full-width row: one choice, read as radios,
-  /// short enough that the pad and "Voltar" stay in view.
-  /// Where a key's words would wrap (large text, a narrow
-  /// screen), the times stand as full-width rows instead, which may
-  /// scroll; the choice reads and behaves the same. The usual exit names
-  /// itself as the corner exit does.
-  Widget _choice() {
-    final busy = _check.busy;
-    VoidCallback? choose(int? minutes) =>
-        busy ? null : () => setState(() => _minutes = minutes);
-    return LayoutBuilder(
-      builder: (context, box) {
-        final keyed = _keysFit(context, box.maxWidth);
-        final times = [
-          for (final m in KidExitScreen.moreTime)
-            SelectableRow(
-              label: 'Mais $m min',
-              text: keyed ? _short(m) : null,
-              asKey: keyed,
-              selected: _minutes == m,
-              onTap: choose(m),
-              height: KidSizes.target,
-            ),
-        ];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (keyed)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final (i, time) in times.indexed) ...[
-                    if (i > 0) const SizedBox(width: Space.sm),
-                    Expanded(child: time),
-                  ],
-                ],
-              )
-            else
-              for (final (i, time) in times.indexed) ...[
-                if (i > 0) const SizedBox(height: Space.sm),
-                time,
-              ],
-            const SizedBox(height: Space.sm),
-            SelectableRow(
-              label: HoldToExit.label,
-              selected: _minutes == null,
-              onTap: choose(null),
-              height: KidSizes.target,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// A key's words: the number and its unit never part.
-  static String _short(int minutes) => '$minutes min';
-
-  /// Whether every key's module, gap and words fit one line inside a third
-  /// of [width], at the text scale in force.
-  bool _keysFit(BuildContext context, double width) {
-    final style = Theme.of(context).textTheme.bodyLarge;
-    final scaler = MediaQuery.textScalerOf(context);
-    final key = (width - 2 * Space.sm) / 3 - 2 * Space.sm;
-    const module = 10 * 58 / 33;
-    for (final m in KidExitScreen.moreTime) {
-      final words = TextPainter(
-        text: TextSpan(text: _short(m), style: style),
-        textScaler: scaler,
-        textDirection: Directionality.of(context),
-        maxLines: 1,
-      )..layout();
-      final fits = module + Space.sm + words.width <= key;
-      words.dispose();
-      if (!fits) return false;
-    }
-    return true;
-  }
+  /// short enough that the pad and "Voltar" stay in view. The usual exit
+  /// names itself as the corner exit does.
+  Widget _choice() => TimeChoice(
+    chosen: _minutes,
+    onChoose: _check.busy ? null : (m) => setState(() => _minutes = m),
+    plain: HoldToExit.label,
+    height: KidSizes.target,
+  );
 }

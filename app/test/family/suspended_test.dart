@@ -8,6 +8,7 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/family/adults_screen.dart' show ownerLeaves;
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/family/inicio.dart';
 
 import '../access/harness.dart';
 import 'fixtures.dart';
@@ -189,7 +190,7 @@ void main() {
           : http.Response('', 204),
     )..family = ownerFamily;
     await h.pump(tester);
-    expect(find.text('Sua família'), findsOneWidget);
+    expect(find.byType(Inicio), findsOneWidget);
 
     h.status = 'suspended';
     await go(tester, '/conta/aparelhos');
@@ -418,7 +419,7 @@ void main() {
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sua família'), findsOneWidget);
+    expect(find.byType(Inicio), findsOneWidget);
     expect(find.text(title), findsNothing);
   });
 

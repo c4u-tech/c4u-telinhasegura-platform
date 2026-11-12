@@ -27,6 +27,42 @@ void main() {
     expect(p.videos.last.duration, const Duration(minutes: 3));
   });
 
+  test('a kid video and pacotinho read whether they fit the time left', () {
+    final c = KidCatalog.fromJson({
+      'themes': [
+        {
+          'theme': 'bichos',
+          'videos': [
+            {'id': 'v1', 'title': 'A', 'duration_seconds': 300, 'fits': false},
+            {'id': 'v2', 'title': 'B', 'duration_seconds': 60},
+          ],
+        },
+      ],
+      'packs': [
+        {
+          'id': 'p1',
+          'title': 'Bichos',
+          'cover_video_id': 'v1',
+          'fits': false,
+          'videos': [
+            {'id': 'v1', 'title': 'A', 'duration_seconds': 300, 'fits': true},
+          ],
+        },
+        {
+          'id': 'p2',
+          'title': 'Outro',
+          'cover_video_id': 'v2',
+          'videos': [
+            {'id': 'v2', 'title': 'B', 'duration_seconds': 60},
+          ],
+        },
+      ],
+    });
+    expect(c.shelves.single.videos.map((v) => v.fits), [false, true]);
+    expect(c.packs.map((p) => p.fits), [false, true]);
+    expect(c.packs.first.videos.single.fits, isTrue);
+  });
+
   test('a kid catalogue without packs reads as none', () {
     expect(KidCatalog.fromJson({'themes': <Object>[]}).packs, isEmpty);
   });

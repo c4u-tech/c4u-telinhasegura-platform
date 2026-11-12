@@ -1,5 +1,30 @@
-"""Builds the Telinha Segura brand asset set (direction A, Espiadinha) from one geometry."""
-import io, json, math, os, sys
+"""Builds the Telinha Segura brand set (direction A, Espiadinha) from one
+geometry, and writes every copy the app, its web build and the site ship.
+
+    python brand/source/build_brand.py [root]
+
+root defaults to the repository this file lives in; give another directory
+to write a fresh tree there and diff it against the committed one. Needs
+Python with fonttools, uharfbuzz, cairosvg (and the cairo library; on macOS
+with Homebrew, run with DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib) and
+pillow. The wordmark is outlined from the app's bundled variable font,
+app/assets/fonts/BricolageGrotesque.ttf, instanced at wght 700, opsz 24,
+wdth 100 (the endorsement at wght 500, opsz 14).
+
+It writes, under root:
+- brand/svg, brand/png, brand/tokens: every tier in four variants, the
+  e-mail PNGs and the design tokens;
+- brand/app-icon: the app icon (the simplified mark at 72 % of an ink
+  tile, and its dark variant), the Android adaptive layers and monochrome,
+  and the native splash marks; flutter_launcher_icons and
+  flutter_native_splash read these PNGs (see app/*.yaml);
+- brand/favicon: the monogram favicon (16, 32, 48 px) and the web icons;
+- the copies listed in COPIES, byte for byte;
+- brand/manifest.sha256: the hash of every file above. tools/brandcheck
+  fails when a committed file no longer matches it, so a copy edited by
+  hand, or a master changed without running this script, is caught.
+"""
+import hashlib, io, json, math, os, shutil, sys
 import uharfbuzz as hb, cairosvg
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
@@ -11,8 +36,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 from contrast import cr, oklch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = sys.argv[1]
-FONT_SRC = os.path.join(HERE, 'fonts', 'Bricolage.ttf')
+REPO = os.path.dirname(os.path.dirname(HERE))
+ROOT = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else REPO
+OUT = os.path.join(ROOT, 'brand')
+FONT_SRC = os.path.join(REPO, 'app', 'assets', 'fonts', 'BricolageGrotesque.ttf')
+WRITTEN = []  # repository-relative paths of every file written
 
 C = dict(cream='#FBF6EC', dark='#0F2A30', ink='#1E5B66', sun='#F2B23A', white='#FFFFFF')
 
@@ -114,15 +142,27 @@ def lockup_svg(v, endorsed=False, tier='simplified'):
         h = 64
     return svg(round(w, 2), h, body, 'Telinha Segura' + (' — Feito pela Coding4u' if endorsed else ''))
 
+# The wordmark alone, for a field the head already peeks over: the lockup's
+# outlines at the lockup's size, in a box 29 units tall (the lockup is 64),
+# so at a lockup height H the wordmark file is shown H * 29 / 64 tall.
+WORDMARK_TOP = 23
+WORDMARK_H = 29
+def wordmark_svg(v):
+    w = round(WORD_B[2] + 1, 2)
+    body = f'<path fill="{VARIANTS[v]["word"]}" transform="translate(0 {WORDMARK_TOP})" d="{WORD_PATH}"/>'
+    return svg(w, WORDMARK_H, body)
+
 def png(svg_text, w=None, h=None, bg=None):
     data = cairosvg.svg2png(bytestring=svg_text.encode(), output_width=w, output_height=h, background_color=bg)
     return Image.open(io.BytesIO(data))
 
-def write(path, text):
+def target(path):
     full = os.path.join(OUT, path); os.makedirs(os.path.dirname(full), exist_ok=True)
-    open(full, 'w').write(text)
+    WRITTEN.append('brand/' + path); return full
+def write(path, text):
+    open(target(path), 'w').write(text)
 def save_png(path, im):
-    full = os.path.join(OUT, path); os.makedirs(os.path.dirname(full), exist_ok=True); im.save(full, optimize=True)
+    im.save(target(path), optimize=True)
 
 # ---------------- vector set ----------------
 files = {}
@@ -132,6 +172,7 @@ for v in VARIANTS:
     files[f'svg/telinha-segura-monogram-{v}.svg'] = mark_svg('monogram', v)
     files[f'svg/telinha-segura-lockup-{v}.svg'] = lockup_svg(v)
     files[f'svg/telinha-segura-lockup-endorsed-{v}.svg'] = lockup_svg(v, endorsed=True, tier='mark')
+    files[f'svg/telinha-segura-wordmark-{v}.svg'] = wordmark_svg(v)
 for k, t in files.items(): write(k, t)
 
 # favicon: monogram, adapts to the browser's dark tab strip
@@ -141,24 +182,48 @@ write('favicon/favicon.svg',
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><style>.d{display:none}@media (prefers-color-scheme:dark){.l{display:none}.d{display:inline}}</style>'
       f'<g class="l">{fav}</g><g class="d">{fav_dark}</g></svg>\n')
 ico_imgs = [png(mark_svg('monogram', 'color'), s, s) for s in (16, 32, 48)]
-ico_full = os.path.join(OUT, 'favicon/favicon.ico'); ico_imgs[2].save(ico_full, sizes=[(16, 16), (32, 32), (48, 48)], append_images=ico_imgs[:2])
+ico_full = target('favicon/favicon.ico'); ico_imgs[2].save(ico_full, sizes=[(16, 16), (32, 32), (48, 48)], append_images=ico_imgs[:2])
 
-# app icons: cream tile, simplified mark at 64% (inside iOS and maskable safe zones)
-def icon_svg(size_units=100, frac=0.64, ground=C['cream'], v='color'):
-    m = size_units * frac; o = (size_units - m) / 2
-    return svg(size_units, size_units, f'<rect width="{size_units}" height="{size_units}" fill="{ground}"/>' + mark_paths('simplified', v, o, o + 1.5, m / 64))
-def icon_fg_svg(size_units=108, frac=0.42):  # Android adaptive foreground: transparent, safe zone 66/108
-    m = size_units * frac; o = (size_units - m) / 2
-    return svg(size_units, size_units, mark_paths('simplified', 'color', o, o + 1.5, m / 64))
-write('app-icon/app-icon.svg', icon_svg())
-write('app-icon/app-icon-dark.svg', icon_svg(ground=C['dark'], v='color-on-dark'))
-write('app-icon/android-adaptive-foreground.svg', icon_fg_svg())
-write('app-icon/android-adaptive-background.svg', svg(108, 108, f'<rect width="108" height="108" fill="{C["cream"]}"/>'))
-save_png('app-icon/app-icon-1024.png', png(icon_svg(), 1024, 1024).convert('RGB'))
-save_png('favicon/apple-touch-icon.png', png(icon_svg(), 180, 180).convert('RGB'))
-save_png('favicon/icon-192.png', png(icon_svg(), 192, 192))
-save_png('favicon/icon-512.png', png(icon_svg(), 512, 512))
-save_png('favicon/icon-maskable-512.png', png(icon_svg(frac=0.52), 512, 512))
+# App icon: the simplified mark in its on-dark colours (cream screen, sun
+# head, dark eyes) on an ink tile, so the tile holds its edge on light and
+# dark wallpapers alike; the dark variant sits on the dark ground. The
+# mark's drawing (x 3-61, y 5-60 of its 64 grid) is centred on the tile.
+def placed_mark(size, frac, v, tier='simplified'):
+    s = size * frac / 64
+    return mark_paths(tier, v, size / 2 - 32 * s, size / 2 - 32.5 * s, s)
+def tile_svg(size, frac, ground, v='color-on-dark'):
+    return svg(size, size, f'<rect width="{size}" height="{size}" fill="{ground}"/>' + placed_mark(size, frac, v))
+ICON = 0.72                  # of the visible tile
+ADAPTIVE = ICON * 72 / 108   # Android shows 72 of the layer's 108 dp; the mark stays in the 66 dp safe circle
+MASKABLE = ICON * 0.8        # the web's maskable safe zone is the inner 80 % circle
+app_icon = tile_svg(100, ICON, C['ink'])
+app_icon_dark = tile_svg(100, ICON, C['dark'])
+adaptive_fg = svg(108, 108, placed_mark(108, ADAPTIVE, 'color-on-dark'))
+adaptive_bg = svg(108, 108, f'<rect width="108" height="108" fill="{C["ink"]}"/>')
+monochrome = svg(108, 108, placed_mark(108, ADAPTIVE, 'mono'))
+write('app-icon/app-icon.svg', app_icon)
+write('app-icon/app-icon-dark.svg', app_icon_dark)
+write('app-icon/android-adaptive-foreground.svg', adaptive_fg)
+write('app-icon/android-adaptive-background.svg', adaptive_bg)
+write('app-icon/android-monochrome.svg', monochrome)
+save_png('app-icon/app-icon-1024.png', png(app_icon, 1024, 1024).convert('RGB'))
+save_png('app-icon/app-icon-dark-1024.png', png(app_icon_dark, 1024, 1024).convert('RGB'))
+save_png('app-icon/android-adaptive-foreground.png', png(adaptive_fg, 432, 432))
+save_png('app-icon/android-adaptive-background.png', png(adaptive_bg, 432, 432))
+save_png('app-icon/android-monochrome.png', png(monochrome, 432, 432))
+# Native splash: the same mark on a transparent ground; the splash paints
+# ink (light) or dark behind it. 192 dp at 4x, and inside Android 12's
+# 640 px circle.
+def splash(size, frac):
+    m = size * frac; o = (size - m) / 2
+    return png(svg(size, size, mark_paths('simplified', 'color-on-dark', o, o, m / 64)), size, size)
+save_png('app-icon/splash-mark.png', splash(768, 0.8))
+save_png('app-icon/splash-android12.png', splash(960, 0.5))
+# Web icons from 180 px up are the app icon; the monogram stays at 16-48.
+save_png('favicon/apple-touch-icon.png', png(app_icon, 180, 180).convert('RGB'))
+save_png('favicon/icon-192.png', png(app_icon, 192, 192))
+save_png('favicon/icon-512.png', png(app_icon, 512, 512))
+save_png('favicon/icon-maskable-512.png', png(tile_svg(100, MASKABLE, C['ink']), 512, 512))
 
 # e-mail PNGs at 1x and 2x (transparent; colour on light, reversed for dark headers)
 def lockup_dims(t):
@@ -203,5 +268,29 @@ tokens = {
   '$extensions': {'contrast': pairs},
 }
 write('tokens/brand-tokens.json', json.dumps(tokens, ensure_ascii=False, indent=2) + '\n')
+# ---------------- shipped copies ----------------
+COPIES = {
+  'app/assets/brand/telinha-segura-wordmark-reversed.svg': 'brand/svg/telinha-segura-wordmark-reversed.svg',
+  'app/web/favicon.svg': 'brand/favicon/favicon.svg',
+  'app/web/favicon.ico': 'brand/favicon/favicon.ico',
+  'app/web/icons/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',
+  'app/web/icons/Icon-192.png': 'brand/favicon/icon-192.png',
+  'app/web/icons/Icon-512.png': 'brand/favicon/icon-512.png',
+  'app/web/icons/Icon-maskable-512.png': 'brand/favicon/icon-maskable-512.png',
+  'site/public/favicon.svg': 'brand/favicon/favicon.svg',
+  'site/public/favicon.ico': 'brand/favicon/favicon.ico',
+  'site/public/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',
+  'site/public/brand/telinha-segura-wordmark-reversed.svg': 'brand/svg/telinha-segura-wordmark-reversed.svg',
+  'site/public/brand/telinha-segura-lockup-endorsed-color.svg': 'brand/svg/telinha-segura-lockup-endorsed-color.svg',
+  'site/public/brand/telinha-segura-lockup-endorsed-color-on-dark.svg': 'brand/svg/telinha-segura-lockup-endorsed-color-on-dark.svg',
+}
+for copy, master in COPIES.items():
+    dst = os.path.join(ROOT, copy); os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copyfile(os.path.join(ROOT, master), dst); WRITTEN.append(copy)
+
+def sha256(path):
+    return hashlib.sha256(open(os.path.join(ROOT, path), 'rb').read()).hexdigest()
+open(os.path.join(OUT, 'manifest.sha256'), 'w').write(''.join(f'{sha256(p)}  {p}\n' for p in sorted(set(WRITTEN))))
+
 print(json.dumps(pairs, indent=0))
 print('word width units', round(WORD_W, 2), 'bounds', [round(b, 2) for b in WORD_B])

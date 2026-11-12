@@ -146,6 +146,46 @@ abstract final class FieldSizes {
   // Google's rendered web button tops out at 400 px; every control in
   // the column shares that width so their edges line up.
   static const columnMaxWidth = 400.0;
+
+  /// From this much room for its column, a page of sections (a child's
+  /// page) sets its first two side by side: two 300 px columns, as wide
+  /// as a small phone's, 24 px apart.
+  static const pairedMinWidth = 2 * 300.0 + Space.xl;
+}
+
+/// The guardian's navigation: the ink rail on a wide window and the bar
+/// on a narrow one. The selected destination's indicator is the mark's
+/// screen (58 × 33) at [indicator] tall, cornered at the same ratio.
+abstract final class ShellSizes {
+  /// The rail's ink field, the head over it drawn on the same grid.
+  static const railUnit = 2.0;
+  static const railWidth = 248.0;
+
+  /// The rail's field inset from the window, as the wide panel's was.
+  static const railInset = Space.lg;
+  static const indicator = 32.0;
+  static const indicatorWidth = indicator * 58 / 33;
+
+  /// A destination's row in the rail, a control's height.
+  static const railItem = 56.0;
+
+  /// From this width a place of several items (the family, the account,
+  /// the team) shows its list and the item it opens side by side: the
+  /// large window class, which a 10 to 11 inch tablet in landscape
+  /// reaches (about 1317 dp), while the same tablet in portrait and a
+  /// small laptop window keep one column.
+  static const listDetailBreakpoint = 1200.0;
+
+  /// The list's pane beside the rail, before the reed hairline.
+  static const listPaneWidth = 320.0;
+}
+
+/// The wordmark's box height in each ink field. The wordmark is the
+/// field's name plate, so it is never the smallest text in the field.
+abstract final class WordmarkSizes {
+  static const band = 20.0;
+  static const rail = 22.0;
+  static const hero = 28.0;
 }
 
 /// The kid dialect's sizes: small hands get 64 dp targets (the PIN keys

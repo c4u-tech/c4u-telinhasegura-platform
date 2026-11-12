@@ -17,9 +17,8 @@ import 'curation.dart';
 import 'role_gate.dart';
 import 'words.dart';
 
-/// The held videos' door to the audit.
-const auditDoor = 'Auditoria das aprovações';
-const auditDoorLine = 'Conferir uma amostra de aprovações recentes';
+/// The approval sample's name, on Equipe and over the screen.
+const sampleTitle = 'Amostra de aprovações';
 
 const sampleLead =
     'Uma amostra de aprovações dos últimos 30 dias que ninguém conferiu. '
@@ -80,8 +79,8 @@ class _AuditSampleScreenState extends State<AuditSampleScreen>
 
   @override
   Widget build(BuildContext context) => FieldLayout(
-    title: auditDoor,
-    onBack: () => context.go(Routes.heldVideos),
+    title: sampleTitle,
+    onBack: () => context.go(Routes.staffHome),
     children: [
       if (widget.notice case final notice?) ...[
         Notice(notice),

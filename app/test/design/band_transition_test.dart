@@ -77,12 +77,13 @@ void main() {
     );
     expect(
       guardianBand(const Size(1280, 800), EdgeInsets.zero),
+      // Wide, the guardian's ink field is the rail.
       RRect.fromLTRBR(
-        16,
-        16 + 22 * 4,
-        1280 * 0.46 - 16,
-        800 - 16,
-        const Radius.circular(40),
+        ShellSizes.railInset,
+        ShellSizes.railInset + 22 * ShellSizes.railUnit,
+        ShellSizes.railInset + ShellSizes.railWidth,
+        800 - ShellSizes.railInset,
+        const Radius.circular(10 * ShellSizes.railUnit),
       ),
     );
   });

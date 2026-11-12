@@ -82,6 +82,7 @@ class Shelf extends StatelessWidget {
             size: tile,
             thumbnail: thumbnail,
             onTap: onPlay == null ? null : () => onPlay!(video),
+            resting: !video.fits,
           ),
       ],
     );
@@ -149,12 +150,25 @@ class VideoTile extends StatefulWidget {
     required this.size,
     required this.thumbnail,
     required this.onTap,
+    this.resting = false,
   });
 
   final KidVideo video;
   final Size size;
   final ThumbnailLoader thumbnail;
   final VoidCallback? onTap;
+
+  /// Longer than the time left today: the picture rests, quieted and
+  /// outlined, still in its place and still a target, and it is read as
+  /// not for today. No number, clock or word is drawn on it.
+  final bool resting;
+
+  /// What a screen reader hears for [title], resting or not.
+  static String label(String title, {required bool resting}) =>
+      resting ? '$title, não cabe hoje' : title;
+
+  /// The resting tile's outline, the hollow screen's stroke.
+  static const restingStroke = 1.5;
 
   static const narrow = Size(160, 90);
   static const wide = Size(224, 126);
@@ -172,6 +186,25 @@ class _VideoTileState extends State<VideoTile> {
   late final Future<Uint8List> _bytes = widget.thumbnail(widget.video.id);
   bool _focused = false;
 
+  /// A resting picture loses its colour and sinks toward the ink ground,
+  /// so it reads "not now" beside the awake tiles without a sign on it.
+  Widget _picture(Widget picture, Palette p) => !widget.resting
+      ? picture
+      : Stack(
+          fit: StackFit.expand,
+          children: [
+            ColorFiltered(colorFilter: _grey, child: picture),
+            ColoredBox(color: p.ground.withValues(alpha: .38)),
+          ],
+        );
+
+  static const _grey = ColorFilter.matrix([
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ]);
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -181,11 +214,18 @@ class _VideoTileState extends State<VideoTile> {
       ),
     );
     final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
+    final rest = widget.resting
+        ? BorderSide(
+            color: p.outline,
+            width: VideoTile.restingStroke,
+            strokeAlign: BorderSide.strokeAlignInside,
+          )
+        : BorderSide.none;
     return Semantics(
       container: true,
       button: true,
       enabled: true,
-      label: widget.video.title,
+      label: VideoTile.label(widget.video.title, resting: widget.resting),
       onTap: widget.onTap,
       child: ExcludeSemantics(
         child: SizedBox.fromSize(
@@ -195,39 +235,52 @@ class _VideoTileState extends State<VideoTile> {
             decoration: ShapeDecoration(
               shape: shape.copyWith(side: ring ?? BorderSide.none),
             ),
-            child: Material(
-              type: MaterialType.transparency,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  FutureBuilder(
-                    future: _bytes,
-                    builder: (context, snap) => switch (snap) {
-                      AsyncSnapshot(hasData: true, :final data!) =>
-                        Image.memory(
-                          data,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, _, _) => const HollowThumbnail(),
-                        ),
-                      AsyncSnapshot(hasError: true) => const HollowThumbnail(),
-                      _ => ColoredBox(color: p.outline.withValues(alpha: .24)),
-                    },
-                  ),
-                  InkWell(
-                    onTap: widget.onTap,
-                    // Kept focusable while a play is pending: the ring
-                    // stays where the child left it.
-                    canRequestFocus: true,
-                    onFocusChange: (f) => setState(() => _focused = f),
-                    focusColor: Colors.transparent,
-                    hoverColor: p.outline.withValues(alpha: .08),
-                    highlightColor: p.outline.withValues(alpha: .12),
-                    splashColor: p.outline.withValues(alpha: .12),
-                  ),
-                ],
+            // The resting stroke sits inside the frame and the focus ring
+            // outside it, so a focused resting tile keeps both signs.
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(shape: shape.copyWith(side: rest)),
+              child: Material(
+                type: MaterialType.transparency,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _picture(
+                      FutureBuilder(
+                        future: _bytes,
+                        builder: (context, snap) => switch (snap) {
+                          AsyncSnapshot(hasData: true, :final data!) =>
+                            Image.memory(
+                              data,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              errorBuilder: (_, _, _) =>
+                                  const HollowThumbnail(),
+                            ),
+                          AsyncSnapshot(hasError: true) =>
+                            const HollowThumbnail(),
+                          _ => ColoredBox(
+                            color: p.outline.withValues(alpha: .24),
+                          ),
+                        },
+                      ),
+                      p,
+                    ),
+                    InkWell(
+                      onTap: widget.onTap,
+                      // Kept focusable while a play is pending: the ring
+                      // stays where the child left it.
+                      canRequestFocus: true,
+                      onFocusChange: (f) => setState(() => _focused = f),
+                      focusColor: Colors.transparent,
+                      hoverColor: p.outline.withValues(alpha: .08),
+                      highlightColor: p.outline.withValues(alpha: .12),
+                      splashColor: p.outline.withValues(alpha: .12),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -41,7 +41,7 @@ void main() {
   test('the checklist parses into groups and questions', () async {
     final list = await CurationApi(build(ClientKind.mobile, contract).client)
         .checklist();
-    expect(list.version, '2026-10-21');
+    expect(list.version, '2026-11-11');
     expect(list.groups.map((g) => g.title), [
       'Antes de começar',
       'Violência e medo',
@@ -49,6 +49,7 @@ void main() {
       'Consumo e publicidade',
       'Saúde e segurança',
       'Ritmo e canal',
+      'Vídeo longo',
     ]);
     expect(list.items.map((i) => i.id), [
       'c25',
@@ -61,12 +62,34 @@ void main() {
       'c22',
       'c23',
       'c24',
+      'c26',
+      'c27',
+      'c28',
     ]);
     expect(list.item('c25')!.rule, ChecklistRule.conflict);
+    expect(list.item('c28')!.rule, ChecklistRule.notes);
+    expect(list.item('c26')!.longOnly, isTrue);
+    expect(list.item('c24')!.longOnly, isFalse);
+    expect(list.longFrom, const Duration(minutes: 20));
+    expect(list.youngestMax, const Duration(minutes: 60));
     expect(list.item('c99'), isNull);
     expect(ChecklistRule.parse('new_rule'), ChecklistRule.unknown);
     expect(ChecklistRule.parse('invalid_reason'), ChecklistRule.unknown);
     expect(ChecklistAnswer.parse('maybe'), ChecklistAnswer.unknown);
+  });
+
+  test('a list without its limits reads 20 and 60 minutes', () {
+    final list = Checklist.fromJson({'version': 'v', 'groups': <Object>[]});
+    expect(list.longFrom, const Duration(minutes: 20));
+    expect(list.youngestMax, const Duration(minutes: 60));
+    final other = Checklist.fromJson({
+      'version': 'v',
+      'long_from_seconds': 600,
+      'youngest_max_seconds': 900,
+      'groups': <Object>[],
+    });
+    expect(other.longFrom, const Duration(minutes: 10));
+    expect(other.youngestMax, const Duration(minutes: 15));
   });
 
   test('the curator terms are read and accepted by version', () async {
@@ -91,7 +114,7 @@ void main() {
     final doubt = held.doubts.single;
     expect(doubt.decision, ReviewDecision.doubt);
     expect(doubt.reason, 'Não sei se a tristeza pesa.');
-    expect(doubt.checklistVersion, '2026-10-21');
+    expect(doubt.checklistVersion, '2026-11-11');
     expect(doubt.answers!['c07'], ChecklistAnswer.appears);
     expect(doubt.answers!['c22'], ChecklistAnswer.doubt);
     expect(doubt.failedItems, isNull);

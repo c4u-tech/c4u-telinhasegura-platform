@@ -23,8 +23,24 @@ const profileHint =
 /// `/familia/criancas/nova`: the profile, then the consent over it.
 /// Going back a step keeps every value; so
 /// does a failed create.
+///
+/// The same form is the first step of a longer path when given [marks]:
+/// both its parts then show them, [onBack] leaves the profile,
+/// [onCreated] receives the registered child and [foot] closes each part.
 class NewChildScreen extends StatefulWidget {
-  const NewChildScreen({super.key});
+  const NewChildScreen({
+    super.key,
+    this.marks,
+    this.onBack,
+    this.onCreated,
+    this.foot = const [],
+  });
+
+  /// The longer path's step marks.
+  final Widget? marks;
+  final VoidCallback? onBack;
+  final ValueChanged<Minor>? onCreated;
+  final List<Widget> foot;
 
   @override
   State<NewChildScreen> createState() => _NewChildScreenState();
@@ -64,8 +80,9 @@ class _NewChildScreenState extends State<NewChildScreen> {
     final api = AppScope.of(context).family;
     // The consent goes with the version of the text on screen.
     assert(ConsentText.version == kConsentPolicyVersion);
+    Minor? created;
     final ok = await _write.write(
-      () => api.createMinor(
+      () async => created = await api.createMinor(
         nickname: nicknameOf(_nickname.text)!,
         avatar: _avatar!,
         ageBand: _band!,
@@ -74,8 +91,16 @@ class _NewChildScreenState extends State<NewChildScreen> {
     );
     if (!ok) return;
     await _model.refresh();
-    if (mounted) context.go(Routes.children);
+    if (!mounted) return;
+    if (widget.onCreated case final onCreated?) {
+      onCreated(created!);
+    } else {
+      context.go(Routes.children);
+    }
   }
+
+  /// The marks of [part] (1, the profile; 2, the consent).
+  Widget _marks(int part) => widget.marks ?? StepMarks(step: part, of: 2);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -89,9 +114,9 @@ class _NewChildScreenState extends State<NewChildScreen> {
     return FieldLayout(
       key: const ValueKey('profile'),
       title: 'Cadastrar criança',
-      onBack: () => context.go(Routes.children),
+      onBack: widget.onBack ?? () => context.go(Routes.children),
       children: [
-        const StepMarks(step: 1, of: 2),
+        _marks(1),
         const SizedBox(height: Space.xl),
         NicknameField(controller: _nickname),
         const SizedBox(height: Space.xl),
@@ -117,6 +142,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
               : null,
         ),
         SubmitHint(profileHint, visible: !_complete),
+        ...widget.foot,
       ],
     );
   }
@@ -128,7 +154,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
       title: 'Consentimento',
       onBack: _write.busy ? null : () => setState(() => _consenting = false),
       children: [
-        const StepMarks(step: 2, of: 2),
+        _marks(2),
         const SizedBox(height: Space.xl),
         // The child the consent is about.
         ChildSummary(nickname: nickname, avatar: _avatar!, ageBand: _band!),
@@ -151,6 +177,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
           onPressed: _agreed && !_write.blocked ? _create : null,
         ),
         SubmitHint(declarationHint, visible: !_agreed),
+        ...widget.foot,
       ],
     );
   }

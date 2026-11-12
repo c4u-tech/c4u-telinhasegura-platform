@@ -166,7 +166,7 @@ abstract final class Copy {
         'Com o que você marcou, o vídeo não pode ser aprovado. Recuse '
         'marcando o que aparece.',
     'checklist_band':
-        'Com o ritmo que você marcou, o vídeo não serve para 2 a 4 anos. '
+        'Esse vídeo não serve para 2 a 4 anos, pelo ritmo ou pela duração. '
         'Escolha outra idade.',
     'conflict_of_interest':
         'Você tem vínculo com este canal, então a revisão dele fica com '

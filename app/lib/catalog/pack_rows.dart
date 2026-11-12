@@ -7,7 +7,7 @@ import '../design/tokens.dart';
 import '../family/widgets.dart';
 import '../kid/shelves.dart' show ThumbnailLoader;
 import '../kid_mode/kid_mode_door.dart' show StateLine;
-import 'video_row.dart' show VideoThumb;
+import 'video_row.dart' show VideoThumb, rowTextIsLarge;
 import 'words.dart';
 
 /// One of today's pacotinhos on a child's catalogue:
@@ -31,11 +31,14 @@ class PackRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = CatalogWords.packCount(pack, nickname);
+    final large = rowTextIsLarge(context);
     return DoorRow(
       title: pack.title,
-      titleMaxLines: 2,
+      titleMaxLines: large ? 4 : 2,
       semanticsLabel: '${pack.title}, pacotinho, $count',
-      leading: VideoThumb(videoId: pack.coverVideoId, thumbnail: thumbnail),
+      leading: large
+          ? null
+          : VideoThumb(videoId: pack.coverVideoId, thumbnail: thumbnail),
       onTap: onTap,
       child: Text(
         count,

@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/reauth_prompt.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/family/family.dart';
+import 'package:telinha_segura/family/family_model.dart';
 
 import '../access/harness.dart';
 import 'fixtures.dart';
@@ -185,15 +187,16 @@ void main() {
       find.text('Só a pessoa titular da família pode fazer isso.'),
       findsOneWidget,
     );
-    expect(find.text('Sair da família'), findsOneWidget, reason: 'guardian');
+    final now = h.services.familyModel.state as FamilyReady;
+    expect(now.family.role, FamilyRole.guardian);
   });
 
-  testWidgets('back returns to the family home', (tester) async {
+  testWidgets('back returns to Família', (tester) async {
     final h = await deleting(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/');
+    expect(h.location(tester), '/familia');
   });
 }

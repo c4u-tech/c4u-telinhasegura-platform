@@ -1,7 +1,7 @@
 /// The consent text version the app shows before a minor is created. It
 /// must equal the backend's `family.ConsentPolicyVersion` (a test pins
 /// both).
-const kConsentPolicyVersion = '2026-10-17';
+const kConsentPolicyVersion = '2026-11-11';
 
 /// The family's limits, as the backend enforces them (`maxMinors` and
 /// `maxSeats` in backend/internal/family): children, and adults counting

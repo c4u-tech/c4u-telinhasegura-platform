@@ -124,7 +124,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
     listenable: Listenable.merge([_model, _send, _cancel, _email]),
     builder: (context, _) => FieldLayout(
       title: 'Convites',
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch (_model.state) {
         FamilyReady(:final family) => _page(family),
         _ => familyPending(_model),

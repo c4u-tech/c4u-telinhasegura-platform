@@ -75,7 +75,7 @@ class _RefuseScreenState extends State<RefuseScreen> {
   late final Set<String> _ticked = {...widget.items};
   bool _started = false;
   Video? _video;
-  Checklist? _checklist;
+  Checklist? _list;
   bool _checklistFailed = false;
   String? _fieldError;
   bool _done = false;
@@ -101,36 +101,60 @@ class _RefuseScreenState extends State<RefuseScreen> {
     scheduleMicrotask(_readChecklist);
   }
 
-  /// Opened directly: the video is read to be named. A video gone from
-  /// the queue goes back to it; any other failure leaves the form as is.
+  /// Opened directly: the video is read to be named, and for its length,
+  /// which decides the questions offered. A video gone from the queue goes
+  /// back to it; any other failure offers to try again.
   Future<void> _readVideo() async {
     if (!mounted) return;
     try {
       final detail = await AppScope.of(context).curation.video(widget.id);
-      if (mounted) setState(() => _video = detail.video);
+      if (!mounted) return;
+      setState(() {
+        _video = detail.video;
+        _keepAsked();
+      });
     } on Object catch (e) {
-      if (mounted) leaveForQueue(context, e);
+      if (!mounted || leaveForQueue(context, e)) return;
+      setState(() => _checklistFailed = true);
     }
   }
 
-  /// A ticked question the list does not hold as refusing is dropped: a
-  /// link cannot tick anything else. The old list goes first, so a failed
-  /// read after it changed offers to try again rather than the outdated
-  /// list.
+  /// The list as this video is asked it: a short video is never asked
+  /// the long-video questions, so a refusal cannot cite them. Null until
+  /// both the list and the video are read.
+  Checklist? get _checklist => switch ((_list, _video)) {
+    (final list?, final video?) => list.askedOf(video.duration),
+    _ => null,
+  };
+
+  /// A ticked question the list, as this video is asked it, does not hold
+  /// as refusing is dropped: a link cannot tick anything else.
+  void _keepAsked() {
+    final list = _checklist;
+    if (list == null) return;
+    _ticked.retainWhere((id) => list.item(id)?.rule == ChecklistRule.refuses);
+  }
+
+  /// Tries again what failed to read: the video, the list, or both.
+  void _retry() {
+    if (_video == null) unawaited(_readVideo());
+    unawaited(_readChecklist());
+  }
+
+  /// The old list goes first, so a failed read after it changed offers to
+  /// try again rather than the outdated list.
   Future<void> _readChecklist() async {
     if (!mounted) return;
     setState(() {
-      _checklist = null;
+      _list = null;
       _checklistFailed = false;
     });
     try {
       final list = await AppScope.of(context).curation.checklist();
       if (!mounted) return;
       setState(() {
-        _checklist = list;
-        _ticked.retainWhere(
-          (id) => list.item(id)?.rule == ChecklistRule.refuses,
-        );
+        _list = list;
+        _keepAsked();
       });
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
@@ -217,7 +241,7 @@ class _RefuseScreenState extends State<RefuseScreen> {
         else ...[
           const ErrorNote(Copy.genericRetry),
           const SizedBox(height: Space.lg),
-          PrimaryButton(label: 'Tentar de novo', onPressed: _readChecklist),
+          PrimaryButton(label: 'Tentar de novo', onPressed: _retry),
         ],
       ];
     }

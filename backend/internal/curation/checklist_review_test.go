@@ -25,11 +25,11 @@ func TestApprovalStoresEveryAnswer(t *testing.T) {
 	if err != nil || state != curation.Pending {
 		t.Fatalf("approval: %s %v", state, err)
 	}
-	if r.Decision != curation.Approve || r.ChecklistVersion != "2026-10-21" || !maps.Equal(r.Answers, clean()) ||
+	if r.Decision != curation.Approve || r.ChecklistVersion != "2026-11-11" || !maps.Equal(r.Answers, clean()) ||
 		r.FailedItems != nil || r.Reason != "" {
 		t.Fatalf("review %+v", r)
 	}
-	if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND checklist_version = '2026-10-21'
+	if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND checklist_version = '2026-11-11'
 		AND (SELECT count(*) FROM jsonb_object_keys(checklist)) = 23 AND checklist->>'c25' = 'ok'`, v); n != 1 {
 		t.Fatal("the answers were not stored")
 	}
@@ -225,5 +225,200 @@ func TestADoubtMayLeaveTheThemeAndBandToTheModerator(t *testing.T) {
 	if err != nil || len(list) != 1 || len(list[0].Doubts) != 1 || list[0].Doubts[0].Theme != "" ||
 		list[0].Doubts[0].MinAgeBand != "" {
 		t.Fatalf("held %+v %v", list, err)
+	}
+}
+
+// longVideo inserts a pending video of length d.
+func (f *fixture) longVideo(youtubeID string, d time.Duration) string {
+	f.t.Helper()
+	return f.id(`INSERT INTO videos (youtube_id, title, channel_id, channel_title, duration_seconds, state, created_at, updated_at)
+		VALUES ($1, 'Vídeo', 'UC1', 'Canal', $2, 'pending', $3, $3) RETURNING id::text`, youtubeID, int(d.Seconds()), f.now)
+}
+
+func TestALongVideoAnswersTheLongQuestions(t *testing.T) {
+	long := 25 * time.Minute
+	with := func(band family.AgeBand, answers map[string]curation.Answer, changed map[string]curation.Answer) curation.ReviewInput {
+		in := approve("bichos", band)
+		in.Answers = answers
+		maps.Copy(in.Answers, changed)
+		return in
+	}
+	appears := curation.AnswerAppears
+	oneMissing := cleanLong()
+	delete(oneMissing, "c27")
+	for name, tc := range map[string]struct {
+		length time.Duration
+		in     curation.ReviewInput
+		want   error
+	}{
+		"a long video without them":       {long, approve("bichos", family.Age5To8), curation.ErrValidation},
+		"a long video with one missing":   {long, with(family.Age5To8, oneMissing, nil), curation.ErrValidation},
+		"a long video not licensed":       {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c26": appears}), curation.ErrChecklistRefuses},
+		"a long video rated above Livre":  {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c27": appears}), curation.ErrChecklistRefuses},
+		"over 60 minutes for 2 to 4":      {61 * time.Minute, with(family.AgeUpTo4, cleanLong(), nil), curation.ErrChecklistBand},
+		"a bad answer on a long question": {long, with(family.Age5To8, cleanLong(), map[string]curation.Answer{"c28": "maybe"}), curation.ErrValidation},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.curator("c1@example.com", curation.MaePai)
+			v := f.longVideo(ytID, tc.length)
+			if _, _, err := f.svc.Review(ctx, c, v, tc.in); !errors.Is(err, tc.want) {
+				t.Fatalf("%v, want %v", err, tc.want)
+			}
+			if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+				t.Fatalf("a refused review was stored: %d rows", n)
+			}
+		})
+	}
+}
+
+func TestALongVideoIsApprovedWithItsLongAnswers(t *testing.T) {
+	for name, tc := range map[string]struct {
+		length  time.Duration
+		band    family.AgeBand
+		answers map[string]curation.Answer
+		stored  int
+	}{
+		"25 minutes for 5 to 8":         {25 * time.Minute, family.Age5To8, cleanLong(), 26},
+		"ads in the middle":             {25 * time.Minute, family.Age5To8, withAnswer(cleanLong(), "c28", curation.AnswerAppears), 26},
+		"exactly 60 minutes for 2 to 4": {60 * time.Minute, family.AgeUpTo4, cleanLong(), 26},
+		"exactly 20 minutes is short":   {20 * time.Minute, family.Age5To8, clean(), 23},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.curator("c1@example.com", curation.MaePai)
+			v := f.longVideo(ytID, tc.length)
+			in := approve("bichos", tc.band)
+			in.Answers = tc.answers
+			f.now = f.now.Add(time.Minute)
+			r, state, err := f.svc.Review(ctx, c, v, in)
+			if err != nil || state != curation.Pending || r.Decision != curation.Approve || !maps.Equal(r.Answers, tc.answers) {
+				t.Fatalf("approval: %+v %s %v", r, state, err)
+			}
+			var c28 *string // absent from a short video's answers
+			if a, ok := tc.answers["c28"]; ok {
+				c28 = (*string)(&a)
+			}
+			if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND decision = 'approve'
+				AND (SELECT count(*) FROM jsonb_object_keys(checklist)) = $2
+				AND checklist->>'c28' IS NOT DISTINCT FROM $3::text`, v, tc.stored, c28); n != 1 {
+				t.Fatal("the answers were not stored as given")
+			}
+		})
+	}
+}
+
+// A doubt that leaves the band to the moderator is not judged on it.
+func TestALongDoubtWithoutABandIsStored(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.longVideo(ytID, 31*time.Minute)
+	in := approve("", "")
+	in.Answers = withAnswer(cleanLong(), "c13", curation.AnswerDoubt)
+	in.Note = "Não sei."
+	f.now = f.now.Add(time.Minute)
+	r, state, err := f.svc.Review(ctx, c, v, in)
+	if err != nil || state != curation.Held || r.Decision != curation.Doubt {
+		t.Fatalf("doubt: %+v %s %v", r, state, err)
+	}
+}
+
+// An app built before the long-video questions answers every question it
+// is served, those included: a short video's review drops them, unjudged
+// and unstored, as if they were never sent.
+func TestAShortVideoDropsTheLongAnswers(t *testing.T) {
+	appears := curation.AnswerAppears
+	for name, tc := range map[string]struct {
+		length  time.Duration
+		in      curation.ReviewInput
+		want    error
+		outcome curation.Decision
+	}{
+		"all ok":                       {5 * time.Minute, approveLong("bichos", family.Age5To8, nil), nil, curation.Approve},
+		"not licensed":                 {5 * time.Minute, approveLong("bichos", family.Age5To8, map[string]curation.Answer{"c26": appears}), nil, curation.Approve},
+		"rated above Livre at 20:00":   {20 * time.Minute, approveLong("bichos", family.Age5To8, map[string]curation.Answer{"c27": appears}), nil, curation.Approve},
+		"a malformed long answer":      {5 * time.Minute, approveLong("bichos", family.Age5To8, map[string]curation.Answer{"c28": "maybe"}), nil, curation.Approve},
+		"a doubt":                      {5 * time.Minute, doubtLong(map[string]curation.Answer{"c13": curation.AnswerDoubt, "c28": curation.AnswerDoubt}, "Não sei."), nil, curation.Doubt},
+		"a doubt only on ads, unnamed": {5 * time.Minute, doubtLong(map[string]curation.Answer{"c28": curation.AnswerDoubt}, ""), curation.ErrValidation, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.curator("c1@example.com", curation.MaePai)
+			v := f.longVideo(ytID, tc.length)
+			f.now = f.now.Add(time.Minute)
+			r, _, err := f.svc.Review(ctx, c, v, tc.in)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("%v, want %v", err, tc.want)
+			}
+			if tc.want != nil {
+				if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+					t.Fatalf("a refused review was stored: %d rows", n)
+				}
+				return
+			}
+			if r.Decision != tc.outcome || len(r.Answers) != len(clean()) {
+				t.Fatalf("review %+v", r)
+			}
+			for _, id := range []string{"c26", "c27", "c28"} {
+				if _, ok := r.Answers[id]; ok {
+					t.Fatalf("%s kept in the review", id)
+				}
+			}
+			if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND decision = $2
+				AND (SELECT count(*) FROM jsonb_object_keys(checklist)) = $3
+				AND NOT checklist ?| array['c26', 'c27', 'c28']`, v, string(tc.outcome), len(clean())); n != 1 {
+				t.Fatal("the long answers were stored")
+			}
+		})
+	}
+}
+
+// approveLong is approve with every long answer too, then changed.
+func approveLong(theme string, band family.AgeBand, changed map[string]curation.Answer) curation.ReviewInput {
+	in := approve(theme, band)
+	in.Answers = cleanLong()
+	maps.Copy(in.Answers, changed)
+	return in
+}
+
+// doubtLong is approveLong with no theme and no band, and note.
+func doubtLong(changed map[string]curation.Answer, note string) curation.ReviewInput {
+	in := approveLong("", "", changed)
+	in.Note = note
+	return in
+}
+
+// withAnswer is answers with id answered a.
+func withAnswer(answers map[string]curation.Answer, id string, a curation.Answer) map[string]curation.Answer {
+	answers[id] = a
+	return answers
+}
+
+// A rejection cites only the questions asked of the video: a short video
+// is never asked the long-video ones.
+func TestARejectionOfAShortVideoCitesNoLongQuestion(t *testing.T) {
+	for name, tc := range map[string]struct {
+		length time.Duration
+		want   error
+		stored int
+	}{
+		"a short video":               {5 * time.Minute, curation.ErrValidation, 0},
+		"exactly 20 minutes is short": {20 * time.Minute, curation.ErrValidation, 0},
+		"a long video":                {25 * time.Minute, nil, 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.curator("c1@example.com", curation.MaePai)
+			v := f.longVideo(ytID, tc.length)
+			in := curation.ReviewInput{Decision: curation.Reject, ChecklistVersion: curation.ChecklistVersion,
+				FailedItems: []string{"c04", "c26"}}
+			f.now = f.now.Add(time.Minute)
+			if _, _, err := f.svc.Review(ctx, c, v, in); !errors.Is(err, tc.want) {
+				t.Fatalf("%v, want %v", err, tc.want)
+			}
+			if n := f.count(`SELECT count(*) FROM video_reviews WHERE checklist = '["c04", "c26"]'::jsonb`); n != tc.stored {
+				t.Fatalf("%d rows stored, want %d", n, tc.stored)
+			}
+		})
 	}
 }

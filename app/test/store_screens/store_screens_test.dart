@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -16,9 +17,8 @@ import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/labels.dart';
 
 import '../access/harness.dart';
-import '../catalog/fixtures.dart';
 import '../family/fixtures.dart';
-import '../kid_mode/devices_screen_test.dart' show device;
+import '../family/child_page_test.dart' show pageApi;
 import '../screentime/fixtures.dart';
 
 /// A device the stores ask screenshots of: its screen in logical pixels,
@@ -136,7 +136,7 @@ Future<void> capture(WidgetTester tester, Profile p, Frame f) async {
   for (final phrase in f.mustShow) {
     final finder = find.textContaining(phrase);
     expect(finder, findsWidgets, reason: '${f.number} must show "$phrase"');
-    final rect = tester.getRect(finder.first);
+    final rect = _painted(tester, finder.first);
     expect(
       _inside(rect, viewport),
       isTrue,
@@ -162,6 +162,24 @@ Future<void> capture(WidgetTester tester, Profile p, Frame f) async {
       ..createSync(recursive: true);
     file.writeAsBytesSync(bytes!.buffer.asUint8List());
   });
+}
+
+/// Where [text]'s glyphs stand on the screen: a title stretched across a
+/// wide column paints its words only at the start of its box.
+Rect _painted(WidgetTester tester, Finder text) {
+  final rich = find.descendant(of: text, matching: find.byType(RichText));
+  final paragraph = tester.renderObject<RenderParagraph>(
+    rich.evaluate().isEmpty ? text : rich.first,
+  );
+  final length = paragraph.text.toPlainText().length;
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(baseOffset: 0, extentOffset: length),
+  );
+  if (boxes.isEmpty) return tester.getRect(text);
+  final local = boxes
+      .map((b) => b.toRect())
+      .reduce((a, b) => a.expandToInclude(b));
+  return MatrixUtils.transformRect(paragraph.getTransformTo(null), local);
 }
 
 bool _inside(Rect inner, Rect outer) =>
@@ -196,26 +214,48 @@ void main() {
         ..family = demoFamily;
       await h.pump(tester, initial: '/crianca/sair', size: size);
     }),
-    // One row per child, the age band in words.
-    Frame('04', ['5 a 8 anos', '2 a 4 anos', 'Bia'], (tester, size) async {
-      final h = Harness(signedIn: true, api: catalogApi())..family = demoFamily;
-      await h.pump(tester, initial: '/familia/videos', size: size);
+    // Início: each child's time today and the hand-over, one tap away.
+    Frame('04', ['Entregar para Lia', 'Téo', 'Bia'], (tester, size) async {
+      final h =
+          Harness(
+              signedIn: true,
+              api: screenTimeApi(
+                rules: {
+                  'm1': () => json(200, rulesJson()),
+                  'm2': () => json(
+                    200,
+                    rulesJson(dailyMinutes: 60, usedSeconds: 15 * 60),
+                  ),
+                  'm3': () => json(
+                    200,
+                    rulesJson(dailyMinutes: 120, usedSeconds: 75 * 60),
+                  ),
+                },
+              ),
+            )
+            ..family = demoFamily
+            ..pinSet = true;
+      await h.pump(tester, initial: '/', size: size);
     }),
-    // The devices linked to each child.
-    Frame('07', ['Tablet da Lia', 'Celular do Téo', 'Tablet da Bia'], (
+    // Lia's page, opening on her day; the frame ends above her videos, so
+    // no channel's thumbnail shows.
+    Frame('07', ['Lia', 'Hoje', 'Mais tempo hoje', 'Limite e horário'], (
       tester,
       size,
     ) async {
-      final h = Harness(signedIn: true, api: (_) => http.Response('', 204))
-        ..family = demoFamily
-        ..pinSet = true;
-      h.linkedDevices = [
-        device('d1', 'Tablet da Lia', 'm1'),
-        device('d2', 'Celular do Téo', 'm2', daysAgo: 1),
-        device('d3', 'Tablet da Bia', 'm3'),
-      ];
-      unawaited(h.services.familyModel.load());
-      await h.pump(tester, initial: '/modo-crianca/aparelhos', size: size);
+      late final Harness h;
+      h =
+          Harness(
+              signedIn: true,
+              // A lived-in week, today's 40 minutes first.
+              api: pageApi(
+                () => h,
+                usage: () => json(200, usageJson([40, 70, 55, 30, 85, 60, 45])),
+              ),
+            )
+            ..family = demoFamily
+            ..pinSet = true;
+      await h.pump(tester, initial: '/familia/criancas/m1', size: size);
     }),
     // The consent the guardian reads before a child's profile exists.
     Frame('08', ['apelido', 'avatar', 'faixa de idade', 'Nada de foto'], (
@@ -238,9 +278,12 @@ void main() {
       testWidgets('store frame ${f.number} on ${p.name}', (tester) async {
         debugDefaultTargetPlatformOverride = p.platform;
         try {
-          await f.open(tester, p.logical);
-          await tester.pumpAndSettle();
-          await capture(tester, p, f);
+          // A fixed afternoon, so the home greets the same way on every run.
+          await withClock(Clock.fixed(DateTime(2026, 11, 10, 15)), () async {
+            await f.open(tester, p.logical);
+            await tester.pumpAndSettle();
+            await capture(tester, p, f);
+          });
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }

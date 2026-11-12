@@ -218,6 +218,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// time says nothing and fetches them, to sleep.
   Future<void> _play(KidVideo video) async {
     if (_pending) return;
+    if (!video.fits) return _rest(PlayerScreen.doesNotFit);
     final services = AppScope.of(context);
     final router = GoRouter.of(context);
     setState(() {
@@ -239,10 +240,12 @@ class _KidHomeScreenState extends State<KidHomeScreen>
 
   /// Opens a pacotinho on its first video the server lets play:
   /// a video refused is passed over for the next; a day without time
-  /// sleeps, and a paused profile says so; with none left, the shelves say why the last one did not
-  /// open.
+  /// sleeps, a paused profile says so, and a video longer than the time
+  /// left stops the search, since no pacotinho should open past its first
+  /// video; with none left, the shelves say why the last one did not open.
   Future<void> _openPack(KidPack pack) async {
     if (_pending) return;
+    if (!pack.fits) return _rest(PlayerScreen.packDoesNotFit);
     final services = AppScope.of(context);
     final router = GoRouter.of(context);
     setState(() {
@@ -263,7 +266,9 @@ class _KidHomeScreenState extends State<KidHomeScreen>
           return;
         } on Object catch (e) {
           refused = e;
-          if (refusesEvery(e)) break;
+          if (refusesEvery(e) || doesNotFit(e)) {
+            break;
+          }
         }
       }
       if (!mounted || refused == null) return;
@@ -275,9 +280,23 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
+  /// A resting tile tapped: nothing to ask the server, only why. The note
+  /// sits above the first shelf, so a tap from a lower shelf brings it into
+  /// view at once (no scroll animation: the shelves add no motion).
+  void _rest(String note) {
+    setState(() => _notice = note);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final at = _noteKey.currentContext;
+      if (at != null && at.mounted) unawaited(Scrollable.ensureVisible(at));
+    });
+  }
+
+  final _noteKey = GlobalKey();
+
   Widget _note(String message) => Padding(
+    key: _noteKey,
     padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
-    child: KidErrorNote(message),
+    child: KidErrorNote(message, asleep: restsNote(message)),
   );
 
   Future<Uint8List> _thumbnail(String id) =>
@@ -385,7 +404,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
             const SizedBox(height: Space.xxxl),
             // Paused, the line below already says why nothing opens.
             if (_notice case final notice? when !asleep && !paused) ...[
-              KidErrorNote(notice),
+              KidErrorNote(notice, asleep: restsNote(notice)),
               const SizedBox(height: Space.xl),
             ],
             if (_failed)

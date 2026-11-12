@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
@@ -66,6 +67,11 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 		if err := notReviewedBy(ctx, tx, videoID, round, m.ActorID); err != nil {
 			return err
 		}
+		if d.Decision == Approve && d.MinAgeBand == family.AgeUpTo4 {
+			if err := s.youngestFits(ctx, tx, videoID, round); err != nil {
+				return err
+			}
+		}
 		if d.Decision == Reject {
 			_, err = tx.Exec(ctx, `UPDATE videos SET state = 'removed', updated_at = $2 WHERE id = $1::uuid`, videoID, now)
 			return err
@@ -81,5 +87,25 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 	s.d.Audit.RecordAction(ctx, audit.Action{Actor: m.ActorID, ActorRole: string(m.ActorRole), Event: audit.VideoDoubtDecided,
 		SubjectKind: audit.SubjectVideo, SubjectID: strings.ToLower(videoID), Reason: reason,
 		Metadata: map[string]string{"decision": string(d.Decision)}})
+	return nil
+}
+
+// youngestFits holds a moderator to the rule the curators follow: a video
+// longer than the youngest band's ceiling, or one a reviewer of the round
+// found fast-paced, is not for that band. Rejections store their answers
+// as a list, so they never match the pace answer.
+func (s *Service) youngestFits(ctx context.Context, tx pgx.Tx, videoID string, round int) error {
+	var seconds int
+	var fast bool
+	err := tx.QueryRow(ctx, `SELECT v.duration_seconds,
+			EXISTS (SELECT 1 FROM video_reviews r WHERE r.video_id = v.id AND r.round = $2
+				AND jsonb_typeof(r.checklist) = 'object' AND r.checklist->>'c22' = 'appears')
+		FROM videos v WHERE v.id = $1::uuid`, videoID, round).Scan(&seconds, &fast)
+	if err != nil {
+		return err
+	}
+	if fast || time.Duration(seconds)*time.Second > s.d.FamilyYoungestMaxDuration {
+		return ErrChecklistBand
+	}
 	return nil
 }

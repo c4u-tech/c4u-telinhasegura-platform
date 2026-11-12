@@ -33,24 +33,23 @@ class VideoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = [video.channelTitle, CurationWords.duration(video.duration)];
+    final large = rowTextIsLarge(context);
     return DoorRow(
       title: video.title,
-      titleMaxLines: 2,
+      titleMaxLines: large ? 4 : 2,
       semanticsLabel: [
         video.title,
-        CurationWords.joined(parts),
+        CurationWords.tight(parts),
         if (video.hidden) 'escondido para $nickname',
       ].join(', '),
-      leading: VideoThumb(videoId: video.id, thumbnail: thumbnail),
+      leading: large
+          ? null
+          : VideoThumb(videoId: video.id, thumbnail: thumbnail),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            CurationWords.joined(parts),
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: context.palette.muted),
-          ),
+          RowMeta(lead: video.channelTitle, length: parts.last),
           // Hidden is a state: a hollow module and its words, on their own
           // line, never a faded row (2026-10-06).
           if (video.hidden) ...[
@@ -62,6 +61,51 @@ class VideoRow extends StatelessWidget {
     );
   }
 }
+
+/// A row's muted line, "Canal · 6 min", its dot glued to both neighbours
+/// so no line ends or opens on it. When the length and the word before it
+/// cannot share one line (large text in a narrow column), the length takes
+/// a line of its own, whole and without the dot, instead of breaking
+/// inside a word.
+class RowMeta extends StatelessWidget {
+  const RowMeta({super.key, required this.lead, required this.length});
+
+  final String lead;
+  final String length;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(color: context.palette.muted);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final last = lead.split(' ').last;
+        final chunk = TextPainter(
+          text: TextSpan(
+            text: '$last${CurationWords.tightDot}$length',
+            style: style,
+          ),
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: Directionality.of(context),
+          maxLines: 1,
+        )..layout();
+        final fits = chunk.width <= box.maxWidth;
+        chunk.dispose();
+        return Text(
+          fits ? CurationWords.tight([lead, length]) : '$lead\n$length',
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+/// Whether the text is set at 1.5 times or more: a row led by a picture
+/// then drops it and lets its title take up to four lines, since the
+/// picture would leave the title a word per line, and the row is read by
+/// its words.
+bool rowTextIsLarge(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
 
 /// The thumbnail at 96 × 54, the screen at 16:9 cornered at 10/33 of its
 /// height; while it loads, or if it never comes, the same screen hollow.

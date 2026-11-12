@@ -29,6 +29,8 @@ type problem struct {
 	Email      string   `json:"email,omitempty"`       // signup_required, link_required
 	Options    []string `json:"options,omitempty"`     // link_required
 	Reason     string   `json:"reason,omitempty"`      // video_refused, time_up, pack_invalid
+
+	RemainingSeconds int `json:"remaining_seconds,omitempty"` // does_not_fit
 }
 
 func newProblem(status int, code string) problem {
@@ -178,6 +180,7 @@ var screentimeProblems = []struct {
 	{screentime.ErrProfileGone, http.StatusGone, "profile_gone"},
 	{screentime.ErrPlayClosed, http.StatusConflict, "play_closed"},
 	{screentime.ErrOverCap, http.StatusUnprocessableEntity, "over_cap"},
+	{screentime.ErrNoFamilySession, http.StatusForbidden, "video_not_allowed"},
 }
 
 // fail maps a domain error to its problem. Unknown errors are logged and
@@ -236,6 +239,13 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 	if errors.As(err, &timeUp) {
 		p := newProblem(http.StatusForbidden, "time_up")
 		p.Reason = timeUp.Reason
+		writeProblem(w, p)
+		return
+	}
+	var notFit *screentime.NotFitError
+	if errors.As(err, &notFit) {
+		p := newProblem(http.StatusForbidden, "does_not_fit")
+		p.RemainingSeconds = int(notFit.Remaining / time.Second)
 		writeProblem(w, p)
 		return
 	}

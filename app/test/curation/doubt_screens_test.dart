@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
+import 'package:telinha_segura/curation/approve_screen.dart'
+    show fastPaceLine, tooLongForYoungestLine;
 import 'package:telinha_segura/curation/audit_video_screen.dart'
     show marksFailed;
 import 'package:telinha_segura/curation/held_video_screen.dart';
@@ -30,12 +32,13 @@ Future<Harness> doubtHeld(
   String initial = '/moderacao/retidos/v1',
   FutureOr<http.Response> Function(http.Request)? settle,
   FutureOr<http.Response> Function()? checklist,
+  Map<String, Object?>? held,
 }) async {
   final h =
       Harness(
           signedIn: true,
           api: adminApi(
-            held: () => heldList([doubted]),
+            held: () => heldList([held ?? doubted]),
             settle: settle,
             checklist: checklist,
           ),
@@ -157,6 +160,80 @@ void main() {
     });
     expect(h.location(tester), '/moderacao/retidos');
     expect(find.text(publishedFromDoubt('Baby Shark')), findsOneWidget);
+  });
+
+  testWidgets('"Publicar" keeps "2 a 4 anos" from a video past 60 minutes '
+      'and says why', (tester) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      held: heldOf(
+        queuedJson('v1', 'Baby Shark', seconds: 61 * 60),
+        reason: 'doubt',
+        doubts: [
+          {...doubtJson, 'min_age_band': 'ate-4'},
+        ],
+      ),
+    );
+
+    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+    expect(
+      tester.widget<SelectableRow>(row('2 a 4 anos')).selected,
+      isFalse,
+      reason: 'the curator\'s choice is not kept',
+    );
+    expect(find.text(tooLongForYoungestLine), findsOneWidget);
+    expect(find.text(fastPaceLine), findsNothing);
+  });
+
+  testWidgets('"Publicar" keeps "2 a 4 anos" from a video a doubt found '
+      'fast-paced and says why', (tester) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      held: heldOf(
+        queuedJson('v1', 'Baby Shark'),
+        reason: 'doubt',
+        doubts: [
+          {
+            ...doubtJson,
+            'answers': {
+              ...doubtJson['answers']! as Map<String, Object?>,
+              'c22': 'appears',
+            },
+          },
+        ],
+      ),
+    );
+
+    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+    expect(find.text(fastPaceLine), findsOneWidget);
+    expect(find.text(tooLongForYoungestLine), findsNothing);
+  });
+
+  testWidgets('checklist_band says why and takes "2 a 4 anos" away', (
+    tester,
+  ) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      settle: (_) => problem(422, 'checklist_band'),
+    );
+
+    await tapOn(tester, row('2 a 4 anos'));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Motivo'),
+      'Motivo válido.',
+    );
+    await tester.pump();
+    await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
+
+    expect(
+      find.text(Copy.forError(ApiError(status: 422, code: 'checklist_band'))),
+      findsOneWidget,
+    );
+    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).selected, isFalse);
+    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
   });
 
   testWidgets('reason_required marks the reason', (tester) async {

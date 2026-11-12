@@ -19,28 +19,34 @@ import (
 )
 
 type Config struct {
-	Addr                    string
-	DatabaseURL             string
-	AppBaseURL              string // links in emails are built only from this
-	AllowedOrigins          []string
-	GoogleClientIDs         []string
-	AppleClientIDs          []string
-	AndroidPackage          string
-	MailDir                 string
-	HIBPEnabled             bool
-	YouTubeAPIKey           string // empty: a suggestion needing YouTube answers 503
-	YouTubeSearchDailyLimit int    // search.list calls per Pacific day
-	CurationMinApprovals    int
-	CurationMaxDuration     time.Duration
-	CurationRevisitDays     int
-	CatalogShelfSize        int            // videos per theme on a child's shelf
-	CurationReportThreshold int            // distinct families' reports that hold a video
-	SweepInterval           time.Duration  // how often the sweep runs
-	PackMaxDuration         time.Duration  // the longest total of a pack's videos
-	PackRowSize             int            // packs in a child's row
-	StaffMFARequired        bool           // admin and moderator routes need an elevation
-	StaffMFAKey             []byte         // seals TOTP secrets; nil: the MFA routes answer 503
-	TrustedProxies          []netip.Prefix // peers whose X-Forwarded-For is believed
+	Addr                        string
+	DatabaseURL                 string
+	AppBaseURL                  string // links in emails are built only from this
+	AllowedOrigins              []string
+	GoogleClientIDs             []string
+	AppleClientIDs              []string
+	AndroidPackage              string
+	MailDir                     string
+	HIBPEnabled                 bool
+	YouTubeAPIKey               string // empty: a suggestion needing YouTube answers 503
+	YouTubeSearchDailyLimit     int    // search.list calls per Pacific day
+	CurationMinApprovals        int
+	CurationMaxDuration         time.Duration // the ceiling for a child of an older age band watching alone
+	CurationYoungestMaxDuration time.Duration // the same for the youngest age band
+	// The ceilings of a video watched with the family; the two above are
+	// the ceilings of a child watching alone.
+	CurationFamilyMaxDuration         time.Duration
+	CurationFamilyYoungestMaxDuration time.Duration
+	CurationLongFrom                  time.Duration // from this length a video counts as long
+	CurationRevisitDays               int
+	CatalogShelfSize                  int            // videos per theme on a child's shelf
+	CurationReportThreshold           int            // distinct families' reports that hold a video
+	SweepInterval                     time.Duration  // how often the sweep runs
+	PackMaxDuration                   time.Duration  // the longest total of a pack's videos
+	PackRowSize                       int            // packs in a child's row
+	StaffMFARequired                  bool           // admin and moderator routes need an elevation
+	StaffMFAKey                       []byte         // seals TOTP secrets; nil: the MFA routes answer 503
+	TrustedProxies                    []netip.Prefix // peers whose X-Forwarded-For is believed
 
 	SMTPHost         string // empty: mail goes to .eml files under MAIL_DIR
 	SMTPPort         int    // 465 means implicit TLS
@@ -106,8 +112,35 @@ func Load(getenv func(string) string) (Config, error) {
 	if c.CurationRevisitDays, err = intSetting(getenv, "CURATION_REVISIT_DAYS", 180, 1, 36500); err != nil {
 		return Config{}, err
 	}
-	if c.CurationMaxDuration, err = durationSetting(getenv, "CURATION_MAX_DURATION", 20*time.Minute); err != nil {
+	if c.CurationMaxDuration, err = durationSetting(getenv, "CURATION_MAX_DURATION", 45*time.Minute); err != nil {
 		return Config{}, err
+	}
+	if c.CurationYoungestMaxDuration, err = durationSetting(getenv, "CURATION_YOUNGEST_MAX_DURATION", 30*time.Minute); err != nil {
+		return Config{}, err
+	}
+	if c.CurationLongFrom, err = durationSetting(getenv, "CURATION_LONG_FROM", 20*time.Minute); err != nil {
+		return Config{}, err
+	}
+	if c.CurationYoungestMaxDuration > c.CurationMaxDuration {
+		return Config{}, fmt.Errorf("config: CURATION_YOUNGEST_MAX_DURATION (%s) must not exceed CURATION_MAX_DURATION (%s)", c.CurationYoungestMaxDuration, c.CurationMaxDuration)
+	}
+	if c.CurationFamilyMaxDuration, err = durationSetting(getenv, "CURATION_FAMILY_MAX_DURATION", 120*time.Minute); err != nil {
+		return Config{}, err
+	}
+	if c.CurationFamilyYoungestMaxDuration, err = durationSetting(getenv, "CURATION_FAMILY_YOUNGEST_MAX_DURATION", 60*time.Minute); err != nil {
+		return Config{}, err
+	}
+	if c.CurationFamilyMaxDuration < c.CurationMaxDuration {
+		return Config{}, fmt.Errorf("config: CURATION_FAMILY_MAX_DURATION (%s) must not be below CURATION_MAX_DURATION (%s)", c.CurationFamilyMaxDuration, c.CurationMaxDuration)
+	}
+	if c.CurationFamilyYoungestMaxDuration < c.CurationYoungestMaxDuration {
+		return Config{}, fmt.Errorf("config: CURATION_FAMILY_YOUNGEST_MAX_DURATION (%s) must not be below CURATION_YOUNGEST_MAX_DURATION (%s)", c.CurationFamilyYoungestMaxDuration, c.CurationYoungestMaxDuration)
+	}
+	if c.CurationFamilyYoungestMaxDuration > c.CurationFamilyMaxDuration {
+		return Config{}, fmt.Errorf("config: CURATION_FAMILY_YOUNGEST_MAX_DURATION (%s) must not exceed CURATION_FAMILY_MAX_DURATION (%s)", c.CurationFamilyYoungestMaxDuration, c.CurationFamilyMaxDuration)
+	}
+	if c.CurationLongFrom > c.CurationYoungestMaxDuration {
+		return Config{}, fmt.Errorf("config: CURATION_LONG_FROM (%s) must not exceed CURATION_YOUNGEST_MAX_DURATION (%s)", c.CurationLongFrom, c.CurationYoungestMaxDuration)
 	}
 	if c.CatalogShelfSize, err = intSetting(getenv, "CATALOG_SHELF_SIZE", 12, 1, 50); err != nil {
 		return Config{}, err

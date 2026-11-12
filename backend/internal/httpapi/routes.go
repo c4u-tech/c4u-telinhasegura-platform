@@ -177,6 +177,7 @@ func (s *Server) routes() []route {
 		guardian("PUT /v1/screentime/minors/{id}", s.putScreenTime),
 		guardian("POST /v1/screentime/minors/{id}/extend", s.guardianExtend),
 		guardian("GET /v1/screentime/minors/{id}/usage", s.screenTimeUsage),
+		guardian("POST /v1/family/minors/{id}/sessions", s.startFamilySession),
 		public("POST /v1/devices/redeem", s.redeem),
 		kidConsented("GET /v1/child/profile", s.childProfile),
 		kid("POST /v1/child/unlock", s.unlock),

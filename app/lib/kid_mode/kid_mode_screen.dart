@@ -25,7 +25,8 @@ enum PinSaved { created, changed }
 /// Under the first two doors while the family has no children.
 const childFirst = 'Primeiro, cadastre uma criança na família.';
 
-const _pinPurpose =
+/// What the family PIN is for, said before it is created.
+const pinPurpose =
     'O PIN é um número que só os adultos da família sabem. Com o modo '
     'criança ligado, só um adulto com ele sai do modo criança ou troca a '
     'criança de um aparelho.';
@@ -90,7 +91,7 @@ class _KidModeScreenState extends State<KidModeScreen> {
     builder: (context, _) => FieldLayout(
       title: 'Modo criança',
       rise: widget.saved != null,
-      onBack: () => context.go(Routes.home),
+      onBack: () => context.go(Routes.family),
       children: switch ((_model.state, _status)) {
         (FamilyReady(:final family), final status?) => _shape(family, status),
         (FamilyReady(), null) when _failed => [
@@ -133,7 +134,7 @@ class _KidModeScreenState extends State<KidModeScreen> {
   List<Widget> _firstStep() => [
     const StepMarks(step: 1, of: 2),
     const SizedBox(height: Space.lg),
-    Text(_pinPurpose, style: Theme.of(context).textTheme.bodyLarge),
+    Text(pinPurpose, style: Theme.of(context).textTheme.bodyLarge),
     const SizedBox(height: Space.xl),
     PrimaryButton(
       label: 'Criar o PIN',

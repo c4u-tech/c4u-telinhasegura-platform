@@ -90,6 +90,34 @@ void main() {
     ]);
   });
 
+  test('a beat may carry where the video is, in whole seconds', () async {
+    final t = build(ClientKind.mobile, catalogContract);
+    final api = ChildApi(t.client, devices: MemoryDeviceCredentialStore('d'));
+    await api.beat('p1', playing: true, position: 754);
+    expect(t.calls, [
+      'POST /v1/child/plays/p1/beat {"playing":true,"position_seconds":754}',
+    ]);
+  });
+
+  test('a play with start_seconds is a family work starting there', () {
+    final family = KidPlay.fromJson({
+      'play_id': 'p1',
+      'youtube_id': 'yt1',
+      'remaining_seconds': 600,
+      'start_seconds': 754,
+    });
+    expect(family.family, isTrue);
+    expect(family.startSeconds, 754);
+
+    final solo = KidPlay.fromJson({
+      'play_id': 'p1',
+      'youtube_id': 'yt1',
+      'remaining_seconds': 600,
+    });
+    expect(solo.family, isFalse);
+    expect(solo.startSeconds, 0);
+  });
+
   test('a time_up play surfaces its code and reason', () async {
     final t = build(
       ClientKind.mobile,

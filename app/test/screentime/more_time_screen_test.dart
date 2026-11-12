@@ -8,7 +8,6 @@ import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
 import 'package:telinha_segura/screentime/more_time_screen.dart';
 
 import '../access/harness.dart';
-import 'child_time_screen_test.dart' show liaFamily;
 import 'fixtures.dart';
 
 Future<Harness> moreTime(
@@ -110,9 +109,9 @@ void main() {
     expect(find.text('Lia tem mais 30 min hoje.'), findsOneWidget);
     expect(find.byType(SelectableRow), findsNothing);
     expect(find.text('Mais tempo hoje'), findsOneWidget);
-    await tester.tap(find.text('Voltar para o tempo de tela'));
+    await tester.tap(find.text('Voltar para Lia'));
     await tester.pumpAndSettle();
-    expect(h.location(tester), '/familia/tempo/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 
   testWidgets('over_cap says the day\'s maximum and keeps the choice', (
@@ -166,16 +165,16 @@ void main() {
 
     await give(tester);
 
-    expect(h.location(tester), '/familia/tempo');
+    expect(h.location(tester), '/familia/criancas');
     expect(find.text(Copy.childGone), findsOneWidget);
   });
 
-  testWidgets('back returns to the hub', (tester) async {
+  testWidgets('back returns to the child\'s page', (tester) async {
     final h = await moreTime(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/tempo/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 }

@@ -13,7 +13,6 @@ import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/screentime/time_rules_screen.dart';
 
 import '../access/harness.dart';
-import 'child_time_screen_test.dart' show liaFamily;
 import 'fixtures.dart';
 
 Future<Harness> timeRules(
@@ -191,40 +190,41 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('Salvar saves once and ends on the done state, back to the hub', (
-    tester,
-  ) async {
-    final answer = Completer<http.Response>();
-    final h = await timeRules(tester, save: (_) => answer.future);
-    await tester.tap(find.byIcon(Icons.add_rounded));
-    await tester.pump();
-    await pick(tester, 'Termina às 19:30', 20, 0);
+  testWidgets(
+    'Salvar saves once and ends on the done state, back to the child\'s page',
+    (tester) async {
+      final answer = Completer<http.Response>();
+      final h = await timeRules(tester, save: (_) => answer.future);
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pump();
+      await pick(tester, 'Termina às 19:30', 20, 0);
 
-    final save = find.widgetWithText(PrimaryButton, 'Salvar');
-    await tester.ensureVisible(save);
-    await tester.pumpAndSettle();
-    await tester.tap(save);
-    await tester.pump();
-    await tester.tap(find.byType(PrimaryButton));
-    await tester.pump();
-    answer.complete(json(200, rulesJson(dailyMinutes: 105, end: '20:00')));
-    await tester.pumpAndSettle();
+      final save = find.widgetWithText(PrimaryButton, 'Salvar');
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pump();
+      await tester.tap(find.byType(PrimaryButton));
+      await tester.pump();
+      answer.complete(json(200, rulesJson(dailyMinutes: 105, end: '20:00')));
+      await tester.pumpAndSettle();
 
-    expect(saves(h), [
-      'PUT /v1/screentime/minors/m1 {"daily_minutes":105,'
-          '"window_start":"08:00","window_end":"20:00",'
-          '"time_zone":"America/Sao_Paulo"}',
-    ]);
-    expect(
-      find.text(
-        'O limite de Lia agora é 1 h 45 min por dia, das 08:00 às 20:00.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.byType(ValueStepper), findsNothing);
-    await tapOn(tester, find.text('Voltar para o tempo de tela'));
-    expect(h.location(tester), '/familia/tempo/m1');
-  });
+      expect(saves(h), [
+        'PUT /v1/screentime/minors/m1 {"daily_minutes":105,'
+            '"window_start":"08:00","window_end":"20:00",'
+            '"time_zone":"America/Sao_Paulo"}',
+      ]);
+      expect(
+        find.text(
+          'O limite de Lia agora é 1 h 45 min por dia, das 08:00 às 20:00.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(ValueStepper), findsNothing);
+      await tapOn(tester, find.text('Voltar para Lia'));
+      expect(h.location(tester), '/familia/criancas/m1');
+    },
+  );
 
   testWidgets('a dropped save says so and keeps what was entered', (
     tester,
@@ -289,17 +289,17 @@ void main() {
       'notice', (tester) async {
     final h = await timeRules(tester, rules: () => problem(404, 'not_found'));
 
-    expect(h.location(tester), '/familia/tempo');
+    expect(h.location(tester), '/familia/criancas');
     expect(find.text(Copy.childGone), findsOneWidget);
   });
 
-  testWidgets('back returns to the hub', (tester) async {
+  testWidgets('back returns to the child\'s page', (tester) async {
     final h = await timeRules(tester);
 
     await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
 
-    expect(h.location(tester), '/familia/tempo/m1');
+    expect(h.location(tester), '/familia/criancas/m1');
   });
 
   test('the hours\' rule is the agreed words', () {

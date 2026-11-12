@@ -32,10 +32,13 @@ var questions = map[string]string{
 	"c23": "Falta começo, meio ou fim na história?",
 	"c02": "É uma compilação longa ('1 hora de…') ou uma estreia?",
 	"c24": "O canal tem outros vídeos que você recusaria?",
+	"c26": "É filme, episódio ou história publicada por um canal que não é o oficial da obra nem licenciado por quem tem os direitos?",
+	"c27": "A obra tem classificação indicativa oficial acima de Livre?",
+	"c28": "Aparecem anúncios no meio do vídeo?",
 }
 
 func TestChecklistIsTheCurrentList(t *testing.T) {
-	if curation.ChecklistVersion != "2026-10-21" {
+	if curation.ChecklistVersion != "2026-11-11" {
 		t.Fatalf("version %q", curation.ChecklistVersion)
 	}
 	groups := curation.Checklist()
@@ -52,21 +55,22 @@ func TestChecklistIsTheCurrentList(t *testing.T) {
 		}
 	}
 	if want := []string{"Antes de começar", "Violência e medo", "Linguagem e respeito", "Consumo e publicidade",
-		"Saúde e segurança", "Ritmo e canal"}; !slices.Equal(titles, want) {
+		"Saúde e segurança", "Ritmo e canal", "Vídeo longo"}; !slices.Equal(titles, want) {
 		t.Fatalf("groups %v", titles)
 	}
-	if want := []string{"antes", "violencia", "linguagem", "consumo", "saude", "ritmo"}; !slices.Equal(ids, want) {
+	if want := []string{"antes", "violencia", "linguagem", "consumo", "saude", "ritmo", "longo"}; !slices.Equal(ids, want) {
 		t.Fatalf("group ids %v", ids)
 	}
 	if want := []string{"c25", "c03", "c04", "c05", "c06", "c07", "c08", "c09", "c14", "c15", "c16", "c17",
-		"c10", "c11", "c12", "c13", "c18", "c19", "c20", "c22", "c23", "c02", "c24"}; !slices.Equal(order, want) {
+		"c10", "c11", "c12", "c13", "c18", "c19", "c20", "c22", "c23", "c02", "c24",
+		"c26", "c27", "c28"}; !slices.Equal(order, want) {
 		t.Fatalf("order %v", order)
 	}
 	if len(items) != len(questions) {
 		t.Fatalf("%d questions, want %d", len(items), len(questions))
 	}
 	special := map[string]curation.Rule{"c07": curation.RuleDoubt, "c24": curation.RuleDoubt,
-		"c22": curation.RuleBand, "c25": curation.RuleConflict}
+		"c22": curation.RuleBand, "c25": curation.RuleConflict, "c28": curation.RuleNotes}
 	for id, text := range questions {
 		it, ok := items[id]
 		if !ok {
@@ -82,6 +86,10 @@ func TestChecklistIsTheCurrentList(t *testing.T) {
 		}
 		if it.Rule != want {
 			t.Errorf("%s rule %q, want %q", id, it.Rule, want)
+		}
+		// Only a long video is asked about its rights, its rating and its ads.
+		if long := id == "c26" || id == "c27" || id == "c28"; it.LongOnly != long {
+			t.Errorf("%s long only %v", id, it.LongOnly)
 		}
 	}
 	for _, gone := range []string{"c01", "c21"} {

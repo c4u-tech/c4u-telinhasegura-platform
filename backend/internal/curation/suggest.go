@@ -120,7 +120,7 @@ func (s *Service) refusal(m Metadata) string {
 		return RefusedNotEmbeddable
 	case m.Live != "none":
 		return RefusedLive
-	case m.Duration > s.d.MaxDuration:
+	case m.Duration > s.d.FamilyMaxDuration:
 		return RefusedTooLong
 	}
 	return ""

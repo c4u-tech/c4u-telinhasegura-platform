@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation/curationtest"
 )
@@ -51,7 +52,7 @@ func TestChildCatalogOverHTTP(t *testing.T) {
 		t.Fatalf("themes %s", r.Body)
 	}
 	first := cat.Themes[0].Videos[0]
-	if len(first) != 3 || first["id"] != v || first["title"] != "Vídeo dQw4w9WgXcQ" || first["duration_seconds"] != float64(300) {
+	if len(first) != 4 || first["fits"] != true || first["id"] != v || first["title"] != "Vídeo dQw4w9WgXcQ" || first["duration_seconds"] != float64(300) {
 		t.Fatalf("a child's video carries %v", first)
 	}
 
@@ -138,6 +139,8 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 		Theme           string         `json:"theme"`
 		MinAgeBand      string         `json:"min_age_band"`
 		Hidden          bool           `json:"hidden"`
+		FamilySession   *bool          `json:"family_session"`
+		ResumeSeconds   *int           `json:"resume_seconds"`
 		Provenance      map[string]any `json:"provenance"`
 	}
 	var page struct {
@@ -150,7 +153,8 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 	}
 	got := page.Videos[0]
 	if got.ID != v || got.YouTubeID != "dQw4w9WgXcQ" || got.Title != "Vídeo dQw4w9WgXcQ" || got.ChannelTitle != "Canal" || got.DurationSeconds != 300 ||
-		got.Theme != "bichos" || got.MinAgeBand != "ate-4" || got.Hidden {
+		got.Theme != "bichos" || got.MinAgeBand != "ate-4" || got.Hidden || got.FamilySession == nil || *got.FamilySession ||
+		got.ResumeSeconds != nil {
 		t.Fatalf("item %+v", got)
 	}
 	if approvals, _ := got.Provenance["approvals"].(map[string]any); approvals["mae-pai"] != float64(1) || got.Provenance["last_reviewed_at"] == nil {
@@ -169,6 +173,25 @@ func TestFamilyCatalogOverHTTP(t *testing.T) {
 	}
 	if r := a.do(http.MethodDelete, hidden, nil, bearer(ana)...); r.Code != http.StatusNoContent {
 		t.Fatalf("unhide: %d %s", r.Code, r.Body)
+	}
+	// A video longer than a 5-to-8 child may watch alone is a family session.
+	if _, err := a.pool.Exec(context.Background(), `UPDATE videos SET duration_seconds = 3000 WHERE id = $1::uuid`, v); err != nil {
+		t.Fatal(err)
+	}
+	getJSON(t, a.do(http.MethodGet, path, nil, bearer(ana)...), &page)
+	if len(page.Videos) != 1 || page.Videos[0].FamilySession == nil || !*page.Videos[0].FamilySession ||
+		page.Videos[0].ResumeSeconds == nil || *page.Videos[0].ResumeSeconds != 0 {
+		t.Fatalf("a 50-minute video %+v", page.Videos)
+	}
+	// Where the child stopped it rides along, for the guardian's start.
+	if _, err := a.pool.Exec(context.Background(), `INSERT INTO play_positions (minor_id, video_id, position_seconds, updated_at)
+		VALUES ($1::uuid, $2::uuid, 1234, now())`, lia, v); err != nil {
+		t.Fatal(err)
+	}
+	page.Videos = nil
+	getJSON(t, a.do(http.MethodGet, path, nil, bearer(ana)...), &page)
+	if len(page.Videos) != 1 || page.Videos[0].ResumeSeconds == nil || *page.Videos[0].ResumeSeconds != 1234 {
+		t.Fatalf("resumed %+v", page.Videos)
 	}
 
 	for _, c := range []struct{ method, path string }{
@@ -288,6 +311,128 @@ func TestHeldQueueShowsWhyAndTheReports(t *testing.T) {
 	for _, id := range reporters {
 		if strings.Contains(r.Body.String(), id) {
 			t.Fatal("the held queue names a reporter")
+		}
+	}
+}
+
+// fitsOf reads every shelf and pack tile's fits, keyed by video id (shelves)
+// and by pack id.
+func fitsOf(t *testing.T, r resp) (videos map[string]bool, packs map[string]bool, packVideos map[string]bool) {
+	t.Helper()
+	var cat struct {
+		Themes []struct {
+			Videos []struct {
+				ID   string `json:"id"`
+				Fits *bool  `json:"fits"`
+			} `json:"videos"`
+		} `json:"themes"`
+		Packs []struct {
+			ID     string `json:"id"`
+			Fits   *bool  `json:"fits"`
+			Videos []struct {
+				ID   string `json:"id"`
+				Fits *bool  `json:"fits"`
+			} `json:"videos"`
+		} `json:"packs"`
+	}
+	getJSON(t, r, &cat)
+	videos, packs, packVideos = map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for _, th := range cat.Themes {
+		for _, v := range th.Videos {
+			if v.Fits == nil {
+				t.Fatalf("video %s has no fits: %s", v.ID, r.Body)
+			}
+			videos[v.ID] = *v.Fits
+		}
+	}
+	for _, p := range cat.Packs {
+		if p.Fits == nil {
+			t.Fatalf("pack %s has no fits: %s", p.ID, r.Body)
+		}
+		packs[p.ID] = *p.Fits
+		for _, v := range p.Videos {
+			if v.Fits == nil {
+				t.Fatalf("pack video %s has no fits: %s", v.ID, r.Body)
+			}
+			packVideos[v.ID] = *v.Fits
+		}
+	}
+	return
+}
+
+func TestChildCatalogSaysWhatFitsTheTimeLeft(t *testing.T) {
+	a := newAPI(t)
+	tok, minor := a.lockedSession("ana@example.com")
+	a.limitTo(minor, 15) // 900 s left, a minute of tolerance
+	short := a.published("aaaaaaaaaaa", "bichos", "ate-4")
+	long := a.published("bbbbbbbbbbb", "bichos", "ate-4")
+	edge := a.published("ccccccccccc", "musica", "ate-4")
+	over := a.published("ddddddddddd", "musica", "ate-4")
+	a.lengthen(short, 300)
+	a.lengthen(long, 20*60)
+	a.lengthen(edge, 960)
+	a.lengthen(over, 961)
+
+	videos, _, _ := fitsOf(t, a.do(http.MethodGet, "/v1/child/catalog", nil, bearer(tok)...))
+	want := map[string]bool{short: true, long: false, edge: true, over: false}
+	if len(videos) != 4 {
+		t.Fatalf("videos %v", videos)
+	}
+	for id, w := range want {
+		if videos[id] != w {
+			t.Errorf("video %s fits = %v, want %v", id, videos[id], w)
+		}
+	}
+}
+
+func TestChildCatalogPackFitsOnItsTotal(t *testing.T) {
+	a := newAPI(t)
+	tok, minor := a.lockedSession("ana@example.com")
+	a.limitTo(minor, 15) // 900 s left
+	vs := a.threeVideos()
+	for _, v := range vs {
+		a.lengthen(v, 600)
+	}
+	heavy := a.publishedPack(vs[0], vs[1]) // 1200 s: more than 960
+	short := a.published("ddddddddddd", "bichos", "ate-4")
+	a.lengthen(short, 60)
+	light := a.publishedPack(vs[2], short) // 660 s
+
+	videos, packs, inPacks := fitsOf(t, a.do(http.MethodGet, "/v1/child/catalog", nil, bearer(tok)...))
+	for _, v := range append(vs, short) {
+		if !videos[v] {
+			t.Errorf("video %s alone fits, got %v", v, videos[v])
+		}
+	}
+	for id, f := range inPacks {
+		if !f {
+			t.Errorf("pack video %s alone fits, got false", id)
+		}
+	}
+	if packs[heavy] || !packs[light] {
+		t.Errorf("pack fits: heavy %v light %v, want false and true", packs[heavy], packs[light])
+	}
+}
+
+func TestChildCatalogFitsNothingOnceTheTimeIsUp(t *testing.T) {
+	a := newAPI(t)
+	a.now = time.Date(2026, 10, 2, 23, 0, 0, 0, time.UTC) // 20:00 in São Paulo, past the window
+	tok, _ := a.lockedSession("ana@example.com")
+	vs := a.threeVideos()
+	for _, v := range vs {
+		a.lengthen(v, 30)
+	}
+	a.publishedPack(vs[0], vs[1])
+
+	videos, packs, inPacks := fitsOf(t, a.do(http.MethodGet, "/v1/child/catalog", nil, bearer(tok)...))
+	if len(videos) == 0 || len(packs) != 1 {
+		t.Fatalf("catalogue %v %v", videos, packs)
+	}
+	for _, m := range []map[string]bool{videos, packs, inPacks} {
+		for id, f := range m {
+			if f {
+				t.Errorf("%s fits with the time up", id)
+			}
 		}
 	}
 }

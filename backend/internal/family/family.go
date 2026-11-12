@@ -33,7 +33,7 @@ const (
 
 // ConsentPolicyVersion names the consent text the app shows before a
 // minor is created. The Dart constant kConsentPolicyVersion must equal it.
-const ConsentPolicyVersion = "2026-10-17"
+const ConsentPolicyVersion = "2026-11-11"
 
 // Avatars are the preset avatar keys; the app maps each key to its art.
 var Avatars = []string{"fox", "owl", "cat", "dog", "rabbit", "bear", "turtle", "whale", "lion", "panda", "frog", "penguin"}

@@ -22,19 +22,39 @@ abstract final class Routes {
   /// policy waits until they do or sign out.
   static const terms = '/termos';
 
+  /// The family's areas, the Família destination's root.
+  static const family = '/familia';
+
+  /// The staff areas a session's platform roles open, the Equipe
+  /// destination's root.
+  static const staffHome = '/equipe';
+
   static const children = '/familia/criancas';
   static const newChild = '/familia/criancas/nova';
   static const adults = '/familia/responsaveis';
   static const invitations = '/familia/convites';
   static const deleteFamily = '/familia/excluir';
 
-  /// The children's screen time, then each child's hub and its errands.
+  /// Under it, a child's screen-time errands; on its own, and with a child
+  /// alone, it leads to the children and to the child's page.
   static const screenTime = '/familia/tempo';
 
-  /// What each child can watch, then one child's catalogue, one video
-  /// and its report.
+  /// Under it, everything one child can watch, one video, its report and
+  /// a pacotinho; on its own it leads to the children.
   static const familyVideos = '/familia/videos';
   static const acceptInvitation = '/convite';
+
+  /// A new family's guided first run: registering a child, creating the
+  /// PIN, then handing the device over. It belongs to the home, which it
+  /// opens from and returns to.
+  static const firstRun = '/comecar';
+
+  /// The first run, naming the child it registered, so a screen opened
+  /// from its last step comes back to the same child.
+  static String firstRunFor({String? child}) => Uri(
+    path: firstRun,
+    queryParameters: child == null ? null : {'crianca': child},
+  ).toString();
 
   static const kidMode = '/modo-crianca';
   static const setPin = '/modo-crianca/pin';
@@ -54,11 +74,15 @@ abstract final class Routes {
   static const redeem = '/vincular-aparelho';
 
   /// The curation screens: suggestions for
-  /// every guardian, the queue for curators, administration for admins.
+  /// every guardian, the queue for curators. [admin] is no screen of its
+  /// own: it leads to [staffHome], and the admin's screens lie under it.
   static const suggestions = '/sugestoes';
   static const newSuggestion = '/sugestoes/nova';
   static const curation = '/curadoria';
   static const admin = '/admin';
+
+  /// The platform's numbers, for an admin.
+  static const numbers = '/admin/numeros';
 
   /// The curator terms, which a curator accepts before any review; its
   /// `depois` is the curation screen that asked, kept by
@@ -107,8 +131,9 @@ abstract final class Routes {
   /// sample, then one video of it.
   static const auditSample = '/moderacao/auditoria';
 
-  /// The pacotinhos' curation:
-  /// composing and reviewing for curators, removal for admins.
+  /// The pacotinhos' curation: composing and reviewing for curators;
+  /// the list and one pacotinho's screen also for admins, who remove a
+  /// pacotinho there. [adminPacks] and what lies under it lead to them.
   static const packs = '/pacotinhos';
   static const newPack = '/pacotinhos/novo';
   static const newPackVideos = '/pacotinhos/novo/videos';
@@ -136,7 +161,8 @@ abstract final class Routes {
     queryParameters: then == null ? null : {'depois': then},
   ).toString();
 
-  /// [raw] when it is an admin or moderation screen of this app, its query
+  /// [raw] when it is an admin or moderation screen of this app, or the
+  /// pacotinhos an admin reaches behind the second factor, its query
   /// kept; null for anything else, so the enrollment's `depois` can never
   /// lead outside the app or to another area (no open redirect).
   static String? staffReturn(String? raw) {
@@ -149,7 +175,11 @@ abstract final class Routes {
         uri.pathSegments.any((s) => s.isEmpty || s == '.' || s == '..')) {
       return null;
     }
-    if (!isAdminScreen(uri.path) && !isModerationScreen(uri.path)) return null;
+    if (!isAdminScreen(uri.path) &&
+        !isModerationScreen(uri.path) &&
+        !isPackArea(uri.path)) {
+      return null;
+    }
     return uri.toString();
   }
 
@@ -185,7 +215,11 @@ abstract final class Routes {
   static String invitation(String token) =>
       Uri(path: acceptInvitation, queryParameters: {'token': token}).toString();
 
+  /// A child's page: the day, the videos and the profile.
   static String child(String id) => '$children/${Uri.encodeComponent(id)}';
+
+  /// The form that edits a child's nickname, avatar and age band.
+  static String editChild(String id) => '${child(id)}/editar';
 
   /// A child's new authorization, returning on completion to [then] when
   /// [reconsentReturn] accepts it, and to [children] otherwise.
@@ -195,10 +229,41 @@ abstract final class Routes {
   ).toString();
 
   /// [raw] when it is a screen a new authorization may return to (the
-  /// hand-over that asked for it); null for anything else, so `depois`
-  /// never leads elsewhere.
+  /// hand-over, or the start of a family work, that asked for it); null
+  /// for anything else, so `depois` never leads elsewhere.
   static String? reconsentReturn(String? raw) =>
-      raw == handOver ? handOver : null;
+      raw == handOver || (raw != null && isFamilySession(raw)) ? raw : null;
+
+  /// A family work's start: `/familia/videos/:crianca/:video/assistir`,
+  /// each id one plain segment.
+  static bool isFamilySession(String path) {
+    final segments = path.split('/');
+    return path.startsWith('$familyVideos/') &&
+        segments.length == 6 &&
+        segments[5] == 'assistir' &&
+        segments
+            .sublist(3, 5)
+            .every((s) => RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(s));
+  }
+
+  /// The link code, returning on back to [then] when [linkCodeReturn]
+  /// accepts it.
+  static String linkCodeFrom(String then) =>
+      Uri(path: linkCode, queryParameters: {'depois': then}).toString();
+
+  /// [raw] when it is the first run (its query kept); null for anything
+  /// else, so `depois` never leads outside the app or elsewhere in it.
+  static String? linkCodeReturn(String? raw) {
+    final uri = raw == null ? null : Uri.tryParse(raw);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasFragment ||
+        uri.path != firstRun) {
+      return null;
+    }
+    return uri.toString();
+  }
 
   static String childTime(String id) =>
       '$screenTime/${Uri.encodeComponent(id)}';
@@ -215,6 +280,11 @@ abstract final class Routes {
 
   static String reportVideo(String minorId, String videoId) =>
       '${familyVideo(minorId, videoId)}/denunciar';
+
+  /// The start of a long work the child watches with the family, behind
+  /// the PIN.
+  static String familySession(String minorId, String videoId) =>
+      '${familyVideo(minorId, videoId)}/assistir';
 
   /// One of the child's pacotinhos today, read by a guardian.
   static String familyPack(String minorId, String packId) =>
@@ -284,9 +354,6 @@ abstract final class Routes {
 
   static String recomposeVideos(String packId) => '${recompose(packId)}/videos';
 
-  static String adminPack(String packId) =>
-      '$adminPacks/${Uri.encodeComponent(packId)}';
-
   static String watch(String videoId) =>
       '$kidWatch/${Uri.encodeComponent(videoId)}';
 
@@ -314,19 +381,22 @@ abstract final class Routes {
     redeem,
   };
 
-  /// The home, the terms screen and everything under `/familia`,
-  /// `/modo-crianca`, `/conta` and the curation and moderation screens. `/convite` is not here: a
+  /// The home and its first run, the terms screen and everything under `/familia`,
+  /// `/modo-crianca`, `/conta`, `/equipe` and the curation and moderation
+  /// screens. `/convite` is not here: a
   /// signed-out visitor keeps the token through sign-in.
   static bool signedInOnly(String path) =>
       path == home ||
       path == terms ||
+      path == firstRun ||
       isFamilyScreen(path) ||
       isKidModeScreen(path) ||
       isAccountScreen(path) ||
       isSuggestionScreen(path) ||
       isCuratorScreen(path) ||
       isAdminScreen(path) ||
-      isModerationScreen(path);
+      isModerationScreen(path) ||
+      path == staffHome;
 
   static bool _under(String root, String path) =>
       path == root || path.startsWith('$root/');
@@ -339,14 +409,32 @@ abstract final class Routes {
   static bool isCuratorScreen(String path) =>
       _under(curation, path) || _under(packs, path);
 
-  /// The team, the pacotinhos and the account directory: for a session
+  /// The pacotinhos' list and one pacotinho's screen: for a session
+  /// holding `curator` or `admin`. What opens from a pacotinho (its
+  /// decisions, a new version, its videos) stays the curators'.
+  static bool isPackArea(String path) {
+    if (path == packs) return true;
+    if (!path.startsWith('$packs/')) return false;
+    final rest = path.substring(packs.length + 1);
+    return rest.isNotEmpty && !rest.contains('/') && path != newPack;
+  }
+
+  /// The team, the numbers and the account directory: for a session
   /// holding `admin`.
   static bool isAdminScreen(String path) => _under(admin, path);
 
   /// The held videos: for a session holding `moderator` or `admin`.
   static bool isModerationScreen(String path) => _under(moderation, path);
 
-  static bool isFamilyScreen(String path) => path.startsWith('/familia/');
+  static bool isFamilyScreen(String path) => _under(family, path);
+
+  /// The staff areas: the Equipe root and every curator, admin and
+  /// moderation screen.
+  static bool isStaffScreen(String path) =>
+      path == staffHome ||
+      isCuratorScreen(path) ||
+      isAdminScreen(path) ||
+      isModerationScreen(path);
 
   /// The guardian's own account, with or without a family or a
   /// confirmed email.
