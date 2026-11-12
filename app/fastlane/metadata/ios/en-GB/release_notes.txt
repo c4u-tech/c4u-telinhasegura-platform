@@ -1,4 +1,6 @@
-Suggesting a video is now easier:
-• Search by title right on the suggestion screen, without leaving the app.
-• Share a YouTube video to Telinha Segura to suggest it.
-We also fixed the app language on iPhone and iPad.
+What's new in this version:
+• Whole stories and full episodes: videos up to 45 minutes, and up to 30 for children aged 2 to 4.
+• Family session: films and long stories to watch together. They start only with the parents' PIN and resume where they stopped.
+• When a video is longer than the time left today, the app says so calmly.
+• A simpler parents' area: everything about each child on one page.
+The Terms and the consent have been updated; please review them in the app.
