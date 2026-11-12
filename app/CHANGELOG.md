@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.5.0...app-v0.6.0) (2026-11-12)
+
+
+### Features
+
+* allow longer videos by age band and family sessions for films ([#102](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/102)) ([c515e27](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/c515e2760ac14a68c0238978f7296591f405a792))
+* **app:** revamp the guardian navigation, brand and large-screen layout ([#101](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/101)) ([f97e2b1](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/f97e2b132cfa79fcb7b9d0c7eea84f1f4e61028d))
+
 ## [0.5.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.4.1...app-v0.5.0) (2026-11-04)
 
 
