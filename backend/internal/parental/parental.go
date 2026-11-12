@@ -14,6 +14,7 @@ import (
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/legal"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/mail"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/ratelimit"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -102,9 +103,9 @@ type Deps struct {
 	CodeLimiter *ratelimit.Limiter // keyed by account
 	Rand        io.Reader          // link codes; nil is crypto/rand
 	Log         *slog.Logger       // post-commit notice failures
-	// ConsentVersion is the policy version a child's consent must carry
-	// for kid mode to run.
-	ConsentVersion string
+	// Consent is the policy version a child's consent must carry for kid
+	// mode to run, with the previous one counting during its grace.
+	Consent legal.Version
 }
 
 type Service struct{ d Deps }
@@ -133,16 +134,26 @@ func (s *Service) notify(ctx context.Context, e audit.Event, msgs ...mail.Messag
 }
 
 // consentSQL is true when the minor $1 holds a consent, not withdrawn,
-// under the policy version $2: the same rule the family module applies.
+// under one of the policy versions $2: the same rule the family module
+// applies.
 const consentSQL = `EXISTS (SELECT 1 FROM minor_consents
-	WHERE minor_id = $1::uuid AND policy_version = $2 AND withdrawn_at IS NULL)`
+	WHERE minor_id = $1::uuid AND policy_version = ANY($2) AND withdrawn_at IS NULL)`
 
-// consentCurrent reports whether the minor's consent is current. It reads
+// consents lists the policy versions that count now.
+func (s *Service) consents() []string { return s.d.Consent.Accepted(s.d.Now()) }
+
+// consentCurrent reports whether the minor's consent counts now. It reads
 // minor_consents itself so this package needs no dependency on the
 // family package.
 func (s *Service) consentCurrent(ctx context.Context, q querier, minorID string) (bool, error) {
+	return consentUnder(ctx, q, minorID, s.consents())
+}
+
+// consentUnder reports whether the minor holds a consent under one of
+// versions.
+func consentUnder(ctx context.Context, q querier, minorID string, versions []string) (bool, error) {
 	var ok bool
-	err := q.QueryRow(ctx, `SELECT `+consentSQL, minorID, s.d.ConsentVersion).Scan(&ok)
+	err := q.QueryRow(ctx, `SELECT `+consentSQL, minorID, versions).Scan(&ok)
 	return ok, err
 }
 

@@ -36,6 +36,9 @@ type fixture struct {
 	now      time.Time
 }
 
+// graceEnd is when the previous consent text stops counting in these tests.
+var graceEnd = time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC)
+
 func newFixture(t *testing.T) *fixture {
 	f := &fixture{
 		t:     t,
@@ -47,15 +50,15 @@ func newFixture(t *testing.T) *fixture {
 	clock := func() time.Time { return f.now }
 	log := slog.New(slog.DiscardHandler)
 	f.deps = parental.Deps{
-		Pool:           f.pool,
-		Mail:           f.mail,
-		Audit:          f.audit,
-		Now:            clock,
-		Hash:           identity.HashParams{Memory: 64, Time: 1, Threads: 1},
-		AppBaseURL:     "https://app.test",
-		CodeLimiter:    ratelimit.New(20, time.Hour, clock),
-		Log:            log,
-		ConsentVersion: family.ConsentPolicyVersion,
+		Pool:        f.pool,
+		Mail:        f.mail,
+		Audit:       f.audit,
+		Now:         clock,
+		Hash:        identity.HashParams{Memory: 64, Time: 1, Threads: 1},
+		AppBaseURL:  "https://app.test",
+		CodeLimiter: ratelimit.New(20, time.Hour, clock),
+		Log:         log,
+		Consent:     family.ConsentVersion(graceEnd),
 	}
 	f.svc = parental.NewService(f.deps)
 	f.fam = family.NewService(family.Deps{
@@ -67,6 +70,7 @@ func newFixture(t *testing.T) *fixture {
 		InviteLimiter: ratelimit.New(20, 24*time.Hour, clock),
 		TokenLimiter:  ratelimit.New(10, time.Minute, clock),
 		Log:           log,
+		GraceUntil:    graceEnd,
 	})
 	f.sessions = &session.Service{Pool: f.pool, Audit: f.audit, Now: clock}
 	return f

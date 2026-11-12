@@ -63,8 +63,8 @@ func (s *Service) Profiles(ctx context.Context, p Principal, pin string) ([]Prof
 	}
 	rows, err := s.d.Pool.Query(ctx, `SELECT m.id::text, m.nickname, m.avatar, m.age_band,
 		EXISTS (SELECT 1 FROM minor_consents c
-			WHERE c.minor_id = m.id AND c.policy_version = $2 AND c.withdrawn_at IS NULL)
-		FROM minors m WHERE m.family_id = $1::uuid ORDER BY m.created_at, m.id`, p.FamilyID, s.d.ConsentVersion)
+			WHERE c.minor_id = m.id AND c.policy_version = ANY($2) AND c.withdrawn_at IS NULL)
+		FROM minors m WHERE m.family_id = $1::uuid ORDER BY m.created_at, m.id`, p.FamilyID, s.consents())
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/identity"
 )
@@ -122,5 +123,69 @@ func TestTermsAcceptedIsFalseForAnOlderVersion(t *testing.T) {
 	}
 	if a, _ := f.svc.Account(ctx, id); a.TermsAccepted {
 		t.Fatal("an older version counts as accepted")
+	}
+}
+
+func TestPreviousTermsCountUntilTheGraceEnds(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	id := f.signUpVerified("ana@example.com", goodPassword)
+	if _, err := f.pool.Exec(ctx, `UPDATE accounts SET terms_version = $2 WHERE id = $1::uuid`, id, identity.PreviousTermsVersion); err != nil {
+		t.Fatal(err)
+	}
+	f.now = graceEnd.Add(-time.Second)
+	if a, _ := f.svc.Account(ctx, id); !a.TermsAccepted {
+		t.Fatal("the previous terms do not count before the grace ends")
+	}
+	f.now = graceEnd
+	if a, _ := f.svc.Account(ctx, id); a.TermsAccepted {
+		t.Fatal("the previous terms still count after the grace ends")
+	}
+}
+
+func TestSignUpAndAcceptTakeThePreviousTermsBeforeTheGraceEnds(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	f.now = graceEnd.Add(-time.Second)
+	if _, err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.PreviousTermsVersion); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := f.terms("ana@example.com"); v != identity.PreviousTermsVersion || !ok {
+		t.Fatalf("recorded %q, accepted at now: %v", v, ok)
+	}
+	if _, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-1", "bia@gmail.com"), true, identity.PreviousTermsVersion); err != nil {
+		t.Fatalf("provider: %v", err)
+	}
+	id := f.signUpVerified("caio@example.com", goodPassword)
+	if err := f.svc.AcceptTerms(ctx, id, identity.PreviousTermsVersion); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := f.terms("caio@example.com"); v != identity.PreviousTermsVersion {
+		t.Fatalf("accept recorded %q", v)
+	}
+}
+
+func TestSignUpAndAcceptRefuseThePreviousTermsAfterTheGraceEnds(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	id := f.signUpVerified("caio@example.com", goodPassword)
+	f.now = graceEnd
+	if _, err := f.svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.PreviousTermsVersion); !errors.Is(err, identity.ErrTermsOutdated) {
+		t.Fatalf("sign-up: %v", err)
+	}
+	if _, err := f.svc.ProviderSignUp(ctx, f.signupTicket("g-1", "bia@gmail.com"), true, identity.PreviousTermsVersion); !errors.Is(err, identity.ErrTermsOutdated) {
+		t.Fatalf("provider: %v", err)
+	}
+	if err := f.svc.AcceptTerms(ctx, id, identity.PreviousTermsVersion); !errors.Is(err, identity.ErrTermsOutdated) {
+		t.Fatalf("accept: %v", err)
+	}
+}
+
+func TestNoGraceRefusesThePreviousTerms(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	svc := f.svcWith(func(d *identity.Deps) { d.GraceUntil = time.Time{} })
+	if _, err := svc.SignUp(ctx, "ana@example.com", goodPassword, true, identity.PreviousTermsVersion); !errors.Is(err, identity.ErrTermsOutdated) {
+		t.Fatalf("sign-up: %v", err)
 	}
 }

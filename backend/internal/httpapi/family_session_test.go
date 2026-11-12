@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 )
 
@@ -257,18 +258,27 @@ func TestBeatPositionIsCutToWholeSeconds(t *testing.T) {
 	}
 }
 
-// A child authorized under the previous consent text is paused until the
-// guardian authorizes again: the family session start and the child's own
-// reads both refuse with consent_required.
+// A child authorized under the previous consent text keeps reading the
+// catalogue until the grace ends, but a family session start asks for the
+// current text from the first day. After the grace both refuse with
+// consent_required until the guardian authorizes again.
 func TestPreviousConsentTextPausesFamilySessions(t *testing.T) {
 	a := newAPI(t)
+	a.now = graceEnd.Add(-time.Minute) // close enough that the access tokens outlive the grace
 	guardian, kid, minor, work := a.familySetup()
-	a.exec(`UPDATE minor_consents SET policy_version = '2026-10-17' WHERE minor_id = $1::uuid`, minor)
+	a.exec(`UPDATE minor_consents SET policy_version = $2 WHERE minor_id = $1::uuid`, minor, family.PreviousConsentPolicyVersion)
 	if r := a.startSession(guardian, minor, map[string]any{"video_id": work, "pin": "2580"}); r.Code != http.StatusForbidden || r.problemCode() != "consent_required" {
-		t.Errorf("session start: %d %s", r.Code, r.Body)
+		t.Errorf("session start during the grace: %d %s", r.Code, r.Body)
+	}
+	if r := a.do(http.MethodGet, "/v1/child/catalog", nil, kid...); r.Code != http.StatusOK {
+		t.Errorf("catalog during the grace: %d %s", r.Code, r.Body)
+	}
+	a.now = graceEnd
+	if r := a.startSession(guardian, minor, map[string]any{"video_id": work, "pin": "2580"}); r.Code != http.StatusForbidden || r.problemCode() != "consent_required" {
+		t.Errorf("session start after the grace: %d %s", r.Code, r.Body)
 	}
 	if r := a.do(http.MethodGet, "/v1/child/catalog", nil, kid...); r.Code != http.StatusForbidden || r.problemCode() != "consent_required" {
-		t.Errorf("catalog: %d %s", r.Code, r.Body)
+		t.Errorf("catalog after the grace: %d %s", r.Code, r.Body)
 	}
 	if a.count(`SELECT count(*) FROM family_sessions`) != 0 {
 		t.Fatal("a refused start stored a session")
