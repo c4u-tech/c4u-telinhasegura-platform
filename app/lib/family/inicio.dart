@@ -26,8 +26,8 @@ String greeting(DateTime now) => switch (now.hour) {
 };
 
 /// The home once the family is ready: one row per child on the child
-/// band, each ending in handing the device to that child, then suggesting
-/// a video. While the family has no child, or no PIN, one calm row names
+/// band, each ending in handing the device to that child, then the
+/// suggestions. While the family has no child, or no PIN, one calm row names
 /// the next step and opens the first run there. Each child's day is read
 /// on its own, so one slow or failed read holds up no other row.
 class Inicio extends StatefulWidget {
@@ -182,8 +182,10 @@ class _InicioState extends State<Inicio> {
             ),
           const SizedBox(height: Space.xxl),
           QuietAction(
-            label: 'Sugerir um vídeo',
-            onPressed: () => context.go(Routes.newSuggestion),
+            label: 'Sugestões de vídeos',
+            // The suggestions, not the form: the form goes back to them,
+            // and they keep the guardian's own suggestions in reach.
+            onPressed: () => context.go(Routes.suggestions),
           ),
         ],
       );
