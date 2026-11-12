@@ -67,6 +67,7 @@ func TestLoadAppliesDefaultsAndSplitsOrigins(t *testing.T) {
 		PackRowSize:                       6,
 		MailAllowed:                       noMailAllowlist(t),
 		MailPollInterval:                  5 * time.Second,
+		LegalGraceUntil:                   time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC),
 	}
 	if !reflect.DeepEqual(c, want) {
 		t.Fatalf("got %+v, want %+v", c, want)
@@ -472,6 +473,53 @@ func TestLoadReadsTheSearchDailyLimit(t *testing.T) {
 	for _, v := range []string{"0", "-1", "x"} {
 		_, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "YOUTUBE_SEARCH_DAILY_LIMIT": v}))
 		if err == nil || !strings.Contains(err.Error(), "YOUTUBE_SEARCH_DAILY_LIMIT") {
+			t.Errorf("%q: %v", v, err)
+		}
+	}
+}
+
+// lookup reads m as the process environment does: a key present with an
+// empty value is set, unlike a missing one.
+func lookup(m map[string]string) func(string) (string, bool) {
+	return func(k string) (string, bool) {
+		if k == "STAFF_MFA_REQUIRED" {
+			return "false", true
+		}
+		v, ok := m[k]
+		return v, ok
+	}
+}
+
+func TestLegalGraceDefaultsToTheEndOf25NovemberInSaoPaulo(t *testing.T) {
+	want := time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC) // midnight in São Paulo, UTC-3
+	c, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y"}))
+	if err != nil || !c.LegalGraceUntil.Equal(want) {
+		t.Fatalf("Load default: %s %v", c.LegalGraceUntil, err)
+	}
+	c, err = config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y"}))
+	if err != nil || !c.LegalGraceUntil.Equal(want) {
+		t.Fatalf("LoadLookup default: %s %v", c.LegalGraceUntil, err)
+	}
+}
+
+func TestLegalGraceReadsADateAsTheEndOfThatDayInSaoPaulo(t *testing.T) {
+	c, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": " 2026-12-01 "}))
+	if want := time.Date(2026, 12, 2, 3, 0, 0, 0, time.UTC); err != nil || !c.LegalGraceUntil.Equal(want) {
+		t.Fatalf("%s %v", c.LegalGraceUntil, err)
+	}
+}
+
+func TestLegalGraceSetButEmptyMeansNoGrace(t *testing.T) {
+	c, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": ""}))
+	if err != nil || !c.LegalGraceUntil.IsZero() {
+		t.Fatalf("%s %v", c.LegalGraceUntil, err)
+	}
+}
+
+func TestLegalGraceRefusesAnInvalidDate(t *testing.T) {
+	for _, v := range []string{"25/11/2026", "2026-11-31", "2026-11-25T00:00:00Z", "soon"} {
+		_, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": v}))
+		if err == nil || !strings.Contains(err.Error(), "LEGAL_GRACE_UNTIL") {
 			t.Errorf("%q: %v", v, err)
 		}
 	}

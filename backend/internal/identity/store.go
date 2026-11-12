@@ -31,8 +31,8 @@ type Account struct {
 	// Status is read with the account; a suspended account still signs
 	// in.
 	Status Status
-	// TermsAccepted is whether the account accepted the current terms.
-	TermsAccepted bool
+	// TermsVersion is the terms the account last accepted; "" for none.
+	TermsVersion string
 }
 
 type tokenPurpose string
@@ -62,7 +62,9 @@ func scanAccount(row pgx.Row) (Account, error) {
 		return Account{}, ErrNotFound
 	}
 	a.Status = Status(status)
-	a.TermsAccepted = terms != nil && *terms == TermsVersion
+	if terms != nil {
+		a.TermsVersion = *terms
+	}
 	return a, err
 }
 
