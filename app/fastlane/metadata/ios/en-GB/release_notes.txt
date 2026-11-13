@@ -1,6 +1,2 @@
 What's new in this version:
-• Whole stories and full episodes: videos up to 45 minutes, and up to 30 for children aged 2 to 4.
-• Family session: films and long stories to watch together. They start only with the parents' PIN and resume where they stopped.
-• When a video is longer than the time left today, the app says so calmly.
-• A simpler parents' area: everything about each child on one page.
-The Terms and the consent have been updated; please review them in the app.
+• "Sugestões de vídeos" on the home screen now opens your suggestions: see where each one stands with the curators and suggest a new video from there. Going back always returns you to where you came from.

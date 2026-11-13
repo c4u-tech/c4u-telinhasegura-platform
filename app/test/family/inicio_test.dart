@@ -526,12 +526,13 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('"Sugerir um vídeo" opens a new suggestion', (tester) async {
+  testWidgets('"Sugestões de vídeos" opens the suggestions, above the form '
+      'that goes back to them', (tester) async {
     final h = await inicio(tester);
 
-    await tapOn(tester, find.text('Sugerir um vídeo'));
+    await tapOn(tester, find.text('Sugestões de vídeos'));
 
-    expect(h.location(tester), '/sugestoes/nova');
+    expect(h.location(tester), '/sugestoes');
   });
 
   testWidgets('with no child, one row names registering one and opens the '
