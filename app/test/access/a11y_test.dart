@@ -2541,7 +2541,7 @@ void main() {
         await openHome(tester, state, size: size, textScale: 2);
 
         expect(tester.takeException(), isNull);
-        // Início, once the family is ready, ends on "Sugerir um vídeo";
+        // Início, once the family is ready, ends on "Sugestões de vídeos";
         // every state before it on "Sair da conta".
         final inicio = find.byType(Inicio).evaluate().isNotEmpty;
         // The column's first control and its last.
@@ -2554,7 +2554,7 @@ void main() {
           // The Equipe door with no family.
           if (state.contains('moderator'))
             find.widgetWithText(DoorRow, 'Equipe'),
-          find.text(inicio ? 'Sugerir um vídeo' : 'Sair da conta'),
+          find.text(inicio ? 'Sugestões de vídeos' : 'Sair da conta'),
         ]) {
           await tester.ensureVisible(control);
           await tester.pumpAndSettle();
