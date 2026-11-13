@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.6.0...app-v0.6.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **app:** open the suggestions from the home, not the form ([#114](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/114)) ([c362ed1](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/c362ed1e0645e3309e763dcd9d051f3b70f85a1e))
+
 ## [0.6.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.5.0...app-v0.6.0) (2026-11-12)
 
 
