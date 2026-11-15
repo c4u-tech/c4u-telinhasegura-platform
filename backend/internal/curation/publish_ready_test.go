@@ -152,3 +152,54 @@ func TestPublishReadyHoldsAVideoAlreadyReported(t *testing.T) {
 		t.Fatalf("audit %+v", f.audit.Entries)
 	}
 }
+
+func TestPublishReadyPublishesAPackAtTheLoweredThreshold(t *testing.T) {
+	f := newFixture(t)
+	c0 := f.curator("c0@example.com", curation.MaePai)
+	id := f.compose(c0, f.approvedVideos(3)...).ID
+	if state := f.reviewPack(f.curator("c1@example.com", curation.Pedagogo), id, approvePack()); state != curation.Pending {
+		t.Fatalf("first approval: %s", state)
+	}
+
+	f.lowerTo(1)
+	f.publishReady()
+	if p := f.packDetail(c0, id); p.State != curation.Approved {
+		t.Fatalf("pack not published: %s", p.State)
+	}
+	if n := f.count(`SELECT count(*) FROM packs p JOIN pack_rounds r ON r.pack_id = p.id AND r.round = 1
+		WHERE p.id = $1::uuid AND p.published_round = 1 AND r.outcome = 'published'`, id); n != 1 {
+		t.Fatal("publishing must set the round's outcome and the published round")
+	}
+	f.publishReady()
+	if !f.audit.Has("", audit.PackPublished) || f.audited(audit.PackPublished) != 1 {
+		t.Fatalf("pack_published must be recorded once, with no actor: %+v", f.audit.Entries)
+	}
+}
+
+func TestPublishReadyLeavesAPackBelowTheThreshold(t *testing.T) {
+	f := newFixture(t)
+	c0 := f.curator("c0@example.com", curation.MaePai)
+	id := f.compose(c0, f.approvedVideos(3)...).ID
+	f.reviewPack(f.curator("c1@example.com", curation.Pedagogo), id, approvePack())
+
+	f.publishReady()
+	if p := f.packDetail(c0, id); p.State != curation.Pending || f.audited(audit.PackPublished) != 0 {
+		t.Fatalf("published below the threshold: %s", p.State)
+	}
+}
+
+func TestPublishReadyLeavesARejectedPackRound(t *testing.T) {
+	f := newFixture(t)
+	c0 := f.curator("c0@example.com", curation.MaePai)
+	id := f.compose(c0, f.approvedVideos(3)...).ID
+	f.reviewPack(f.curator("c1@example.com", curation.Pedagogo), id, approvePack())
+	if state := f.reviewPack(f.curator("c2@example.com", curation.Cuidador), id, rejectPack("Fora do tema.")); state != curation.Held {
+		t.Fatalf("rejection: %s", state)
+	}
+
+	f.lowerTo(1)
+	f.publishReady()
+	if p := f.packDetail(c0, id); p.State != curation.Held || f.audited(audit.PackPublished) != 0 {
+		t.Fatalf("a rejected round published: %s", p.State)
+	}
+}
