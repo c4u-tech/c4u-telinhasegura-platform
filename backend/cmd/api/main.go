@@ -284,6 +284,7 @@ func serve(log *slog.Logger) error {
 		sweep.Job{Name: "device_retention", Run: par.SweepDevices},
 		sweep.Job{Name: "email_token_retention", Run: ids.SweepEmailTokens},
 		sweep.Job{Name: "youtube_refresh", Run: cur.RefreshSources},
+		sweep.Job{Name: "curation_publish_ready", Run: cur.PublishReady},
 		sweep.Job{Name: "thumbnail_expiry", Run: cur.ExpireThumbnails},
 		sweep.Job{Name: "mail_cleanup", Run: outbox.Cleanup},
 	)
