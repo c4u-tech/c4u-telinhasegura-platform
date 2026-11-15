@@ -83,6 +83,9 @@ Curation:
   `CURATION_FAMILY_YOUNGEST_MAX_DURATION` (default `60m`) its ceiling for
   the youngest band. They must satisfy long-from <= youngest <= max <=
   family-max and youngest <= family-youngest <= family-max.
+  Lowering `CURATION_MIN_APPROVALS` publishes the videos and pacotinhos
+  that already hold enough approvals when the API starts and on every
+  sweep; raising it unpublishes nothing.
 - `CATALOG_SHELF_SIZE` (default 12, at most 50): videos per theme on a
   child's shelf. `CURATION_REPORT_THRESHOLD` (default 3): distinct
   families whose reports hold a video for the admin.
