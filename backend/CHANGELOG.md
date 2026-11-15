@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.3.0...backend-v0.3.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **api:** publish what already meets a lowered approval threshold ([#122](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/122)) ([59ce57f](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/59ce57f7365a57be8c7eb1f88e30c4a171623408))
+
 ## [0.3.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.2.1...backend-v0.3.0) (2026-11-12)
 
 
