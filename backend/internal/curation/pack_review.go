@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
@@ -94,17 +95,10 @@ func (s *Service) ReviewPack(ctx context.Context, curatorID, packID string, in P
 			_, err := tx.Exec(ctx, `UPDATE packs SET state = $2, updated_at = $3 WHERE id = $1::uuid`, packID, string(state), now)
 			return err
 		}
-		reached, err := s.approvalsReached(ctx, tx, packLedger, packID, round)
-		if err != nil || !reached {
-			return err
+		published, err := s.publishPack(ctx, tx, packID, round, now)
+		if published {
+			state, event = Approved, audit.PackPublished
 		}
-		state, event = Approved, audit.PackPublished
-		if _, err := tx.Exec(ctx, `UPDATE pack_rounds SET outcome = 'published' WHERE pack_id = $1::uuid AND round = $2`,
-			packID, round); err != nil {
-			return err
-		}
-		_, err = tx.Exec(ctx, `UPDATE packs SET state = 'approved', published_round = round, last_reviewed_at = $2,
-			updated_at = $2 WHERE id = $1::uuid`, packID, now)
 		return err
 	})
 	if err != nil {
@@ -114,4 +108,21 @@ func (s *Service) ReviewPack(ctx context.Context, curatorID, packID string, in P
 		s.d.Audit.Record(ctx, curatorID, event)
 	}
 	return rv, state, nil
+}
+
+// publishPack publishes the pack once its round holds MinApprovals
+// approvals by curators who still hold the role, under the caller's pack
+// row lock. It reports whether the pack was published.
+func (s *Service) publishPack(ctx context.Context, tx pgx.Tx, packID string, round int, now time.Time) (bool, error) {
+	reached, err := s.approvalsReached(ctx, tx, packLedger, packID, round)
+	if err != nil || !reached {
+		return false, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE pack_rounds SET outcome = 'published' WHERE pack_id = $1::uuid AND round = $2`,
+		packID, round); err != nil {
+		return false, err
+	}
+	_, err = tx.Exec(ctx, `UPDATE packs SET state = 'approved', published_round = round, last_reviewed_at = $2,
+		updated_at = $2 WHERE id = $1::uuid`, packID, now)
+	return err == nil, err
 }
