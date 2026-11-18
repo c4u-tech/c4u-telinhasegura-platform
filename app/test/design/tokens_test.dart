@@ -22,10 +22,11 @@ String _hex(Color c) =>
     '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
 void main() {
+  late final Map<String, dynamic> json = jsonDecode(
+    File('../brand/tokens/brand-tokens.json').readAsStringSync(),
+  ) as Map<String, dynamic>;
+
   test('brand colours equal brand/tokens/brand-tokens.json', () {
-    final json = jsonDecode(
-      File('../brand/tokens/brand-tokens.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
     final colors =
         (json['brand'] as Map<String, dynamic>)['color']
             as Map<String, dynamic>;
@@ -36,6 +37,26 @@ void main() {
     expect(_hex(BrandColors.sun), value('sun'));
     expect(_hex(BrandColors.cream), value('cream'));
     expect(_hex(BrandColors.dark), value('dark'));
+    expect(_hex(BrandColors.beak), value('beak'));
+    expect(_hex(BrandColors.sky), value('sky'));
+  });
+
+  test('the token file records which brand pairs hold', () {
+    final pairs =
+        (json[r'$extensions'] as Map<String, dynamic>)['contrast'] as List;
+    bool passes(String fg, String bg) =>
+        (pairs.firstWhere((p) => p['fg'] == fg && p['bg'] == bg) as Map)['pass']
+            as bool;
+    expect(passes('dark', 'cream'), isTrue);
+    expect(passes('cream', 'ink'), isTrue);
+    expect(passes('dark', 'sun'), isTrue);
+    expect(passes('dark', 'sky'), isTrue);
+    expect(passes('sun', 'ink'), isTrue);
+    expect(passes('beak', 'dark'), isTrue);
+    expect(passes('sun', 'cream'), isFalse);
+    expect(passes('sun', 'sky'), isFalse);
+    expect(passes('beak', 'ink'), isFalse);
+    expect(passes('beak', 'cream'), isFalse);
   });
 
   for (final palette in [Palette.light, Palette.dark]) {

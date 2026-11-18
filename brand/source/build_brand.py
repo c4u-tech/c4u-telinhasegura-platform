@@ -329,28 +329,34 @@ for name, h1 in [('lockup', 40), ('lockup-endorsed', 56), ('mark', 64), ('mark-s
 # ---------------- tokens ----------------
 def col(hexv, desc): return {'$type': 'color', '$value': hexv, '$extensions': {'oklch': oklch(hexv)}, '$description': desc}
 pairs = []
-for fg, bg, kind in [('ink', 'cream', 'text'), ('ink', 'white', 'text'), ('cream', 'ink', 'text'), ('cream', 'dark', 'text'),
-                     ('dark', 'sun', 'text'), ('ink', 'sun', 'non-text'), ('sun', 'dark', 'non-text'), ('sun', 'cream', 'non-text'), ('sun', 'white', 'non-text')]:
+for fg, bg, kind in [('dark', 'cream', 'text'), ('dark', 'sky', 'text'), ('dark', 'sun', 'text'), ('cream', 'ink', 'text'),
+                     ('cream', 'dark', 'text'), ('ink', 'cream', 'text'), ('ink', 'sky', 'text'),
+                     ('sun', 'ink', 'non-text'), ('sun', 'dark', 'non-text'), ('beak', 'dark', 'non-text'),
+                     ('sun', 'cream', 'non-text'), ('sun', 'sky', 'non-text'), ('sun', 'white', 'non-text'),
+                     ('beak', 'ink', 'non-text'), ('beak', 'cream', 'non-text'), ('beak', 'sky', 'non-text'),
+                     ('dark', 'ink', 'non-text')]:
     r = cr(C[fg], C[bg]); need = 4.5 if kind == 'text' else 3.0
     pairs.append({'fg': fg, 'bg': bg, 'kind': kind, 'ratio': round(r, 2), 'pass': r >= need})
 tokens = {
   'brand': {
     'color': {
-      'ink':   col(C['ink'], 'Verde-petróleo de tinta: a telinha, o wordmark, todo texto de marca no claro.'),
-      'sun':   col(C['sun'], 'Amarelo-sol: só a cabeça e as mãos. Nunca texto; no claro, sempre com contorno ink.'),
-      'cream': col(C['cream'], 'Fundo da marca.'),
-      'dark':  col(C['dark'], 'Fundo escuro da marca.'),
+      'sun':   col(C['sun'], 'Amarelo-sol: o corpo do mascote. Preenchimento, nunca texto.'),
+      'dark':  col(C['dark'], 'Texto, coroa e máscara; fundo escuro da marca.'),
+      'ink':   col(C['ink'], 'Verde-petróleo: o fundo principal.'),
+      'cream': col(C['cream'], 'Fundo claro da marca.'),
+      'beak':  col(C['beak'], 'Coral: o bico e o pingo do i. Só na marca.'),
+      'sky':   col(C['sky'], 'Azul-céu: fundo de apoio.'),
     },
     'font': {
-      'family': {'$type': 'fontFamily', '$value': ['Bricolage Grotesque', 'sans-serif'], '$description': 'OFL. Display e wordmark; optical size 24 no wordmark, 12–14 em texto pequeno.'},
-      'wordmark-weight': {'$type': 'fontWeight', '$value': 700},
+      'family': {'$type': 'fontFamily', '$value': ['Bricolage Grotesque', 'sans-serif'], '$description': 'OFL. Display e wordmark; optical size 96 no wordmark, 12–14 em texto pequeno.'},
+      'wordmark-weight': {'$type': 'fontWeight', '$value': 800},
     },
     'mark': {
-      'clear-space': {'$type': 'number', '$value': 0.219, '$description': 'Raio da cabeça (14/64 da altura da marca) livre em volta de marca e lockup.'},
+      'clear-space': {'$type': 'number', '$value': 0.2, '$description': 'Fração da caixa da figura (o raio de canto do corpo) livre em volta de marca e lockup.'},
       'min-size': {
-        'mark':        {'$type': 'dimension', '$value': {'value': 48, 'unit': 'px'}, '$description': 'Marca primária, com mãos.'},
-        'simplified':  {'$type': 'dimension', '$value': {'value': 20, 'unit': 'px'}},
-        'monogram':    {'$type': 'dimension', '$value': {'value': 16, 'unit': 'px'}},
+        'mark':        {'$type': 'dimension', '$value': {'value': 48, 'unit': 'px'}, '$description': 'Marca primária.'},
+        'simplified':  {'$type': 'dimension', '$value': {'value': 24, 'unit': 'px'}},
+        'mini':        {'$type': 'dimension', '$value': {'value': 16, 'unit': 'px'}},
         'lockup-height': {'$type': 'dimension', '$value': {'value': 24, 'unit': 'px'}},
         'lockup-endorsed-height': {'$type': 'dimension', '$value': {'value': 56, 'unit': 'px'}},
       },

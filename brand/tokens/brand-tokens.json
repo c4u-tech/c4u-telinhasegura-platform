@@ -1,29 +1,13 @@
 {
   "brand": {
     "color": {
-      "ink": {
-        "$type": "color",
-        "$value": "#1E5B66",
-        "$extensions": {
-          "oklch": "oklch(0.437 0.063 211.8)"
-        },
-        "$description": "Verde-petróleo de tinta: a telinha, o wordmark, todo texto de marca no claro."
-      },
       "sun": {
         "$type": "color",
         "$value": "#FFC42E",
         "$extensions": {
           "oklch": "oklch(0.851 0.164 84.8)"
         },
-        "$description": "Amarelo-sol: só a cabeça e as mãos. Nunca texto; no claro, sempre com contorno ink."
-      },
-      "cream": {
-        "$type": "color",
-        "$value": "#FBF6EC",
-        "$extensions": {
-          "oklch": "oklch(0.974 0.014 84.6)"
-        },
-        "$description": "Fundo da marca."
+        "$description": "Amarelo-sol: o corpo do mascote. Preenchimento, nunca texto."
       },
       "dark": {
         "$type": "color",
@@ -31,7 +15,39 @@
         "$extensions": {
           "oklch": "oklch(0.267 0.034 214.3)"
         },
-        "$description": "Fundo escuro da marca."
+        "$description": "Texto, coroa e máscara; fundo escuro da marca."
+      },
+      "ink": {
+        "$type": "color",
+        "$value": "#1E5B66",
+        "$extensions": {
+          "oklch": "oklch(0.437 0.063 211.8)"
+        },
+        "$description": "Verde-petróleo: o fundo principal."
+      },
+      "cream": {
+        "$type": "color",
+        "$value": "#FBF6EC",
+        "$extensions": {
+          "oklch": "oklch(0.974 0.014 84.6)"
+        },
+        "$description": "Fundo claro da marca."
+      },
+      "beak": {
+        "$type": "color",
+        "$value": "#FF5A36",
+        "$extensions": {
+          "oklch": "oklch(0.684 0.207 33.9)"
+        },
+        "$description": "Coral: o bico e o pingo do i. Só na marca."
+      },
+      "sky": {
+        "$type": "color",
+        "$value": "#A9DDE8",
+        "$extensions": {
+          "oklch": "oklch(0.865 0.056 212.1)"
+        },
+        "$description": "Azul-céu: fundo de apoio."
       }
     },
     "font": {
@@ -41,18 +57,18 @@
           "Bricolage Grotesque",
           "sans-serif"
         ],
-        "$description": "OFL. Display e wordmark; optical size 24 no wordmark, 12–14 em texto pequeno."
+        "$description": "OFL. Display e wordmark; optical size 96 no wordmark, 12–14 em texto pequeno."
       },
       "wordmark-weight": {
         "$type": "fontWeight",
-        "$value": 700
+        "$value": 800
       }
     },
     "mark": {
       "clear-space": {
         "$type": "number",
-        "$value": 0.219,
-        "$description": "Raio da cabeça (14/64 da altura da marca) livre em volta de marca e lockup."
+        "$value": 0.2,
+        "$description": "Fração da caixa da figura (o raio de canto do corpo) livre em volta de marca e lockup."
       },
       "min-size": {
         "mark": {
@@ -61,16 +77,16 @@
             "value": 48,
             "unit": "px"
           },
-          "$description": "Marca primária, com mãos."
+          "$description": "Marca primária."
         },
         "simplified": {
           "$type": "dimension",
           "$value": {
-            "value": 20,
+            "value": 24,
             "unit": "px"
           }
         },
-        "monogram": {
+        "mini": {
           "$type": "dimension",
           "$value": {
             "value": 16,
@@ -97,17 +113,24 @@
   "$extensions": {
     "contrast": [
       {
-        "fg": "ink",
+        "fg": "dark",
         "bg": "cream",
         "kind": "text",
-        "ratio": 7.11,
+        "ratio": 13.98,
         "pass": true
       },
       {
-        "fg": "ink",
-        "bg": "white",
+        "fg": "dark",
+        "bg": "sky",
         "kind": "text",
-        "ratio": 7.65,
+        "ratio": 10.18,
+        "pass": true
+      },
+      {
+        "fg": "dark",
+        "bg": "sun",
+        "kind": "text",
+        "ratio": 9.46,
         "pass": true
       },
       {
@@ -125,15 +148,22 @@
         "pass": true
       },
       {
-        "fg": "dark",
-        "bg": "sun",
+        "fg": "ink",
+        "bg": "cream",
         "kind": "text",
-        "ratio": 9.46,
+        "ratio": 7.11,
         "pass": true
       },
       {
         "fg": "ink",
-        "bg": "sun",
+        "bg": "sky",
+        "kind": "text",
+        "ratio": 5.17,
+        "pass": true
+      },
+      {
+        "fg": "sun",
+        "bg": "ink",
         "kind": "non-text",
         "ratio": 4.81,
         "pass": true
@@ -146,6 +176,13 @@
         "pass": true
       },
       {
+        "fg": "beak",
+        "bg": "dark",
+        "kind": "non-text",
+        "ratio": 4.85,
+        "pass": true
+      },
+      {
         "fg": "sun",
         "bg": "cream",
         "kind": "non-text",
@@ -154,9 +191,44 @@
       },
       {
         "fg": "sun",
+        "bg": "sky",
+        "kind": "non-text",
+        "ratio": 1.08,
+        "pass": false
+      },
+      {
+        "fg": "sun",
         "bg": "white",
         "kind": "non-text",
         "ratio": 1.59,
+        "pass": false
+      },
+      {
+        "fg": "beak",
+        "bg": "ink",
+        "kind": "non-text",
+        "ratio": 2.47,
+        "pass": false
+      },
+      {
+        "fg": "beak",
+        "bg": "cream",
+        "kind": "non-text",
+        "ratio": 2.88,
+        "pass": false
+      },
+      {
+        "fg": "beak",
+        "bg": "sky",
+        "kind": "non-text",
+        "ratio": 2.1,
+        "pass": false
+      },
+      {
+        "fg": "dark",
+        "bg": "ink",
+        "kind": "non-text",
+        "ratio": 1.97,
         "pass": false
       }
     ]
