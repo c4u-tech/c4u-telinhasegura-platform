@@ -62,9 +62,6 @@ class PlayerScreen extends StatefulWidget {
   /// How long the error note stays before the shelves come back.
   static const errorPause = Duration(seconds: 4);
 
-  /// The widest the player grows.
-  static const maxWidth = PlayerStage.maxWidth;
-
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }

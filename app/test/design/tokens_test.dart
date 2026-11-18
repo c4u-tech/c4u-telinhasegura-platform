@@ -327,10 +327,8 @@ void main() {
     expect(ShellSizes.railCorner, 28);
   });
 
-  test('kid sizes: 64 dp targets and 96-128 dp avatars', () {
+  test('kid sizes: 64 dp targets and 96 dp avatars', () {
     expect(KidSizes.target, 64);
     expect(KidSizes.avatar, 96);
-    expect(KidSizes.avatarLarge, 128);
-    expect(KidSizes.avatarWide, 192);
   });
 }

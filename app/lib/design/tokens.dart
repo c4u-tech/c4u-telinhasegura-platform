@@ -322,13 +322,10 @@ abstract final class WordmarkSizes {
 }
 
 /// The kid dialect's sizes: small hands get 64 dp targets (the PIN keys
-/// too), and a child finds themself by a 96 dp+ avatar; the child home's
-/// grows to [avatarWide] on wide screens.
+/// too), and a child finds themself by a 96 dp+ avatar.
 abstract final class KidSizes {
   static const target = 64.0;
   static const avatar = 96.0;
-  static const avatarLarge = 128.0;
-  static const avatarWide = 192.0;
 }
 
 abstract final class Typefaces {
