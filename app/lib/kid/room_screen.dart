@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../curation/curation.dart' show VideoTheme;
 import '../curation/kid_catalog.dart';
 import '../design/tevi.dart';
-import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
@@ -172,7 +171,10 @@ class _RoomScreenState extends State<RoomScreen> {
                     geometry: g,
                     world: world,
                     note: switch (day.notice) {
-                      final notice? => RoomNote(notice, world: world),
+                      final notice? => FloatingNote(
+                        notice,
+                        asleep: restsNote(notice),
+                      ),
                       null => null,
                     },
                     lead: _tile(_items.first, g.lead, open, lead: true),
@@ -363,30 +365,17 @@ class _RoomArrangement extends StatelessWidget {
         ],
       );
     }
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        top: g.tevi == null ? _RoomGeometry.top : 0,
-        bottom: _RoomGeometry.bottom,
-      ),
-      child: Center(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Below the strip, clear of the back key and the exit.
-            if (note case final note?)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  g.inset,
-                  g.rise,
-                  g.inset,
-                  Space.xl,
-                ),
-                child: note,
-              ),
-            Center(child: body),
-          ],
+    // A note floats over the page's foot, below the strip and clear of
+    // the back key, and never moves the pictures under the child's hand.
+    return NoteOver(
+      note: note,
+      top: g.rise,
+      content: (room) => SingleChildScrollView(
+        padding: EdgeInsets.only(
+          top: g.tevi == null ? _RoomGeometry.top : 0,
+          bottom: _RoomGeometry.bottom + room,
         ),
+        child: Center(child: body),
       ),
     );
   }
@@ -494,31 +483,6 @@ class _RoomBackState extends State<RoomBack> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The kid error note on a theme's world: on the night's dark, where its
-/// cream line and the mascot read on any ground.
-class RoomNote extends StatelessWidget {
-  const RoomNote(this.message, {super.key, required this.world});
-
-  final String message;
-  final ColourWorld world;
-
-  @override
-  Widget build(BuildContext context) {
-    final note = KidErrorNote(message, asleep: restsNote(message));
-    if (world.ground == context.palette.ground) return note;
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: BrandColors.dark,
-        borderRadius: BorderRadius.all(Radius.circular(Radii.card)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(Space.lg),
-        child: TeviGround(color: BrandColors.dark, child: note),
       ),
     );
   }

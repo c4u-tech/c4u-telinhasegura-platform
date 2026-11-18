@@ -124,11 +124,13 @@ void main() {
     final note = tester.widget<KidErrorNote>(find.byType(KidErrorNote));
     expect(note.asleep, isTrue);
     // Asleep on its wire, as on the day without time: "not now".
+    // In the floating card's night.
     expectPerched(
       tester,
       find.byType(KidErrorNote),
       TeviLook.asleep,
       perch: Perch.wire,
+      night: true,
     );
     final line = tester.widget<Text>(find.text(PlayerScreen.doesNotFit));
     expect(line.style?.color, isNot(Palette.kid.error));
@@ -199,8 +201,10 @@ void main() {
     );
   });
 
-  testWidgets('a resting picture tapped with the home scrolled brings the '
-      'note into view, below the strip', (tester) async {
+  testWidgets('a resting picture tapped with the home scrolled shows the '
+      'note floating at the foot, the home where the child left it', (
+    tester,
+  ) async {
     final h = await mosaic(
       tester,
       catalog: () => json(200, sixThemesResting),
@@ -211,15 +215,15 @@ void main() {
     ScrollPosition position() => tester.state<ScrollableState>(home).position;
     await tester.drag(home, const Offset(0, -400));
     await tester.pumpAndSettle();
-    expect(position().pixels, greaterThan(0));
+    final scrolled = position().pixels;
+    expect(scrolled, greaterThan(0));
     await tester.tap(pictures.at(1));
     await tester.pumpAndSettle();
 
-    expect(position().pixels, 0);
-
+    expect(position().pixels, scrolled);
     expect(playsAsked(h), 0);
-    final note = tester.getRect(find.byType(KidErrorNote));
+    final note = tester.getRect(find.byType(FloatingNote));
     expect(note.top, greaterThanOrEqualTo(KidLayout.stripHeight));
-    expect(note.bottom, lessThanOrEqualTo(640));
+    expect(note.bottom, closeTo(640 - Space.md, .5));
   });
 }

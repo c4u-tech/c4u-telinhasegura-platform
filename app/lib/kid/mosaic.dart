@@ -8,6 +8,7 @@ import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family.dart' show AgeBand;
+import 'kid_error_note.dart';
 import 'pack_row.dart';
 import 'shelves.dart';
 import 'theme_glyph.dart';
@@ -107,7 +108,7 @@ class KidMosaic extends StatelessWidget {
   /// The door to every pacotinho was tapped, standing at the given place.
   final ValueChanged<Rect>? onOpenPacks;
 
-  /// Shown above the highlight (a refusal's note).
+  /// Floating over the home's foot (a refusal's note).
   final Widget? note;
 
   /// The child's avatar at the strip's start: a small "this is you".
@@ -411,27 +412,14 @@ class _Arrangement extends StatelessWidget {
               ],
             ),
           );
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: g.bottom),
-      child: Center(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Below the strip, clear of the avatar and the exit.
-            if (note case final note?)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  g.inset,
-                  KidMosaic.rise,
-                  g.inset,
-                  0,
-                ),
-                child: note,
-              ),
-            Center(child: body),
-          ],
-        ),
+    // A note floats over the home's foot, below the strip, and never
+    // moves the pictures under the child's hand.
+    return NoteOver(
+      note: note,
+      top: KidMosaic.rise,
+      content: (room) => SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: g.bottom + room),
+        child: Center(child: body),
       ),
     );
   }

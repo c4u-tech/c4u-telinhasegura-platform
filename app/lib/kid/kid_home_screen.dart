@@ -146,23 +146,16 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   Future<void> _load({bool quiet = false}) => _day.load(quiet: quiet);
 
   /// The day changed: the home redraws, beats while it waits, and reads a
-  /// profile refused while paused once the shelves open; a note that
-  /// newly appears is brought into view.
+  /// profile refused while paused once the shelves open.
   void _onDay() {
     if (!mounted) return;
-    final notice = _day.notice;
-    final fresh = notice != null && notice != _shown;
-    _shown = notice;
     setState(() {});
     _beat();
     final minorId = _minorId;
     if (_profileRefused && _day.catalog != null && minorId != null) {
       unawaited(_read(minorId));
     }
-    if (fresh) _toNote();
   }
-
-  String? _shown;
 
   /// Asleep or paused, the catalogue is read every [KidHomeScreen.wake];
   /// otherwise, not at all.
@@ -186,23 +179,9 @@ class _KidHomeScreenState extends State<KidHomeScreen>
 
   void _openPack(KidPack pack) => unawaited(_day.openPack(pack, open: _open));
 
-  /// The note is the first thing on the home, so a tap further down takes
-  /// the home back to its top at once (no scroll animation: the home adds
-  /// no motion), the note below the strip.
-  void _toNote() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final at = _noteKey.currentContext;
-      if (at != null && at.mounted) Scrollable.maybeOf(at)?.position.jumpTo(0);
-    });
-  }
-
-  final _noteKey = GlobalKey();
-
-  Widget _note(String message) => Padding(
-    key: _noteKey,
-    padding: const EdgeInsets.only(bottom: Space.xl),
-    child: KidErrorNote(message, asleep: restsNote(message)),
-  );
+  /// The note floats over the home's foot, wherever the home stands.
+  Widget _note(String message) =>
+      FloatingNote(message, asleep: restsNote(message));
 
   /// A theme's block tapped: the theme's page grows from where the block
   /// stood, on the day this home read. A note from before stays here.

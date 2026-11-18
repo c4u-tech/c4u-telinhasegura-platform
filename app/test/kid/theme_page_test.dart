@@ -243,6 +243,90 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('the note floats at the foot of the page in a dark card, '
+        'over the pictures, which stay where they were', (tester) async {
+      await room(tester);
+      final before = [
+        for (final t in tiles.evaluate())
+          tester.getRect(find.byWidget(t.widget)),
+      ];
+
+      await tester.tap(tiles.at(2));
+      await tester.pumpAndSettle();
+
+      final after = [
+        for (final t in tiles.evaluate())
+          tester.getRect(find.byWidget(t.widget)),
+      ];
+      expect(after, before, reason: 'nothing pushed down');
+      final card = find.byType(FloatingNote);
+      expect(card, findsOne);
+      expect(
+        find.descendant(of: card, matching: find.byType(KidErrorNote)),
+        findsOne,
+      );
+      final box = tester.getRect(card);
+      expect(box.bottom, closeTo(844 - Space.md, .5));
+      expect(box.left, Space.lg);
+      expect(box.right, 390 - Space.lg);
+      final decoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: card,
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(decoration.color, BrandColors.dark);
+      // The mascot and the line side by side, in the card's night.
+      final note = find.byType(KidErrorNote);
+      final picture = tester.getRect(
+        find.descendant(of: note, matching: find.byType(Tevi)),
+      );
+      final line = tester.getRect(find.text(PlayerScreen.doesNotFit));
+      expect(line.left, greaterThan(picture.right - 1));
+      expect(
+        tester
+            .widget<Tevi>(
+              find.descendant(of: note, matching: find.byType(Tevi)),
+            )
+            .night,
+        isTrue,
+      );
+    });
+
+    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+      testWidgets('at 200% text at ${size.width.toInt()} px the note never '
+          'reaches the back key, and the last picture scrolls clear of it', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await room(tester, catalog: () => many(12), size: size);
+        // A resting video's note, from the shared day.
+        final day = tester.widget<RoomScreen>(page).day!;
+        day.note(PlayerScreen.doesNotFit);
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final card = tester.getRect(find.byType(FloatingNote));
+        final back = tester.getRect(find.byType(RoomBack));
+        expect(card.top, greaterThan(back.bottom));
+        expect(card.bottom, lessThanOrEqualTo(size.height));
+        await tester.drag(
+          find.descendant(of: page, matching: find.byType(Scrollable)).first,
+          const Offset(0, -5000),
+        );
+        await tester.pumpAndSettle();
+        final last = tester.getRect(tiles.last);
+        expect(last.bottom, lessThanOrEqualTo(card.top));
+      });
+    }
+
     testWidgets('a refused play says so on the page, which stays while the '
         'catalogue is read again', (tester) async {
       final h = await room(
