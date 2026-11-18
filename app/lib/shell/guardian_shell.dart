@@ -368,8 +368,8 @@ class InkRail extends StatelessWidget {
   }
 }
 
-/// One destination: its glyph inside the mark's screen, filled when it is
-/// the place shown and empty otherwise, with its name beside it (the
+/// One destination: its glyph inside a block cut like the mascot's body,
+/// filled in sun when it is the place shown and empty otherwise, with its name beside it (the
 /// rail) or under it (the bar). Read as a button by its name, with its
 /// selected state; the whole tile is the target.
 class DestinationTile extends StatefulWidget {
@@ -403,12 +403,9 @@ class _DestinationTileState extends State<DestinationTile> {
     final text = Theme.of(context).textTheme;
     final selected = widget.selected;
     final rail = widget.rail;
-    // On the ground the screen fills with the action colour; on the ink
-    // rail with cream, the field's own figure.
-    final fill = rail ? p.onField : p.action;
-    final glyph = selected
-        ? (rail ? p.field : p.onAction)
-        : (rail ? p.onField : p.muted);
+    // The place shown is marked in the mascot's sun, on the ground and on
+    // the ink rail alike, its glyph dark on it.
+    final glyph = selected ? p.onIndicator : (rail ? p.onField : p.muted);
     final words = rail
         ? (selected ? p.onField : p.onFieldMuted)
         : (selected ? p.text : p.muted);
@@ -417,7 +414,7 @@ class _DestinationTileState extends State<DestinationTile> {
       width: ShellSizes.indicatorWidth,
       height: ShellSizes.indicator,
       decoration: BoxDecoration(
-        color: selected ? fill : null,
+        color: selected ? p.indicator : null,
         borderRadius: BorderRadius.circular(
           ShellSizes.indicator * Radii.screenRatio,
         ),

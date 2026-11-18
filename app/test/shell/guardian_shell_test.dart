@@ -214,37 +214,57 @@ void main() {
       }
     });
 
-    testWidgets('the selected destination is cut as a screen module in the '
-        'action colour, never a pill', (tester) async {
-      await shellAt(tester, '/');
+    for (final (place, size) in [('bar', phone), ('rail', wide)]) {
+      for (final brightness in Brightness.values) {
+        testWidgets('on the $place, ${brightness.name}, the selected '
+            'destination is marked in sun with a dark glyph, cut in the '
+            'mascot\'s body proportions, never a pill', (tester) async {
+          tester.platformDispatcher.platformBrightnessTestValue = brightness;
+          addTearDown(
+            tester.platformDispatcher.clearPlatformBrightnessTestValue,
+          );
+          await shellAt(tester, '/', size: size);
+          final p = brightness == Brightness.light
+              ? Palette.light
+              : Palette.dark;
+          final rail = place == 'rail';
 
-      final module = tester.widget<Container>(
-        find.descendant(
-          of: find.widgetWithText(DestinationTile, 'Início'),
-          matching: find.byKey(DestinationTile.indicatorKey),
-        ),
-      );
-      final box = module.decoration! as BoxDecoration;
-      final size = tester.getSize(
-        find.descendant(
-          of: find.widgetWithText(DestinationTile, 'Início'),
-          matching: find.byKey(DestinationTile.indicatorKey),
-        ),
-      );
-      expect(box.color, Palette.light.action);
-      expect(size, const Size(ShellSizes.indicatorWidth, ShellSizes.indicator));
-      expect(
-        box.borderRadius,
-        BorderRadius.circular(ShellSizes.indicator * Radii.screenRatio),
-      );
-      final idle = tester.widget<Container>(
-        find.descendant(
-          of: find.widgetWithText(DestinationTile, 'Conta'),
-          matching: find.byKey(DestinationTile.indicatorKey),
-        ),
-      );
-      expect((idle.decoration! as BoxDecoration).color, isNull);
-    });
+          Finder indicatorOf(String label) => find.descendant(
+            of: find.widgetWithText(DestinationTile, label),
+            matching: find.byKey(DestinationTile.indicatorKey),
+          );
+          Color? glyphOf(String label) => tester
+              .widget<Icon>(
+                find.descendant(
+                  of: indicatorOf(label),
+                  matching: find.byType(Icon),
+                ),
+              )
+              .color;
+
+          final box =
+              tester.widget<Container>(indicatorOf('Início')).decoration!
+                  as BoxDecoration;
+          expect(box.color, p.indicator);
+          expect(glyphOf('Início'), p.onIndicator);
+          expect(ShellSizes.indicatorWidth, closeTo(38.4, 1e-9));
+          expect(
+            tester.getSize(indicatorOf('Início')),
+            const Size(ShellSizes.indicatorWidth, ShellSizes.indicator),
+          );
+          expect(
+            box.borderRadius,
+            BorderRadius.circular(ShellSizes.indicator * Radii.screenRatio),
+          );
+          // The others keep their quiet look.
+          final idle =
+              tester.widget<Container>(indicatorOf('Conta')).decoration!
+                  as BoxDecoration;
+          expect(idle.color, isNull);
+          expect(glyphOf('Conta'), rail ? p.onField : p.muted);
+        });
+      }
+    }
 
     testWidgets('the bar sits on the ground under a reed hairline', (
       tester,

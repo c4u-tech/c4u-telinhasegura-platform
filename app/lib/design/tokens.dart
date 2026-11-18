@@ -191,8 +191,9 @@ abstract final class FieldSizes {
 }
 
 /// The guardian's navigation: the ink rail on a wide window and the bar
-/// on a narrow one. The selected destination's indicator is the mark's
-/// screen (58 × 33) at [indicator] tall, cornered at the same ratio.
+/// on a narrow one. The selected destination's indicator has the
+/// mascot's body proportions (84 × 70) at [indicator] tall, cornered at
+/// the same ratio.
 abstract final class ShellSizes {
   /// The grid the rail's corner is cut on: 10 units.
   static const railUnit = 2.0;
@@ -205,7 +206,7 @@ abstract final class ShellSizes {
   /// The rail's field inset from the window, as the wide panel's was.
   static const railInset = Space.lg;
   static const indicator = 32.0;
-  static const indicatorWidth = indicator * 58 / 33;
+  static const indicatorWidth = indicator * 84 / 70;
 
   /// A destination's row in the rail, a control's height.
   static const railItem = 56.0;
