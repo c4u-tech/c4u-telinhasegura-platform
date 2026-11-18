@@ -89,10 +89,24 @@ class KidLayout extends StatelessWidget {
     return math.max(pad.top, pad.bottom);
   }
 
+  /// What a screen reader hears for the strip: the app's name, said by
+  /// the small mark where it stands.
+  static const name = 'Telinha Segura';
+
   Widget _strip() => SizedBox(
     height: stripHeight,
     child: Stack(
       children: [
+        // Where no mark is drawn, the strip still says whose screen this
+        // is, without painting anything or taking a touch.
+        if (lead != null || !mark)
+          Positioned.fill(
+            child: Semantics(
+              container: true,
+              label: name,
+              child: SizedBox.expand(),
+            ),
+          ),
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: Padding(
@@ -106,7 +120,7 @@ class KidLayout extends StatelessWidget {
                           size: markSize,
                           tier: TeviTier.simplified,
                           night: TeviGround.nightAt(context),
-                          semanticLabel: 'Telinha Segura',
+                          semanticLabel: name,
                         ),
                       )
                     : const SizedBox.shrink()),

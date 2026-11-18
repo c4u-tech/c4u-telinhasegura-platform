@@ -106,7 +106,12 @@ void main() {
     expect(rect.center.dy, tester.getCenter(find.byType(HoldToExit)).dy);
     expect(labelled('Lia'), findsOneWidget);
     expect(find.text('Lia'), findsNothing);
-    expect(labelled('Telinha Segura'), findsNothing);
+    // No mark drawn, though the strip still says the app's name.
+    expect(
+      find.byWidgetPredicate((w) => w is Tevi && w.tier == TeviTier.simplified),
+      findsNothing,
+    );
+    expect(labelled(KidLayout.name), findsOneWidget);
   });
 
   for (final size in [const Size(390, 844), const Size(1280, 800)]) {
@@ -122,7 +127,14 @@ void main() {
       expect(rect.center.dy, tester.getCenter(find.byType(HoldToExit)).dy);
       expect(labelled('Lia'), findsOneWidget);
       expect(find.text('Lia'), findsNothing);
-      expect(labelled('Telinha Segura'), findsNothing);
+      // No mark drawn, though the strip still says the app's name.
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Tevi && w.tier == TeviTier.simplified,
+        ),
+        findsNothing,
+      );
+      expect(labelled(KidLayout.name), findsOneWidget);
     });
   }
 

@@ -811,7 +811,12 @@ void main() {
     expect(a.left, Space.xl);
     expect(a.center.dy, exit.center.dy);
     expect(find.bySemanticsLabel('Lia'), findsOneWidget);
-    expect(find.bySemanticsLabel('Telinha Segura'), findsNothing);
+    // No mark drawn, though the strip still says the app's name.
+    expect(
+      find.byWidgetPredicate((w) => w is Tevi && w.tier == TeviTier.simplified),
+      findsNothing,
+    );
+    expect(find.bySemanticsLabel(KidLayout.name), findsOne);
     semantics.dispose();
   });
 
@@ -927,7 +932,12 @@ void main() {
     );
     expect(tester.getSize(avatar), const Size.square(KidMosaic.avatar));
     expect(find.bySemanticsLabel('Lia'), findsOneWidget);
-    expect(find.bySemanticsLabel('Telinha Segura'), findsNothing);
+    // No mark drawn, though the strip still says the app's name.
+    expect(
+      find.byWidgetPredicate((w) => w is Tevi && w.tier == TeviTier.simplified),
+      findsNothing,
+    );
+    expect(find.bySemanticsLabel(KidLayout.name), findsOne);
     expect(find.byType(SvgPicture), findsNothing);
     semantics.dispose();
   });
@@ -946,7 +956,12 @@ void main() {
     final retry = find.widgetWithText(FilledButton, ShelvesFailed.retry);
     expect(ShelvesFailed.retry, 'Tentar de novo');
     expect(tester.getSize(retry).height, greaterThanOrEqualTo(KidSizes.target));
-    expect(find.bySemanticsLabel('Telinha Segura'), findsNothing);
+    // No mark drawn, though the strip still says the app's name.
+    expect(
+      find.byWidgetPredicate((w) => w is Tevi && w.tier == TeviTier.simplified),
+      findsNothing,
+    );
+    expect(find.bySemanticsLabel(KidLayout.name), findsOne);
 
     fail = false;
     await tester.tap(retry);
