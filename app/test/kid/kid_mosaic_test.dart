@@ -104,6 +104,13 @@ final withPacks = {
   ],
 };
 
+/// [sixThemes] with the first of [withPacks]' pacotinhos only: today's
+/// day, led by its one pacotinho.
+final Map<String, Object?> onePack = {
+  ...sixThemes,
+  'packs': [(withPacks['packs']! as List).first],
+};
+
 /// `/crianca` on a shared device whose catalogue answers [catalog] and
 /// whose child is in [band]; a thumbnail answers [thumb] (the pixel by
 /// default).
@@ -537,7 +544,7 @@ void main() {
 
   group('a pacotinho leads', () {
     testWidgets('its cover, its modules beneath it, read by its title and '
-        'count; the other pacotinhos are not shown', (tester) async {
+        'count; the others wait behind their own door', (tester) async {
       final h = await mosaic(tester, catalog: () => json(200, withPacks));
 
       final pack = find.descendant(
@@ -652,19 +659,32 @@ void main() {
     expect(younger.height, greaterThan(older.height));
   });
 
-  for (final (band, catalog) in [
-    ('5-8', sixThemes),
-    ('5-8', withPacks),
-    ('ate-4', sixThemes),
-    ('ate-4', withPacks),
+  for (final (band, catalog, name) in [
+    ('5-8', sixThemes, ''),
+    ('5-8', onePack, ', a pacotinho leading'),
+    ('5-8', withPacks, ', the pacotinhos\' door among the blocks'),
+    ('ate-4', sixThemes, ''),
+    ('ate-4', onePack, ', a pacotinho leading'),
+    ('ate-4', withPacks, ', the pacotinhos\' door among the blocks'),
   ]) {
     testWidgets('at 390 × 844 with six themes the home needs no scrolling '
-        '($band${catalog == withPacks ? ', a pacotinho leading' : ''})', (
-      tester,
-    ) async {
+        '($band$name)', (tester) async {
       await mosaic(tester, catalog: () => json(200, catalog), band: band);
       expect(scrollExtent(tester), 0);
       expect(tester.getRect(blocks.last).bottom, lessThanOrEqualTo(844));
+    });
+  }
+
+  for (final (catalog, name) in [
+    (sixThemes, ''),
+    (onePack, ', a pacotinho leading'),
+  ]) {
+    testWidgets('on a 390 × 844 phone with its insets (47 at the top, 34 at '
+        'the foot) six themes still need no scrolling$name', (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      await mosaic(tester, catalog: () => json(200, catalog));
+      expect(scrollExtent(tester), 0);
+      expect(tester.getRect(blocks.last).bottom, lessThanOrEqualTo(844 - 34));
     });
   }
 
@@ -674,7 +694,7 @@ void main() {
   ) async {
     await mosaic(
       tester,
-      catalog: () => json(200, withPacks),
+      catalog: () => json(200, onePack),
       size: const Size(1280, 800),
     );
     final top = tester.getRect(highlight);

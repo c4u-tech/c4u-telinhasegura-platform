@@ -214,6 +214,15 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     );
   }
 
+  /// The door to every pacotinho, opening the same way.
+  void _openPacks(Rect from) {
+    _day.note(null);
+    context.go(
+      Routes.kidPacks,
+      extra: RoomDoor(day: _day, from: from),
+    );
+  }
+
   Future<void> _read(String minorId) async {
     _profileRefused = false;
     try {
@@ -279,6 +288,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
                 onPlay: pending ? null : _play,
                 onOpenPack: pending ? null : _openPack,
                 onOpenTheme: pending ? null : _openTheme,
+                onOpenPacks: pending ? null : _openPacks,
                 note: notice == null ? null : _note(notice),
               ),
       );

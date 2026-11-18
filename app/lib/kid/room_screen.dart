@@ -15,6 +15,7 @@ import 'hold_to_exit.dart';
 import 'kid_day.dart';
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
+import 'pack_row.dart';
 import 'player_keys.dart';
 import 'player_screen.dart';
 import 'shelves.dart';
@@ -40,10 +41,15 @@ class RoomDoor {
 /// than the time left rests in its place, as on the home. The page goes
 /// back to the home when its theme is gone from the catalogue, when the
 /// day ends, or when it was opened without the home's day.
+///
+/// `/crianca/pacotinhos` is the same room for every pacotinho of the day,
+/// on the home's own ground, each with its modules beneath it.
 class RoomScreen extends StatefulWidget {
   const RoomScreen.theme({super.key, required VideoTheme this.theme, this.day});
 
-  /// The theme shown.
+  const RoomScreen.packs({super.key, this.day}) : theme = null;
+
+  /// The theme shown; null for the pacotinhos.
   final VideoTheme? theme;
 
   /// The home's day; null when the page was reached without it.
@@ -57,11 +63,14 @@ class _RoomScreenState extends State<RoomScreen> {
   bool _started = false;
   bool _leaving = false;
 
-  /// What the page lists, as last read: it stays while the catalogue is
-  /// read again after a refusal.
-  List<KidVideo> _videos = const [];
+  /// What the page lists (videos, or pacotinhos), as last read: it stays
+  /// while the catalogue is read again after a refusal.
+  List<Object> _items = const [];
 
-  ColourWorld get _world => worldOf(widget.theme ?? VideoTheme.unknown);
+  ColourWorld get _world => switch (widget.theme) {
+    final theme? => worldOf(theme),
+    null => ColourWorlds.home,
+  };
 
   @override
   void didChangeDependencies() {
@@ -80,18 +89,21 @@ class _RoomScreenState extends State<RoomScreen> {
     super.dispose();
   }
 
-  List<KidVideo> _of(KidCatalog catalog) => [
-    for (final shelf in catalog.shelves)
-      if (shelf.theme == widget.theme) ...shelf.videos,
-  ];
+  List<Object> _of(KidCatalog catalog) => switch (widget.theme) {
+    final theme? => [
+      for (final shelf in catalog.shelves)
+        if (shelf.theme == theme) ...shelf.videos,
+    ],
+    null => catalog.packs,
+  };
 
   void _onDay() {
     final day = widget.day!;
     if (day.waiting || day.failed) return _leave();
     if (day.catalog case final catalog?) {
-      final videos = _of(catalog);
-      if (videos.isEmpty) return _leave();
-      _videos = videos;
+      final items = _of(catalog);
+      if (items.isEmpty) return _leave();
+      _items = items;
     }
     if (mounted) setState(() {});
   }
@@ -109,8 +121,6 @@ class _RoomScreenState extends State<RoomScreen> {
   void _open(String location, Object extra) =>
       unawaited(GoRouter.of(context).push<void>(location, extra: extra));
 
-  void _play(KidVideo video) => unawaited(widget.day!.play(video, open: _open));
-
   @override
   Widget build(BuildContext context) {
     final day = widget.day;
@@ -127,16 +137,19 @@ class _RoomScreenState extends State<RoomScreen> {
       children: [
         RoomBack(world: world, onPressed: () => context.go(Routes.kidHome)),
         const SizedBox(width: Space.md),
-        ThemeGlyph(
-          widget.theme ?? VideoTheme.unknown,
-          size: RoomBack.glyph,
-          color: world.figure,
-          ground: world.ground,
-        ),
+        switch (widget.theme) {
+          final theme? => ThemeGlyph(
+            theme,
+            size: RoomBack.glyph,
+            color: world.figure,
+            ground: world.ground,
+          ),
+          null => const PackGlyph(size: RoomBack.glyph),
+        },
       ],
     );
-    final ready = day != null && _videos.isNotEmpty;
-    final onPlay = !ready || day.pending || day.catalog == null ? null : _play;
+    final ready = day != null && _items.isNotEmpty;
+    final open = ready && !day.pending && day.catalog != null;
     return TapGuard(
       child: LayoutBuilder(
         builder: (context, box) {
@@ -162,10 +175,10 @@ class _RoomScreenState extends State<RoomScreen> {
                       final notice? => RoomNote(notice, world: world),
                       null => null,
                     },
-                    lead: _video(_videos.first, g.lead, g, onPlay, lead: true),
+                    lead: _tile(_items.first, g.lead, open, lead: true),
                     rest: [
-                      for (final v in _videos.skip(1))
-                        _video(v, g.tile, g, onPlay),
+                      for (final item in _items.skip(1))
+                        _tile(item, g.tile, open),
                     ],
                   ),
           );
@@ -174,23 +187,35 @@ class _RoomScreenState extends State<RoomScreen> {
     );
   }
 
-  Widget _video(
-    KidVideo video,
-    Size size,
-    _RoomGeometry g,
-    ValueChanged<KidVideo>? onPlay, {
-    bool lead = false,
-  }) => VideoTile(
-    video: video,
-    size: size,
-    thumbnail: widget.day!.thumbnail,
-    radius: lead ? FieldSizes.heroCorner : Radii.card,
-    resting: !video.fits,
-    playDisc: lead,
-    playDiscScale: RoomBack.disc / PlayDisc.size,
-    world: _world,
-    onTap: onPlay == null ? null : () => onPlay(video),
-  );
+  /// A video or a pacotinho, as the home shows it, playing at a tap
+  /// unless a play is already on its way.
+  Widget _tile(Object item, Size size, bool open, {bool lead = false}) {
+    final day = widget.day!;
+    final radius = lead ? FieldSizes.heroCorner : Radii.card;
+    return switch (item) {
+      final KidPack pack => PackTile(
+        pack: pack,
+        size: size,
+        thumbnail: day.thumbnail,
+        radius: radius,
+        playDiscScale:
+            (lead ? RoomBack.disc : RoomBack.smallDisc) / PlayDisc.size,
+        onTap: !open ? null : () => unawaited(day.openPack(pack, open: _open)),
+      ),
+      final KidVideo video => VideoTile(
+        video: video,
+        size: size,
+        thumbnail: day.thumbnail,
+        radius: radius,
+        resting: !video.fits,
+        playDisc: lead,
+        playDiscScale: RoomBack.disc / PlayDisc.size,
+        world: _world,
+        onTap: !open ? null : () => unawaited(day.play(video, open: _open)),
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
 }
 
 /// The mascot is drawn only on the home's ink and on the night's dark.
@@ -426,8 +451,11 @@ class RoomBack extends StatefulWidget {
   /// The glyph beside the key.
   static const glyph = 48.0;
 
-  /// The play disc on the first video.
+  /// The play disc on the first picture.
   static const disc = 64.0;
+
+  /// The play disc a pacotinho's smaller cover still carries.
+  static const smallDisc = 32.0;
 
   @override
   State<RoomBack> createState() => _RoomBackState();

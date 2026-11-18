@@ -98,6 +98,7 @@ import '../staff/audit_screen.dart';
 import '../staff/staff_gate.dart';
 import '../staff/staff_root_screen.dart';
 import '../design/field_layout.dart';
+import '../design/tokens.dart' show ColourWorlds;
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../auth/auth_api.dart' show PlatformRole;
 import 'guardian_shell.dart';
@@ -724,6 +725,21 @@ List<RouteBase> _outsideRoutes(AppServices services) => [
             from: door?.from,
             ground: worldOf(theme).ground,
             child: RoomScreen.theme(theme: theme, day: door?.day),
+          );
+        },
+      ),
+      GoRoute(
+        path: 'pacotinhos',
+        pageBuilder: (_, state) {
+          final door = switch (state.extra) {
+            final RoomDoor d => d,
+            _ => null,
+          };
+          return roomPage(
+            key: state.pageKey,
+            from: door?.from,
+            ground: ColourWorlds.home.ground,
+            child: RoomScreen.packs(day: door?.day),
           );
         },
       ),

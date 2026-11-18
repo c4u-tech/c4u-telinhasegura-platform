@@ -22,7 +22,7 @@ import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/pack_player_screen.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
 import 'package:telinha_segura/kid/player_keys.dart';
-import 'package:telinha_segura/kid/mosaic.dart' show ThemeBlock;
+import 'package:telinha_segura/kid/mosaic.dart' show PacksDoor, ThemeBlock;
 import 'package:telinha_segura/kid/player_screen.dart';
 import 'package:telinha_segura/kid/room_screen.dart' show RoomBack;
 import 'package:telinha_segura/kid/shelves.dart';
@@ -52,6 +52,7 @@ import '../kid/fake_player.dart';
 import '../kid/kid_mosaic_test.dart' show pixel, twoShelves;
 import '../kid/more_time_door_test.dart' show holdExit;
 import '../kid/pack_player_test.dart' show packKid;
+import '../kid/packs_page_test.dart' show threePacks;
 import '../kid/sleeping_home_test.dart' show day, shelvesOn;
 import '../kid_mode/link_code_screen_test.dart' show liveCode;
 import '../catalog/fixtures.dart' as catalog;
@@ -1189,6 +1190,13 @@ final handOverScreens =
         '/crianca',
         true,
         (tester) => tapOn(tester, find.byType(ThemeBlock).first),
+      ),
+      // Every pacotinho, behind their door on the home.
+      'pacotinhos page': (
+        () => packKid(catalog: () => threePacks),
+        '/crianca',
+        true,
+        (tester) => tapOn(tester, find.byType(PacksDoor)),
       ),
       // Pacotinhos: the row, the pacotinho's player, its
       // breath and its goodbye.

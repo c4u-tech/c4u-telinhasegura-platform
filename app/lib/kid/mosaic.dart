@@ -17,14 +17,17 @@ import 'theme_glyph.dart';
 /// the first video of the first theme), up to two pictures that play at
 /// one tap (the first videos of the themes that follow, never the
 /// highlight's picture again), and one block per theme that has videos,
-/// in the catalogue's order. A child up to 4 gets no small pictures: one
-/// large picture and the blocks are enough to choose from.
+/// in the catalogue's order, led by a door to every pacotinho when the
+/// day has more than the one it leads with. A child up to 4 gets no
+/// small pictures: one large picture and the blocks are enough to choose
+/// from.
 class MosaicPlan {
   const MosaicPlan._({
     required this.pack,
     required this.video,
     required this.pictures,
     required this.blocks,
+    required this.packsDoor,
   });
 
   factory MosaicPlan.of(KidCatalog catalog, {required AgeBand band}) {
@@ -48,6 +51,7 @@ class MosaicPlan {
                 if (shelf.videos.first.id != shown) shelf.videos.first,
             ].take(maxPictures).toList(),
       blocks: blocks,
+      packsDoor: catalog.packs.length > 1,
     );
   }
 
@@ -58,6 +62,9 @@ class MosaicPlan {
   final KidVideo? video;
   final List<KidVideo> pictures;
   final List<KidShelf> blocks;
+
+  /// The pacotinhos after the first have a door of their own.
+  final bool packsDoor;
 
   /// Nothing to watch today: no pacotinho and no video in any theme.
   bool get isEmpty => pack == null && video == null;
@@ -79,6 +86,7 @@ class KidMosaic extends StatelessWidget {
     required this.onPlay,
     required this.onOpenPack,
     required this.onOpenTheme,
+    this.onOpenPacks,
     this.note,
   });
 
@@ -95,6 +103,9 @@ class KidMosaic extends StatelessWidget {
 
   /// A theme's block was tapped, standing [from] on the screen.
   final void Function(VideoTheme theme, Rect from)? onOpenTheme;
+
+  /// The door to every pacotinho was tapped, standing at the given place.
+  final ValueChanged<Rect>? onOpenPacks;
 
   /// Shown above the highlight (a refusal's note).
   final Widget? note;
@@ -116,7 +127,7 @@ class KidMosaic extends StatelessWidget {
           wide: MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint,
           pack: plan.pack != null,
           pictures: plan.pictures.isNotEmpty,
-          blocks: plan.blocks.length,
+          blocks: plan.blocks.length + (plan.packsDoor ? 1 : 0),
           grow: band == AgeBand.upTo4,
         );
         final lead = _Highlight(
@@ -140,6 +151,16 @@ class KidMosaic extends StatelessWidget {
             ),
         ];
         final blocks = [
+          if (plan.packsDoor)
+            Builder(
+              builder: (context) => PacksDoor(
+                size: g.block,
+                wide: g.wide,
+                onTap: onOpenPacks == null
+                    ? null
+                    : () => onOpenPacks!(_placeOf(context)),
+              ),
+            ),
           for (final shelf in plan.blocks)
             Builder(
               builder: (context) => ThemeBlock(
@@ -228,7 +249,7 @@ class _Geometry {
       (true, false) => .62,
       (true, true) => .80,
     };
-    final low = math.max(KidSizes.target, bw * .52);
+    final low = math.max(KidSizes.target, bw * .50);
     final high = math.max(low, bw * ratio);
     return _Geometry(
       wide: wide,
@@ -621,6 +642,88 @@ class _ThemeBlockState extends State<ThemeBlock> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The door to every pacotinho of the day, first among the blocks: no
+/// world of its own, only the home's ground inside a cream outline, and
+/// the pacotinhos' sign. One button, read "Pacotinhos".
+class PacksDoor extends StatefulWidget {
+  const PacksDoor({
+    super.key,
+    required this.size,
+    required this.onTap,
+    this.wide = false,
+  });
+
+  final Size size;
+  final VoidCallback? onTap;
+  final bool wide;
+
+  /// The outline's width.
+  static const stroke = 2.0;
+
+  @override
+  State<PacksDoor> createState() => _PacksDoorState();
+}
+
+class _PacksDoorState extends State<PacksDoor> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final line = ColourWorlds.home.figure;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(Radii.card),
+    );
+    final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
+    return Semantics(
+      container: true,
+      button: true,
+      enabled: true,
+      label: PackGlyph.label,
+      onTap: widget.onTap,
+      child: ExcludeSemantics(
+        child: SizedBox.fromSize(
+          size: widget.size,
+          child: DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: ShapeDecoration(
+              shape: shape.copyWith(side: ring ?? BorderSide.none),
+            ),
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(
+                shape: shape.copyWith(
+                  side: BorderSide(
+                    color: line,
+                    width: PacksDoor.stroke,
+                    strokeAlign: BorderSide.strokeAlignInside,
+                  ),
+                ),
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onTap,
+                  onFocusChange: (f) => setState(() => _focused = f),
+                  focusColor: Colors.transparent,
+                  hoverColor: line.withValues(alpha: .08),
+                  highlightColor: line.withValues(alpha: .12),
+                  splashColor: line.withValues(alpha: .12),
+                  child: Center(
+                    child: PackGlyph(size: widget.wide ? 80 : KidSizes.target),
+                  ),
+                ),
               ),
             ),
           ),
