@@ -25,6 +25,7 @@ class VideoTile extends StatefulWidget {
     this.resting = false,
     this.playDisc = false,
     this.playDiscScale = 1,
+    this.world,
   });
 
   final KidVideo video;
@@ -46,6 +47,11 @@ class VideoTile extends StatefulWidget {
   /// The [PlayDisc]'s size and inset, against its size on a phone's tile.
   final double playDiscScale;
 
+  /// The theme's world the tile stands on, off the kid ground: a resting
+  /// picture sinks toward its ground and is outlined in its figure, and
+  /// the disc carries its ring where the ground is light.
+  final ColourWorld? world;
+
   /// What a screen reader hears for [title], resting or not.
   static String label(String title, {required bool resting}) =>
       resting ? '$title, não cabe hoje' : title;
@@ -60,15 +66,16 @@ class VideoTile extends StatefulWidget {
 class _VideoTileState extends State<VideoTile> {
   bool _focused = false;
 
-  /// A resting picture loses its colour and sinks toward the ink ground,
-  /// so it reads "not now" beside the awake tiles without a sign on it.
-  Widget _picture(Widget picture, Palette p) => !widget.resting
+  /// A resting picture loses its colour and sinks toward the ground it
+  /// stands on, so it reads "not now" beside the awake tiles without a
+  /// sign on it.
+  Widget _picture(Widget picture, Color ground) => !widget.resting
       ? picture
       : Stack(
           fit: StackFit.expand,
           children: [
             ColorFiltered(colorFilter: _grey, child: picture),
-            ColoredBox(color: p.ground.withValues(alpha: .38)),
+            ColoredBox(color: ground.withValues(alpha: .38)),
           ],
         );
 
@@ -86,10 +93,12 @@ class _VideoTileState extends State<VideoTile> {
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(radius),
     );
+    final world = widget.world;
+    final line = world?.figure ?? p.outline;
     final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
     final rest = widget.resting
         ? BorderSide(
-            color: p.outline,
+            color: line,
             width: VideoTile.restingStroke,
             strokeAlign: BorderSide.strokeAlignInside,
           )
@@ -135,11 +144,16 @@ class _VideoTileState extends State<VideoTile> {
                             PositionedDirectional(
                               end: PlayDisc.inset * widget.playDiscScale,
                               bottom: PlayDisc.inset * widget.playDiscScale,
-                              child: PlayDisc(scale: widget.playDiscScale),
+                              child: PlayDisc(
+                                scale: widget.playDiscScale,
+                                ring: world?.ringsDisc ?? false
+                                    ? ColourWorlds.discRing
+                                    : null,
+                              ),
                             ),
                         ],
                       ),
-                      p,
+                      world?.ground ?? p.ground,
                     ),
                     InkWell(
                       onTap: widget.onTap,
@@ -148,9 +162,9 @@ class _VideoTileState extends State<VideoTile> {
                       canRequestFocus: true,
                       onFocusChange: (f) => setState(() => _focused = f),
                       focusColor: Colors.transparent,
-                      hoverColor: p.outline.withValues(alpha: .08),
-                      highlightColor: p.outline.withValues(alpha: .12),
-                      splashColor: p.outline.withValues(alpha: .12),
+                      hoverColor: line.withValues(alpha: .08),
+                      highlightColor: line.withValues(alpha: .12),
+                      splashColor: line.withValues(alpha: .12),
                     ),
                   ],
                 ),
@@ -166,9 +180,10 @@ class _VideoTileState extends State<VideoTile> {
 /// A sun disc with a dark play triangle, set in the corner of a picture
 /// that plays at one tap. Decoration only: the tile under it is the
 /// target and says what it opens, so the disc wears the indicator's
-/// colours, a mark's, not the action's.
+/// colours, a mark's, not the action's. On a light ground, where the
+/// sun would sink into its surroundings, a [ring] holds its edge.
 class PlayDisc extends StatelessWidget {
-  const PlayDisc({super.key, this.scale = 1});
+  const PlayDisc({super.key, this.scale = 1, this.ring});
 
   /// The disc's diameter at scale 1.
   static const size = 44.0;
@@ -180,31 +195,58 @@ class PlayDisc extends StatelessWidget {
   /// Grows or shrinks the disc with its picture; its inset by the same.
   final double scale;
 
+  /// The line around the disc's edge, if any.
+  final Color? ring;
+
+  /// The ring's width at scale 1.
+  static const ringWidth = 2.0;
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     return IgnorePointer(
       child: CustomPaint(
         size: Size.square(size * scale),
-        painter: _PlayDiscPainter(disc: p.indicator, glyph: p.onIndicator),
+        painter: _PlayDiscPainter(
+          disc: p.indicator,
+          glyph: p.onIndicator,
+          ring: ring,
+          ringWidth: ringWidth * scale,
+        ),
       ),
     );
   }
 }
 
 class _PlayDiscPainter extends CustomPainter {
-  const _PlayDiscPainter({required this.disc, required this.glyph});
+  const _PlayDiscPainter({
+    required this.disc,
+    required this.glyph,
+    this.ring,
+    this.ringWidth = 0,
+  });
 
   final Color disc;
   final Color glyph;
+  final Color? ring;
+  final double ringWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawCircle(
-      size.center(Offset.zero),
-      size.shortestSide / 2,
-      Paint()..color = disc,
-    );
+    final centre = size.center(Offset.zero);
+    final radius = size.shortestSide / 2;
+    canvas.drawCircle(centre, radius, Paint()..color = disc);
+    if (ring case final ring?) {
+      // Inside the disc's edge, so the disc keeps its size.
+      canvas.drawCircle(
+        centre,
+        radius - ringWidth / 2,
+        Paint()
+          ..color = ring
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = ringWidth,
+      );
+    }
     // The player's own play glyph, at a size the disc holds with room.
     PlayerGlyphPainter(
       PlayerGlyph.play,
@@ -215,7 +257,10 @@ class _PlayDiscPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PlayDiscPainter old) =>
-      old.disc != disc || old.glyph != glyph;
+      old.disc != disc ||
+      old.glyph != glyph ||
+      old.ring != ring ||
+      old.ringWidth != ringWidth;
 }
 
 /// A video's thumbnail from our API, read once while this stands: the
