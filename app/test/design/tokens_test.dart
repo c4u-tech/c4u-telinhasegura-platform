@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/family/inicio.dart' show ChildBand;
 
 double _luminance(Color c) {
   double channel(double v) =>
@@ -99,6 +100,35 @@ void main() {
     for (final palette in [Palette.dark, Palette.kid]) {
       expect(palette.action, BrandColors.sun);
       expect(palette.onAction, BrandColors.dark);
+    }
+  });
+
+  test('meters and progress fill in their own colour, so sun stays the '
+      'action: ink in light, sky in dark, cream for the child', () {
+    expect(Palette.light.meter, BrandColors.ink);
+    expect(Palette.dark.meter, BrandColors.sky);
+    expect(Palette.kid.meter, BrandColors.cream);
+    for (final palette in [Palette.dark, Palette.kid]) {
+      expect(palette.meter, isNot(palette.action));
+    }
+  });
+
+  group('a meter reaches 3:1 against the ground it sits on', () {
+    // The child band's panel, laid over the guardian's ground.
+    Color panel(Palette p) => Color.alphaBlend(ChildBand.tint(p), p.ground);
+    final pairs = {
+      'light, on cream': (Palette.light.meter, Palette.light.ground),
+      'light, on the panel': (Palette.light.meter, panel(Palette.light)),
+      'light, on an input': (Palette.light.meter, Palette.light.input),
+      'dark, on dark': (Palette.dark.meter, Palette.dark.ground),
+      'dark, on the panel': (Palette.dark.meter, panel(Palette.dark)),
+      'dark, on an input': (Palette.dark.meter, Palette.dark.input),
+      'child, on ink': (Palette.kid.meter, Palette.kid.ground),
+    };
+    for (final MapEntry(:key, value: (fg, bg)) in pairs.entries) {
+      test(key, () {
+        expect(contrast(fg, bg), greaterThanOrEqualTo(3));
+      });
     }
   });
 

@@ -198,8 +198,9 @@ class _PasswordFieldState extends State<PasswordField> {
   );
 }
 
-/// The state module: a small screen as a rounded block, filled
-/// when its condition holds and hollow when it does not. State is never
+/// The state module: a small screen as a rounded block, filled in the
+/// meter's colour when its condition holds and hollow when it does not.
+/// It measures, so it never takes the action's colour. State is never
 /// carried by colour alone: the text beside it says the same.
 class StateModule extends StatelessWidget {
   const StateModule({super.key, required this.filled, this.height = 10});
@@ -220,9 +221,9 @@ class StateModule extends StatelessWidget {
       width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(
-        color: filled ? p.action : Colors.transparent,
+        color: filled ? p.meter : Colors.transparent,
         borderRadius: BorderRadius.circular(h * Radii.screenRatio),
-        border: Border.all(color: filled ? p.action : p.outline, width: 1.5),
+        border: Border.all(color: filled ? p.meter : p.outline, width: 1.5),
       ),
     );
   }

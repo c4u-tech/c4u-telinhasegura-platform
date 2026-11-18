@@ -22,9 +22,11 @@ abstract final class BrandColors {
 /// ink. Sun, beak and sky are brand colours for the mark and its
 /// grounds, never text. Sun is a fill: it carries the active indicator
 /// and, on the dark and child grounds, the primary action, so selection
-/// and progress (a chosen option, a step done) show in it there, always
-/// under a dark label and never alone on a light ground. Beak belongs to
-/// the mark and is never an error colour. Sky is a support ground.
+/// (a chosen option or avatar) shows in it there, always under a dark
+/// label and never alone on a light ground. What measures (a step done,
+/// a module filled, a hold under way) takes [meter] instead, so sun
+/// keeps meaning "act here". Beak belongs to the mark and is never an
+/// error colour. Sky is a support ground.
 /// Contrast pairs are asserted in tokens_test.dart.
 class Palette {
   const Palette({
@@ -39,6 +41,7 @@ class Palette {
     required this.outline,
     required this.action,
     required this.onAction,
+    required this.meter,
     required this.indicator,
     required this.onIndicator,
     required this.focus,
@@ -64,6 +67,10 @@ class Palette {
   final Color action;
   final Color onAction;
 
+  /// The fill of what measures rather than acts: the filled modules of a
+  /// state, a step or a time, and a ring filling while it is held.
+  final Color meter;
+
   /// The navigation's active destination: its indicator's fill and the
   /// icon on it.
   final Color indicator;
@@ -86,6 +93,7 @@ class Palette {
     outline: Color(0xFF6F8B90),
     action: BrandColors.ink,
     onAction: BrandColors.cream,
+    meter: BrandColors.ink,
     indicator: BrandColors.sun,
     onIndicator: BrandColors.dark,
     focus: BrandColors.ink,
@@ -105,6 +113,7 @@ class Palette {
     outline: Color(0xFF6A8D93),
     action: BrandColors.sun,
     onAction: BrandColors.dark,
+    meter: BrandColors.sky,
     indicator: BrandColors.sun,
     onIndicator: BrandColors.dark,
     focus: Color(0xFFA6BFC2),
@@ -128,6 +137,7 @@ class Palette {
     outline: Color(0xFFA6BFC2),
     action: BrandColors.sun,
     onAction: BrandColors.dark,
+    meter: BrandColors.cream,
     indicator: BrandColors.sun,
     onIndicator: BrandColors.dark,
     focus: BrandColors.cream,

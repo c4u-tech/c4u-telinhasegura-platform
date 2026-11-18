@@ -102,7 +102,7 @@ class _HoldToExitState extends State<HoldToExit>
                   painter: ExitRingPainter(
                     progress: _ring.value,
                     track: p.outline,
-                    fill: p.action,
+                    fill: p.meter,
                     focus: _focused ? p.muted : null,
                   ),
                   child: Center(
