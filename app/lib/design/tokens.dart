@@ -42,7 +42,6 @@ class Palette {
     required this.focus,
     required this.error,
     required this.errorGround,
-    required this.headOutline,
   });
 
   final Brightness brightness;
@@ -73,9 +72,6 @@ class Palette {
   final Color error;
   final Color errorGround;
 
-  /// The head's outline: required on light grounds (identity.md, Colour).
-  final Color headOutline;
-
   static const light = Palette(
     brightness: Brightness.light,
     ground: BrandColors.cream,
@@ -93,7 +89,6 @@ class Palette {
     focus: BrandColors.ink,
     error: Color(0xFF974614),
     errorGround: Color(0xFFF6E8DB),
-    headOutline: BrandColors.ink,
   );
 
   static const dark = Palette(
@@ -113,7 +108,6 @@ class Palette {
     focus: Color(0xFFA6BFC2),
     error: Color(0xFFEFA97E),
     errorGround: Color(0xFF2B2E28),
-    headOutline: BrandColors.dark,
   );
 
   /// The kid dialect: the child is inside the ink field, so ink
@@ -137,7 +131,6 @@ class Palette {
     focus: BrandColors.cream,
     error: Color(0xFFEFA97E),
     errorGround: BrandColors.dark,
-    headOutline: BrandColors.dark,
   );
 }
 

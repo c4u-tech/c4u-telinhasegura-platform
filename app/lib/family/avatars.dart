@@ -9,7 +9,7 @@ import 'labels.dart';
 
 /// The only colours the avatars paint. Each avatar is a small ink field
 /// (the same in both themes, like the field itself) with a cream figure,
-/// dark details and one ink-tinted neutral. Sun stays the Espiadinha's.
+/// dark details and one ink-tinted neutral. Sun stays the mascot's.
 abstract final class AvatarColors {
   static const ground = BrandColors.ink;
   static const figure = BrandColors.cream;
@@ -53,8 +53,8 @@ class AvatarDisc extends StatelessWidget {
   }
 }
 
-/// The twelve animals, cut from the Espiadinha's vocabulary (discs, the
-/// 58 × 33 screen at the shape ratio's corner, flat cuts) on a 64-unit
+/// The twelve animals, cut from one small vocabulary (discs, a rounded
+/// screen at the shape ratio's corner, flat cuts) on their own 64-unit
 /// grid, flat: no gradients, no shadows. Each reads by silhouette alone.
 class AvatarPainter extends CustomPainter {
   AvatarPainter(this.avatar, {this.boundary});
@@ -158,7 +158,7 @@ class AvatarPainter extends CustomPainter {
   static void _poly(Canvas c, List<Offset> points, Paint p) =>
       c.drawPath(Path()..addPolygon(points, true), p);
 
-  /// The mark's screen: a rounded rectangle at the shape ratio's corner.
+  /// A screen: a rounded rectangle at the shape ratio's corner.
   static void _screen(Canvas c, Rect r, Paint p) => c.drawRRect(
     RRect.fromRectAndRadius(r, Radius.circular(r.height * Radii.screenRatio)),
     p,

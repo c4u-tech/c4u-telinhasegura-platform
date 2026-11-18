@@ -36,11 +36,10 @@ class ThemeGlyph extends StatelessWidget {
   );
 }
 
-/// The six themes, cut from the Espiadinha's vocabulary like the avatars
-/// (discs, the 58 × 33 screen at the shape ratio's corner, flat cuts) on
-/// the same 64-unit grid, straight on the kid ground: a cream figure,
-/// dark details and the one mid tone. Each reads by silhouette alone; sun
-/// stays the Espiadinha's.
+/// The six themes, cut from the avatars' vocabulary (discs, a rounded
+/// screen at the shape ratio's corner, flat cuts) on the same 64-unit
+/// grid, straight on the kid ground: a cream figure, dark details and the
+/// one mid tone. Each reads by silhouette alone; sun stays the mascot's.
 class ThemeGlyphPainter extends CustomPainter {
   const ThemeGlyphPainter(this.theme);
 
@@ -92,7 +91,7 @@ class ThemeGlyphPainter extends CustomPainter {
     c.restore();
   }
 
-  /// The mark's screen: a rounded rectangle at the shape ratio's corner.
+  /// A screen: a rounded rectangle at the shape ratio's corner.
   static void _screen(Canvas c, Rect r, Paint p) => c.drawRRect(
     RRect.fromRectAndRadius(
       r,

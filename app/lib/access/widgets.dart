@@ -198,7 +198,7 @@ class _PasswordFieldState extends State<PasswordField> {
   );
 }
 
-/// The state module: the mark's screen as a small rounded block, filled
+/// The state module: a small screen as a rounded block, filled
 /// when its condition holds and hollow when it does not. State is never
 /// carried by colour alone: the text beside it says the same.
 class StateModule extends StatelessWidget {
