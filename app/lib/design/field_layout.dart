@@ -227,7 +227,7 @@ class FieldLayout extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(Space.lg),
                       child: _Field(
-                        unit: 4,
+                        corner: FieldSizes.heroCorner,
                         tevi: FieldSizes.heroTevi,
                         wink: wink,
                         expand: true,
@@ -272,7 +272,9 @@ class FieldLayout extends StatelessWidget {
                       0,
                     ),
                     child: _Field(
-                      unit: hero ? FieldSizes.heroUnit : FieldSizes.bandUnit,
+                      corner: hero
+                          ? FieldSizes.heroCorner
+                          : FieldSizes.bandCorner,
                       tevi: hero ? FieldSizes.heroTevi : FieldSizes.bandTevi,
                       wink: wink,
                       child: _FieldContent(
@@ -483,18 +485,18 @@ class _TaskColumn extends StatelessWidget {
   );
 }
 
-/// A rounded ink field cut on the grid of [unit] (10 units to its
-/// corner), the mascot at [tevi] standing on its top edge.
+/// A rounded ink field with [corner], the mascot at [tevi] standing on
+/// its top edge.
 class _Field extends StatelessWidget {
   const _Field({
-    required this.unit,
+    required this.corner,
     required this.tevi,
     required this.child,
     this.wink = false,
     this.expand = false,
   });
 
-  final double unit;
+  final double corner;
   final double tevi;
   final Widget child;
   final bool wink;
@@ -505,7 +507,7 @@ class _Field extends StatelessWidget {
     final p = context.palette;
     final decoration = BoxDecoration(
       color: p.field,
-      borderRadius: BorderRadius.circular(10 * unit),
+      borderRadius: BorderRadius.circular(corner),
     );
     return PerchedTevi(
       size: tevi,

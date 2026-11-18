@@ -162,9 +162,11 @@ abstract final class Radii {
 
 /// Sizes of the flat field and the mascot standing on it.
 abstract final class FieldSizes {
-  /// The grid each field's corner is cut on: 10 units.
-  static const heroUnit = 3.0;
-  static const bandUnit = 1.75;
+  /// The entry field's corner, on a phone and as the wide panel.
+  static const heroCorner = 40.0;
+
+  /// The band's corner: tighter, as the band is a much shorter field.
+  static const bandCorner = 26.0;
 
   /// The mascot standing on the entry field.
   static const heroTevi = 112.0;
@@ -184,12 +186,12 @@ abstract final class FieldSizes {
 }
 
 /// The guardian's navigation: the ink rail on a wide window and the bar
-/// on a narrow one. The selected destination's indicator has the
-/// mascot's body proportions (84 × 70) at [indicator] tall, cornered at
-/// the same ratio.
+/// on a narrow one. The selected destination's indicator is [indicator]
+/// tall, cornered at the mascot body's ratio.
 abstract final class ShellSizes {
-  /// The grid the rail's corner is cut on: 10 units.
-  static const railUnit = 2.0;
+  /// The ink rail's corner. The rail is a field, not a panel of rows,
+  /// so it keeps its own corner even where it matches a card's.
+  static const railCorner = 28.0;
 
   /// The mascot standing on the rail: it takes about the room above the
   /// rail that the navigation always kept there.
@@ -199,7 +201,12 @@ abstract final class ShellSizes {
   /// The rail's field inset from the window, as the wide panel's was.
   static const railInset = Space.lg;
   static const indicator = 32.0;
-  static const indicatorWidth = indicator * 84 / 70;
+
+  /// Wide enough that the indicator reads as a block behind its icon,
+  /// not a halo hugging it: on the light bar sun is close to the ground
+  /// in lightness, so the block's width is what keeps the active place
+  /// visible.
+  static const indicatorWidth = 56.0;
 
   /// A destination's row in the rail, a control's height.
   static const railItem = 56.0;

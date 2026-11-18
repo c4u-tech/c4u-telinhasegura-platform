@@ -332,7 +332,7 @@ class InkRail extends StatelessWidget {
             key: fieldKey,
             decoration: BoxDecoration(
               color: p.field,
-              borderRadius: BorderRadius.circular(10 * ShellSizes.railUnit),
+              borderRadius: BorderRadius.circular(ShellSizes.railCorner),
             ),
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(

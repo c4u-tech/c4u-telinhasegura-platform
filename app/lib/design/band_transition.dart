@@ -22,24 +22,22 @@ enum BandMotion {
 RRect guardianBand(Size size, EdgeInsets padding) {
   final width = size.width - padding.horizontal;
   if (width >= FieldSizes.wideBreakpoint) {
-    const unit = ShellSizes.railUnit;
     const inset = ShellSizes.railInset;
     return RRect.fromLTRBR(
       padding.left + inset,
       padding.top + inset + PerchedTevi.standOf(ShellSizes.railTevi),
       padding.left + inset + ShellSizes.railWidth,
       size.height - padding.bottom - inset,
-      const Radius.circular(10 * unit),
+      const Radius.circular(ShellSizes.railCorner),
     );
   }
-  const unit = FieldSizes.bandUnit;
   final top = padding.top + Space.sm + PerchedTevi.standOf(FieldSizes.bandTevi);
   return RRect.fromLTRBR(
     padding.left + Space.md,
     top,
     size.width - padding.right - Space.md,
     top + 72,
-    const Radius.circular(10 * unit),
+    const Radius.circular(FieldSizes.bandCorner),
   );
 }
 

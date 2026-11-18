@@ -240,6 +240,21 @@ void perchedOnTheField() {
           expect(tevi.night, brightness == Brightness.dark);
 
           final field = tester.getRect(find.byKey(FieldLayout.fieldKey));
+          final ink =
+              tester
+                      .widget<DecoratedBox>(find.byKey(FieldLayout.fieldKey))
+                      .decoration
+                  as BoxDecoration;
+          // The entry field, on a phone or as the wide panel, keeps the
+          // larger corner; the band, the softer one.
+          expect(
+            ink.borderRadius,
+            BorderRadius.circular(
+              side == FieldSizes.heroTevi
+                  ? FieldSizes.heroCorner
+                  : FieldSizes.bandCorner,
+            ),
+          );
           final body = bodyOf(tester);
           expect(
             body.bottom - field.top,

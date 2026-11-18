@@ -195,6 +195,13 @@ void main() {
     expect(Radii.card, 28);
   });
 
+  test('the ink fields keep their own corners: the entry field 40, the '
+      'band 26, the rail 28', () {
+    expect(FieldSizes.heroCorner, 40);
+    expect(FieldSizes.bandCorner, 26);
+    expect(ShellSizes.railCorner, 28);
+  });
+
   test('kid sizes: 64 dp targets and 96-128 dp avatars', () {
     expect(KidSizes.target, 64);
     expect(KidSizes.avatar, 96);

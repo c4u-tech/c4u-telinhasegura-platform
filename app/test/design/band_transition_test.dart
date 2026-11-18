@@ -75,7 +75,7 @@ void main() {
         24 + 8 + band,
         348,
         24 + 8 + band + 72,
-        const Radius.circular(10 * FieldSizes.bandUnit),
+        const Radius.circular(FieldSizes.bandCorner),
       ),
     );
     expect(
@@ -86,7 +86,7 @@ void main() {
         ShellSizes.railInset + PerchedTevi.standOf(ShellSizes.railTevi),
         ShellSizes.railInset + ShellSizes.railWidth,
         800 - ShellSizes.railInset,
-        const Radius.circular(10 * ShellSizes.railUnit),
+        const Radius.circular(ShellSizes.railCorner),
       ),
     );
   });

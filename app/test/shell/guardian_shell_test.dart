@@ -217,8 +217,8 @@ void main() {
     for (final (place, size) in [('bar', phone), ('rail', wide)]) {
       for (final brightness in Brightness.values) {
         testWidgets('on the $place, ${brightness.name}, the selected '
-            'destination is marked in sun with a dark glyph, cut in the '
-            'mascot\'s body proportions, never a pill', (tester) async {
+            'destination is marked in sun with a dark glyph, a block wide '
+            'enough to read behind its icon, never a pill', (tester) async {
           tester.platformDispatcher.platformBrightnessTestValue = brightness;
           addTearDown(
             tester.platformDispatcher.clearPlatformBrightnessTestValue,
@@ -247,7 +247,7 @@ void main() {
                   as BoxDecoration;
           expect(box.color, p.indicator);
           expect(glyphOf('Início'), p.onIndicator);
-          expect(ShellSizes.indicatorWidth, closeTo(38.4, 1e-9));
+          expect(ShellSizes.indicatorWidth, 56);
           expect(
             tester.getSize(indicatorOf('Início')),
             const Size(ShellSizes.indicatorWidth, ShellSizes.indicator),
@@ -404,7 +404,7 @@ void main() {
       final field = tester.widget<DecoratedBox>(find.byKey(InkRail.fieldKey));
       final box = field.decoration as BoxDecoration;
       expect(box.color, Palette.light.field);
-      expect(box.borderRadius, BorderRadius.circular(10 * ShellSizes.railUnit));
+      expect(box.borderRadius, BorderRadius.circular(ShellSizes.railCorner));
       expect(box.boxShadow, isNull);
       expect(
         tester.getRect(find.byKey(InkRail.fieldKey)),
