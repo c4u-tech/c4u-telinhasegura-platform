@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show StateModule;
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
 import 'package:telinha_segura/kid/shelves.dart';
@@ -91,6 +92,74 @@ void main() {
     expect(tester.getSize(picture), const Size(192, 108));
     expect(
       find.descendant(of: tile, matching: find.byType(Text)),
+      findsNothing,
+    );
+  });
+
+  for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+    testWidgets('at ${size.width.toInt()} px each pacotinho shows a play disc '
+        'in its cover\'s bottom end corner: sun, a dark triangle, inside '
+        'the tile', (tester) async {
+      await shelves(tester, catalog: () => json(200, twoPacks), size: size);
+
+      for (final tile in [
+        find.byType(PackTile).first,
+        find.byType(PackTile).at(1),
+      ]) {
+        final cover = tester.getRect(
+          find.descendant(of: tile, matching: find.byType(VideoTile)),
+        );
+        final disc = find.descendant(of: tile, matching: find.byType(PlayDisc));
+        expect(disc, findsOneWidget);
+        final at = tester.getRect(disc);
+        expect(at.size, const Size.square(PlayDisc.size));
+        expect(PlayDisc.size, 44);
+        expect(at.right, cover.right - PlayDisc.inset);
+        expect(at.bottom, cover.bottom - PlayDisc.inset);
+        expect(PlayDisc.inset, 10);
+        // Inside the cover's rounded corner, not only its box.
+        final r = cover.height * Radii.screenRatio;
+        final corner = Offset(cover.right - r, cover.bottom - r);
+        expect((at.center - corner).distance + PlayDisc.size / 2, lessThan(r));
+        expect(
+          find.descendant(of: disc, matching: find.byType(CustomPaint)),
+          paints
+            ..circle(radius: PlayDisc.size / 2, color: Palette.kid.action)
+            ..path(color: Palette.kid.onAction),
+        );
+      }
+      expect(Palette.kid.action, BrandColors.sun);
+    });
+  }
+
+  testWidgets('the disc is no target of its own and says nothing: the tile '
+      'is still one button read by its title and count', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final h = await shelves(tester, catalog: () => json(200, twoPacks));
+
+    final tile = find.byType(PackTile).first;
+    final node = tester.getSemantics(tile);
+    expect(node.label, 'Bichos do mar, pacotinho de 3 vídeos');
+    expect(node.childrenCount, 0);
+    final disc = find.descendant(of: tile, matching: find.byType(PlayDisc));
+    for (final target in [GestureDetector, InkWell, Semantics]) {
+      expect(
+        find.descendant(of: disc, matching: find.byType(target)),
+        findsNothing,
+      );
+    }
+    // A tap on the disc is the tile's tap.
+    await tester.tap(disc);
+    await tester.pump();
+    expect(h.actions, contains('POST /v1/child/plays {"video_id":"v1"}'));
+    semantics.dispose();
+  });
+
+  testWidgets('a single video\'s tile has no play disc', (tester) async {
+    await shelves(tester, catalog: () => json(200, twoPacks));
+    expect(find.byType(VideoTile), findsWidgets);
+    expect(
+      find.descendant(of: find.byType(Shelf), matching: find.byType(PlayDisc)),
       findsNothing,
     );
   });

@@ -8,6 +8,7 @@ import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'empty_shelf.dart';
+import 'player_keys.dart';
 import 'pack_row.dart';
 import 'theme_glyph.dart';
 
@@ -152,6 +153,7 @@ class VideoTile extends StatefulWidget {
     required this.thumbnail,
     required this.onTap,
     this.resting = false,
+    this.playDisc = false,
   });
 
   final KidVideo video;
@@ -163,6 +165,9 @@ class VideoTile extends StatefulWidget {
   /// outlined, still in its place and still a target, and it is read as
   /// not for today. No number, clock or word is drawn on it.
   final bool resting;
+
+  /// Marks the picture with a [PlayDisc]: what it opens plays through.
+  final bool playDisc;
 
   /// What a screen reader hears for [title], resting or not.
   static String label(String title, {required bool resting}) =>
@@ -248,24 +253,37 @@ class _VideoTileState extends State<VideoTile> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
+                    // The disc is part of the picture, so a resting
+                    // tile quiets it with the rest.
                     _picture(
-                      FutureBuilder(
-                        future: _bytes,
-                        builder: (context, snap) => switch (snap) {
-                          AsyncSnapshot(hasData: true, :final data!) =>
-                            Image.memory(
-                              data,
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                              errorBuilder: (_, _, _) =>
-                                  const HollowThumbnail(),
-                            ),
-                          AsyncSnapshot(hasError: true) =>
-                            const HollowThumbnail(),
-                          _ => ColoredBox(
-                            color: p.outline.withValues(alpha: .24),
+                      Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          FutureBuilder(
+                            future: _bytes,
+                            builder: (context, snap) => switch (snap) {
+                              AsyncSnapshot(hasData: true, :final data!) =>
+                                Image.memory(
+                                  data,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  errorBuilder: (_, _, _) =>
+                                      const HollowThumbnail(),
+                                ),
+                              AsyncSnapshot(hasError: true) =>
+                                const HollowThumbnail(),
+                              _ => ColoredBox(
+                                color: p.outline.withValues(alpha: .24),
+                              ),
+                            },
                           ),
-                        },
+                          if (widget.playDisc)
+                            const PositionedDirectional(
+                              end: PlayDisc.inset,
+                              bottom: PlayDisc.inset,
+                              child: PlayDisc(),
+                            ),
+                        ],
                       ),
                       p,
                     ),
@@ -289,6 +307,56 @@ class _VideoTileState extends State<VideoTile> {
       ),
     );
   }
+}
+
+/// A sun disc with a dark play triangle, set in a pacotinho's corner: it
+/// plays through, video after video. Decoration only: the tile under it
+/// is the target and says what it opens.
+class PlayDisc extends StatelessWidget {
+  const PlayDisc({super.key});
+
+  static const size = 44.0;
+
+  /// Its distance from the picture's bottom and end edges, which keeps it
+  /// inside the rounded corner.
+  static const inset = 10.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return IgnorePointer(
+      child: CustomPaint(
+        size: const Size.square(size),
+        painter: _PlayDiscPainter(disc: p.action, glyph: p.onAction),
+      ),
+    );
+  }
+}
+
+class _PlayDiscPainter extends CustomPainter {
+  const _PlayDiscPainter({required this.disc, required this.glyph});
+
+  final Color disc;
+  final Color glyph;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawCircle(
+      size.center(Offset.zero),
+      size.shortestSide / 2,
+      Paint()..color = disc,
+    );
+    // The player's own play glyph, at a size the disc holds with room.
+    PlayerGlyphPainter(
+      PlayerGlyph.play,
+      glyph,
+      side: size.shortestSide * .45,
+    ).paint(canvas, size);
+  }
+
+  @override
+  bool shouldRepaint(_PlayDiscPainter old) =>
+      old.disc != disc || old.glyph != glyph;
 }
 
 /// A thumbnail that did not come: the screen, hollow, in the outline tone.

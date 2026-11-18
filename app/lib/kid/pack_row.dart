@@ -43,8 +43,8 @@ class PackRow extends StatelessWidget {
 
 /// A pacotinho on its row: its cover in a screen-ratio frame, a little
 /// larger than a video's, and beneath it one hollow module per video, the
-/// same modules its player fills. One button, read by its title
-/// and its count; nothing written on it.
+/// same modules its player fills, and a play disc in the cover's corner.
+/// One button, read by its title and its count; nothing written on it.
 class PackTile extends StatelessWidget {
   const PackTile({
     super.key,
@@ -100,6 +100,7 @@ class PackTile extends StatelessWidget {
             thumbnail: thumbnail,
             onTap: onTap,
             resting: !pack.fits,
+            playDisc: true,
           ),
           const SizedBox(height: Space.sm),
           PackModules(count: pack.videos.length, filled: 0, height: module),

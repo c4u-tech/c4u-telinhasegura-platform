@@ -109,6 +109,22 @@ void main() {
     expect(find.text(PlayerScreen.packDoesNotFit), findsOne);
   });
 
+  testWidgets('a resting pacotinho\'s play disc rests with its picture: '
+      'quieted under the same filter, still in its corner', (tester) async {
+    await shelves(tester, catalog: () => json(200, notAll));
+
+    final tile = find.byType(PackTile);
+    final quieted = find.descendant(
+      of: tile,
+      matching: find.byType(ColorFiltered),
+    );
+    expect(quieted, findsOne);
+    expect(
+      find.descendant(of: quieted, matching: find.byType(PlayDisc)),
+      findsOne,
+    );
+  });
+
   testWidgets('a tile that fits still plays', (tester) async {
     final h = await shelves(tester, catalog: () => json(200, notAll));
 
