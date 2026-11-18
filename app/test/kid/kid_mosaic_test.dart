@@ -865,7 +865,7 @@ void main() {
     expect(KidMosaic.avatar, 48);
     final a = tester.getRect(avatar);
     final exit = tester.getRect(find.byType(HoldToExit));
-    expect(a.left, Space.xl);
+    expect(a.left, KidLayout.edge(390));
     expect(a.center.dy, exit.center.dy);
     expect(find.bySemanticsLabel('Lia'), findsOneWidget);
     // No mark drawn, though the strip still says the app's name.

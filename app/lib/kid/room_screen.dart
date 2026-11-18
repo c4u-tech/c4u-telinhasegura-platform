@@ -170,7 +170,6 @@ class _RoomScreenState extends State<RoomScreen> {
             ground: world.ground,
             exit: exit,
             lead: lead,
-            leadInset: KidLayout.exitInset,
             fullWidth: true,
             scrolls: false,
             rise: g.rise,
@@ -249,12 +248,12 @@ class _RoomGeometry {
     required bool wide,
     required bool tevi,
   }) {
-    final inset = wide ? _insetWide : _inset;
+    final inset = wide ? KidLayout.insetWide : KidLayout.inset;
     final room = box.maxWidth - 2 * inset;
     final gap = wide ? Space.lg : Space.md;
     // A phone's column stays a phone's: two columns under the first
     // video. Wide, four columns, the first video taking two of them.
-    final column = math.min(room, _maxColumn);
+    final column = math.min(room, KidLayout.column);
     final tw = wide ? (room - 3 * gap) / 4 : (column - gap) / 2;
     final lw = wide ? 2 * tw + gap : column;
     return _RoomGeometry(
@@ -267,9 +266,6 @@ class _RoomGeometry {
     );
   }
 
-  static const _inset = 20.0;
-  static const _insetWide = 48.0;
-  static const _maxColumn = 600.0;
   static const _tevi = 80.0;
   static const _teviWide = 104.0;
 

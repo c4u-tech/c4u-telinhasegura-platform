@@ -81,7 +81,7 @@ void main() {
     expect(rect.top, greaterThanOrEqualTo(_safe.top));
     expect(rect.top, lessThan(_safe.top + KidSizes.target));
     // At the strip's start, quiet (fullscreen design).
-    expect(rect.left, _safe.left + Space.xl);
+    expect(rect.left, _safe.left + KidLayout.edge(360));
     expect(find.byType(SvgPicture), findsNothing);
     expect(find.byType(Text), findsNothing);
   });
@@ -103,8 +103,9 @@ void main() {
     });
   }
 
-  testWidgets('the exit slot sits in the top corner, 16 dp in from the '
-      'safe area, level with the mark (fix round, item 4)', (tester) async {
+  testWidgets('the exit slot sits in the top corner, 16 dp below the safe '
+      'area\'s top and the screen\'s edge from its end, level with the '
+      'mark', (tester) async {
     await pumpKid(
       tester,
       const KidLayout(
@@ -114,7 +115,7 @@ void main() {
     );
     final exit = tester.getRect(find.byKey(const Key('exit')));
     expect(exit.top, _safe.top + Space.lg);
-    expect(exit.right, 360 - Space.lg);
+    expect(exit.right, 360 - KidLayout.edge(360));
     expect(exit.center.dy, tester.getCenter(mark).dy);
     expect(exit.overlaps(tester.getRect(mark)), isFalse);
   });
@@ -132,9 +133,36 @@ void main() {
     expect(mark, findsNothing);
     final lead = tester.getRect(find.byKey(const Key('lead')));
     final exit = tester.getRect(find.byKey(const Key('exit')));
-    expect(lead.left, _safe.left + Space.xl);
+    expect(lead.left, _safe.left + KidLayout.edge(360));
     expect(lead.center.dy, exit.center.dy);
   });
+
+  for (final (width, edge) in [
+    (360.0, 20.0),
+    (390.0, 20.0),
+    (700.0, 50.0),
+    (839.0, 119.5),
+    (840.0, 48.0),
+    (1280.0, 48.0),
+  ]) {
+    testWidgets('at ${width.toInt()} px the strip keeps the content\'s edge: '
+        'the lead $edge dp from the start, the exit as far from the end', (
+      tester,
+    ) async {
+      expect(KidLayout.edge(width), edge);
+      await pumpKid(
+        tester,
+        const KidLayout(
+          lead: SizedBox.square(key: Key('lead'), dimension: 48),
+          exit: SizedBox.square(key: Key('exit'), dimension: 64),
+          child: SizedBox(),
+        ),
+        size: Size(width, 800),
+      );
+      expect(tester.getRect(find.byKey(const Key('lead'))).left, edge);
+      expect(tester.getRect(find.byKey(const Key('exit'))).right, width - edge);
+    });
+  }
 
   testWidgets('where the mascot stands whole on the screen, the strip\'s '
       'start is left empty: no small mark beside it', (tester) async {

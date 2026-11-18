@@ -9,6 +9,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family.dart' show AgeBand;
 import 'kid_error_note.dart';
+import 'kid_layout.dart';
 import 'pack_row.dart';
 import 'shelves.dart';
 import 'theme_glyph.dart';
@@ -242,11 +243,11 @@ class _Geometry {
     required bool grow,
     bool door = false,
   }) {
-    final inset = wide ? _insetWide : _inset;
+    final inset = wide ? KidLayout.insetWide : KidLayout.inset;
     final room = box.maxWidth - 2 * inset;
     // A phone's column stays a phone's: on a wider narrow window it is
     // centred rather than stretched.
-    final column = math.min(room, _maxColumn);
+    final column = math.min(room, KidLayout.column);
     final start = wide ? (room - _between) * 11 / 21 : column;
     final end = wide ? room - _between - start : column;
     final gap = Space.md;
@@ -298,10 +299,6 @@ class _Geometry {
       blockGap: blockGap,
     );
   }
-
-  static const _inset = 20.0;
-  static const _insetWide = 48.0;
-  static const _maxColumn = 600.0;
 
   /// Between the start column and the blocks, from 840 px.
   static const _between = 40.0;

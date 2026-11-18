@@ -102,7 +102,7 @@ void main() {
     final disc = tester.widget<AvatarDisc>(avatar);
     expect((disc.avatar, disc.size), (Avatar.fox, KidMosaic.avatar));
     final rect = tester.getRect(avatar);
-    expect(rect.left, Space.xl);
+    expect(rect.left, KidLayout.edge(390));
     expect(rect.center.dy, tester.getCenter(find.byType(HoldToExit)).dy);
     expect(labelled('Lia'), findsOneWidget);
     expect(find.text('Lia'), findsNothing);
@@ -123,7 +123,7 @@ void main() {
       final disc = tester.widget<AvatarDisc>(avatar);
       expect((disc.avatar, disc.size), (Avatar.fox, KidMosaic.avatar));
       final rect = tester.getRect(avatar);
-      expect(rect.left, Space.xl);
+      expect(rect.left, KidLayout.edge(size.width));
       expect(rect.center.dy, tester.getCenter(find.byType(HoldToExit)).dy);
       expect(labelled('Lia'), findsOneWidget);
       expect(find.text('Lia'), findsNothing);

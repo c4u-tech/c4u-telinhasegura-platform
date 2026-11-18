@@ -163,13 +163,14 @@ void main() {
       expect(back.width, greaterThanOrEqualTo(KidSizes.target));
       expect(back.height, greaterThanOrEqualTo(KidSizes.target));
       expect(back.top, lessThan(KidLayout.stripHeight / 2));
-      expect(back.left, lessThan(Space.xl));
+      expect(back.left, KidLayout.edge(390));
+      expect(back.left, tester.getRect(tiles.first).left);
       final glyph = tester.getRect(find.bySemanticsLabel('Bichos'));
       expect(glyph.left, greaterThan(back.right));
       expect(glyph.size, const Size.square(56));
       expect(glyph.center.dy, closeTo(back.center.dy, 1));
       final exit = tester.getRect(find.byType(HoldToExit));
-      expect(exit.right, greaterThan(390 - Space.xl));
+      expect(exit.right, 390 - KidLayout.edge(390));
       expect(exit.center.dy, closeTo(back.center.dy, 1));
       final drawn = tester.widget<ThemeGlyph>(
         find.descendant(of: page, matching: find.byType(ThemeGlyph)),

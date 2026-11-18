@@ -24,7 +24,6 @@ class KidLayout extends StatelessWidget {
     this.exit,
     this.lead,
     this.mark = true,
-    this.leadInset = Space.xl,
     this.ground,
     this.rise = 0,
     this.fullWidth = false,
@@ -55,10 +54,6 @@ class KidLayout extends StatelessWidget {
   /// nothing more.
   final bool mark;
 
-  /// [lead]'s distance from the start edge: a key as large as the exit
-  /// stands as far from its edge as the exit does from its own.
-  final double leadInset;
-
   /// The ground edge to edge, when the screen is a theme's world rather
   /// than the ink field.
   final Color? ground;
@@ -79,10 +74,26 @@ class KidLayout extends StatelessWidget {
   /// The simplified mascot, small and quiet: not a heading.
   static const markSize = 24.0;
 
-  /// The exit's inset from the safe area's top and side: its ring, 2 dp
-  /// inside its 64 dp target, stands clear of the edges, level with the
-  /// mark centred in the same strip.
+  /// The exit's inset from the safe area's top: its ring, 2 dp inside its
+  /// 64 dp target, stands clear of the edge, level with the mark centred
+  /// in the same strip.
   static const exitInset = Space.lg;
+
+  /// A phone's content stands this far in from the screen's sides.
+  static const inset = 20.0;
+
+  /// From 840 px, as far in as this.
+  static const insetWide = 48.0;
+
+  /// A phone's column grows no wider; on a wider narrow window it is
+  /// centred.
+  static const column = 600.0;
+
+  /// The screen's one edge at [width]: where the content starts, and so
+  /// where the strip's lead starts and its exit ends.
+  static double edge(double width) => width >= FieldSizes.wideBreakpoint
+      ? insetWide
+      : math.max(inset, (width - column) / 2);
 
   static double _vertical(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
@@ -95,41 +106,45 @@ class KidLayout extends StatelessWidget {
 
   Widget _strip() => SizedBox(
     height: stripHeight,
-    child: Stack(
-      children: [
-        // Where no mark is drawn, the strip still says whose screen this
-        // is, without painting anything or taking a touch.
-        if (lead != null || !mark)
-          Positioned.fill(
-            child: Semantics(
-              container: true,
-              label: name,
-              child: SizedBox.expand(),
-            ),
-          ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Padding(
-            padding: EdgeInsetsDirectional.only(start: leadInset),
-            // The figure takes its colours from the ground below it.
-            child:
-                lead ??
-                (mark
-                    ? Builder(
-                        builder: (context) => Tevi(
-                          size: markSize,
-                          tier: TeviTier.simplified,
-                          night: TeviGround.nightAt(context),
-                          semanticLabel: name,
-                        ),
-                      )
-                    : const SizedBox.shrink()),
+    child: LayoutBuilder(
+      builder: (context, box) => _stripOn(edge(box.maxWidth)),
+    ),
+  );
+
+  Widget _stripOn(double edge) => Stack(
+    children: [
+      // Where no mark is drawn, the strip still says whose screen this
+      // is, without painting anything or taking a touch.
+      if (lead != null || !mark)
+        Positioned.fill(
+          child: Semantics(
+            container: true,
+            label: name,
+            child: SizedBox.expand(),
           ),
         ),
-        if (exit case final exit?)
-          PositionedDirectional(top: exitInset, end: exitInset, child: exit),
-      ],
-    ),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(start: edge),
+          // The figure takes its colours from the ground below it.
+          child:
+              lead ??
+              (mark
+                  ? Builder(
+                      builder: (context) => Tevi(
+                        size: markSize,
+                        tier: TeviTier.simplified,
+                        night: TeviGround.nightAt(context),
+                        semanticLabel: name,
+                      ),
+                    )
+                  : const SizedBox.shrink()),
+        ),
+      ),
+      if (exit case final exit?)
+        PositionedDirectional(top: exitInset, end: edge, child: exit),
+    ],
   );
 
   @override
