@@ -1,6 +1,10 @@
 package brandcheck
 
 import (
+	"image"
+	"image/color"
+	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -102,5 +106,73 @@ func TestVectorsCarryNoTextStyleOrMetadata(t *testing.T) {
 				t.Errorf("%s contains %s", p, banned)
 			}
 		}
+	}
+}
+
+func decode(t *testing.T, rel string) image.Image {
+	t.Helper()
+	f, err := os.Open(filepath.Join(Root(), filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	img, err := png.Decode(f)
+	if err != nil {
+		t.Fatalf("decode %s: %v", rel, err)
+	}
+	return img
+}
+
+func pixel(t *testing.T, rel string, x, y int) color.RGBA {
+	t.Helper()
+	r, g, b, a := decode(t, rel).At(x, y).RGBA()
+	return color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+}
+
+// The icon carries its own ground, so no wallpaper shows through.
+func TestIconGrounds(t *testing.T) {
+	for file, want := range map[string]color.RGBA{
+		"brand/app-icon/app-icon-1024.png":      {0x1E, 0x5B, 0x66, 0xFF},
+		"brand/app-icon/app-icon-dark-1024.png": {0x0F, 0x2A, 0x30, 0xFF},
+	} {
+		if got := pixel(t, file, 0, 0); got != want {
+			t.Errorf("%s corner is %v, want %v", file, got, want)
+		}
+	}
+}
+
+// On the dark ground the figure's dark parts take the brand's teal, or they would vanish.
+func TestDarkIconFigureHasNoDarkParts(t *testing.T) {
+	svg := read(t, "brand/app-icon/app-icon-dark.svg")
+	if n := strings.Count(svg, "#0F2A30"); n != 1 {
+		t.Errorf("the dark icon uses the ground colour %d times, want 1 (the ground)", n)
+	}
+}
+
+// Launchers mask the foreground to a circle 66/108 of its side.
+func TestAdaptiveForegroundFitsTheSafeCircle(t *testing.T) {
+	img := decode(t, "brand/app-icon/android-adaptive-foreground.png")
+	b := img.Bounds()
+	c, r := float64(b.Dx())/2, float64(b.Dx())*33/108
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if _, _, _, a := img.At(x, y).RGBA(); a == 0 {
+				continue
+			}
+			if math.Hypot(float64(x)+0.5-c, float64(y)+0.5-c) > r {
+				t.Fatalf("pixel %d,%d lies outside the safe circle", x, y)
+			}
+		}
+	}
+}
+
+// A browser tab can be light or dark; the favicon brings its own tile.
+func TestFaviconIsTheSmallFigureOnItsTile(t *testing.T) {
+	svg := read(t, "brand/favicon/favicon.svg")
+	if !strings.Contains(svg, "#1E5B66") || strings.Contains(svg, "prefers-color-scheme") {
+		t.Error("the favicon is not one tile for both themes")
+	}
+	if !strings.Contains(svg, "#FFC42E") {
+		t.Error("the favicon lacks the figure")
 	}
 }

@@ -260,31 +260,39 @@ for v in VARIANTS:
     files[f'svg/telinha-segura-wordmark-{v}.svg'] = wordmark_svg(v)
 for k, t in files.items(): write(k, t)
 
+def centred(size, s, tier, v, night=False):
+    """The figure at scale s with its drawing (not its box) centred in a
+    size-wide square."""
+    x0, y0, x1, y1 = FIG_BBOX if tier == 'mark' else SMALL_BBOX
+    return figure(tier, v, size / 2 - s * (x0 + x1) / 2, size / 2 - s * (y0 + y1) / 2, s, night)
 def placed(size, frac, tier, v, night=False):
     """The figure scaled so its 132-unit box spans frac of a size-wide
     square, its drawing centred in the square."""
-    s = size * frac / FIG; x0, y0, x1, y1 = FIG_BBOX if tier == 'mark' else SMALL_BBOX
-    return figure(tier, v, size / 2 - s * (x0 + x1) / 2, size / 2 - s * (y0 + y1) / 2, s, night)
+    return centred(size, size * frac / FIG, tier, v, night)
 
-# favicon: the mini figure, one drawing for light and dark tab strips (its
-# yellow body holds on both)
-favicon = svg(0, 0, 16, 16, placed(16, 1, 'mini', 'color'))
+# favicon: the small figure on its own ink tile, one drawing for light and
+# dark tab strips; its drawing is 13 of the tile's 16 units wide
+fav_scale = 13 / (SMALL_BBOX[2] - SMALL_BBOX[0])
+favicon = svg(0, 0, 16, 16, f'<rect width="16" height="16" rx="3.5" fill="{C["ink"]}"/>' + centred(16, fav_scale, 'mini', 'color'))
 write('favicon/favicon.svg', favicon)
 ico_imgs = [png(favicon, s, s) for s in (16, 32, 48)]
 ico_full = target('favicon/favicon.ico'); ico_imgs[2].save(ico_full, sizes=[(16, 16), (32, 32), (48, 48)], append_images=ico_imgs[:2])
 
-# App icon: the full figure centred on an ink tile; the dark variant sits
-# on the dark ground with its dark parts in ink, so they stay visible.
-def tile_svg(size, frac, ground, night=False):
-    return svg(0, 0, size, size, f'<rect width="{size}" height="{size}" fill="{ground}"/>' + placed(size, frac, 'mark', 'color', night))
-ICON = 0.8                   # of the visible tile
-ADAPTIVE = ICON * 72 / 108   # Android shows 72 of the layer's 108 dp; the figure stays in the 66 dp safe circle
-MASKABLE = ICON * 0.8        # the web's maskable safe zone is the inner 80 % circle
-app_icon = tile_svg(100, ICON, C['ink'])
-app_icon_dark = tile_svg(100, ICON, C['dark'], night=True)
-adaptive_fg = svg(0, 0, 108, 108, placed(108, ADAPTIVE, 'mark', 'color'))
+# App icon: the full figure on an ink tile; the dark variant sits on the
+# dark ground with its dark parts in ink, so they stay visible. The tile is
+# 240 units; the figure's box is placed at (27, 24) at scale 1.6.
+def tile_svg(size, ground, night=False, maskable=False):
+    fig = centred(size, MASKABLE, 'mark', 'color') if maskable else figure('mark', 'color', 27, 24, 1.6, night)
+    return svg(0, 0, size, size, f'<rect width="{size}" height="{size}" fill="{ground}"/>' + fig)
+# Android shows 72 of the adaptive layer's 108 dp and masks it to a 66 dp
+# circle; the drawing's half-diagonal is 69.55 units, so 0.44 keeps it inside.
+ADAPTIVE = 0.44
+MASKABLE = 1.30              # the web's maskable safe zone is the inner 80 % circle
+app_icon = tile_svg(240, C['ink'])
+app_icon_dark = tile_svg(240, C['dark'], night=True)
+adaptive_fg = svg(0, 0, 108, 108, centred(108, ADAPTIVE, 'mark', 'color'))
 adaptive_bg = svg(0, 0, 108, 108, f'<rect width="108" height="108" fill="{C["ink"]}"/>')
-monochrome = svg(0, 0, 108, 108, placed(108, ADAPTIVE, 'mark', 'mono'))
+monochrome = svg(0, 0, 108, 108, centred(108, ADAPTIVE, 'mark', 'mono'))
 write('app-icon/app-icon.svg', app_icon)
 write('app-icon/app-icon-dark.svg', app_icon_dark)
 write('app-icon/android-adaptive-foreground.svg', adaptive_fg)
@@ -306,7 +314,7 @@ save_png('app-icon/splash-android12.png', splash(960, 0.5))
 save_png('favicon/apple-touch-icon.png', png(app_icon, 180, 180).convert('RGB'))
 save_png('favicon/icon-192.png', png(app_icon, 192, 192))
 save_png('favicon/icon-512.png', png(app_icon, 512, 512))
-save_png('favicon/icon-maskable-512.png', png(tile_svg(100, MASKABLE, C['ink']), 512, 512))
+save_png('favicon/icon-maskable-512.png', png(tile_svg(240, C['ink'], maskable=True), 512, 512))
 
 # e-mail PNGs at 1x and 2x (transparent; colour on light, reversed for dark headers)
 def view_size(t):
