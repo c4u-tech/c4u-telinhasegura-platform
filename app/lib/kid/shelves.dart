@@ -154,6 +154,7 @@ class VideoTile extends StatefulWidget {
     required this.onTap,
     this.resting = false,
     this.playDisc = false,
+    this.playDiscScale = 1,
   });
 
   final KidVideo video;
@@ -168,6 +169,9 @@ class VideoTile extends StatefulWidget {
 
   /// Marks the picture with a [PlayDisc]: what it opens plays through.
   final bool playDisc;
+
+  /// The [PlayDisc]'s size and inset, against its size on a phone's tile.
+  final double playDiscScale;
 
   /// What a screen reader hears for [title], resting or not.
   static String label(String title, {required bool resting}) =>
@@ -278,10 +282,10 @@ class _VideoTileState extends State<VideoTile> {
                             },
                           ),
                           if (widget.playDisc)
-                            const PositionedDirectional(
-                              end: PlayDisc.inset,
-                              bottom: PlayDisc.inset,
-                              child: PlayDisc(),
+                            PositionedDirectional(
+                              end: PlayDisc.inset * widget.playDiscScale,
+                              bottom: PlayDisc.inset * widget.playDiscScale,
+                              child: PlayDisc(scale: widget.playDiscScale),
                             ),
                         ],
                       ),
@@ -314,20 +318,24 @@ class _VideoTileState extends State<VideoTile> {
 /// is the target and says what it opens, so the disc wears the
 /// indicator's colours, a mark's, not the action's.
 class PlayDisc extends StatelessWidget {
-  const PlayDisc({super.key});
+  const PlayDisc({super.key, this.scale = 1});
 
+  /// The disc's diameter on a phone's tile.
   static const size = 44.0;
 
-  /// Its distance from the picture's bottom and end edges, which keeps it
-  /// inside the rounded corner.
+  /// Its distance from the picture's bottom and end edges on a phone's
+  /// tile, which keeps it inside the rounded corner.
   static const inset = 10.0;
+
+  /// Grows the disc with a larger tile; its inset grows by the same.
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     return IgnorePointer(
       child: CustomPaint(
-        size: const Size.square(size),
+        size: Size.square(size * scale),
         painter: _PlayDiscPainter(disc: p.indicator, glyph: p.onIndicator),
       ),
     );

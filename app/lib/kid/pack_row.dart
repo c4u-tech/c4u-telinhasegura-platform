@@ -101,6 +101,9 @@ class PackTile extends StatelessWidget {
             onTap: onTap,
             resting: !pack.fits,
             playDisc: true,
+            // The disc grows as the tile does, so it sits the same in the
+            // corner on a phone and on a wide screen.
+            playDiscScale: size.height / narrow.height,
           ),
           const SizedBox(height: Space.sm),
           PackModules(count: pack.videos.length, filled: 0, height: module),

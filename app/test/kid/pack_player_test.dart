@@ -228,6 +228,8 @@ void main() {
       find.byType(PackBreath),
       TeviLook.winking,
       filled: true,
+      // The player's stage is darker than the child's ground.
+      night: true,
     );
     expect(progress(1, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsOneWidget);
@@ -437,6 +439,7 @@ void main() {
       tester,
       find.byType(PackGoodbye),
       TeviLook.asleep,
+      night: true,
     );
     expect(find.text(PackGoodbye.word), findsOneWidget);
     // The same picture as the breath's, at the same size.

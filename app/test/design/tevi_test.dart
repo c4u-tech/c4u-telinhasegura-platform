@@ -126,10 +126,16 @@ void main() {
       expect(d[1].bounds, rectNear(94.00, 44.20, 115.03, 65.80));
     });
 
-    test('the body is 84 by 70 at radius 26', () {
-      expect(d[2].name, #drawRRect);
+    final clips = [
+      for (final (at, name, shape) in log.layers)
+        if (name.toString().contains('clip')) (at, shape),
+    ];
+
+    test('the body is 84 by 70 at radius 26: the outline every part of it '
+        'is cut to', () {
+      expect(clips, hasLength(1));
       expect(
-        d[2].shape,
+        clips.single.$2,
         RRect.fromRectAndRadius(
           const Rect.fromLTWH(14, 20, 84, 70),
           const Radius.circular(26),
@@ -137,23 +143,45 @@ void main() {
       );
     });
 
-    test('crown, eyebrow and mask are cut to the body', () {
+    test('sun, crown, eyebrow and mask are cut to the body', () {
+      expect(clips.single.$1, 2, reason: 'the clip comes before the sun');
+      expect(d[2].name, #drawPath);
       expect(d[3].bounds, rectNear(14, 20, 98, 38));
       expect(d[4].bounds, rectNear(14, 38, 98, 44.5));
       expect(d[5].name, #drawPath);
       expect(d[5].bounds, rectNear(14, 44.5, 98, 59.28));
-      final clips = [
-        for (final (at, name, shape) in log.layers)
-          if (name.toString().contains('clip')) (at, shape),
-      ];
-      expect(clips, hasLength(1));
-      expect(clips.single.$1, 3, reason: 'the clip comes before the crown');
-      expect(clips.single.$2, d[2].shape, reason: 'the body\'s outline');
       expect(
         log.layers.where((l) => l.$2 == #restore && l.$1 == 6),
         isNotEmpty,
         reason: 'the clip ends after the mask, before the legs',
       );
+    });
+
+    test('sun lies only where it shows: below the eyebrow and the mask, '
+        'never under the crown, whose antialiased edge it would fringe', () {
+      final sun = d[2].shape as Path;
+      // The eyebrow's lower edge, and the mask's slanted one under it.
+      expect(d[2].bounds.top, greaterThan(44.5));
+      double maskEdge(double x) => 54.75 + (59.28 - 54.75) * (x - 14) / 84;
+      for (var x = 14.0; x <= 98; x += 2) {
+        expect(
+          sun.contains(Offset(x, maskEdge(x) + .05)),
+          isTrue,
+          reason: 'sun meets the mask at x $x, leaving no gap',
+        );
+        expect(
+          sun.contains(Offset(x, maskEdge(x) - 1.5)),
+          isFalse,
+          reason: 'at most a hairline of sun tucked under the mask at x $x',
+        );
+      }
+      for (final y in [20.5, 30.0, 38.0, 44.0, 50.0]) {
+        expect(sun.contains(Offset(56, y)), isFalse, reason: 'y $y');
+      }
+      // Down to the body's foot, past both sides, so only the body's own
+      // outline cuts it.
+      expect(sun.contains(const Offset(14.01, 89.9)), isTrue);
+      expect(sun.contains(const Offset(97.99, 89.9)), isTrue);
     });
 
     test('the legs are rounded bars ending at y 103.4', () {

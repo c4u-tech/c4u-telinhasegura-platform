@@ -156,6 +156,25 @@ class TeviPainter extends CustomPainter {
       Offset(14.05, 44.5),
     ], true);
 
+  /// How far the sun runs up under the mask's lower edge: a hairline, so
+  /// no seam of the ground opens between them.
+  static const _sunTuck = 1.0;
+
+  /// The sun of the body: only the part that shows, below the mask's
+  /// slanted lower edge. Under the crown, the eyebrow or the mask it
+  /// would show through their antialiased edges as a fringe. It runs past
+  /// the body's sides and foot, so the body's outline alone cuts it.
+  static final _sun = () {
+    double edge(double x) =>
+        54.75 + (59.28 - 54.75) * (x - 14) / (98 - 14) - _sunTuck;
+    return Path()..addPolygon([
+      Offset(10, edge(10)),
+      Offset(102, edge(102)),
+      const Offset(102, 94),
+      const Offset(10, 94),
+    ], true);
+  }();
+
   static final _legs = [
     for (final x in [41.6, 59.6])
       RRect.fromRectAndRadius(
@@ -247,10 +266,9 @@ class TeviPainter extends CustomPainter {
 
     if (full) canvas.drawPath(_tail, fill(dark));
     canvas.drawPath(_beak, fill(BrandColors.beak));
-    canvas.drawRRect(_body, fill(BrandColors.sun));
-
     canvas.save();
     canvas.clipRRect(_body);
+    canvas.drawPath(_sun, fill(BrandColors.sun));
     canvas.drawRect(const Rect.fromLTRB(14, 20, 98, 38), fill(dark));
     canvas.drawRect(
       const Rect.fromLTRB(14, 38, 98, 44.5),

@@ -7,8 +7,8 @@ import '../screentime/kid_time.dart';
 import 'empty_shelf.dart';
 
 /// The child home's day without time: in the empty shelf's place, the
-/// mascot asleep on a wire where the screen was, and one muted line. No
-/// minutes, no counter: the picture says the day is done, and the line is
+/// mascot asleep on a wire run across the whole screen, and one muted
+/// line. No minutes, no counter: the picture says the day is done, and the line is
 /// all assistive technology reads.
 class SleepingTelinha extends StatelessWidget {
   const SleepingTelinha({super.key, required this.state, this.scale = 1});
@@ -32,7 +32,13 @@ class SleepingTelinha extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShelfPicture(look: TeviLook.asleep, perch: Perch.wire, scale: scale),
+        // The wire runs the whole screen: the day is done, not one note.
+        ShelfPicture(
+          look: TeviLook.asleep,
+          perch: Perch.wire,
+          across: true,
+          scale: scale,
+        ),
         const SizedBox(height: Space.lg),
         Text(
           state == KidTimeState.outsideWindow ? outsideWindow : timeUp,

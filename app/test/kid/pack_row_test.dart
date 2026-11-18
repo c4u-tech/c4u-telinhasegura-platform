@@ -99,8 +99,8 @@ void main() {
 
   for (final size in [const Size(390, 844), const Size(1280, 800)]) {
     testWidgets('at ${size.width.toInt()} px each pacotinho shows a play disc '
-        'in its cover\'s bottom end corner: sun, a dark triangle, inside '
-        'the tile', (tester) async {
+        'in its cover\'s bottom end corner, grown as the tile is: sun, a '
+        'dark triangle, inside the tile', (tester) async {
       await shelves(tester, catalog: () => json(200, twoPacks), size: size);
 
       for (final tile in [
@@ -113,19 +113,43 @@ void main() {
         final disc = find.descendant(of: tile, matching: find.byType(PlayDisc));
         expect(disc, findsOneWidget);
         final at = tester.getRect(disc);
-        expect(at.size, const Size.square(PlayDisc.size));
+        // The disc and its inset grow by the factor the tile does, so it
+        // sits the same in the corner on a phone and on a wide screen.
+        final k = cover.height / PackTile.narrow.height;
+        expect(
+          k,
+          size.width < 840 ? 1 : PackTile.wide.height / PackTile.narrow.height,
+        );
+        expect(at.size.width, closeTo(PlayDisc.size * k, 1e-9));
+        expect(at.size.height, closeTo(PlayDisc.size * k, 1e-9));
         expect(PlayDisc.size, 44);
-        expect(at.right, cover.right - PlayDisc.inset);
-        expect(at.bottom, cover.bottom - PlayDisc.inset);
+        expect(at.right, closeTo(cover.right - PlayDisc.inset * k, 1e-9));
+        expect(at.bottom, closeTo(cover.bottom - PlayDisc.inset * k, 1e-9));
         expect(PlayDisc.inset, 10);
-        // Inside the cover's rounded corner, not only its box.
+        // Inside the cover's rounded corner, not only its box, with the
+        // same room to spare relative to the corner at every size.
         final r = cover.height * Radii.screenRatio;
         final corner = Offset(cover.right - r, cover.bottom - r);
-        expect((at.center - corner).distance + PlayDisc.size / 2, lessThan(r));
+        final room = r - (at.center - corner).distance - at.width / 2;
+        expect(room, greaterThan(0));
+        final phoneR = PackTile.narrow.height * Radii.screenRatio;
+        final phoneRoom =
+            phoneR -
+            (Offset.zero -
+                    Offset(
+                      phoneR - PlayDisc.inset - PlayDisc.size / 2,
+                      phoneR - PlayDisc.inset - PlayDisc.size / 2,
+                    ))
+                .distance -
+            PlayDisc.size / 2;
+        expect(room / r, closeTo(phoneRoom / phoneR, 1e-6));
         expect(
           find.descendant(of: disc, matching: find.byType(CustomPaint)),
           paints
-            ..circle(radius: PlayDisc.size / 2, color: Palette.kid.indicator)
+            ..circle(
+              radius: PlayDisc.size * k / 2,
+              color: Palette.kid.indicator,
+            )
             ..path(color: Palette.kid.onIndicator),
         );
       }

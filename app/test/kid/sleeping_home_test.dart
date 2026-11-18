@@ -109,6 +109,7 @@ void main() {
       find.byType(SleepingTelinha),
       TeviLook.asleep,
       perch: Perch.wire,
+      across: true,
     );
     expect(tester.getSize(picture), ShelfPicture.size * 1.5);
   });
@@ -129,7 +130,9 @@ void main() {
   });
 
   testWidgets('the sleeping picture: the mascot asleep on a wire across '
-      'the screen\'s width, no screen and no words of its own', (tester) async {
+      'the whole screen, edge to edge, no screen and no words of its own', (
+    tester,
+  ) async {
     final h = sleepy();
     await h.pump(tester, initial: '/crianca');
 
@@ -138,6 +141,7 @@ void main() {
       find.byType(SleepingTelinha),
       TeviLook.asleep,
       perch: Perch.wire,
+      across: true,
     );
     expect(
       find.descendant(of: picture, matching: find.byType(Text)),

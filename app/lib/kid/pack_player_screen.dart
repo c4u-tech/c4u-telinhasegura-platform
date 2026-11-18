@@ -451,6 +451,9 @@ class PackBreath extends StatelessWidget {
             child: Center(
               child: ShelfPicture(
                 look: TeviLook.winking,
+                // The player's stage is darker than the child's ground:
+                // the figure's dark parts take the night colours there.
+                night: true,
                 scale: scaleFor(size),
                 screenChild: FutureBuilder(
                   future: cover,
@@ -514,6 +517,7 @@ class PackGoodbye extends StatelessWidget {
                   // The breath's picture, at the same size.
                   ShelfPicture(
                     look: TeviLook.asleep,
+                    night: true,
                     scale: PackBreath.scaleFor(size),
                   ),
                   const SizedBox(height: Space.md),

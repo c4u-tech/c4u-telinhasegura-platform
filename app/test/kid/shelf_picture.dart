@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/tevi.dart';
@@ -17,13 +19,17 @@ const _feet = (53 + 6) / 132;
 /// child's ground is ink), standing at the start side of what it perches
 /// on, its legs landing a little into it, as on the guardian's field.
 /// A [filled] screen holds a picture in its corners instead of standing
-/// hollow. Returns the picture's finder.
+/// hollow. A wire runs [across] the whole screen, or only across the
+/// picture's own screen. A figure on a dark stage wears its [night]
+/// colours. Returns the picture's finder.
 Finder expectPerched(
   WidgetTester tester,
   Finder within,
   TeviLook look, {
   Perch perch = Perch.screen,
   bool filled = false,
+  bool across = false,
+  bool night = false,
 }) {
   final picture = find.descendant(
     of: within,
@@ -35,7 +41,7 @@ Finder expectPerched(
   final tevi = tester.widget<Tevi>(figure);
   expect(
     (tevi.look, tevi.tier, tevi.night, tevi.markColor),
-    (look, TeviTier.full, false, BrandColors.sky),
+    (look, TeviTier.full, night, BrandColors.sky),
   );
 
   final box = tester.getRect(picture);
@@ -142,11 +148,58 @@ Finder expectPerched(
         ),
       );
     case Perch.wire:
-      expect(
-        ground,
-        paints..something((method, args) => method == #drawPath && line(args)),
+      final long = find.descendant(
+        of: picture,
+        matching: find.byType(ScreenWire),
       );
-      expect(ground, isNot(paints..rrect()));
+      if (!across) {
+        expect(long, findsNothing, reason: 'the short wire, in the picture');
+        expect(
+          ground,
+          paints
+            ..something((method, args) => method == #drawPath && line(args)),
+        );
+        expect(ground, isNot(paints..rrect()));
+        break;
+      }
+      expect(ground, findsNothing, reason: 'no short wire under the long one');
+      expect(long, findsOneWidget);
+      late Path wire;
+      expect(
+        long,
+        paints..something((method, args) {
+          if (method != #drawPath || !line(args)) return false;
+          wire = args.first as Path;
+          return true;
+        }),
+      );
+      // The wire, sampled along its length, in the screen's coordinates.
+      final origin = tester.getTopLeft(long);
+      final points = [
+        for (final metric in wire.computeMetrics())
+          for (var at = 0.0; at <= metric.length; at += .25)
+            metric.getTangentForOffset(at)!.position + origin,
+      ];
+      final width =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      final xs = points.map((p) => p.dx);
+      expect(xs.reduce(math.min), closeTo(0, .3), reason: 'edge');
+      expect(xs.reduce(math.max), closeTo(width, .3), reason: 'to edge');
+      final ys = points.map((p) => p.dy);
+      final ends = points.first.dy;
+      expect(points.last.dy, closeTo(ends, .1), reason: 'level ends');
+      final sag = ys.reduce(math.max) - ends;
+      expect(sag, greaterThan(0), reason: 'it sags');
+      expect(sag, lessThan(width / 40), reason: 'gently');
+      // The mascot stands where it stood: on the wire's centreline under
+      // its feet.
+      final under = points.reduce(
+        (a, b) => (a.dx - feetX).abs() < (b.dx - feetX).abs() ? a : b,
+      );
+      expect(
+        under.dy,
+        closeTo(box.top + ShelfPicture.wireAt((feetX - box.left) / s) * s, .1),
+      );
   }
   return picture;
 }
