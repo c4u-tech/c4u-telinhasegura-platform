@@ -373,6 +373,10 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
       active: full,
       child: KidLayout(
         exit: HoldToExit(onExit: () => context.go(Routes.kidExit)),
+        // Watching is a dark room; turned sideways, the video alone keeps
+        // the child's ground around it, as it always has.
+        ground: full ? null : BrandColors.dark,
+        mark: false,
         fullWidth: true,
         scrolls: false,
         strip: !full,
@@ -386,6 +390,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
                 count: n,
                 filled: _filled,
                 height: PlayerStage.module,
+                color: BrandColors.sky,
               ),
             ),
           ),
@@ -400,6 +405,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
               glyph: PlayerGlyph.play,
               label: PlayerScreen.playLabel,
               filled: true,
+              size: PlayerStage.toggleSize,
               onPressed: _continue,
             ),
             _Phase.playing => PlayerKey(
@@ -408,6 +414,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
                   ? PlayerScreen.pauseLabel
                   : PlayerScreen.playLabel,
               filled: true,
+              size: PlayerStage.toggleSize,
               onPressed: _toggle,
             ),
           },

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/access/widgets.dart' show StateModule;
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
@@ -20,6 +22,7 @@ import 'package:telinha_segura/kid/sleeping_telinha.dart';
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
+import 'player_screen_test.dart' show expectNightStage;
 import 'shelf_picture.dart';
 import 'kid_mosaic_test.dart' show pixel, twoShelves, video;
 
@@ -530,6 +533,71 @@ void main() {
     expect(h.location(tester), '/crianca');
     await tester.pump(const Duration(seconds: 5));
     expect(plays(h), ['v1', 'v1']);
+  });
+
+  for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+    testWidgets('at ${size.width.toInt()} × ${size.height.toInt()} every '
+        'window state stands in the dark room, the modules in sky', (
+      tester,
+    ) async {
+      final h = await inPack(tester, size: size);
+      expectNightStage(tester, find.byKey(FakePlayback.viewKey));
+      final modules = tester.widgetList<StateModule>(find.byType(StateModule));
+      expect(modules.map((m) => (m.filled, m.color)), [
+        (true, BrandColors.sky),
+        (false, BrandColors.sky),
+        (false, BrandColors.sky),
+      ]);
+
+      await end(tester, h);
+      expectNightStage(tester, find.byType(PackBreath));
+      await tester.tap(find.byType(PackBreath));
+      await tester.pumpAndSettle();
+      await end(tester, h);
+      await tester.tap(find.byType(PackBreath));
+      await tester.pumpAndSettle();
+      await end(tester, h);
+      expectNightStage(tester, find.byType(PackGoodbye));
+      await tester.pumpAndSettle(const Duration(seconds: 4));
+    });
+  }
+
+  testWidgets('a pacotinho of five holds its modules in the rail beside the '
+      'window', (tester) async {
+    await inPack(
+      tester,
+      size: const Size(1280, 800),
+      harness: packKid(
+        catalog: () => {
+          ...twoShelves,
+          'packs': [
+            {
+              'id': 'k1',
+              'title': 'Cinco',
+              'cover_video_id': 'v1',
+              'videos': [for (var i = 1; i <= 5; i++) video('v$i')],
+            },
+          ],
+        },
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final modules = tester.getRect(find.byType(PackModules));
+    expect(
+      modules.left,
+      greaterThan(tester.getRect(find.byKey(FakePlayback.viewKey)).right),
+    );
+  });
+
+  testWidgets('upright, the modules stand under the window at the start, '
+      'level with back', (tester) async {
+    await inPack(tester);
+    final modules = tester.getRect(find.byType(PackModules));
+    final back = tester.getRect(find.bySemanticsLabel(PlayerScreen.back));
+    final window = tester.getRect(find.byKey(FakePlayback.viewKey));
+    expect(modules.left, back.left);
+    expect(modules.top, greaterThan(window.bottom));
+    expect(modules.bottom, lessThan(back.top));
   });
 
   testWidgets('the pacotinho player keeps the frame\'s exit', (tester) async {

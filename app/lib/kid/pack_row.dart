@@ -85,11 +85,15 @@ class PackModules extends StatelessWidget {
     required this.count,
     required this.filled,
     this.height = 10,
+    this.color,
   });
 
   final int count;
   final int filled;
   final double height;
+
+  /// The modules' one colour, off the kid ground.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -97,7 +101,7 @@ class PackModules extends StatelessWidget {
     children: [
       for (var i = 0; i < count; i++) ...[
         if (i > 0) const SizedBox(width: Space.xs),
-        StateModule(filled: i < filled, height: height),
+        StateModule(filled: i < filled, height: height, color: color),
       ],
     ],
   );

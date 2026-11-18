@@ -7,10 +7,10 @@ import '../design/tokens.dart';
 /// the shape ratio's corner.
 enum PlayerGlyph { back, play, pause }
 
-/// One of the player's controls, cut as the PIN pad's keys are: 64 dp at
-/// the kid-target corner, the quiet key in the input tone with an outline
-/// stroke, the filled one in the action colour. Read by its one verb; the
-/// child finds it by its glyph.
+/// One of the player's controls, round, [size] across (64 dp at least):
+/// the quiet key in ink with its glyph in sky, the filled one a sun disc
+/// with a dark glyph, the play disc grown into a key. Read by its one
+/// verb; the child finds it by its glyph.
 class PlayerKey extends StatefulWidget {
   const PlayerKey({
     super.key,
@@ -18,12 +18,14 @@ class PlayerKey extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.filled = false,
+    this.size = KidSizes.target,
   });
 
   final PlayerGlyph glyph;
   final String label;
   final VoidCallback onPressed;
   final bool filled;
+  final double size;
 
   @override
   State<PlayerKey> createState() => _PlayerKeyState();
@@ -35,13 +37,11 @@ class _PlayerKeyState extends State<PlayerKey> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(KidSizes.target * Radii.screenRatio),
-      side: widget.filled
-          ? BorderSide.none
-          : BorderSide(color: p.outline, width: 1.5),
-    );
-    final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
+    final fill = widget.filled ? p.action : BrandColors.ink;
+    final glyph = widget.filled ? p.onAction : BrandColors.sky;
+    final ring =
+        (_focused ? focusRing(p).resolve({WidgetState.focused}) : null) ??
+        BorderSide.none;
     return Semantics(
       container: true,
       button: true,
@@ -49,27 +49,27 @@ class _PlayerKeyState extends State<PlayerKey> {
       onTap: widget.onPressed,
       child: ExcludeSemantics(
         child: SizedBox.square(
-          dimension: KidSizes.target,
+          dimension: widget.size,
           child: DecoratedBox(
             position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(
-              shape: shape.copyWith(side: ring ?? shape.side),
-            ),
+            decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
             child: Material(
-              color: widget.filled ? p.action : p.input,
-              shape: shape,
+              color: fill,
+              shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: widget.onPressed,
                 onFocusChange: (f) => setState(() => _focused = f),
                 focusColor: Colors.transparent,
-                hoverColor: p.outline.withValues(alpha: .08),
-                highlightColor: p.outline.withValues(alpha: .12),
-                splashColor: p.outline.withValues(alpha: .12),
+                hoverColor: glyph.withValues(alpha: .08),
+                highlightColor: glyph.withValues(alpha: .12),
+                splashColor: glyph.withValues(alpha: .12),
                 child: CustomPaint(
+                  // The glyph keeps its share of the key as the key grows.
                   painter: PlayerGlyphPainter(
                     widget.glyph,
-                    widget.filled ? p.onAction : p.text,
+                    glyph,
+                    side: 28 * widget.size / KidSizes.target,
                   ),
                 ),
               ),

@@ -205,9 +205,19 @@ class _PasswordFieldState extends State<PasswordField> {
 /// It measures, so it never takes the action's colour. State is never
 /// carried by colour alone: the text beside it says the same.
 class StateModule extends StatelessWidget {
-  const StateModule({super.key, required this.filled, this.height = 10});
+  const StateModule({
+    super.key,
+    required this.filled,
+    this.height = 10,
+    this.color,
+  });
 
   final bool filled;
+
+  /// The fill and the outline both, where the modules stand on a ground
+  /// of their own (the player's dark room); the meter and the outline by
+  /// default.
+  final Color? color;
 
   /// 10 px beside text; larger where the modules are the content, as in
   /// the PIN pad.
@@ -223,9 +233,12 @@ class StateModule extends StatelessWidget {
       width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(
-        color: filled ? p.meter : Colors.transparent,
+        color: filled ? color ?? p.meter : Colors.transparent,
         borderRadius: BorderRadius.circular(h * Radii.screenRatio),
-        border: Border.all(color: filled ? p.meter : p.outline, width: 1.5),
+        border: Border.all(
+          color: color ?? (filled ? p.meter : p.outline),
+          width: 1.5,
+        ),
       ),
     );
   }
