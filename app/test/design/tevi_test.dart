@@ -102,7 +102,7 @@ void main() {
     final log = paintTevi();
     final d = log.draws;
 
-    test('paints the ten parts in the figure\'s order, nothing else', () {
+    test('paints its eleven shapes in the figure\'s order, nothing else', () {
       expect(d, hasLength(11));
       expect(colorsOf(log), [
         argb(dark), // tail
@@ -119,7 +119,7 @@ void main() {
       ]);
     });
 
-    test('the tail and the beak are the record\'s rounded triangles', () {
+    test('the tail and the beak are the drawing\'s rounded triangles', () {
       expect(d[0].name, #drawPath);
       expect(d[0].bounds, rectNear(3.70, 64.35, 25.62, 83.97));
       expect(d[1].name, #drawPath);
@@ -184,7 +184,7 @@ void main() {
     expect(TeviLook.asleep, const TeviLook(lid: 1, sag: 1, sleepMarks: true));
   });
 
-  group('each look changes only what the record changes', () {
+  group('each look changes only what the mascot\'s drawing changes', () {
     final watching = paintTevi().draws;
 
     void expectBodyAsWatching(List<Draw> d, {int from = 0}) {

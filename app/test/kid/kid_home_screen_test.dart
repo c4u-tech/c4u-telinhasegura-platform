@@ -98,7 +98,7 @@ void main() {
     final shelf = tester.getRect(
       expectPerched(tester, find.byType(EmptyShelf), TeviLook.watching),
     );
-    expect(shelf.size, EmptyShelf.size * 1.5);
+    expect(shelf.size, ShelfPicture.size * 1.5);
     expect(shelf.center.dx, closeTo(1280 / 2, 0.5));
     // Its line grows with it, two type steps: the 192 dp avatar and the
     // shelf read as one composition.
@@ -125,7 +125,7 @@ void main() {
           matching: find.byType(ShelfPicture),
         ),
       ),
-      EmptyShelf.size,
+      ShelfPicture.size,
     );
     expect(
       tester.widget<Text>(find.text(EmptyShelf.line)).style?.fontSize,

@@ -195,6 +195,11 @@ void main() {
     expect(Radii.card, 28);
   });
 
+  test('the small screen drawn in the app is 58 wide for 33 tall, close '
+      'to 16:9', () {
+    expect(Proportions.screen, 58 / 33);
+  });
+
   test('the ink fields keep their own corners: the entry field 40, the '
       'band 26, the rail 28', () {
     expect(FieldSizes.heroCorner, 40);

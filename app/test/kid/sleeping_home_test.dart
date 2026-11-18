@@ -110,7 +110,7 @@ void main() {
       TeviLook.asleep,
       perch: Perch.wire,
     );
-    expect(tester.getSize(picture), EmptyShelf.size * 1.5);
+    expect(tester.getSize(picture), ShelfPicture.size * 1.5);
   });
 
   testWidgets('asleep, only the exit can be acted on; no YouTube logo, no '

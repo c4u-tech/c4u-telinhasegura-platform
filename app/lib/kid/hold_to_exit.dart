@@ -193,7 +193,7 @@ class ExitGlyphPainter extends CustomPainter {
       ..strokeWidth = 2.25
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    const w = 20.0, h = w * 33 / 58;
+    const w = 20.0, h = w / Proportions.screen;
     const top = 16 - h / 2;
     // The screen, open where the arrow leaves it.
     canvas.save();

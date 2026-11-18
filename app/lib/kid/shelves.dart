@@ -311,7 +311,8 @@ class _VideoTileState extends State<VideoTile> {
 
 /// A sun disc with a dark play triangle, set in a pacotinho's corner: it
 /// plays through, video after video. Decoration only: the tile under it
-/// is the target and says what it opens.
+/// is the target and says what it opens, so the disc wears the
+/// indicator's colours, a mark's, not the action's.
 class PlayDisc extends StatelessWidget {
   const PlayDisc({super.key});
 
@@ -327,7 +328,7 @@ class PlayDisc extends StatelessWidget {
     return IgnorePointer(
       child: CustomPaint(
         size: const Size.square(size),
-        painter: _PlayDiscPainter(disc: p.action, glyph: p.onAction),
+        painter: _PlayDiscPainter(disc: p.indicator, glyph: p.onIndicator),
       ),
     );
   }

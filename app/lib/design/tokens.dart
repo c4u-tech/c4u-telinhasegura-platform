@@ -20,9 +20,11 @@ abstract final class BrandColors {
 
 /// The UI palette the brand does not define. Every neutral is tinted from
 /// ink. Sun, beak and sky are brand colours for the mark and its
-/// grounds; none of them is text or a state colour. Sun also fills the
-/// active indicator and, on the dark grounds, the primary action, always
-/// under a dark label, never alone on a light ground.
+/// grounds, never text. Sun is a fill: it carries the active indicator
+/// and, on the dark and child grounds, the primary action, so selection
+/// and progress (a chosen option, a step done) show in it there, always
+/// under a dark label and never alone on a light ground. Beak belongs to
+/// the mark and is never an error colour. Sky is a support ground.
 /// Contrast pairs are asserted in tokens_test.dart.
 class Palette {
   const Palette({
@@ -158,6 +160,13 @@ abstract final class Radii {
 
   /// A panel that groups several rows.
   static const card = 28.0;
+}
+
+/// The proportions of shapes the app draws more than once.
+abstract final class Proportions {
+  /// The small screen (the PIN's slots, a device's or a time's module),
+  /// width over height: 58 by 33, close to 16:9, a screen a child knows.
+  static const screen = 58 / 33;
 }
 
 /// Sizes of the flat field and the mascot standing on it.

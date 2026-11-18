@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show StateModule;
+import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
@@ -124,13 +125,35 @@ void main() {
         expect(
           find.descendant(of: disc, matching: find.byType(CustomPaint)),
           paints
-            ..circle(radius: PlayDisc.size / 2, color: Palette.kid.action)
-            ..path(color: Palette.kid.onAction),
+            ..circle(radius: PlayDisc.size / 2, color: Palette.kid.indicator)
+            ..path(color: Palette.kid.onIndicator),
         );
       }
-      expect(Palette.kid.action, BrandColors.sun);
+      expect(Palette.kid.indicator, BrandColors.sun);
     });
   }
+
+  testWidgets('the play disc is a mark, not an action: it wears the '
+      'indicator\'s colours wherever those differ from the action\'s', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(Brightness.light),
+        home: const Center(child: PlayDisc()),
+      ),
+    );
+    expect(Palette.light.indicator, isNot(Palette.light.action));
+    expect(
+      find.descendant(
+        of: find.byType(PlayDisc),
+        matching: find.byType(CustomPaint),
+      ),
+      paints
+        ..circle(color: Palette.light.indicator)
+        ..path(color: Palette.light.onIndicator),
+    );
+  });
 
   testWidgets('the disc is no target of its own and says nothing: the tile '
       'is still one button read by its title and count', (tester) async {

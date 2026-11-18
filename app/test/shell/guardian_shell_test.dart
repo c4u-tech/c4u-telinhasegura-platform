@@ -356,7 +356,7 @@ void main() {
         final field = tester.getRect(find.byKey(InkRail.fieldKey));
         expect(
           box.top + TeviPainter.perchY * box.width - field.top,
-          moreOrLessEquals(PerchedTevi.overlap, epsilon: .01),
+          moreOrLessEquals(TeviPainter.perchOverlap, epsilon: .01),
         );
         expect(
           box.left + TeviPainter.body.left * box.width,

@@ -217,7 +217,7 @@ class StateModule extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      width: h * 58 / 33,
+      width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(
         color: filled ? p.action : Colors.transparent,

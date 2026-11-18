@@ -258,10 +258,10 @@ void perchedOnTheField() {
           final body = bodyOf(tester);
           expect(
             body.bottom - field.top,
-            moreOrLessEquals(PerchedTevi.overlap, epsilon: .01),
+            moreOrLessEquals(TeviPainter.perchOverlap, epsilon: .01),
             reason: 'the legs land on the edge, a little into the field',
           );
-          expect(PerchedTevi.overlap, inInclusiveRange(1, 3));
+          expect(TeviPainter.perchOverlap, inInclusiveRange(1, 3));
           expect(
             body.left,
             moreOrLessEquals(field.left + Space.xl, epsilon: .01),

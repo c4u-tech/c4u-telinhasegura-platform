@@ -107,6 +107,14 @@ class TeviPainter extends CustomPainter {
   /// stand the figure on an edge by putting this line on it.
   static const perchY = (103.4 + _air) / _box;
 
+  /// How far the legs run past the edge the figure stands on, so they are
+  /// seen to land on it rather than hover.
+  static const perchOverlap = 2.0;
+
+  /// Where the body starts, from the start of what the figure stands on:
+  /// the inset that field's own content keeps.
+  static const perchInset = Space.xl;
+
   /// The highest any look draws, the raised crest's tips, as a fraction
   /// of the box's height from its top: a picture that must hold every
   /// look keeps this line inside it.

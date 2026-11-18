@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../design/field_layout.dart' show PerchedTevi;
 import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
@@ -15,8 +14,6 @@ class EmptyShelf extends StatelessWidget {
   final double scale;
 
   static const line = 'Logo tem vídeo aqui';
-
-  static const size = ShelfPicture.size;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +88,7 @@ class ShelfPicture extends StatelessWidget {
   /// The mascot's box: as large as lets the raised crest's tips reach the
   /// picture's top while its legs land on the screen.
   static const figure =
-      (66 + PerchedTevi.overlap) / (TeviPainter.perchY - TeviPainter.top);
+      (66 + TeviPainter.perchOverlap) / (TeviPainter.perchY - TeviPainter.top);
 
   /// The wire's ends and how far its middle sags below them.
   static const _wireEnds = 114.0;
@@ -112,13 +109,15 @@ class ShelfPicture extends StatelessWidget {
     final s = scale;
     final side = figure * s;
     final start =
-        (screen.left + PerchedTevi.inset) * s - side * TeviPainter.body.left;
+        (screen.left + TeviPainter.perchInset) * s -
+        side * TeviPainter.body.left;
     // The wire is even end to end, so the stand is the same mirrored.
     final stand = switch (perch) {
       Perch.screen => screen.top,
       Perch.wire => wireAt((start + side * _feet) / s) - stroke / 2,
     };
-    final top = (stand + PerchedTevi.overlap) * s - side * TeviPainter.perchY;
+    final top =
+        (stand + TeviPainter.perchOverlap) * s - side * TeviPainter.perchY;
     final child = screenChild;
     final frame = Rect.fromLTRB(
       screen.left * s,

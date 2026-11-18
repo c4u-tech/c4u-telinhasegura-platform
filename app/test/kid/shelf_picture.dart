@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telinha_segura/design/field_layout.dart' show PerchedTevi;
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
@@ -51,13 +50,13 @@ Finder expectPerched(
   };
   expect(
     at.top + at.height * TeviPainter.perchY,
-    closeTo(box.top + (stand + PerchedTevi.overlap) * s, 1e-6),
+    closeTo(box.top + (stand + TeviPainter.perchOverlap) * s, 1e-6),
     reason: 'the legs land on what the mascot stands on',
   );
   expect(
     at.left + at.width * TeviPainter.body.left,
     closeTo(
-      box.left + (ShelfPicture.screen.left + PerchedTevi.inset) * s,
+      box.left + (ShelfPicture.screen.left + TeviPainter.perchInset) * s,
       1e-6,
     ),
     reason: 'the body starts at the start side, as on the guardian\'s field',

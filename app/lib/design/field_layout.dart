@@ -551,19 +551,12 @@ class PerchedTevi extends StatefulWidget {
   /// How long the wink takes: the eye closes, holds and opens again.
   static const winkDuration = Duration(milliseconds: 1400);
 
-  /// How far the legs run past the edge into the field, so they are seen
-  /// to land on it rather than hover.
-  static const overlap = 2.0;
-
-  /// Where the body starts, from the field's start: the inset the
-  /// field's own content keeps.
-  static const inset = Space.xl;
-
   /// The room a mascot [size] wide takes above the field: from the top
   /// of its body down to the edge. The air the figure's box keeps above
   /// the body is left to overhang, since nothing is drawn there.
   static double standOf(double size) =>
-      size * (TeviPainter.perchY - TeviPainter.body.top) - overlap;
+      size * (TeviPainter.perchY - TeviPainter.body.top) -
+      TeviPainter.perchOverlap;
 
   final double size;
   final bool wink;
@@ -667,7 +660,7 @@ class _PerchedTeviState extends State<PerchedTevi>
         // legs end at [TeviPainter.perchY] of its height.
         PositionedDirectional(
           top: -size * TeviPainter.body.top,
-          start: PerchedTevi.inset - size * TeviPainter.body.left,
+          start: TeviPainter.perchInset - size * TeviPainter.body.left,
           width: size,
           height: size,
           child: IgnorePointer(

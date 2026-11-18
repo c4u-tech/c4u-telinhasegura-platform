@@ -442,7 +442,7 @@ void main() {
     // The same picture as the breath's, at the same size.
     expect(
       tester.getSize(picture),
-      EmptyShelf.size *
+      ShelfPicture.size *
           PackBreath.scaleFor(tester.getSize(find.byType(PackGoodbye))),
     );
     expect(progress(3, 3), findsOneWidget);
