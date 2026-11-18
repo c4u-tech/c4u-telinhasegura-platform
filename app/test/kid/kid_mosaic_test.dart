@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:async';
 import 'dart:convert';
 
@@ -794,6 +795,28 @@ void main() {
         expect(tester.getRect(blocks.last).bottom, lessThanOrEqualTo(844 - 34));
       });
     }
+  }
+
+  for (final (catalog, name) in [
+    (sixThemes, ''),
+    (onePack, ', a pacotinho leading'),
+    (withPacks, ', the pacotinhos\' door'),
+  ]) {
+    testWidgets('from 840 px the two columns end on one line$name', (
+      tester,
+    ) async {
+      await mosaic(
+        tester,
+        catalog: () => json(200, catalog),
+        size: const Size(1280, 800),
+      );
+      final start = [
+        for (final f in [highlight, pictures, find.byType(PacksDoor)])
+          for (final e in f.evaluate()) tester.getRect(find.byWidget(e.widget)),
+      ].map((r) => r.bottom).reduce(math.max);
+      expect(tester.getRect(blocks.last).bottom, closeTo(start, .5));
+      expect(scrollExtent(tester), 0);
+    });
   }
 
   testWidgets('from 840 px the highlight and the pictures stand at the start, '

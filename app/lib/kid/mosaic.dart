@@ -83,10 +83,11 @@ class MosaicPlan {
 /// The child home's one screen: the highlight with the mascot standing on
 /// it, the one-tap pictures, and the theme blocks in two columns. On a
 /// phone they stand one under the other; from 840 px the highlight and
-/// the pictures take the start and the blocks the end. The blocks grow to
-/// fill the screen's height, up to a size that still reads as a block,
-/// so a phone with today's catalogue needs no scrolling; with more than
-/// fits, or larger text, the screen scrolls.
+/// the pictures take the start and the blocks the end, both columns
+/// ending on one line. On a phone the blocks grow to fill the screen's
+/// height, up to a size that still reads as a block, so today's
+/// catalogue needs no scrolling; with more than fits, or larger text,
+/// the screen scrolls.
 class KidMosaic extends StatelessWidget {
   const KidMosaic({
     super.key,
@@ -277,14 +278,22 @@ class _Geometry {
     final fill = rows == 0
         ? 0.0
         : (box.maxHeight - above - _bottom - (rows - 1) * blockGap) / rows;
-    final ratio = switch ((wide, grow)) {
-      (false, false) => .70,
-      (false, true) => .90,
-      (true, false) => .62,
-      (true, true) => .80,
-    };
+    // On a phone, up to a size that still reads as a block.
+    final ratio = grow ? .90 : .70;
     final low = math.max(KidSizes.target, bw * .50);
     final high = math.max(low, bw * ratio);
+    // From 840 px the blocks' column ends where the start column does,
+    // so the home reads as one block of two columns; a short start
+    // column (no pictures) leaves the blocks at their floor.
+    final startHeight =
+        highlight.height +
+        (pack ? PackTile.below : 0) +
+        (door
+            ? gap + band
+            : pictures
+            ? gap + picture.height
+            : 0);
+    final even = rows == 0 ? 0.0 : (startHeight - (rows - 1) * blockGap) / rows;
     return _Geometry(
       wide: wide,
       inset: inset,
@@ -294,7 +303,7 @@ class _Geometry {
       highlight: highlight,
       picture: picture,
       door: band,
-      block: Size(bw, fill.clamp(low, high)),
+      block: Size(bw, wide ? math.max(low, even) : fill.clamp(low, high)),
       gap: gap,
       blockGap: blockGap,
     );
