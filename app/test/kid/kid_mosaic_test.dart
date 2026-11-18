@@ -189,10 +189,11 @@ void main() {
 
     test('the first pacotinho leads; the pictures are the first videos of '
         'the themes from the first, never its cover', () {
-      final plan = MosaicPlan.of(read(withPacks), band: AgeBand.from5To8);
+      final plan = MosaicPlan.of(read(onePack), band: AgeBand.from5To8);
       expect(plan.pack?.id, 'k1');
       expect(plan.video, isNull);
       expect(plan.pictures.map((v) => v.id), ['v1', 'v3']);
+      expect(plan.packsDoor, isFalse);
       final coverFirst = read({
         ...withPacks,
         'packs': [
@@ -209,6 +210,16 @@ void main() {
         ).pictures.map((v) => v.id),
         ['v3', 'v4'],
       );
+    });
+
+    test('with more pacotinhos than the one leading, their door takes the '
+        'pictures\' place: no pictures that day', () {
+      final plan = MosaicPlan.of(read(withPacks), band: AgeBand.from5To8);
+      expect(plan.pack?.id, 'k1');
+      expect(plan.packsDoor, isTrue);
+      expect(plan.pictures, isEmpty);
+      expect(plan.packs.map((p) => p.id), ['k1', 'k2']);
+      expect(plan.blocks, hasLength(6));
     });
 
     test('up to 4, no pictures: the blocks grow instead; every other band, '
@@ -754,10 +765,10 @@ void main() {
   for (final (band, catalog, name) in [
     ('5-8', sixThemes, ''),
     ('5-8', onePack, ', a pacotinho leading'),
-    ('5-8', withPacks, ', the pacotinhos\' door among the blocks'),
+    ('5-8', withPacks, ', the pacotinhos\' door'),
     ('ate-4', sixThemes, ''),
     ('ate-4', onePack, ', a pacotinho leading'),
-    ('ate-4', withPacks, ', the pacotinhos\' door among the blocks'),
+    ('ate-4', withPacks, ', the pacotinhos\' door'),
   ]) {
     testWidgets('at 390 × 844 with six themes the home needs no scrolling '
         '($band$name)', (tester) async {
@@ -767,17 +778,22 @@ void main() {
     });
   }
 
-  for (final (catalog, name) in [
-    (sixThemes, ''),
-    (onePack, ', a pacotinho leading'),
-  ]) {
-    testWidgets('on a 390 × 844 phone with its insets (47 at the top, 34 at '
-        'the foot) six themes still need no scrolling$name', (tester) async {
-      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
-      await mosaic(tester, catalog: () => json(200, catalog));
-      expect(scrollExtent(tester), 0);
-      expect(tester.getRect(blocks.last).bottom, lessThanOrEqualTo(844 - 34));
-    });
+  for (final band in ['5-8', 'ate-4']) {
+    for (final (catalog, name) in [
+      (sixThemes, ''),
+      (onePack, ', a pacotinho leading'),
+      (withPacks, ', the pacotinhos\' door'),
+    ]) {
+      testWidgets('on a 390 × 844 phone with its insets (47 at the top, 34 at '
+          'the foot) six themes still need no scrolling ($band$name)', (
+        tester,
+      ) async {
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        await mosaic(tester, catalog: () => json(200, catalog), band: band);
+        expect(scrollExtent(tester), 0);
+        expect(tester.getRect(blocks.last).bottom, lessThanOrEqualTo(844 - 34));
+      });
+    }
   }
 
   testWidgets('from 840 px the highlight and the pictures stand at the start, '

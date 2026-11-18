@@ -18,16 +18,18 @@ import 'theme_glyph.dart';
 /// the first video of the first theme), up to two pictures that play at
 /// one tap (the first videos of the themes that follow, never the
 /// highlight's picture again), and one block per theme that has videos,
-/// in the catalogue's order, led by a door to every pacotinho when the
-/// day has more than the one it leads with. A child up to 4 gets no
-/// small pictures: one large picture and the blocks are enough to choose
-/// from.
+/// in the catalogue's order. A day with more pacotinhos than the one it
+/// leads with gives the pictures' place to a door to all of them. A child
+/// up to 4 gets no small pictures: one large picture and the blocks are
+/// enough to choose from, with the pacotinhos' door between them on such
+/// a day.
 class MosaicPlan {
   const MosaicPlan._({
     required this.pack,
     required this.video,
     required this.pictures,
     required this.blocks,
+    required this.packs,
     required this.packsDoor,
   });
 
@@ -42,17 +44,19 @@ class MosaicPlan {
     // first; a video stands for its own, so they start after it.
     final from = pack != null ? blocks : blocks.skip(1);
     final shown = pack?.coverVideoId ?? video?.id;
+    final packsDoor = catalog.packs.length > 1;
     return MosaicPlan._(
       pack: pack,
       video: video,
-      pictures: band == AgeBand.upTo4
+      pictures: band == AgeBand.upTo4 || packsDoor
           ? const []
           : [
               for (final shelf in from)
                 if (shelf.videos.first.id != shown) shelf.videos.first,
             ].take(maxPictures).toList(),
       blocks: blocks,
-      packsDoor: catalog.packs.length > 1,
+      packs: catalog.packs,
+      packsDoor: packsDoor,
     );
   }
 
@@ -64,7 +68,11 @@ class MosaicPlan {
   final List<KidVideo> pictures;
   final List<KidShelf> blocks;
 
-  /// The pacotinhos after the first have a door of their own.
+  /// Every pacotinho of the day, the first leading.
+  final List<KidPack> packs;
+
+  /// The pacotinhos after the first have a door of their own, in the
+  /// pictures' place.
   final bool packsDoor;
 
   /// Nothing to watch today: no pacotinho and no video in any theme.
@@ -133,7 +141,8 @@ class KidMosaic extends StatelessWidget {
           wide: MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint,
           pack: plan.pack != null,
           pictures: plan.pictures.isNotEmpty,
-          blocks: plan.blocks.length + (plan.packsDoor ? 1 : 0),
+          door: plan.packsDoor,
+          blocks: plan.blocks.length,
           grow: band == AgeBand.upTo4,
         );
         final lead = _Highlight(
@@ -156,17 +165,25 @@ class KidMosaic extends StatelessWidget {
               onTap: onPlay == null ? null : () => onPlay!(v),
             ),
         ];
+        final packs = plan.packs;
+        final door = !plan.packsDoor
+            ? null
+            : Builder(
+                builder: (context) => PacksDoor(
+                  size: Size(g.start, g.door),
+                  // The next pacotinho in front, another peeking behind.
+                  covers: [
+                    packs[1].coverVideoId,
+                    packs[packs.length > 2 ? 2 : 0].coverVideoId,
+                  ],
+                  thumbnail: thumbnail,
+                  wide: g.wide,
+                  onTap: onOpenPacks == null
+                      ? null
+                      : () => onOpenPacks!(_placeOf(context)),
+                ),
+              );
         final blocks = [
-          if (plan.packsDoor)
-            Builder(
-              builder: (context) => PacksDoor(
-                size: g.block,
-                wide: g.wide,
-                onTap: onOpenPacks == null
-                    ? null
-                    : () => onOpenPacks!(_placeOf(context)),
-              ),
-            ),
           for (final shelf in plan.blocks)
             Builder(
               builder: (context) => ThemeBlock(
@@ -186,6 +203,7 @@ class KidMosaic extends StatelessWidget {
           note: note,
           lead: lead,
           pictures: pictures,
+          door: door,
           blocks: blocks,
         );
       },
@@ -209,6 +227,7 @@ class _Geometry {
     required this.tevi,
     required this.highlight,
     required this.picture,
+    required this.door,
     required this.block,
     required this.gap,
     required this.blockGap,
@@ -221,6 +240,7 @@ class _Geometry {
     required bool pictures,
     required int blocks,
     required bool grow,
+    bool door = false,
   }) {
     final inset = wide ? _insetWide : _inset;
     final room = box.maxWidth - 2 * inset;
@@ -235,6 +255,9 @@ class _Geometry {
     final highlight = Size(start, start * 9 / 16);
     final pw = (start - gap) / 2;
     final picture = Size(pw, pw * 9 / 16);
+    // The pacotinhos' door: a band as tall as a picture's row, never
+    // under a child's target nor taller than a phone's row.
+    final band = picture.height.clamp(KidSizes.target, _doorMax);
     final bw = (end - blockGap) / 2;
     final rows = (blocks / 2).ceil();
     // What stands above and below the blocks, in their column.
@@ -244,7 +267,11 @@ class _Geometry {
             ? 0
             : highlight.height +
                   (pack ? PackTile.below : 0) +
-                  (pictures ? gap + picture.height : 0) +
+                  (door
+                      ? gap + band
+                      : pictures
+                      ? gap + picture.height
+                      : 0) +
                   gap);
     final fill = rows == 0
         ? 0.0
@@ -265,6 +292,7 @@ class _Geometry {
       tevi: tevi,
       highlight: highlight,
       picture: picture,
+      door: band,
       block: Size(bw, fill.clamp(low, high)),
       gap: gap,
       blockGap: blockGap,
@@ -279,6 +307,9 @@ class _Geometry {
   static const _between = 40.0;
   static const _tevi = 104.0;
   static const _teviWide = 128.0;
+
+  /// The pacotinhos' door's tallest.
+  static const _doorMax = 112.0;
 
   /// The air above the mascot's raised crest.
   static const _air = Space.sm;
@@ -298,6 +329,9 @@ class _Geometry {
   final double tevi;
   final Size highlight;
   final Size picture;
+
+  /// The pacotinhos' door's height.
+  final double door;
   final Size block;
   final double gap;
   final double blockGap;
@@ -349,6 +383,7 @@ class _Arrangement extends StatelessWidget {
     required this.lead,
     required this.pictures,
     required this.blocks,
+    this.door,
     this.note,
   });
 
@@ -356,6 +391,9 @@ class _Arrangement extends StatelessWidget {
   final Widget? note;
   final Widget lead;
   final List<Widget> pictures;
+
+  /// The pacotinhos' door, in the pictures' place.
+  final Widget? door;
   final List<Widget> blocks;
 
   @override
@@ -381,7 +419,10 @@ class _Arrangement extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         lead,
-        if (pictures.isNotEmpty) ...[
+        if (door case final door?) ...[
+          SizedBox(height: g.gap),
+          door,
+        ] else if (pictures.isNotEmpty) ...[
           SizedBox(height: g.gap),
           pair(pictures, g.gap),
         ],
@@ -641,23 +682,28 @@ class _ThemeBlockState extends State<ThemeBlock> {
   }
 }
 
-/// The door to every pacotinho of the day, first among the blocks: no
-/// world of its own, only the home's ground inside a cream outline, and
-/// the pacotinhos' sign. One button, read "Pacotinhos".
+/// The door to every pacotinho of the day, in the one-tap pictures' place:
+/// a band the content's width, filled with the input tone (apart from the
+/// home's ground and from every theme's world), the pacotinhos' sign at
+/// its start and, at its end, the next pacotinho's cover with another
+/// peeking behind it. One button, read "Pacotinhos".
 class PacksDoor extends StatefulWidget {
   const PacksDoor({
     super.key,
     required this.size,
     required this.onTap,
+    this.covers = const [],
+    this.thumbnail,
     this.wide = false,
   });
 
   final Size size;
   final VoidCallback? onTap;
-  final bool wide;
 
-  /// The outline's width.
-  static const stroke = 2.0;
+  /// The videos whose pictures stand as covers: the front one first.
+  final List<String> covers;
+  final ThumbnailLoader? thumbnail;
+  final bool wide;
 
   @override
   State<PacksDoor> createState() => _PacksDoorState();
@@ -669,11 +715,27 @@ class _PacksDoorState extends State<PacksDoor> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final line = ColourWorlds.home.figure;
+    final figure = ColourWorlds.home.figure;
+    final size = widget.size;
+    final pad = widget.wide ? Space.lg : Space.md;
+    final glyph = widget.wide ? 56.0 : 48.0;
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(Radii.card),
     );
     final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
+    // The front cover fills the band's height below the peek, and keeps
+    // clear of the sign.
+    final coverH = math.max(
+      0.0,
+      size.height - Space.md - ThemeBlock.peek - Space.sm,
+    );
+    final coverW = math.min(
+      coverH * 16 / 9,
+      size.width - 2 * pad - glyph - Space.md,
+    );
+    final cover = Size(coverW, coverW * 9 / 16);
+    final thumbnail = widget.thumbnail;
+    final covers = thumbnail == null ? const <String>[] : widget.covers;
     return Semantics(
       container: true,
       button: true,
@@ -682,38 +744,58 @@ class _PacksDoorState extends State<PacksDoor> {
       onTap: widget.onTap,
       child: ExcludeSemantics(
         child: SizedBox.fromSize(
-          size: widget.size,
+          size: size,
           child: DecoratedBox(
             position: DecorationPosition.foreground,
             decoration: ShapeDecoration(
               shape: shape.copyWith(side: ring ?? BorderSide.none),
             ),
-            child: DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: ShapeDecoration(
-                shape: shape.copyWith(
-                  side: BorderSide(
-                    color: line,
-                    width: PacksDoor.stroke,
-                    strokeAlign: BorderSide.strokeAlignInside,
+            child: Material(
+              color: p.input,
+              shape: shape,
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  PositionedDirectional(
+                    start: pad,
+                    top: (size.height - glyph) / 2,
+                    child: PackGlyph(size: glyph, color: figure),
                   ),
-                ),
-              ),
-              child: Material(
-                type: MaterialType.transparency,
-                shape: shape,
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: widget.onTap,
-                  onFocusChange: (f) => setState(() => _focused = f),
-                  focusColor: Colors.transparent,
-                  hoverColor: line.withValues(alpha: .08),
-                  highlightColor: line.withValues(alpha: .12),
-                  splashColor: line.withValues(alpha: .12),
-                  child: Center(
-                    child: PackGlyph(size: widget.wide ? 80 : KidSizes.target),
+                  if (covers.length > 1)
+                    PositionedDirectional(
+                      end: Space.md + ThemeBlock.peek,
+                      bottom: Space.md + ThemeBlock.peek,
+                      width: cover.width - 2 * ThemeBlock.peek,
+                      height: cover.height,
+                      child: BlockCover(
+                        videoId: covers[1],
+                        thumbnail: thumbnail!,
+                        color: figure,
+                      ),
+                    ),
+                  if (covers.isNotEmpty)
+                    PositionedDirectional(
+                      end: Space.md,
+                      bottom: Space.md,
+                      width: cover.width,
+                      height: cover.height,
+                      child: BlockCover(
+                        videoId: covers.first,
+                        thumbnail: thumbnail!,
+                        color: figure,
+                      ),
+                    ),
+                  Positioned.fill(
+                    child: InkWell(
+                      onTap: widget.onTap,
+                      onFocusChange: (f) => setState(() => _focused = f),
+                      focusColor: Colors.transparent,
+                      hoverColor: figure.withValues(alpha: .08),
+                      highlightColor: figure.withValues(alpha: .12),
+                      splashColor: figure.withValues(alpha: .12),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show StateModule;
+import 'package:telinha_segura/curation/curation.dart' show VideoTheme;
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
@@ -14,10 +15,11 @@ import 'package:telinha_segura/kid/player_screen.dart';
 import 'package:telinha_segura/kid/room_screen.dart';
 import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid/tap_guard.dart';
+import 'package:telinha_segura/kid/theme_glyph.dart';
 import 'package:telinha_segura/shell/routes.dart';
 
 import '../access/harness.dart';
-import 'kid_mosaic_test.dart' show blocks, video;
+import 'kid_mosaic_test.dart' show blocks, mosaic, sixThemes, video;
 import 'pack_player_test.dart' show opened, packKid, withPack;
 import 'theme_page_test.dart' show plays;
 
@@ -38,6 +40,31 @@ final Map<String, Object?> threePacks = {
       'cover_video_id': 'v2',
       'videos': [video('v2'), video('v3')],
       'fits': false,
+    },
+  ],
+};
+
+/// Six themes and three pacotinhos, as a full day brings them.
+final Map<String, Object?> sixThemesWithPacks = {
+  ...sixThemes,
+  'packs': [
+    {
+      'id': 'k1',
+      'title': 'Bichos do mar',
+      'cover_video_id': 'v2',
+      'videos': [video('v1'), video('v2')],
+    },
+    {
+      'id': 'k2',
+      'title': 'Canções',
+      'cover_video_id': 'v3',
+      'videos': [video('v3'), video('v1')],
+    },
+    {
+      'id': 'k3',
+      'title': 'Histórias',
+      'cover_video_id': 'v4',
+      'videos': [video('v4'), video('v5')],
     },
   ],
 };
@@ -64,45 +91,67 @@ Future<Harness> packsPage(
 }
 
 void main() {
-  testWidgets('with two pacotinhos or more, the blocks open on a door to all '
-      'of them, outlined on the home\'s ground, read "Pacotinhos"', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final h = packKid(catalog: () => threePacks);
-    await h.pump(tester, initial: '/crianca');
+  for (final band in ['5-8', 'ate-4']) {
+    testWidgets('with two pacotinhos or more ($band), a filled band the '
+        'content\'s width opens on all of them, between the highlight and '
+        'the blocks, in the one-tap pictures\' place, read "Pacotinhos"', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final h = await mosaic(
+        tester,
+        catalog: () => json(200, sixThemesWithPacks),
+        band: band,
+      );
 
-    expect(door, findsOneWidget);
-    final at = tester.getRect(door);
-    expect(at.width, tester.getSize(blocks.first).width);
-    expect(at.height, closeTo(tester.getSize(blocks.first).height, 1e-6));
-    expect(at.left, lessThan(tester.getRect(blocks.first).left));
-    expect(at.top, tester.getRect(blocks.first).top);
-    expect(
-      find.descendant(of: door, matching: find.byType(PackGlyph)),
-      findsOne,
-    );
-    expect(find.bySemanticsLabel('Pacotinhos'), findsOne);
-    final sides = [
-      for (final d in tester.widgetList<DecoratedBox>(
-        find.descendant(of: door, matching: find.byType(DecoratedBox)),
-      ))
-        if (d.decoration case ShapeDecoration(
-          shape: RoundedRectangleBorder(:final side),
-        ))
-          side.color,
-    ];
-    expect(sides, contains(BrandColors.cream));
-    expect(
-      tester
+      expect(door, findsOneWidget);
+      final at = tester.getRect(door);
+      final top = tester.getRect(find.byType(HighlightPicture));
+      expect(at.left, top.left);
+      expect(at.width, top.width);
+      expect(at.height, greaterThanOrEqualTo(KidSizes.target));
+      expect(at.top, greaterThan(top.bottom));
+      expect(tester.getRect(blocks.first).top, greaterThan(at.bottom));
+      // The pictures give way to it that day; the six worlds keep their
+      // even grid.
+      expect(find.byType(OneTapPicture), findsNothing);
+      expect(blocks, findsNWidgets(6));
+      expect(
+        tester.getRect(blocks.at(1)).top,
+        tester.getRect(blocks.first).top,
+      );
+      // Filled on the input tone, apart from the home and every world.
+      final ground = tester
           .widget<Material>(
             find.descendant(of: door, matching: find.byType(Material)).first,
           )
-          .color,
-      anyOf(isNull, Colors.transparent),
-    );
-    semantics.dispose();
-  });
+          .color;
+      expect(ground, Palette.kid.input);
+      expect(ground, isNot(ColourWorlds.home.ground));
+      for (final t in VideoTheme.values) {
+        expect(ground, isNot(worldOf(t).ground), reason: t.name);
+      }
+      expect(
+        find.descendant(of: door, matching: find.byType(PackGlyph)),
+        findsOne,
+      );
+      // The next pacotinho's cover in front, another peeking behind.
+      final covers = tester
+          .widgetList<BlockCover>(
+            find.descendant(of: door, matching: find.byType(BlockCover)),
+          )
+          .map((c) => c.videoId)
+          .toList();
+      expect(covers, unorderedEquals(['v3', 'v4']));
+      expect(find.bySemanticsLabel('Pacotinhos'), findsOne);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Pacotinhos')),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+      expect(h.location(tester), '/crianca');
+      semantics.dispose();
+    });
+  }
 
   testWidgets('with one pacotinho, no door', (tester) async {
     final h = packKid();
