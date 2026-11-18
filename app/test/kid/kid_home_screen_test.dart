@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family.dart';
@@ -60,6 +61,20 @@ Finder labelled(String label) => find.byWidgetPredicate(
   (w) => w is Semantics && w.properties.label == label,
 );
 
+/// Whether the home stands on the night's dark.
+bool nightGround(WidgetTester tester) =>
+    tester
+        .widget<Scaffold>(
+          find
+              .descendant(
+                of: find.byType(KidLayout),
+                matching: find.byType(Scaffold),
+              )
+              .first,
+        )
+        .backgroundColor ==
+    BrandColors.dark;
+
 String profileCalls(Harness h) =>
     h.calls.where((c) => c == 'GET /v1/child/profile').join(',');
 
@@ -93,46 +108,22 @@ void main() {
     expect(labelled('Telinha Segura'), findsNothing);
   });
 
-  testWidgets('asleep, the child finds their avatar, large and centred, with '
-      'the nickname beneath', (tester) async {
-    await kidHome(tester, asleep: true);
+  for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+    testWidgets('asleep at ${size.width.toInt()} px the strip is the home\'s: '
+        'the avatar small at its start, read by the nickname, level with the '
+        'exit; no mark, no large avatar, no nickname written', (tester) async {
+      await kidHome(tester, size: size, asleep: true);
 
-    final disc = tester.widget<AvatarDisc>(avatar);
-    expect((disc.avatar, disc.size), (Avatar.fox, KidSizes.avatarLarge));
-    final rect = tester.getRect(avatar);
-    expect(rect.center.dx, closeTo(390 / 2, 0.5));
-    final name = tester.getRect(find.text('Lia'));
-    expect(name.top, greaterThan(rect.bottom));
-    expect(name.center.dx, closeTo(rect.center.dx, 0.5));
-  });
-
-  testWidgets('asleep at 840 px and wider the avatar and the nickname scale '
-      'up, still centred', (tester) async {
-    final theme = Theme.of;
-    await kidHome(tester, size: const Size(1280, 800), asleep: true);
-
-    expect(tester.widget<AvatarDisc>(avatar).size, KidSizes.avatarWide);
-    final rect = tester.getRect(avatar);
-    expect(rect.size, const Size.square(KidSizes.avatarWide));
-    expect(rect.center.dx, closeTo(1280 / 2, 0.5));
-    final name = find.text('Lia');
-    expect(
-      tester.widget<Text>(name).style?.fontSize,
-      theme(tester.element(name)).textTheme.displaySmall?.fontSize,
-    );
-  });
-
-  testWidgets('asleep narrower than 840 px they keep their sizes', (
-    tester,
-  ) async {
-    final theme = Theme.of;
-    await kidHome(tester, size: const Size(839, 800), asleep: true);
-    expect(tester.widget<AvatarDisc>(avatar).size, KidSizes.avatarLarge);
-    expect(
-      tester.widget<Text>(find.text('Lia')).style?.fontSize,
-      theme(tester.element(find.text('Lia'))).textTheme.headlineSmall?.fontSize,
-    );
-  });
+      final disc = tester.widget<AvatarDisc>(avatar);
+      expect((disc.avatar, disc.size), (Avatar.fox, KidMosaic.avatar));
+      final rect = tester.getRect(avatar);
+      expect(rect.left, Space.xl);
+      expect(rect.center.dy, tester.getCenter(find.byType(HoldToExit)).dy);
+      expect(labelled('Lia'), findsOneWidget);
+      expect(find.text('Lia'), findsNothing);
+      expect(labelled('Telinha Segura'), findsNothing);
+    });
+  }
 
   for (final (size, scale) in [
     (const Size(390, 844), 1.25),
@@ -159,22 +150,29 @@ void main() {
     });
   }
 
-  for (final (size, disc) in [
-    (const Size(390, 844), KidSizes.avatarLarge),
-    (const Size(1440, 900), KidSizes.avatarWide),
-  ]) {
-    testWidgets('asleep at ${size.width.toInt()} px the ${disc.toInt()} dp '
-        'avatar keeps the animal clear inside its ring, ink between them: no '
-        'ear reaches it (fix round, item 2)', (tester) async {
-      await kidHome(tester, size: size, asleep: true);
-      await tester.pumpAndSettle();
+  for (final disc in [KidSizes.avatar, 132.0]) {
+    testWidgets('a ${disc.toInt()} dp avatar keeps the animal clear inside '
+        'its ring, ink between them: no ear reaches it (fix round, item 2)', (
+      tester,
+    ) async {
+      // On the child's ink, where the ring is drawn.
+      await tester.pumpWidget(
+        Theme(
+          data: buildTheme(Brightness.dark, Palette.kid),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(child: AvatarDisc(Avatar.fox, size: disc)),
+          ),
+        ),
+      );
 
-      expect(tester.getSize(avatar), Size.square(disc));
+      final found = find.byType(AvatarDisc);
+      expect(tester.getSize(found), Size.square(disc));
       final painter =
           tester
                   .widget<CustomPaint>(
                     find.descendant(
-                      of: avatar,
+                      of: found,
                       matching: find.byType(CustomPaint),
                     ),
                   )
@@ -219,26 +217,6 @@ void main() {
       expect(ring.top, greaterThanOrEqualTo(16));
       expect(size.width - ring.right, greaterThanOrEqualTo(16));
       expect(box.center.dy, tester.getCenter(avatar).dy);
-    });
-  }
-
-  for (final size in [const Size(390, 844), const Size(1440, 900)]) {
-    testWidgets('asleep at ${size.width.toInt()} px the mark sits quietly at '
-        'the strip\'s start: 24 px, 24 px in, on the exit\'s line', (
-      tester,
-    ) async {
-      await kidHome(tester, size: size, asleep: true);
-      final mark = tester.getRect(
-        find.descendant(
-          of: find.byType(KidLayout),
-          matching: find.bySemanticsLabel('Telinha Segura'),
-        ),
-      );
-      final exit = tester.getRect(find.byType(HoldToExit));
-
-      expect(mark.size, const Size.square(24));
-      expect(mark.left, Space.xl);
-      expect(mark.center.dy, exit.center.dy);
     });
   }
 
@@ -363,8 +341,16 @@ void main() {
       await pausedHome(tester);
 
       expect(find.byType(PausedProfile), findsOneWidget);
-      // The mascot looks back over its shoulder, toward the adult.
-      expectPerched(tester, find.byType(PausedProfile), TeviLook.lookingBack);
+      // On the night's dark, the mascot asleep on its wire, as on a day
+      // without time: nothing to do until an adult comes.
+      expectPerched(
+        tester,
+        find.byType(PausedProfile),
+        TeviLook.asleep,
+        perch: Perch.wire,
+        night: true,
+      );
+      expect(nightGround(tester), isTrue);
       expect(
         PausedProfile.line,
         'Este perfil está pausado. Peça a um adulto para abrir o app e '

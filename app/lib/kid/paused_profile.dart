@@ -6,9 +6,10 @@ import '../design/tokens.dart';
 import 'empty_shelf.dart';
 
 /// The child home of a profile waiting for a guardian to authorize it
-/// again: in the shelf's place, the mascot on its hollow screen looking
-/// back over its shoulder, toward the adult, and one calm line for the
-/// adult nearby. No way out but the exit behind the parents' PIN.
+/// again: in the pictures' place, the mascot asleep on its wire, as on a
+/// day without time, since nothing is for the child to do, and one calm
+/// line for the adult nearby. No way out but the exit behind the parents'
+/// PIN.
 class PausedProfile extends StatelessWidget {
   const PausedProfile({super.key, this.scale = 1});
 
@@ -27,7 +28,7 @@ class PausedProfile extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShelfPicture(look: TeviLook.lookingBack, scale: scale),
+        ShelfPicture(look: TeviLook.asleep, perch: Perch.wire, scale: scale),
         const SizedBox(height: Space.lg),
         Semantics(
           liveRegion: true,

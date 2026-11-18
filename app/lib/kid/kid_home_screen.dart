@@ -35,11 +35,11 @@ import 'tap_guard.dart';
 /// catalogue failed) the empty shelf or the way to try again stands in
 /// its place, larger from 840 px wide. Without a child (deleted, or the
 /// read failed) the neutral avatar stands alone and the exit still works.
-/// A day without time (used up, or outside the hours) sleeps:
-/// the avatar and nickname stand large with the sleeping telinha beneath
-/// them, whatever the catalogue holds. A profile waiting for a guardian
-/// to authorize it again is paused the same way, saying so; only the exit
-/// behind the PIN leaves it.
+/// A day without time (used up, or outside the hours) sleeps on the
+/// night's dark, the sleeping telinha in the pictures' place, whatever
+/// the catalogue holds. A profile waiting for a guardian to authorize it
+/// again is paused the same way, saying so; only the exit behind the PIN
+/// leaves it.
 class KidHomeScreen extends StatefulWidget {
   const KidHomeScreen({super.key});
 
@@ -318,52 +318,18 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         ),
       );
     }
-    final profile = _profile;
-    final avatarSize = wide ? KidSizes.avatarWide : KidSizes.avatarLarge;
+    // Asleep or paused, the home is a dark room: the strip as on the
+    // awake home, and the mascot asleep on its wire.
+    final scale = wide ? 1.5 : 1.25;
     return KidLayout(
       exit: exit,
+      lead: avatar,
+      ground: BrandColors.dark,
       // Below the frame's kid theme, so the text takes the kid dialect.
-      child: Builder(
-        builder: (context) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // The child and their picture, read as one: the nickname.
-            MergeSemantics(
-              child: Column(
-                children: [
-                  AvatarDisc(
-                    profile?.avatar ?? Avatar.unknown,
-                    size: avatarSize,
-                    excludeSemantics: true,
-                  ),
-                  if (profile != null) ...[
-                    const SizedBox(height: Space.md),
-                    Text(
-                      profile.nickname,
-                      textAlign: TextAlign.center,
-                      style: wide
-                          ? Theme.of(context).textTheme.displaySmall
-                          : Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.xxxl),
-            if (paused)
-              Center(
-                child: PausedProfile(scale: avatarSize / KidSizes.avatarLarge),
-              )
-            else if (time != null)
-              Center(
-                child: SleepingTelinha(
-                  state: time,
-                  scale: avatarSize / KidSizes.avatarLarge,
-                ),
-              ),
-          ],
-        ),
+      child: Center(
+        child: paused
+            ? PausedProfile(scale: scale)
+            : SleepingTelinha(state: time!, scale: scale),
       ),
     );
   }
