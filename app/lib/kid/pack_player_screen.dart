@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../curation/kid_catalog.dart';
-import '../design/espiadinha.dart';
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../screentime/kid_time.dart';
@@ -43,7 +43,7 @@ enum _Phase { playing, breath, goodbye }
 /// Each video is an ordinary
 /// play the server re-checks, in the player's whole window. When one ends
 /// the player goes and the breath stands in its place: the next cover and
-/// the Espiadinha, continuing by itself after [breath] or at a tap. After
+/// the mascot, continuing by itself after [breath] or at a tap. After
 /// the last, the goodbye, then the shelves; nothing plays after it. A
 /// video refused is passed over; a day without time sends the home to
 /// sleep.
@@ -414,9 +414,8 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
 
 /// The breath between two videos, in the window's place: on
 /// the input tone, the next video's cover in a screen frame with the
-/// Espiadinha peeking over its top edge, eyes looking down into it. No
-/// number, no filling bar. A tap continues; the key beside it says so to
-/// assistive technology.
+/// mascot standing on its top edge, winking. No number, no filling bar.
+/// A tap continues; the key beside it says so to assistive technology.
 class PackBreath extends StatelessWidget {
   const PackBreath({
     super.key,
@@ -429,21 +428,16 @@ class PackBreath extends StatelessWidget {
   final Future<Uint8List> cover;
   final VoidCallback onTap;
 
-  /// One unit of the mark's grid in a window of [size]: the art 64 units
-  /// wide, 22 of head over a 33-unit screen, as large as the window holds
-  /// with room around it. The goodbye stands at the same size.
-  static double unitFor(Size size) => [
-    size.height * .78 / (EspiadinhaPainter.height + 33),
-    size.width * .7 / EspiadinhaPainter.width,
+  /// The picture's scale in a window of [size]: as large as the window
+  /// holds with room around it. The goodbye stands at the same size.
+  static double scaleFor(Size size) => [
+    size.height * .78 / ShelfPicture.size.height,
+    size.width * .7 / ShelfPicture.size.width,
   ].reduce((a, b) => a < b ? a : b);
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    // The art on the mark's grid: 64 units wide, 22 of head over a 58 ×
-    // 33 screen; as large as the window holds with room around it.
-    final u = unitFor(size);
-    final screen = Radius.circular(10 * u);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // The keys beside it say the same to assistive technology.
@@ -455,46 +449,21 @@ class PackBreath extends StatelessWidget {
           child: ColoredBox(
             color: p.input,
             child: Center(
-              child: SizedBox(
-                width: EspiadinhaPainter.width * u,
-                height: (EspiadinhaPainter.height + 33) * u,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 3 * u,
-                      top: EspiadinhaPainter.height * u,
-                      width: 58 * u,
-                      height: 33 * u,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.all(screen),
-                        child: FutureBuilder(
-                          future: cover,
-                          builder: (context, snap) => switch (snap) {
-                            AsyncSnapshot(hasData: true, :final data!) =>
-                              Image.memory(
-                                data,
-                                fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                                errorBuilder: (_, _, _) =>
-                                    const HollowThumbnail(),
-                              ),
-                            AsyncSnapshot(hasError: true) =>
-                              const HollowThumbnail(),
-                            _ => const SizedBox.expand(),
-                          },
-                        ),
-                      ),
+              child: ShelfPicture(
+                look: TeviLook.winking,
+                scale: scaleFor(size),
+                screenChild: FutureBuilder(
+                  future: cover,
+                  builder: (context, snap) => switch (snap) {
+                    AsyncSnapshot(hasData: true, :final data!) => Image.memory(
+                      data,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      errorBuilder: (_, _, _) => const HollowThumbnail(),
                     ),
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: EspiadinhaPainter.width * u,
-                      height: EspiadinhaPainter.height * u,
-                      child: CustomPaint(
-                        painter: EspiadinhaPainter(palette: Palette.kid),
-                      ),
-                    ),
-                  ],
+                    AsyncSnapshot(hasError: true) => const HollowThumbnail(),
+                    _ => const SizedBox.expand(),
+                  },
                 ),
               ),
             ),
@@ -505,9 +474,9 @@ class PackBreath extends StatelessWidget {
   }
 }
 
-/// A pacotinho's end, in the window's place: the Espiadinha
-/// waving over its empty screen, eyes open, and one word, "Fim". Nothing
-/// more to watch; a tap goes back to the shelves sooner.
+/// A pacotinho's end, in the window's place: the mascot
+/// asleep over its empty screen, and one word, "Fim". Nothing more to
+/// watch; a tap goes back to the shelves sooner.
 class PackGoodbye extends StatelessWidget {
   const PackGoodbye({super.key, required this.size, required this.onTap});
 
@@ -524,9 +493,6 @@ class PackGoodbye extends StatelessWidget {
     final text = wide
         ? Theme.of(context).textTheme.displaySmall
         : Theme.of(context).textTheme.headlineSmall;
-    // The same Espiadinha as the breath's, at the same size; the empty
-    // shelf's drawing is 3 dp a unit.
-    final art = PackBreath.unitFor(size) / 3;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // The keys beside it say the same to assistive technology.
@@ -545,11 +511,10 @@ class PackGoodbye extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(
-                    child: CustomPaint(
-                      size: EmptyShelf.size * art,
-                      painter: const EmptyShelfPainter(waving: true),
-                    ),
+                  // The breath's picture, at the same size.
+                  ShelfPicture(
+                    look: TeviLook.asleep,
+                    scale: PackBreath.scaleFor(size),
                   ),
                   const SizedBox(height: Space.md),
                   Semantics(

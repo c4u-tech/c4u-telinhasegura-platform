@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'empty_shelf.dart';
 
 /// The child home of a profile waiting for a guardian to authorize it
-/// again: in the shelf's place, the Espiadinha resting on its hollow
-/// screen, eyes closed, and one calm line for the adult nearby. No way
-/// out but the exit behind the parents' PIN.
+/// again: in the shelf's place, the mascot on its hollow screen looking
+/// back over its shoulder, toward the adult, and one calm line for the
+/// adult nearby. No way out but the exit behind the parents' PIN.
 class PausedProfile extends StatelessWidget {
   const PausedProfile({super.key, this.scale = 1});
 
@@ -26,12 +27,7 @@ class PausedProfile extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ExcludeSemantics(
-          child: CustomPaint(
-            size: EmptyShelf.size * scale,
-            painter: const EmptyShelfPainter(asleep: true),
-          ),
-        ),
+        ShelfPicture(look: TeviLook.lookingBack, scale: scale),
         const SizedBox(height: Space.lg),
         Semantics(
           liveRegion: true,

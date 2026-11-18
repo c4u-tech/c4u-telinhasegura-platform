@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../curation/kid_catalog.dart';
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'empty_shelf.dart';
@@ -56,7 +57,7 @@ class KidShelves extends StatelessWidget {
 }
 
 /// One theme's shelf: the glyph at the column's start, then its videos in
-/// a row that runs to the screen's edge, the next tile peeking.
+/// a row that runs to the screen's edge, the next tile showing at it.
 class Shelf extends StatelessWidget {
   const Shelf({
     super.key,
@@ -381,8 +382,8 @@ class ShelvesLoading extends StatelessWidget {
   }
 }
 
-/// The catalogue did not come: the hollow screen, a line for the adult
-/// and one way to try again.
+/// The catalogue did not come: the mascot's crest raised over the hollow
+/// screen, a line for the adult and one way to try again.
 class ShelvesFailed extends StatelessWidget {
   const ShelvesFailed({super.key, required this.onRetry});
 
@@ -396,14 +397,7 @@ class ShelvesFailed extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Center(
-        child: ExcludeSemantics(
-          child: CustomPaint(
-            size: EmptyShelf.size,
-            painter: const EmptyShelfPainter(),
-          ),
-        ),
-      ),
+      const Center(child: ShelfPicture(look: TeviLook.crestUp)),
       const SizedBox(height: Space.lg),
       Text(
         line,

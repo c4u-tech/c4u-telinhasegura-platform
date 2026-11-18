@@ -78,17 +78,24 @@ class TeviLook {
 ///
 /// The colours are the brand's own, not the theme's: the mascot is the
 /// mark. On the darkest ground its dark parts (tail, crown, mask, legs
-/// and pupil) would vanish, so [night] paints them in ink instead.
+/// and pupil) would vanish, so [night] paints them in ink instead. The
+/// marks of sleep float off the figure, on the ground itself: ink suits
+/// a light ground, and [markColor] gives them one that shows on a dark
+/// one.
 class TeviPainter extends CustomPainter {
   const TeviPainter({
     this.look = TeviLook.watching,
     this.tier = TeviTier.full,
     this.night = false,
+    this.markColor = BrandColors.ink,
   });
 
   final TeviLook look;
   final TeviTier tier;
   final bool night;
+
+  /// The two "Z" marks of sleep.
+  final Color markColor;
 
   /// The box's side, in figure units.
   static const _box = 132.0;
@@ -99,6 +106,11 @@ class TeviPainter extends CustomPainter {
   /// Where the legs end, as a fraction of the box's height from its top:
   /// stand the figure on an edge by putting this line on it.
   static const perchY = (103.4 + _air) / _box;
+
+  /// The highest any look draws, the raised crest's tips, as a fraction
+  /// of the box's height from its top: a picture that must hold every
+  /// look keeps this line inside it.
+  static const top = (7.88 + _air) / _box;
 
   /// The body's rounded rectangle, as fractions of the box.
   static const body = Rect.fromLTRB(
@@ -249,7 +261,7 @@ class TeviPainter extends CustomPainter {
 
     if (look.sleepMarks) {
       for (final z in _marks) {
-        canvas.drawPath(z, fill(BrandColors.ink));
+        canvas.drawPath(z, fill(markColor));
       }
     }
     canvas.restore();
@@ -362,7 +374,10 @@ class TeviPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(TeviPainter old) =>
-      old.look != look || old.tier != tier || old.night != night;
+      old.look != look ||
+      old.tier != tier ||
+      old.night != night ||
+      old.markColor != markColor;
 }
 
 /// The mascot at [size] by [size]. It is decoration unless given a
@@ -375,6 +390,7 @@ class Tevi extends StatelessWidget {
     this.tier = TeviTier.full,
     this.look = TeviLook.watching,
     this.night = false,
+    this.markColor = BrandColors.ink,
     this.semanticLabel,
   });
 
@@ -384,13 +400,21 @@ class Tevi extends StatelessWidget {
 
   /// The night colours, for the darkest ground.
   final bool night;
+
+  /// The marks of sleep: ink by default, for a light ground.
+  final Color markColor;
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final figure = CustomPaint(
       size: Size.square(size),
-      painter: TeviPainter(look: look, tier: tier, night: night),
+      painter: TeviPainter(
+        look: look,
+        tier: tier,
+        night: night,
+        markColor: markColor,
+      ),
     );
     final label = semanticLabel;
     if (label == null) return ExcludeSemantics(child: figure);

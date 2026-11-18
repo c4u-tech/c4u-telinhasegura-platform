@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telinha_segura/design/espiadinha.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
@@ -34,13 +34,8 @@ Future<void> pumpKid(
   );
 }
 
-Finder get mark => find.byWidgetPredicate(
-  (w) => w is CustomPaint && w.painter is SimplifiedMarkPainter,
-);
-
-bool darkOval(Symbol method, List<dynamic> args) =>
-    method == #drawOval &&
-    (args[1] as Paint).color.toARGB32() == BrandColors.dark.toARGB32();
+Finder get mark =>
+    find.descendant(of: find.byType(KidLayout), matching: find.byType(Tevi));
 
 void main() {
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
@@ -77,11 +72,12 @@ void main() {
     expect(palette, Palette.kid);
   });
 
-  testWidgets('the simplified mark only, small, at the top edge; no '
+  testWidgets('the simplified mascot only, small, at the top edge; no '
       'wordmark', (tester) async {
     await pumpKid(tester, const KidLayout(child: SizedBox()));
     final rect = tester.getRect(mark);
-    expect(rect.height, inInclusiveRange(20, 47));
+    expect(rect.size, const Size.square(KidLayout.markSize));
+    expect(KidLayout.markSize, 24);
     expect(rect.top, greaterThanOrEqualTo(_safe.top));
     expect(rect.top, lessThan(_safe.top + KidSizes.target));
     // At the strip's start, quiet (fullscreen design).
@@ -90,30 +86,22 @@ void main() {
     expect(find.byType(Text), findsNothing);
   });
 
-  testWidgets('sun only in the head, alone on ink with dark eyes', (
-    tester,
-  ) async {
-    await pumpKid(tester, const KidLayout(child: SizedBox()));
-    expect(
-      mark,
-      paints
-        ..rrect(color: BrandColors.cream)
-        ..path(color: BrandColors.sun, style: PaintingStyle.fill)
-        ..something(darkOval)
-        ..something(darkOval),
-    );
-    // No outline on ink: nothing is stroked.
-    expect(
-      mark,
-      isNot(
-        paints..something(
-          (_, args) => args.whereType<Paint>().any(
-            (p) => p.style == PaintingStyle.stroke,
-          ),
-        ),
-      ),
-    );
-  });
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('the mark is the mascot simplified, watching, in its day '
+        'colours on ink in the ${mode.name} theme, read as the app\'s '
+        'name', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpKid(tester, const KidLayout(child: SizedBox()), mode: mode);
+      final tevi = tester.widget<Tevi>(mark);
+      expect(
+        (tevi.tier, tevi.look, tevi.night),
+        (TeviTier.simplified, TeviLook.watching, false),
+      );
+      expect(tevi.semanticLabel, 'Telinha Segura');
+      expect(find.bySemanticsLabel('Telinha Segura'), findsOneWidget);
+      semantics.dispose();
+    });
+  }
 
   testWidgets('the exit slot sits in the top corner, 16 dp in from the '
       'safe area, level with the mark (fix round, item 4)', (tester) async {

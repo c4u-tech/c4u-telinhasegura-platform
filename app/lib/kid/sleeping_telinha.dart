@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../screentime/kid_time.dart';
 import 'empty_shelf.dart';
 
-/// The child home's day without time: in the empty shelf's place, the Espiadinha peeking into its
-/// hollow screen with its eyes closed, and one muted line. No minutes, no
-/// counter: the picture says the day is done, and the line is all
-/// assistive technology reads.
+/// The child home's day without time: in the empty shelf's place, the
+/// mascot asleep on a wire where the screen was, and one muted line. No
+/// minutes, no counter: the picture says the day is done, and the line is
+/// all assistive technology reads.
 class SleepingTelinha extends StatelessWidget {
   const SleepingTelinha({super.key, required this.state, this.scale = 1});
 
@@ -31,12 +32,7 @@ class SleepingTelinha extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ExcludeSemantics(
-          child: CustomPaint(
-            size: EmptyShelf.size * scale,
-            painter: const EmptyShelfPainter(asleep: true),
-          ),
-        ),
+        ShelfPicture(look: TeviLook.asleep, perch: Perch.wire, scale: scale),
         const SizedBox(height: Space.lg),
         Text(
           state == KidTimeState.outsideWindow ? outsideWindow : timeUp,

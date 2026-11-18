@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../design/espiadinha.dart';
+import '../design/field_layout.dart' show PerchedTevi;
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 
-/// Where the player will go, empty for now: the
-/// Espiadinha peeking into an empty screen, and one short line the child
-/// need not read to do anything.
+/// Where the player will go, empty for now: the mascot watching from the
+/// top of an empty screen, and one short line the child need not read to
+/// do anything.
 class EmptyShelf extends StatelessWidget {
   const EmptyShelf({super.key, this.scale = 1});
 
@@ -15,9 +16,7 @@ class EmptyShelf extends StatelessWidget {
 
   static const line = 'Logo tem vídeo aqui';
 
-  /// The mark's 64 units wide, from the head's top to the screen's foot
-  /// (55 units), at 3 dp a unit.
-  static const size = Size(192, 165);
+  static const size = ShelfPicture.size;
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +27,7 @@ class EmptyShelf extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ExcludeSemantics(
-          child: CustomPaint(
-            size: size * scale,
-            painter: const EmptyShelfPainter(),
-          ),
-        ),
+        ShelfPicture(look: TeviLook.watching, scale: scale),
         const SizedBox(height: Space.lg),
         Text(
           line,
@@ -49,53 +43,185 @@ class EmptyShelf extends StatelessWidget {
   }
 }
 
-/// The Espiadinha on the kid ground (head and fingers in sun, standing
-/// alone, eyes in dark looking down) over its screen, hollow as a free
-/// module is: a cream outline with nothing inside. Sun stays the head's
-/// and the fingers'.
-class EmptyShelfPainter extends CustomPainter {
-  const EmptyShelfPainter({this.asleep = false, this.waving = false});
+/// What the mascot stands on in a [ShelfPicture].
+enum Perch {
+  /// The top edge of a screen, hollow as a free module is, or holding a
+  /// picture.
+  screen,
 
-  /// Its eyes closed: the sleeping telinha.
-  final bool asleep;
+  /// A single line across the screen's width, sagging a little, like a
+  /// wire: the screen is gone, and the day with it.
+  wire,
+}
 
-  /// Its hands up: a pacotinho's goodbye.
-  final bool waving;
+/// The picture every child state shows in the shelf's place: the mascot
+/// in [look], perched at the start side of a screen or a wire, as it
+/// stands on the guardian's field. Its legs land a little into the line,
+/// and every look, the raised crest too, stays inside the picture. On
+/// the child's ink ground the figure keeps its day colours, and the marks
+/// of sleep are drawn in sky so they show.
+class ShelfPicture extends StatelessWidget {
+  const ShelfPicture({
+    super.key,
+    required this.look,
+    this.perch = Perch.screen,
+    this.scale = 1,
+    this.screenChild,
+  });
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final u = size.width / EspiadinhaPainter.width;
-    canvas.save();
-    EspiadinhaPainter(
-      palette: Palette.kid,
-      asleep: asleep,
-      waving: waving,
-    ).paint(canvas, Size(size.width, EspiadinhaPainter.height * u));
-    canvas.restore();
-    // The screen: 58 × 33 at its 10-unit corner, its top edge where the
-    // fingers grip, the stroke kept inside its outline.
-    const stroke = 1.5;
-    canvas.save();
-    canvas.scale(u);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(
-          3 + stroke / 2,
-          EspiadinhaPainter.height + stroke / 2,
-          58 - stroke,
-          33 - stroke,
-        ),
-        const Radius.circular(10 - stroke / 2),
-      ),
-      Paint()
-        ..color = BrandColors.cream
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke,
-    );
-    canvas.restore();
+  final TeviLook look;
+  final Perch perch;
+
+  /// The whole picture's scale: [size] at 1.
+  final double scale;
+
+  /// Fills the screen, cut to its corners, instead of leaving it hollow
+  /// (the next video's cover).
+  final Widget? screenChild;
+
+  static const size = Size(192, 165);
+
+  /// The screen, in the picture's own units: the room above it is the
+  /// mascot's.
+  static const screen = Rect.fromLTWH(9, 66, 174, 99);
+
+  /// The width of the line the screen or the wire is drawn with.
+  static const stroke = 4.5;
+
+  /// The mascot's box: as large as lets the raised crest's tips reach the
+  /// picture's top while its legs land on the screen.
+  static const figure =
+      (66 + PerchedTevi.overlap) / (TeviPainter.perchY - TeviPainter.top);
+
+  /// The wire's ends and how far its middle sags below them.
+  static const _wireEnds = 114.0;
+  static const _wireSag = 3.0;
+
+  /// The figure's feet, midway between its legs, as a fraction of its box.
+  static const _feet = (53 + 6) / 132;
+
+  /// The wire's centreline at [x], both in the picture's own units: it
+  /// runs across the screen's middle, from its start to its end.
+  static double wireAt(double x) {
+    final t = (x - screen.left) / screen.width;
+    return _wireEnds + 4 * _wireSag * t * (1 - t);
   }
 
   @override
-  bool shouldRepaint(EmptyShelfPainter old) =>
-      old.asleep != asleep || old.waving != waving;
+  Widget build(BuildContext context) {
+    final s = scale;
+    final side = figure * s;
+    final start =
+        (screen.left + PerchedTevi.inset) * s - side * TeviPainter.body.left;
+    // The wire is even end to end, so the stand is the same mirrored.
+    final stand = switch (perch) {
+      Perch.screen => screen.top,
+      Perch.wire => wireAt((start + side * _feet) / s) - stroke / 2,
+    };
+    final top = (stand + PerchedTevi.overlap) * s - side * TeviPainter.perchY;
+    final child = screenChild;
+    final frame = Rect.fromLTRB(
+      screen.left * s,
+      screen.top * s,
+      screen.right * s,
+      screen.bottom * s,
+    );
+    return ExcludeSemantics(
+      child: SizedBox.fromSize(
+        size: size * s,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if (child != null)
+              Positioned.fromRect(
+                rect: frame,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    screen.height * Radii.screenRatio * s,
+                  ),
+                  child: child,
+                ),
+              )
+            else
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _PerchPainter(
+                    perch: perch,
+                    color: context.palette.onField,
+                  ),
+                ),
+              ),
+            // The figure paints after what it stands on, so its legs show
+            // over the line. It faces the content: mirrored right to left.
+            PositionedDirectional(
+              start: start,
+              top: top,
+              width: side,
+              height: side,
+              child: Transform.flip(
+                flipX: Directionality.of(context) == TextDirection.rtl,
+                child: Tevi(size: side, look: look, markColor: BrandColors.sky),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The hollow screen, stroked inside its outline, or the wire.
+class _PerchPainter extends CustomPainter {
+  const _PerchPainter({required this.perch, required this.color});
+
+  final Perch perch;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const screen = ShelfPicture.screen;
+    final s = size.width / ShelfPicture.size.width;
+    final stroke = ShelfPicture.stroke * s;
+    final line = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    switch (perch) {
+      case Perch.screen:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTRB(
+              screen.left * s,
+              screen.top * s,
+              screen.right * s,
+              screen.bottom * s,
+            ).deflate(stroke / 2),
+            Radius.circular(
+              (screen.height * Radii.screenRatio - ShelfPicture.stroke / 2) * s,
+            ),
+          ),
+          line,
+        );
+      case Perch.wire:
+        final ends = ShelfPicture.wireAt(screen.left);
+        // The quadratic's control point lies twice as far below the ends
+        // as the centreline's lowest point.
+        final control = 2 * ShelfPicture.wireAt(screen.center.dx) - ends;
+        canvas.drawPath(
+          Path()
+            ..moveTo(screen.left * s, ends * s)
+            ..quadraticBezierTo(
+              screen.center.dx * s,
+              control * s,
+              screen.right * s,
+              ends * s,
+            ),
+          line..strokeCap = StrokeCap.round,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PerchPainter old) =>
+      old.perch != perch || old.color != color;
 }

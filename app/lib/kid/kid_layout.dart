@@ -3,13 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../design/espiadinha.dart';
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 
 /// The frame of every child screen, "dentro da telinha":
 /// the ink field is the whole ground, edge to edge, in either
-/// theme; the simplified mark sits small at the top strip's start, quiet
+/// theme; the simplified mascot sits small at the top strip's start, quiet
 /// (fullscreen design); [exit] takes the top end corner; [child] is
 /// centred in a column that scrolls rather than overflow. Everything inside paints in the kid dialect. A [fullWidth]
 /// screen (the shelves) takes the whole width from the top instead, its
@@ -43,8 +43,7 @@ class KidLayout extends StatelessWidget {
   /// area (the player in fullscreen, fullscreen design).
   final bool strip;
 
-  /// The simplified mark's tier is 20–47 px; small and quiet, not a
-  /// heading.
+  /// The simplified mascot, small and quiet: not a heading.
   static const markSize = 24.0;
 
   /// The exit's inset from the safe area's top and side: its ring, 2 dp
@@ -87,13 +86,12 @@ class KidLayout extends StatelessWidget {
                           padding: const EdgeInsetsDirectional.only(
                             start: Space.xl,
                           ),
-                          child: Semantics(
-                            image: true,
-                            label: 'Telinha Segura',
-                            child: const CustomPaint(
-                              size: Size.square(markSize),
-                              painter: SimplifiedMarkPainter(),
-                            ),
+                          // The child's ground is ink in both themes, so
+                          // the figure keeps its day colours.
+                          child: const Tevi(
+                            size: markSize,
+                            tier: TeviTier.simplified,
+                            semanticLabel: 'Telinha Segura',
                           ),
                         ),
                       ),

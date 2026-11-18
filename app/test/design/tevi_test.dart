@@ -58,13 +58,18 @@ FigureLog paintTevi({
   TeviLook look = TeviLook.watching,
   TeviTier tier = TeviTier.full,
   bool night = false,
+  Color? markColor,
 }) {
   final log = FigureLog();
-  TeviPainter(
-    look: look,
-    tier: tier,
-    night: night,
-  ).paint(log, const Size.square(132));
+  (markColor == null
+          ? TeviPainter(look: look, tier: tier, night: night)
+          : TeviPainter(
+              look: look,
+              tier: tier,
+              night: night,
+              markColor: markColor,
+            ))
+      .paint(log, const Size.square(132));
   return log;
 }
 
@@ -223,6 +228,16 @@ void main() {
       expect(d[10].bounds, rectNear(108.68, 10.21, 114.88, 17.60));
     });
 
+    test('asleep on a dark ground: the marks take the colour given, and '
+        'nothing else changes', () {
+      final ink = colorsOf(paintTevi(look: TeviLook.asleep));
+      final sky = colorsOf(
+        paintTevi(look: TeviLook.asleep, markColor: BrandColors.sky),
+      );
+      expect(sky.sublist(0, 9), ink.sublist(0, 9));
+      expect(sky.sublist(9), [argb(BrandColors.sky), argb(BrandColors.sky)]);
+    });
+
     test('looking back: the pupil and the highlight 6.2 to the rear', () {
       final d = paintTevi(look: TeviLook.lookingBack).draws;
       expect(d, hasLength(11));
@@ -293,12 +308,15 @@ void main() {
       TeviLook look = TeviLook.watching,
       TeviTier tier = TeviTier.full,
       bool night = false,
-    }) => TeviPainter(look: look, tier: tier, night: night);
+      Color markColor = BrandColors.ink,
+    }) =>
+        TeviPainter(look: look, tier: tier, night: night, markColor: markColor);
 
     expect(p().shouldRepaint(p()), isFalse);
     expect(p(look: const TeviLook(lid: .3)).shouldRepaint(p()), isTrue);
     expect(p(tier: TeviTier.simplified).shouldRepaint(p()), isTrue);
     expect(p(night: true).shouldRepaint(p()), isTrue);
+    expect(p(markColor: BrandColors.sky).shouldRepaint(p()), isTrue);
   });
 
   test('lerp reaches both looks and passes between them', () {
@@ -315,6 +333,16 @@ void main() {
       TeviPainter.body,
       const Rect.fromLTRB(20 / 132, 26 / 132, 104 / 132, 96 / 132),
     );
+    // The raised crest's tips are the highest any look draws: the marks
+    // of sleep stay below them.
+    expect(TeviPainter.top, (7.88 + 6) / 132);
+    final crest = paintTevi(look: TeviLook.crestUp).draws.first.bounds;
+    expect(crest.top, closeTo(TeviPainter.top * 132 - 6, .02));
+    final asleep = paintTevi(look: TeviLook.asleep).draws;
+    expect(
+      asleep.map((d) => d.bounds.top).reduce((a, b) => a < b ? a : b),
+      greaterThan(crest.top),
+    );
   });
 
   testWidgets('the widget sizes the figure and is silent unless labelled', (
@@ -324,7 +352,9 @@ void main() {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: Center(child: Tevi(size: 66, night: true)),
+        child: Center(
+          child: Tevi(size: 66, night: true, markColor: BrandColors.sky),
+        ),
       ),
     );
     expect(tester.getSize(find.byType(Tevi)), const Size.square(66));
@@ -335,6 +365,8 @@ void main() {
       ),
     );
     expect((paint.painter! as TeviPainter).night, isTrue);
+    expect((paint.painter! as TeviPainter).markColor, BrandColors.sky);
+    expect(const Tevi(size: 66).markColor, BrandColors.ink);
     expect(find.bySemanticsLabel(RegExp('.')), findsNothing);
 
     await tester.pumpWidget(

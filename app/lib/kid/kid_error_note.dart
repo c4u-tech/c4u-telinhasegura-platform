@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'empty_shelf.dart';
 
 /// The child side's error note: the picture
-/// first, the Espiadinha peeking into its hollow screen, as on the empty
-/// shelf, then one calm line in ember on dark for the adult nearby. No
-/// alarm icon: a pre-reader reads the picture, and the picture is calm.
+/// first, the mascot on its hollow screen with its crest raised, as on the
+/// empty shelf but surprised, then one calm line in ember on dark for the
+/// adult nearby. No alarm icon: a pre-reader reads the picture, and the
+/// picture is calm.
 ///
 /// Asleep, nothing went wrong: the video is only longer than the time left.
-/// The Espiadinha closes its eyes, as on the day without time, and the
+/// The mascot sleeps on its wire, as on the day without time, and the
 /// line is the sleeping telinha's muted one, with no error ground, so a
 /// child who cannot read yet sees "not now", not "broken".
 class KidErrorNote extends StatelessWidget {
@@ -23,7 +25,7 @@ class KidErrorNote extends StatelessWidget {
 
   final String message;
 
-  /// The Espiadinha's eyes closed and the line calm: "not now".
+  /// The mascot asleep and the line calm: "not now".
   final bool asleep;
 
   /// The picture's height.
@@ -39,11 +41,10 @@ class KidErrorNote extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ExcludeSemantics(
-            child: CustomPaint(
-              size: EmptyShelf.size * (picture / EmptyShelf.size.height),
-              painter: EmptyShelfPainter(asleep: asleep),
-            ),
+          ShelfPicture(
+            look: asleep ? TeviLook.asleep : TeviLook.crestUp,
+            perch: asleep ? Perch.wire : Perch.screen,
+            scale: picture / ShelfPicture.size.height,
           ),
           const SizedBox(height: Space.md),
           DecoratedBox(

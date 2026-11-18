@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/curation/curation.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
@@ -10,6 +11,7 @@ import 'package:telinha_segura/kid/shelves.dart';
 
 import '../access/harness.dart';
 import 'kid_shelves_test.dart';
+import 'shelf_picture.dart';
 
 /// Today's shelves where `v2` is longer than the time left, and one
 /// pacotinho whose videos together do not fit.
@@ -76,16 +78,12 @@ void main() {
 
     final note = tester.widget<KidErrorNote>(find.byType(KidErrorNote));
     expect(note.asleep, isTrue);
-    final painter = find.descendant(
-      of: find.byType(KidErrorNote),
-      matching: find.byWidgetPredicate(
-        (w) => w is CustomPaint && w.painter is EmptyShelfPainter,
-      ),
-    );
-    expect(
-      (tester.widget<CustomPaint>(painter).painter! as EmptyShelfPainter)
-          .asleep,
-      isTrue,
+    // Asleep on its wire, as on the day without time: "not now".
+    expectPerched(
+      tester,
+      find.byType(KidErrorNote),
+      TeviLook.asleep,
+      perch: Perch.wire,
     );
     final line = tester.widget<Text>(find.text(PlayerScreen.doesNotFit));
     expect(line.style?.color, isNot(Palette.kid.error));

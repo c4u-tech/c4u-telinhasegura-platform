@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show ErrorNote;
 import 'package:telinha_segura/auth/api_error.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
@@ -19,6 +20,7 @@ import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
 import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'shelf_picture.dart';
 
 /// A shared kid whose API answers the catalogue, thumbnails, and a play
 /// with [play] (`yt1` by default).
@@ -282,6 +284,8 @@ void main() {
       // The kid note: a picture and the line, never the guardian's alarm
       // icon.
       expect(find.byType(KidErrorNote), findsOneWidget);
+      // The mascot raises its crest: something did not go as planned.
+      expectPerched(tester, find.byType(KidErrorNote), TeviLook.crestUp);
       expect(find.byType(ErrorNote), findsNothing);
       expect(find.text(PlayerScreen.videoGone), findsOneWidget);
       expect(
@@ -559,6 +563,7 @@ void main() {
     expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
     final note = find.byType(KidErrorNote);
     expect(note, findsOneWidget);
+    expectPerched(tester, note, TeviLook.crestUp);
     expect(find.text(PlayerScreen.videoFailed), findsOneWidget);
     // Where the player stood: the note never sat over it.
     expect(tester.getRect(note).overlaps(player), isTrue);
