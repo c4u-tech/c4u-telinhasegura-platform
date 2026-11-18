@@ -18,9 +18,11 @@ class ErrorNote extends StatelessWidget {
       liveRegion: true,
       container: true,
       child: DecoratedBox(
+        // The corner of the fields and buttons around it, so the note
+        // reads as one of the column's blocks.
         decoration: BoxDecoration(
           color: p.errorGround,
-          borderRadius: BorderRadius.circular(Radii.small),
+          borderRadius: BorderRadius.circular(Radii.control),
         ),
         child: Padding(
           padding: const EdgeInsets.all(Space.md),
