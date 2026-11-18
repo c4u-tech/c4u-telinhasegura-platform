@@ -819,6 +819,41 @@ void main() {
     });
   }
 
+  for (final (catalog, name) in [
+    (sixThemes, ''),
+    (onePack, ', a pacotinho leading'),
+  ]) {
+    testWidgets('from 840 px up to 4 the blocks grow at least as tall as for '
+        '5-8, the highlight stands centred against them, with no '
+        'scrolling$name', (tester) async {
+      await mosaic(
+        tester,
+        catalog: () => json(200, catalog),
+        size: const Size(1280, 800),
+      );
+      final older = tester.getSize(blocks.first).height;
+      await tester.pumpWidget(const SizedBox());
+
+      await mosaic(
+        tester,
+        catalog: () => json(200, catalog),
+        size: const Size(1280, 800),
+        band: 'ate-4',
+      );
+      expect(tester.takeException(), isNull);
+      expect(pictures, findsNothing);
+      expect(blocks, findsNWidgets(6));
+      expect(tester.getSize(blocks.first).height, greaterThanOrEqualTo(older));
+      expect(scrollExtent(tester), 0);
+      final grid = tester
+          .getRect(blocks.first)
+          .expandToInclude(tester.getRect(blocks.last));
+      final top = tester.getRect(highlight);
+      expect(top.center.dy, closeTo(grid.center.dy, .5));
+      expect(top.bottom, lessThanOrEqualTo(grid.bottom));
+    });
+  }
+
   testWidgets('from 840 px the highlight and the pictures stand at the start, '
       'the blocks in two columns at the end, with no scrolling', (
     tester,

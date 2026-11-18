@@ -260,6 +260,7 @@ class _Geometry {
     required this.block,
     required this.gap,
     required this.blockGap,
+    required this.lift,
   });
 
   factory _Geometry.of(
@@ -310,8 +311,10 @@ class _Geometry {
     final low = math.max(KidSizes.target, bw * .50);
     final high = math.max(low, bw * ratio);
     // From 840 px the blocks' column ends where the start column does,
-    // so the home reads as one block of two columns; a short start
-    // column (no pictures) leaves the blocks at their floor.
+    // so the home reads as one block of two columns. For the youngest,
+    // who have no pictures beside the highlight, the blocks grow into
+    // the height instead, and the start column stands centred against
+    // them.
     final startHeight =
         highlight.height +
         (pack ? PackTile.below : 0) +
@@ -321,6 +324,10 @@ class _Geometry {
             ? gap + picture.height
             : 0);
     final even = rows == 0 ? 0.0 : (startHeight - (rows - 1) * blockGap) / rows;
+    final height = wide
+        ? (grow ? fill.clamp(low, high) : math.max(low, even))
+        : fill.clamp(low, high);
+    final grid = rows == 0 ? 0.0 : rows * height + (rows - 1) * blockGap;
     return _Geometry(
       wide: wide,
       inset: inset,
@@ -330,7 +337,8 @@ class _Geometry {
       highlight: highlight,
       picture: picture,
       door: band,
-      block: Size(bw, wide ? math.max(low, even) : fill.clamp(low, high)),
+      block: Size(bw, height),
+      lift: wide ? math.max(0.0, (grid - startHeight) / 2) : 0,
       gap: gap,
       blockGap: blockGap,
     );
@@ -368,6 +376,10 @@ class _Geometry {
   final Size block;
   final double gap;
   final double blockGap;
+
+  /// How far the start column stands below the blocks' top, from 840 px,
+  /// to sit centred against a taller column of blocks.
+  final double lift;
 
   double get stand => _standOf(tevi);
   double get bottom => _bottom;
@@ -466,7 +478,10 @@ class _Arrangement extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(width: g.start, child: start),
+              Padding(
+                padding: EdgeInsets.only(top: g.lift),
+                child: SizedBox(width: g.start, child: start),
+              ),
               const SizedBox(width: _Geometry._between),
               Padding(
                 padding: EdgeInsets.only(top: g.stand),
