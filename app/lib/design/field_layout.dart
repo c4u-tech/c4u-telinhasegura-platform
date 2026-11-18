@@ -636,8 +636,11 @@ class _PerchedTeviState extends State<PerchedTevi>
   Widget build(BuildContext context) {
     final size = widget.size;
     // On the dark theme's ground the figure's dark parts would vanish, so
-    // they take the night colours there.
-    final night = context.palette.brightness == Brightness.dark;
+    // they take the night colours there, unless the screen says which
+    // ground it stands on.
+    final night =
+        TeviGround.maybeNightAt(context) ??
+        context.palette.brightness == Brightness.dark;
     final figure = AnimatedBuilder(
       animation: _lid,
       builder: (context, _) => Tevi(

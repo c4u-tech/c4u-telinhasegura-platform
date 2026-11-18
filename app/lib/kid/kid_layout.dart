@@ -23,6 +23,7 @@ class KidLayout extends StatelessWidget {
     required this.child,
     this.exit,
     this.lead,
+    this.mark = true,
     this.leadInset = Space.xl,
     this.ground,
     this.rise = 0,
@@ -48,6 +49,11 @@ class KidLayout extends StatelessWidget {
   /// What stands at the strip's start in the mark's place (the child's
   /// own avatar on their home).
   final Widget? lead;
+
+  /// False: without [lead] the strip's start stays empty. Where the
+  /// mascot stands whole on the screen, a small one beside it says
+  /// nothing more.
+  final bool mark;
 
   /// [lead]'s distance from the start edge: a key as large as the exit
   /// stands as far from its edge as the exit does from its own.
@@ -91,15 +97,19 @@ class KidLayout extends StatelessWidget {
           alignment: AlignmentDirectional.centerStart,
           child: Padding(
             padding: EdgeInsetsDirectional.only(start: leadInset),
-            // The child's ground is ink in both themes, so the figure
-            // keeps its day colours.
+            // The figure takes its colours from the ground below it.
             child:
                 lead ??
-                const Tevi(
-                  size: markSize,
-                  tier: TeviTier.simplified,
-                  semanticLabel: 'Telinha Segura',
-                ),
+                (mark
+                    ? Builder(
+                        builder: (context) => Tevi(
+                          size: markSize,
+                          tier: TeviTier.simplified,
+                          night: TeviGround.nightAt(context),
+                          semanticLabel: 'Telinha Segura',
+                        ),
+                      )
+                    : const SizedBox.shrink()),
           ),
         ),
         if (exit case final exit?)
@@ -114,69 +124,77 @@ class KidLayout extends StatelessWidget {
     child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: ground ?? Palette.kid.ground,
+        backgroundColor: _ground,
         // Bare, the safe area's larger vertical inset stands on both sides,
         // so what fills it is centred on the screen, clear of a home
         // indicator (fullscreen design).
-        body: SafeArea(
-          top: strip,
-          bottom: strip,
-          minimum: strip
-              ? EdgeInsets.zero
-              : EdgeInsets.symmetric(vertical: _vertical(context)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (strip && rise == 0) _strip(),
-              Expanded(
-                child: rise > 0
-                    ? Stack(
-                        children: [
-                          Positioned.fill(
-                            top: stripHeight - rise,
-                            child: child,
-                          ),
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: stripHeight,
-                            child: _strip(),
-                          ),
-                        ],
-                      )
-                    : !scrolls
-                    ? child
-                    : fullWidth
-                    ? SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(vertical: Space.xl),
-                        child: child,
-                      )
-                    : LayoutBuilder(
-                        builder: (context, box) => SingleChildScrollView(
-                          padding: const EdgeInsets.all(Space.xl),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: box.maxHeight - 2 * Space.xl,
+        // Every mascot on the screen reads this ground for its colours.
+        body: TeviGround(
+          color: _ground,
+          child: SafeArea(
+            top: strip,
+            bottom: strip,
+            minimum: strip
+                ? EdgeInsets.zero
+                : EdgeInsets.symmetric(vertical: _vertical(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (strip && rise == 0) _strip(),
+                Expanded(
+                  child: rise > 0
+                      ? Stack(
+                          children: [
+                            Positioned.fill(
+                              top: stripHeight - rise,
+                              child: child,
                             ),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: FieldSizes.columnMaxWidth,
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: stripHeight,
+                              child: _strip(),
+                            ),
+                          ],
+                        )
+                      : !scrolls
+                      ? child
+                      : fullWidth
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: Space.xl,
+                          ),
+                          child: child,
+                        )
+                      : LayoutBuilder(
+                          builder: (context, box) => SingleChildScrollView(
+                            padding: const EdgeInsets.all(Space.xl),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: box.maxHeight - 2 * Space.xl,
+                              ),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: FieldSizes.columnMaxWidth,
+                                  ),
+                                  child: child,
                                 ),
-                                child: child,
                               ),
                             ),
                           ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     ),
   );
+
+  Color get _ground => ground ?? Palette.kid.ground;
 }
 
 /// The quiet "Voltar" of a child screen, at the child side's 64 dp:

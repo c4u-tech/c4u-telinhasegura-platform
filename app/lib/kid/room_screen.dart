@@ -325,11 +325,7 @@ class _RoomArrangement extends StatelessWidget {
         ],
       ],
     );
-    final first = _Standing(
-      geometry: g,
-      night: world.ground == BrandColors.dark,
-      child: lead,
-    );
+    final first = _Standing(geometry: g, child: lead);
     final Widget body;
     if (g.wide) {
       // Beside the first video, two rows of two; then rows of four.
@@ -399,14 +395,9 @@ class _RoomArrangement extends StatelessWidget {
 /// The first video, with the mascot standing on its top edge toward the
 /// end, between the glyph and the exit, where the ground lets it stand.
 class _Standing extends StatelessWidget {
-  const _Standing({
-    required this.geometry,
-    required this.night,
-    required this.child,
-  });
+  const _Standing({required this.geometry, required this.child});
 
   final _RoomGeometry geometry;
-  final bool night;
   final Widget child;
 
   @override
@@ -430,7 +421,7 @@ class _Standing extends StatelessWidget {
           child: IgnorePointer(
             child: Transform.flip(
               flipX: Directionality.of(context) == TextDirection.rtl,
-              child: Tevi(size: size, night: night),
+              child: Tevi(size: size, night: TeviGround.nightAt(context)),
             ),
           ),
         ),
@@ -525,7 +516,10 @@ class RoomNote extends StatelessWidget {
         color: BrandColors.dark,
         borderRadius: BorderRadius.all(Radius.circular(Radii.card)),
       ),
-      child: Padding(padding: const EdgeInsets.all(Space.lg), child: note),
+      child: Padding(
+        padding: const EdgeInsets.all(Space.lg),
+        child: TeviGround(color: BrandColors.dark, child: note),
+      ),
     );
   }
 }

@@ -301,8 +301,8 @@ class _Geometry {
 }
 
 /// The highlight with the mascot standing on its top edge, crest raised,
-/// its body over the picture's middle. The child's ground is ink, so the
-/// figure keeps its day colours.
+/// its body over the picture's middle, in the colours of the ground
+/// behind it.
 class _Highlight extends StatelessWidget {
   const _Highlight({required this.geometry, required this.child, this.look});
 
@@ -330,7 +330,11 @@ class _Highlight extends StatelessWidget {
           child: IgnorePointer(
             child: Transform.flip(
               flipX: Directionality.of(context) == TextDirection.rtl,
-              child: Tevi(size: size, look: look ?? TeviLook.crestUp),
+              child: Tevi(
+                size: size,
+                look: look ?? TeviLook.crestUp,
+                night: TeviGround.nightAt(context),
+              ),
             ),
           ),
         ),

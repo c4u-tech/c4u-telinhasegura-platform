@@ -136,6 +136,47 @@ void main() {
     expect(lead.center.dy, exit.center.dy);
   });
 
+  testWidgets('where the mascot stands whole on the screen, the strip\'s '
+      'start is left empty: no small mark beside it', (tester) async {
+    await pumpKid(
+      tester,
+      const KidLayout(
+        mark: false,
+        exit: SizedBox.square(key: Key('exit'), dimension: 64),
+        child: SizedBox(),
+      ),
+    );
+    expect(mark, findsNothing);
+    expect(find.byKey(const Key('exit')), findsOneWidget);
+  });
+
+  for (final (ground, night) in [
+    (null, false),
+    (BrandColors.dark, true),
+    (BrandColors.sun, false),
+  ]) {
+    testWidgets('the screen\'s ground ($ground) reaches every mascot on it, '
+        'which takes its night colours only on the night\'s dark', (
+      tester,
+    ) async {
+      late BuildContext inside;
+      await pumpKid(
+        tester,
+        KidLayout(
+          ground: ground,
+          child: Builder(
+            builder: (context) {
+              inside = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      expect(TeviGround.nightAt(inside), night);
+      expect(tester.widget<Tevi>(mark).night, night);
+    });
+  }
+
   testWidgets('content that rises reaches up into the strip, behind the '
       'lead and the exit, which still take their taps', (tester) async {
     var exitTaps = 0;

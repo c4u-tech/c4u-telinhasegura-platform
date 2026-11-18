@@ -54,10 +54,10 @@ enum Perch {
 /// The picture every child state shows in the shelf's place: the mascot
 /// in [look], perched at the start side of a screen or a wire, as it
 /// stands on the guardian's field. Its legs land a little into the line,
-/// and every look, the raised crest too, stays inside the picture. On
-/// the child's ink ground the figure keeps its day colours (a darker
-/// stage asks for [night]), and the marks of sleep are drawn in sky so
-/// they show.
+/// and every look, the raised crest too, stays inside the picture. The
+/// figure takes its colours from the ground it stands on (the night's
+/// on the darkest), where a wire is drawn in ink, a thin line in the
+/// dark; the marks of sleep are drawn in sky so they show.
 class ShelfPicture extends StatelessWidget {
   const ShelfPicture({
     super.key,
@@ -66,7 +66,6 @@ class ShelfPicture extends StatelessWidget {
     this.scale = 1,
     this.screenChild,
     this.across = false,
-    this.night = false,
   });
 
   final TeviLook look;
@@ -77,10 +76,6 @@ class ShelfPicture extends StatelessWidget {
   /// keeps to its own place. The mascot stands where it would on the
   /// short wire.
   final bool across;
-
-  /// The figure's night colours, for a stage darker than the child's
-  /// ink ground, where its dark parts would vanish.
-  final bool night;
 
   /// The whole picture's scale: [size] at 1.
   final double scale;
@@ -132,6 +127,10 @@ class ShelfPicture extends StatelessWidget {
     final top =
         (stand + TeviPainter.perchOverlap) * s - side * TeviPainter.perchY;
     final child = screenChild;
+    final night = TeviGround.nightAt(context);
+    final line = night && perch == Perch.wire
+        ? BrandColors.ink
+        : context.palette.onField;
     final frame = Rect.fromLTRB(
       screen.left * s,
       screen.top * s,
@@ -150,7 +149,7 @@ class ShelfPicture extends StatelessWidget {
                   feet: start + side * _feet,
                   centre: wireAt((start + side * _feet) / s) * s,
                   stroke: stroke * s,
-                  color: context.palette.onField,
+                  color: line,
                 ),
               )
             else if (child != null)
@@ -166,10 +165,7 @@ class ShelfPicture extends StatelessWidget {
             else
               Positioned.fill(
                 child: CustomPaint(
-                  painter: _PerchPainter(
-                    perch: perch,
-                    color: context.palette.onField,
-                  ),
+                  painter: _PerchPainter(perch: perch, color: line),
                 ),
               ),
             // The figure paints after what it stands on, so its legs show

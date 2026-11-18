@@ -406,4 +406,42 @@ void main() {
     expect(find.bySemanticsLabel('Telinha Segura'), findsOne);
     semantics.dispose();
   });
+
+  group('the ground a mascot stands on picks its colours', () {
+    test('night colours where its dark parts would sink into the ground, '
+        'day colours wherever they show', () {
+      expect(TeviGround.nightOn(BrandColors.dark), isTrue);
+      expect(TeviGround.nightOn(Palette.kid.input), isTrue);
+      expect(TeviGround.nightOn(BrandColors.ink), isFalse);
+      expect(TeviGround.nightOn(ColourWorlds.lightInk), isFalse);
+      expect(TeviGround.nightOn(BrandColors.sun), isFalse);
+      expect(TeviGround.nightOn(BrandColors.cream), isFalse);
+    });
+
+    testWidgets('below a ground, a figure reads it; with none, day colours', (
+      tester,
+    ) async {
+      late BuildContext at;
+      Widget probe() => Builder(
+        builder: (context) {
+          at = context;
+          return const SizedBox();
+        },
+      );
+      await tester.pumpWidget(probe());
+      expect(TeviGround.nightAt(at), isFalse);
+      expect(TeviGround.maybeNightAt(at), isNull);
+
+      await tester.pumpWidget(
+        TeviGround(color: BrandColors.dark, child: probe()),
+      );
+      expect(TeviGround.nightAt(at), isTrue);
+
+      await tester.pumpWidget(
+        TeviGround(color: BrandColors.ink, child: probe()),
+      );
+      expect(TeviGround.nightAt(at), isFalse);
+      expect(TeviGround.maybeNightAt(at), isFalse);
+    });
+  });
 }

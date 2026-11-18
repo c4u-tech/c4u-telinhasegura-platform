@@ -443,35 +443,37 @@ class PackBreath extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // The keys beside it say the same to assistive technology.
-      excludeFromSemantics: true,
-      onTap: onTap,
-      child: ExcludeSemantics(
-        child: SizedBox.fromSize(
-          size: size,
-          child: ColoredBox(
-            color: p.input,
-            child: Center(
-              child: ShelfPicture(
-                look: TeviLook.winking,
-                // The player's stage is darker than the child's ground:
-                // the figure's dark parts take the night colours there.
-                night: true,
-                scale: scaleFor(size),
-                screenChild: FutureBuilder(
-                  future: cover,
-                  builder: (context, snap) => switch (snap) {
-                    AsyncSnapshot(hasData: true, :final data!) => Image.memory(
-                      data,
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                      errorBuilder: (_, _, _) => const HollowThumbnail(),
-                    ),
-                    AsyncSnapshot(hasError: true) => const HollowThumbnail(),
-                    _ => const SizedBox.expand(),
-                  },
+    // The window's stand-in is darker than the child's ground.
+    return TeviGround(
+      color: p.input,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        // The keys beside it say the same to assistive technology.
+        excludeFromSemantics: true,
+        onTap: onTap,
+        child: ExcludeSemantics(
+          child: SizedBox.fromSize(
+            size: size,
+            child: ColoredBox(
+              color: p.input,
+              child: Center(
+                child: ShelfPicture(
+                  look: TeviLook.winking,
+                  scale: scaleFor(size),
+                  screenChild: FutureBuilder(
+                    future: cover,
+                    builder: (context, snap) => switch (snap) {
+                      AsyncSnapshot(hasData: true, :final data!) =>
+                        Image.memory(
+                          data,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, _, _) => const HollowThumbnail(),
+                        ),
+                      AsyncSnapshot(hasError: true) => const HollowThumbnail(),
+                      _ => const SizedBox.expand(),
+                    },
+                  ),
                 ),
               ),
             ),
@@ -501,40 +503,43 @@ class PackGoodbye extends StatelessWidget {
     final text = wide
         ? Theme.of(context).textTheme.displaySmall
         : Theme.of(context).textTheme.headlineSmall;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // The keys beside it say the same to assistive technology.
-      excludeFromSemantics: true,
-      onTap: onTap,
-      child: SizedBox.fromSize(
-        size: size,
-        child: ColoredBox(
-          color: p.input,
-          child: Padding(
-            padding: const EdgeInsets.all(Space.lg),
-            // At large text the picture and the word shrink together
-            // rather than leave the window.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // The breath's picture, at the same size.
-                  ShelfPicture(
-                    look: TeviLook.asleep,
-                    night: true,
-                    scale: PackBreath.scaleFor(size),
-                  ),
-                  const SizedBox(height: Space.md),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      word,
-                      textAlign: TextAlign.center,
-                      style: text?.copyWith(color: BrandColors.cream),
+    // The window's stand-in is darker than the child's ground.
+    return TeviGround(
+      color: p.input,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        // The keys beside it say the same to assistive technology.
+        excludeFromSemantics: true,
+        onTap: onTap,
+        child: SizedBox.fromSize(
+          size: size,
+          child: ColoredBox(
+            color: p.input,
+            child: Padding(
+              padding: const EdgeInsets.all(Space.lg),
+              // At large text the picture and the word shrink together
+              // rather than leave the window.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // The breath's picture, at the same size.
+                    ShelfPicture(
+                      look: TeviLook.asleep,
+                      scale: PackBreath.scaleFor(size),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: Space.md),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        word,
+                        textAlign: TextAlign.center,
+                        style: text?.copyWith(color: BrandColors.cream),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
