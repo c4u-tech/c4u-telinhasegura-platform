@@ -78,7 +78,32 @@ Finder get playerView => find.byKey(FakePlayback.viewKey);
 /// The player's dark room: Noite edge to edge and no small mark; back
 /// and play/pause outside [window]; the mascot in its night colours on a
 /// thin wire beside the keys, never over the window nor touching it.
-void expectNightStage(WidgetTester tester, Finder window) {
+/// Where the mascot already stands in the window's place ([inWindow]),
+/// the wire stays empty: one mascot on the screen, and the window's place
+/// on Noite too.
+void expectNightStage(
+  WidgetTester tester,
+  Finder window, {
+  bool inWindow = false,
+}) {
+  if (inWindow) {
+    expect(find.byType(Tevi), findsOneWidget);
+    expect(
+      find.descendant(of: window, matching: find.byType(Tevi)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(PlayerPerch),
+        matching: find.byType(Tevi),
+      ),
+      findsNothing,
+    );
+    final stage = tester.widget<ColoredBox>(
+      find.descendant(of: window, matching: find.byType(ColoredBox)).first,
+    );
+    expect(stage.color, BrandColors.dark);
+  }
   final ground = find
       .descendant(of: find.byType(KidLayout), matching: find.byType(Scaffold))
       .first;
@@ -89,6 +114,7 @@ void expectNightStage(WidgetTester tester, Finder window) {
   );
   final perch = find.byType(PlayerPerch);
   expect(perch, findsOneWidget);
+  if (inWindow) return;
   final figure = find.descendant(of: perch, matching: find.byType(Tevi));
   expect(tester.widget<Tevi>(figure).night, isTrue);
   final w = tester.getRect(window);

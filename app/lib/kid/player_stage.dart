@@ -20,6 +20,7 @@ class PlayerStage extends StatelessWidget {
     this.toggle,
     this.progress,
     this.bare = false,
+    this.perched = true,
   });
 
   final Widget Function(Size size) window;
@@ -34,6 +35,10 @@ class PlayerStage extends StatelessWidget {
   /// Fullscreen: the window alone, centred, as large as the space allows
   /// at 16:9; no keys, no progress (fullscreen design).
   final bool bare;
+
+  /// False: the mascot already stands in the window's place, so the wire
+  /// beside the keys stays empty; one mascot on the screen is enough.
+  final bool perched;
 
   /// The widest the player grows.
   static const maxWidth = 960.0;
@@ -86,7 +91,7 @@ class PlayerStage extends StatelessWidget {
             Space.lg +
             PlayerStage.toggleSize;
         // The mascot joins the rail where the screen has the height.
-        final perched = box.maxHeight >= keys + Space.lg + PlayerPerch.height;
+        final tall = box.maxHeight >= keys + Space.lg + PlayerPerch.height;
         return Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -105,11 +110,11 @@ class PlayerStage extends StatelessWidget {
                     back,
                     const SizedBox(height: Space.lg),
                     toggle,
-                    if (perched) ...[
+                    if (tall) ...[
                       const SizedBox(height: Space.lg),
                       SizedBox(
                         height: PlayerPerch.height,
-                        child: const PlayerPerch(),
+                        child: PlayerPerch(figure: perched),
                       ),
                     ],
                   ],
@@ -148,7 +153,9 @@ class PlayerStage extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Positioned.fill(child: PlayerPerch(end: Space.xl)),
+                    Positioned.fill(
+                      child: PlayerPerch(end: Space.xl, figure: perched),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: Space.xl),
                       child: SizedBox(
@@ -183,9 +190,12 @@ class PlayerStage extends StatelessWidget {
 /// or in the middle when [end] is null. Where the box is too narrow to
 /// hold the figure clear of what stands beside it, only the wire shows.
 class PlayerPerch extends StatelessWidget {
-  const PlayerPerch({super.key, this.end});
+  const PlayerPerch({super.key, this.end, this.figure = true});
 
   final double? end;
+
+  /// False: the wire alone.
+  final bool figure;
 
   /// The mascot's box.
   static const size = 72.0;
@@ -232,7 +242,7 @@ class PlayerPerch extends StatelessWidget {
             height: stroke,
             child: const ColoredBox(color: BrandColors.ink),
           ),
-          if (room)
+          if (figure && room)
             PositionedDirectional(
               start: start,
               top: wire + TeviPainter.perchOverlap - size * TeviPainter.perchY,

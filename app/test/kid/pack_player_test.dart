@@ -581,14 +581,14 @@ void main() {
       ]);
 
       await end(tester, h);
-      expectNightStage(tester, find.byType(PackBreath));
+      expectNightStage(tester, find.byType(PackBreath), inWindow: true);
       await tester.tap(find.byType(PackBreath));
       await tester.pumpAndSettle();
       await end(tester, h);
       await tester.tap(find.byType(PackBreath));
       await tester.pumpAndSettle();
       await end(tester, h);
-      expectNightStage(tester, find.byType(PackGoodbye));
+      expectNightStage(tester, find.byType(PackGoodbye), inWindow: true);
       await tester.pumpAndSettle(const Duration(seconds: 4));
     });
   }

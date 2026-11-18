@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../curation/kid_catalog.dart';
 import '../design/tevi.dart';
-import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../screentime/kid_time.dart';
 import '../shell/routes.dart';
@@ -377,6 +376,9 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
         strip: !full,
         child: PlayerStage(
           bare: full,
+          // The breath and the goodbye hold the mascot in the window's
+          // place.
+          perched: _phase == _Phase.playing,
           window: _window,
           progress: Semantics(
             label: PackPlayerScreen.progressLabel(_filled, n),
@@ -419,8 +421,8 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
   }
 }
 
-/// The breath between two videos, in the window's place: on the input
-/// tone, the next video's cover in a rounded frame with the mascot
+/// The breath between two videos, in the window's place: on the night
+/// itself, the next video's cover in a rounded frame with the mascot
 /// standing on its top edge toward the end, watching it. No number, no
 /// filling bar. A tap continues; the key beside it says so to assistive
 /// technology.
@@ -449,7 +451,6 @@ class PackBreath extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
     // The room the mascot takes above the frame, for each unit of the
     // frame's height.
     const stand = _tevi * (TeviPainter.perchY - TeviPainter.top);
@@ -469,10 +470,11 @@ class PackBreath extends StatelessWidget {
         child: SizedBox.fromSize(
           size: size,
           child: ColoredBox(
-            color: p.input,
-            // The window's stand-in is darker than the child's ground.
+            color: BrandColors.dark,
+            // The window's stand-in is the dark room itself: what stands in it
+            // reads on the night, as the player's keys do.
             child: TeviGround(
-              color: p.input,
+              color: BrandColors.dark,
               child: Center(
                 child: SizedBox(
                   width: frame.width,
@@ -543,7 +545,6 @@ class PackGoodbye extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
     // The word grows with the window, as the nickname does from 840 px.
     final wide = size.width >= FieldSizes.wideBreakpoint;
     final text = wide
@@ -557,10 +558,11 @@ class PackGoodbye extends StatelessWidget {
       child: SizedBox.fromSize(
         size: size,
         child: ColoredBox(
-          color: p.input,
-          // The window's stand-in is darker than the child's ground.
+          color: BrandColors.dark,
+          // The window's stand-in is the dark room itself: what stands in it
+          // reads on the night, as the player's keys do.
           child: TeviGround(
-            color: p.input,
+            color: BrandColors.dark,
             child: Padding(
               padding: const EdgeInsets.all(Space.lg),
               // At large text the figure and the word shrink together
