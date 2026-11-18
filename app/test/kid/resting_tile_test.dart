@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/design/tevi.dart';
-import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
@@ -123,15 +122,9 @@ void main() {
 
     final note = tester.widget<KidErrorNote>(find.byType(KidErrorNote));
     expect(note.asleep, isTrue);
-    // Asleep on its wire, as on the day without time: "not now".
-    // In the floating card's night.
-    expectPerched(
-      tester,
-      find.byType(KidErrorNote),
-      TeviLook.asleep,
-      perch: Perch.wire,
-      night: true,
-    );
+    // Asleep, as on the day without time: "not now". Large in the
+    // floating card's night.
+    expectNoteFigure(tester, find.byType(KidErrorNote), TeviLook.asleep);
     final line = tester.widget<Text>(find.text(PlayerScreen.doesNotFit));
     expect(line.style?.color, isNot(Palette.kid.error));
   });

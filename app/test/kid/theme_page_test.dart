@@ -290,6 +290,16 @@ void main() {
       );
       final line = tester.getRect(find.text(PlayerScreen.doesNotFit));
       expect(line.left, greaterThan(picture.right - 1));
+      // The sleeping mascot leads the card, at least 72 dp.
+      expect(picture.height, greaterThanOrEqualTo(72));
+      expect(
+        tester
+            .widget<Tevi>(
+              find.descendant(of: note, matching: find.byType(Tevi)),
+            )
+            .look,
+        TeviLook.asleep,
+      );
       expect(
         tester
             .widget<Tevi>(

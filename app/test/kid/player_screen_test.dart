@@ -345,13 +345,8 @@ void main() {
       // icon.
       expect(find.byType(KidErrorNote), findsOneWidget);
       // The mascot raises its crest: something did not go as planned.
-      // In the floating card's night.
-      expectPerched(
-        tester,
-        find.byType(KidErrorNote),
-        TeviLook.crestUp,
-        night: true,
-      );
+      // Large in the floating card's night.
+      expectNoteFigure(tester, find.byType(KidErrorNote), TeviLook.crestUp);
       expect(find.byType(ErrorNote), findsNothing);
       expect(find.text(PlayerScreen.videoGone), findsOneWidget);
       expect(

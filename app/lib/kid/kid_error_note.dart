@@ -36,7 +36,8 @@ class KidErrorNote extends StatelessWidget {
   final double picture;
 
   /// The picture at the line's start rather than above it: a note that
-  /// floats in a card keeps low.
+  /// floats in a card keeps low. There the mascot stands alone, without
+  /// its screen or wire, [picture] tall, so it leads the card.
   final bool beside;
 
   @override
@@ -70,11 +71,18 @@ class KidErrorNote extends StatelessWidget {
         direction: beside ? Axis.horizontal : Axis.vertical,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ShelfPicture(
-            look: asleep ? TeviLook.asleep : TeviLook.crestUp,
-            perch: asleep ? Perch.wire : Perch.screen,
-            scale: picture / ShelfPicture.size.height,
-          ),
+          if (beside)
+            FacingTevi(
+              size: picture,
+              look: asleep ? TeviLook.asleep : TeviLook.crestUp,
+              markColor: BrandColors.sky,
+            )
+          else
+            ShelfPicture(
+              look: asleep ? TeviLook.asleep : TeviLook.crestUp,
+              perch: asleep ? Perch.wire : Perch.screen,
+              scale: picture / ShelfPicture.size.height,
+            ),
           beside
               ? const SizedBox(width: Space.sm)
               : const SizedBox(height: Space.md),
@@ -85,8 +93,8 @@ class KidErrorNote extends StatelessWidget {
   }
 }
 
-/// A note floating in a dark card: the picture at the start, the line
-/// beside it. Its night is the card's, whatever the ground beneath; on a
+/// A note floating in a dark card: the mascot large at the start, the
+/// line beside it. Its night is the card's, whatever the ground beneath; on a
 /// ground as dark as the card, a line holds its edge.
 class FloatingNote extends StatelessWidget {
   const FloatingNote(this.message, {super.key, this.asleep = false});
@@ -94,8 +102,9 @@ class FloatingNote extends StatelessWidget {
   final String message;
   final bool asleep;
 
-  /// The picture's height in the card.
-  static const picture = 80.0;
+  /// The mascot's box in the card: the card's largest thing, so a child
+  /// who cannot read sees it first.
+  static const picture = 96.0;
 
   @override
   Widget build(BuildContext context) {

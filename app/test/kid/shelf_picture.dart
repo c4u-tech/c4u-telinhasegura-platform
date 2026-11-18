@@ -128,3 +128,22 @@ Finder expectPerched(
   }
   return picture;
 }
+
+/// Expects the floating note's card to lead with the mascot alone, in
+/// [look], in the card's night colours with sky marks of sleep, at least
+/// 72 dp: no screen or wire beneath it, so the figure is what a child
+/// sees first.
+void expectNoteFigure(WidgetTester tester, Finder within, TeviLook look) {
+  expect(
+    find.descendant(of: within, matching: find.byType(ShelfPicture)),
+    findsNothing,
+  );
+  final figure = find.descendant(of: within, matching: find.byType(Tevi));
+  expect(figure, findsOneWidget);
+  final tevi = tester.widget<Tevi>(figure);
+  expect(
+    (tevi.look, tevi.tier, tevi.night, tevi.markColor),
+    (look, TeviTier.full, true, BrandColors.sky),
+  );
+  expect(tester.getSize(figure).height, greaterThanOrEqualTo(72));
+}
