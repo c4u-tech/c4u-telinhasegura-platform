@@ -12,7 +12,7 @@ import 'package:telinha_segura/family/widgets.dart' show FamilyPlaceholder;
 import 'package:telinha_segura/kid/player_screen.dart';
 
 import '../access/harness.dart';
-import '../kid/kid_shelves_test.dart' show pixel, twoShelves;
+import '../kid/kid_mosaic_test.dart' show pixel, twoShelves;
 import '../kid_mode/set_pin_screen_test.dart' show modules, padEnabled;
 import '../parental/parental_api_test.dart' show profileJson;
 import '../screentime/fixtures.dart' show rulesJson;

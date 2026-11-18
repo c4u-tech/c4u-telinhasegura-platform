@@ -8,6 +8,7 @@ import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
@@ -19,7 +20,7 @@ import 'package:telinha_segura/kid/sleeping_telinha.dart';
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'kid_home_screen_test.dart' show actionable, avatar;
-import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'kid_mosaic_test.dart' show pixel, twoShelves;
 import 'shelf_picture.dart';
 
 /// The day as the catalogue says it.
@@ -70,7 +71,7 @@ void main() {
 
       expect(find.byType(SleepingTelinha), findsOneWidget);
       expect(find.text(line), findsOneWidget);
-      expect(find.byType(Shelf), findsNothing);
+      expect(find.byType(ThemeBlock), findsNothing);
       expect(find.byType(VideoTile), findsNothing);
       expect(find.byType(EmptyShelf), findsNothing);
     });
@@ -180,7 +181,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(catalogReads(h), 3);
       expect(find.byType(SleepingTelinha), findsNothing);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
 
       // Awake, it reads no more on its own.
       await tester.pump(const Duration(minutes: 3));
@@ -206,7 +207,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(catalogReads(h), 2);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
     });
 
     testWidgets('while it reads, and if the read fails, the picture stays: '
@@ -222,7 +223,7 @@ void main() {
       await tester.pump();
       expect(catalogReads(h), 2);
       expect(find.byType(SleepingTelinha), findsOneWidget);
-      expect(find.byType(ShelvesLoading), findsNothing);
+      expect(find.byType(MosaicLoading), findsNothing);
 
       gate.complete(problem(503, 'internal'));
       await tester.pumpAndSettle();
@@ -233,7 +234,7 @@ void main() {
       answer = () => json(200, shelvesOn(day('ok')));
       await tester.pump(const Duration(seconds: 60));
       await tester.pumpAndSettle();
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
     });
   });
 
@@ -379,8 +380,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.location(tester), '/crianca');
       expect(catalogReads(h), 2);
-      expect(find.byType(Shelf), findsNWidgets(2));
-      expect(find.byType(ShelvesLoading), findsNothing);
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
+      expect(find.byType(MosaicLoading), findsNothing);
 
       gate.complete(json(200, shelvesOn(day('time_up', 'daily'))));
       await tester.pumpAndSettle();
@@ -411,8 +412,6 @@ void main() {
             req.url.path == '/v1/child/plays' ? opened : http.Response('', 204),
       );
       await h.pump(tester, initial: '/crianca');
-      await tester.drag(find.byType(VideoTile).first, const Offset(-120, 0));
-      await tester.pumpAndSettle();
       final tile = find.byType(VideoTile).at(1);
       final before = tester.getRect(tile);
       await tester.tap(tile);
@@ -424,7 +423,7 @@ void main() {
 
       expect(catalogReads(h), 2);
       expect(find.byType(ShelvesFailed), findsNothing);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
       expect(tester.getRect(tile), before);
     });
   });

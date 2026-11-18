@@ -15,7 +15,7 @@ import '../family/fixtures.dart';
 import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'kid_exit_screen_test.dart' show submit;
-import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'kid_mosaic_test.dart' show pixel, twoShelves;
 
 final logo = Uri.parse('https://www.youtube.com/watch?v=yt1&feature=emb_logo');
 

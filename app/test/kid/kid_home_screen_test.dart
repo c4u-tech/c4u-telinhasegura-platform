@@ -14,6 +14,7 @@ import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 
@@ -24,19 +25,24 @@ import '../parental/parental_api_test.dart' show profileJson;
 import 'shelf_picture.dart';
 
 /// `/crianca` on a shared device locked to [minorId]; the profile read
-/// answers [profile] (Lia by default).
+/// answers [profile] (Lia by default). The day has no videos yet, or,
+/// [asleep], no time left.
 Future<Harness> kidHome(
   WidgetTester tester, {
   String? minorId = 'm1',
   FutureOr<http.Response> Function()? profile,
   Size size = const Size(390, 844),
+  bool asleep = false,
 }) async {
   final h = Harness(
     signedIn: true,
     api: (req) => switch (req.url.path) {
       '/v1/child/profile' => (profile ?? () => json(200, profileJson))(),
-      // No shelves yet: the empty shelf.
-      '/v1/child/catalog' => json(200, {'themes': []}),
+      // No videos yet: the empty shelf.
+      '/v1/child/catalog' => json(200, {
+        'themes': <Object>[],
+        if (asleep) 'time': {'state': 'time_up', 'reason': 'daily'},
+      }),
       _ => http.Response('', 204),
     },
   )..kidMode = {'minor_id': minorId};
@@ -47,6 +53,11 @@ Future<Harness> kidHome(
 Finder get avatar => find.descendant(
   of: find.byType(KidHomeScreen),
   matching: find.byType(AvatarDisc),
+);
+
+/// What a screen reader hears for the avatar: the child's nickname.
+Finder labelled(String label) => find.byWidgetPredicate(
+  (w) => w is Semantics && w.properties.label == label,
 );
 
 String profileCalls(Harness h) =>
@@ -64,12 +75,28 @@ List<SemanticsNode> actionable(WidgetTester tester) => [
 ];
 
 void main() {
-  testWidgets('the child finds their avatar, large and centred, with the '
-      'nickname beneath', (tester) async {
+  testWidgets('the child finds their avatar small at the strip\'s start, '
+      'read by the nickname, level with the exit; no mark beside it', (
+    tester,
+  ) async {
     final h = await kidHome(tester);
 
     expect(find.byType(KidLayout), findsOneWidget);
     expect(profileCalls(h), 'GET /v1/child/profile');
+    final disc = tester.widget<AvatarDisc>(avatar);
+    expect((disc.avatar, disc.size), (Avatar.fox, KidMosaic.avatar));
+    final rect = tester.getRect(avatar);
+    expect(rect.left, Space.xl);
+    expect(rect.center.dy, tester.getCenter(find.byType(HoldToExit)).dy);
+    expect(labelled('Lia'), findsOneWidget);
+    expect(find.text('Lia'), findsNothing);
+    expect(labelled('Telinha Segura'), findsNothing);
+  });
+
+  testWidgets('asleep, the child finds their avatar, large and centred, with '
+      'the nickname beneath', (tester) async {
+    await kidHome(tester, asleep: true);
+
     final disc = tester.widget<AvatarDisc>(avatar);
     expect((disc.avatar, disc.size), (Avatar.fox, KidSizes.avatarLarge));
     final rect = tester.getRect(avatar);
@@ -79,10 +106,10 @@ void main() {
     expect(name.center.dx, closeTo(rect.center.dx, 0.5));
   });
 
-  testWidgets('at 840 px and wider the avatar, the nickname and the shelf '
-      'scale up, still centred', (tester) async {
+  testWidgets('asleep at 840 px and wider the avatar and the nickname scale '
+      'up, still centred', (tester) async {
     final theme = Theme.of;
-    await kidHome(tester, size: const Size(1280, 800));
+    await kidHome(tester, size: const Size(1280, 800), asleep: true);
 
     expect(tester.widget<AvatarDisc>(avatar).size, KidSizes.avatarWide);
     final rect = tester.getRect(avatar);
@@ -93,57 +120,53 @@ void main() {
       tester.widget<Text>(name).style?.fontSize,
       theme(tester.element(name)).textTheme.displaySmall?.fontSize,
     );
-    // The shelf grows as the avatar does: 128 to 192 dp is half again,
-    // the mascot with it.
-    final shelf = tester.getRect(
-      expectPerched(tester, find.byType(EmptyShelf), TeviLook.watching),
-    );
-    expect(shelf.size, ShelfPicture.size * 1.5);
-    expect(shelf.center.dx, closeTo(1280 / 2, 0.5));
-    // Its line grows with it, two type steps: the 192 dp avatar and the
-    // shelf read as one composition.
-    final line = find.text(EmptyShelf.line);
-    final text = theme(tester.element(line)).textTheme;
-    final style = tester.widget<Text>(line).style;
-    expect(style?.fontSize, text.titleLarge?.fontSize);
-    expect(style?.height, text.titleLarge?.height);
-    expect(style?.fontWeight, text.bodyLarge?.fontWeight);
   });
 
-  testWidgets('narrower than 840 px they keep their sizes', (tester) async {
+  testWidgets('asleep narrower than 840 px they keep their sizes', (
+    tester,
+  ) async {
     final theme = Theme.of;
-    await kidHome(tester, size: const Size(839, 800));
+    await kidHome(tester, size: const Size(839, 800), asleep: true);
     expect(tester.widget<AvatarDisc>(avatar).size, KidSizes.avatarLarge);
     expect(
       tester.widget<Text>(find.text('Lia')).style?.fontSize,
       theme(tester.element(find.text('Lia'))).textTheme.headlineSmall?.fontSize,
     );
-    expect(
-      tester.getSize(
-        find.descendant(
-          of: find.byType(EmptyShelf),
-          matching: find.byType(ShelfPicture),
-        ),
-      ),
-      ShelfPicture.size,
-    );
-    expect(
-      tester.widget<Text>(find.text(EmptyShelf.line)).style?.fontSize,
-      theme(tester.element(find.text(EmptyShelf.line)))
-          .textTheme
-          .bodyLarge
-          ?.fontSize,
-    );
   });
+
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.25),
+    (const Size(839, 800), 1.25),
+    (const Size(1280, 800), 1.5),
+  ]) {
+    testWidgets('at ${size.width.toInt()} px the empty shelf stands centred '
+        'at ${scale}x, its line a title\'s size in the body\'s voice', (
+      tester,
+    ) async {
+      final theme = Theme.of;
+      await kidHome(tester, size: size);
+      final shelf = tester.getRect(
+        expectPerched(tester, find.byType(EmptyShelf), TeviLook.watching),
+      );
+      expect(shelf.size, ShelfPicture.size * scale);
+      expect(shelf.center.dx, closeTo(size.width / 2, 0.5));
+      final line = find.text(EmptyShelf.line);
+      final text = theme(tester.element(line)).textTheme;
+      final style = tester.widget<Text>(line).style;
+      expect(style?.fontSize, text.titleLarge?.fontSize);
+      expect(style?.height, text.titleLarge?.height);
+      expect(style?.fontWeight, text.bodyLarge?.fontWeight);
+    });
+  }
 
   for (final (size, disc) in [
     (const Size(390, 844), KidSizes.avatarLarge),
     (const Size(1440, 900), KidSizes.avatarWide),
   ]) {
-    testWidgets('at ${size.width.toInt()} px the ${disc.toInt()} dp avatar '
-        'keeps the animal clear inside its ring, ink between them: no ear '
-        'reaches it (fix round, item 2)', (tester) async {
-      await kidHome(tester, size: size);
+    testWidgets('asleep at ${size.width.toInt()} px the ${disc.toInt()} dp '
+        'avatar keeps the animal clear inside its ring, ink between them: no '
+        'ear reaches it (fix round, item 2)', (tester) async {
+      await kidHome(tester, size: size, asleep: true);
       await tester.pumpAndSettle();
 
       expect(tester.getSize(avatar), Size.square(disc));
@@ -173,7 +196,7 @@ void main() {
 
   for (final size in [const Size(390, 844), const Size(1440, 900)]) {
     testWidgets('at ${size.width.toInt()} px the exit\'s ring keeps 16 dp '
-        'from the top and the side, level with the mark (fix round, item '
+        'from the top and the side, level with the avatar (fix round, item '
         '4)', (tester) async {
       await kidHome(tester, size: size);
       final control = find.byType(HoldToExit);
@@ -195,18 +218,16 @@ void main() {
       final ring = box.deflate(2);
       expect(ring.top, greaterThanOrEqualTo(16));
       expect(size.width - ring.right, greaterThanOrEqualTo(16));
-      final mark = find.descendant(
-        of: find.byType(KidLayout),
-        matching: find.bySemanticsLabel('Telinha Segura'),
-      );
-      expect(box.center.dy, tester.getCenter(mark).dy);
+      expect(box.center.dy, tester.getCenter(avatar).dy);
     });
   }
 
   for (final size in [const Size(390, 844), const Size(1440, 900)]) {
-    testWidgets('at ${size.width.toInt()} px the mark sits quietly at the '
-        'strip\'s start: 24 px, 24 px in, on the exit\'s line', (tester) async {
-      await kidHome(tester, size: size);
+    testWidgets('asleep at ${size.width.toInt()} px the mark sits quietly at '
+        'the strip\'s start: 24 px, 24 px in, on the exit\'s line', (
+      tester,
+    ) async {
+      await kidHome(tester, size: size, asleep: true);
       final mark = tester.getRect(
         find.descendant(
           of: find.byType(KidLayout),
@@ -221,13 +242,13 @@ void main() {
     });
   }
 
-  testWidgets('below, the empty shelf: the mascot watching from the top of '
-      'an empty screen, and one short line', (tester) async {
+  testWidgets('below the strip, the empty shelf: the mascot watching from '
+      'the top of an empty screen, and one short line', (tester) async {
     await kidHome(tester);
     expectPerched(tester, find.byType(EmptyShelf), TeviLook.watching);
 
     final shelf = tester.getRect(find.byType(EmptyShelf));
-    expect(shelf.top, greaterThan(tester.getRect(find.text('Lia')).bottom));
+    expect(shelf.top, greaterThan(tester.getRect(avatar).bottom));
     expect(find.text(EmptyShelf.line), findsOneWidget);
     expect(EmptyShelf.line, 'Logo tem vídeo aqui');
     expect(
@@ -297,7 +318,7 @@ void main() {
 
     expect(h.services.appMode.mode, const LinkedDevice('m1'));
     expect(tester.widget<AvatarDisc>(avatar).avatar, Avatar.owl);
-    expect(find.text('Téo'), findsOneWidget);
+    expect(labelled('Téo'), findsOneWidget);
   });
 
   testWidgets('a new child on the device shows at once', (tester) async {
@@ -310,13 +331,13 @@ void main() {
           : http.Response('', 204),
     );
     await h.pump(tester, initial: '/crianca');
-    expect(find.text('Lia'), findsOneWidget);
+    expect(labelled('Lia'), findsOneWidget);
 
     nickname = 'Téo';
     h.services.appMode.restoreAs(const LinkedDevice('m2'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Téo'), findsOneWidget);
+    expect(labelled('Téo'), findsOneWidget);
   });
 
   group('a paused profile', () {
@@ -393,7 +414,7 @@ void main() {
 
       expect(find.byType(PausedProfile), findsNothing);
       expect(find.byType(EmptyShelf), findsOneWidget);
-      expect(find.text('Lia'), findsOneWidget);
+      expect(labelled('Lia'), findsOneWidget);
     });
   });
 }

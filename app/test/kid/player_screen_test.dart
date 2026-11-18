@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show ErrorNote;
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
@@ -19,7 +20,7 @@ import 'package:telinha_segura/kid/shelves.dart';
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
-import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'kid_mosaic_test.dart' show pixel, twoShelves;
 import 'shelf_picture.dart';
 
 /// A shared kid whose API answers the catalogue, thumbnails, and a play
@@ -489,7 +490,7 @@ void main() {
 
     expect(current(h).closed, isTrue);
     expect(h.location(tester), '/crianca');
-    expect(find.byType(Shelf), findsWidgets);
+    expect(find.byType(ThemeBlock), findsWidgets);
     expect(h.player.opened, hasLength(1));
     expect(plays(h), hasLength(1));
   });

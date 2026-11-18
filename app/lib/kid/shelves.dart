@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../curation/kid_catalog.dart';
@@ -9,142 +8,12 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'empty_shelf.dart';
 import 'player_keys.dart';
-import 'pack_row.dart';
-import 'theme_glyph.dart';
 
 /// Reads a video's thumbnail bytes from our API.
 typedef ThumbnailLoader = Future<Uint8List> Function(String videoId);
 
-/// The child's shelves, one per theme in the catalogue's order:
-/// each led by its glyph, its videos sliding sideways and
-/// ending on the last of them. No YouTube logo: the operator relies on
-/// the embed's own branding (fullscreen design). The day's
-/// pacotinhos, when there are any, stand above them in a row of their own.
-/// A bounded set, never a feed: a few
-/// rows, each ending on its last tile.
-class KidShelves extends StatelessWidget {
-  const KidShelves({
-    super.key,
-    required this.catalog,
-    required this.thumbnail,
-    required this.onPlay,
-    required this.onOpenPack,
-  });
-
-  final KidCatalog catalog;
-  final ThumbnailLoader thumbnail;
-
-  /// Null while a play is pending, so further taps do nothing.
-  final ValueChanged<KidVideo>? onPlay;
-  final ValueChanged<KidPack>? onOpenPack;
-
-  /// The child's avatar above the shelves: a small "this is you".
-  static const avatar = 56.0;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (catalog.packs.isNotEmpty) ...[
-        PackRow(packs: catalog.packs, thumbnail: thumbnail, onOpen: onOpenPack),
-        if (catalog.shelves.isNotEmpty) const SizedBox(height: Space.xxl),
-      ],
-      for (final (i, shelf) in catalog.shelves.indexed) ...[
-        if (i > 0) const SizedBox(height: Space.xxl),
-        Shelf(shelf: shelf, thumbnail: thumbnail, onPlay: onPlay),
-      ],
-    ],
-  );
-}
-
-/// One theme's shelf: the glyph at the column's start, then its videos in
-/// a row that runs to the screen's edge, the next tile showing at it.
-class Shelf extends StatelessWidget {
-  const Shelf({
-    super.key,
-    required this.shelf,
-    required this.thumbnail,
-    required this.onPlay,
-  });
-
-  final KidShelf shelf;
-  final ThumbnailLoader thumbnail;
-  final ValueChanged<KidVideo>? onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    final tile = VideoTile.sizeFor(context);
-    return ShelfRow(
-      glyph: ThemeGlyph(shelf.theme),
-      height: tile.height,
-      children: [
-        for (final video in shelf.videos)
-          VideoTile(
-            video: video,
-            size: tile,
-            thumbnail: thumbnail,
-            onTap: onPlay == null ? null : () => onPlay!(video),
-            resting: !video.fits,
-          ),
-      ],
-    );
-  }
-}
-
-/// A shelf's row: its [glyph] at the column's start, then [children]
-/// sliding sideways to the screen's edge, ending on the last of them
-/// (fullscreen design). [height] is the tallest child's.
-class ShelfRow extends StatelessWidget {
-  const ShelfRow({
-    super.key,
-    required this.glyph,
-    required this.height,
-    required this.children,
-  });
-
-  final Widget glyph;
-  final double height;
-  final List<Widget> children;
-
-  /// The focus ring stands 3 px outside a tile; the row keeps its room.
-  static const ring = 3.0;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      const SizedBox(width: Space.xl),
-      glyph,
-      const SizedBox(width: Space.md),
-      Expanded(
-        child: SizedBox(
-          height: height + 2 * ring,
-          // A mouse drags the row too, as a finger does: on the
-          // web, Flutter's default leaves mouse drags out.
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context)
-                .copyWith(dragDevices: PointerDeviceKind.values.toSet()),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsetsDirectional.only(
-                start: ring,
-                end: Space.xl,
-                top: ring,
-                bottom: ring,
-              ),
-              itemCount: children.length,
-              separatorBuilder: (_, _) => const SizedBox(width: Space.sm),
-              itemBuilder: (_, i) =>
-                  Align(alignment: Alignment.topCenter, child: children[i]),
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-/// A video on a shelf: its picture in a screen-ratio frame, read as one
-/// button by its title.
+/// A video the child can play: its picture in a rounded frame, read as
+/// one button by its title.
 class VideoTile extends StatefulWidget {
   const VideoTile({
     super.key,
@@ -152,6 +21,7 @@ class VideoTile extends StatefulWidget {
     required this.size,
     required this.thumbnail,
     required this.onTap,
+    this.radius,
     this.resting = false,
     this.playDisc = false,
     this.playDiscScale = 1,
@@ -161,6 +31,9 @@ class VideoTile extends StatefulWidget {
   final Size size;
   final ThumbnailLoader thumbnail;
   final VoidCallback? onTap;
+
+  /// The frame's corner; by default the shape ratio's for its height.
+  final double? radius;
 
   /// Longer than the time left today: the picture rests, quieted and
   /// outlined, still in its place and still a target, and it is read as
@@ -180,20 +53,11 @@ class VideoTile extends StatefulWidget {
   /// The resting tile's outline, the hollow screen's stroke.
   static const restingStroke = 1.5;
 
-  static const narrow = Size(160, 90);
-  static const wide = Size(224, 126);
-
-  static Size sizeFor(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint
-      ? wide
-      : narrow;
-
   @override
   State<VideoTile> createState() => _VideoTileState();
 }
 
 class _VideoTileState extends State<VideoTile> {
-  late final Future<Uint8List> _bytes = widget.thumbnail(widget.video.id);
   bool _focused = false;
 
   /// A resting picture loses its colour and sinks toward the ink ground,
@@ -218,10 +82,9 @@ class _VideoTileState extends State<VideoTile> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final radius = widget.radius ?? widget.size.height * Radii.screenRatio;
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(
-        widget.size.height * Radii.screenRatio,
-      ),
+      borderRadius: BorderRadius.circular(radius),
     );
     final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
     final rest = widget.resting
@@ -263,23 +126,10 @@ class _VideoTileState extends State<VideoTile> {
                       Stack(
                         fit: StackFit.expand,
                         children: [
-                          FutureBuilder(
-                            future: _bytes,
-                            builder: (context, snap) => switch (snap) {
-                              AsyncSnapshot(hasData: true, :final data!) =>
-                                Image.memory(
-                                  data,
-                                  fit: BoxFit.cover,
-                                  gaplessPlayback: true,
-                                  errorBuilder: (_, _, _) =>
-                                      const HollowThumbnail(),
-                                ),
-                              AsyncSnapshot(hasError: true) =>
-                                const HollowThumbnail(),
-                              _ => ColoredBox(
-                                color: p.outline.withValues(alpha: .24),
-                              ),
-                            },
+                          ThumbnailPicture(
+                            videoId: widget.video.id,
+                            thumbnail: widget.thumbnail,
+                            radius: radius,
                           ),
                           if (widget.playDisc)
                             PositionedDirectional(
@@ -313,21 +163,21 @@ class _VideoTileState extends State<VideoTile> {
   }
 }
 
-/// A sun disc with a dark play triangle, set in a pacotinho's corner: it
-/// plays through, video after video. Decoration only: the tile under it
-/// is the target and says what it opens, so the disc wears the
-/// indicator's colours, a mark's, not the action's.
+/// A sun disc with a dark play triangle, set in the corner of a picture
+/// that plays at one tap. Decoration only: the tile under it is the
+/// target and says what it opens, so the disc wears the indicator's
+/// colours, a mark's, not the action's.
 class PlayDisc extends StatelessWidget {
   const PlayDisc({super.key, this.scale = 1});
 
-  /// The disc's diameter on a phone's tile.
+  /// The disc's diameter at scale 1.
   static const size = 44.0;
 
-  /// Its distance from the picture's bottom and end edges on a phone's
-  /// tile, which keeps it inside the rounded corner.
+  /// Its distance from the picture's bottom and end edges at scale 1,
+  /// which keeps it inside the rounded corner.
   static const inset = 10.0;
 
-  /// Grows the disc with a larger tile; its inset grows by the same.
+  /// Grows or shrinks the disc with its picture; its inset by the same.
   final double scale;
 
   @override
@@ -368,20 +218,78 @@ class _PlayDiscPainter extends CustomPainter {
       old.disc != disc || old.glyph != glyph;
 }
 
-/// A thumbnail that did not come: the screen, hollow, in the outline tone.
-/// The tile around it still plays.
-class HollowThumbnail extends StatelessWidget {
-  const HollowThumbnail({super.key});
+/// A video's thumbnail from our API, read once while this stands: the
+/// picture filling its box, a quiet fill while it comes, and the hollow
+/// screen if it does not.
+class ThumbnailPicture extends StatefulWidget {
+  const ThumbnailPicture({
+    super.key,
+    required this.videoId,
+    required this.thumbnail,
+    this.radius,
+    this.color,
+  });
+
+  final String videoId;
+  final ThumbnailLoader thumbnail;
+
+  /// The corner of the frame it fills, which a hollow screen follows.
+  final double? radius;
+
+  /// The hollow screen's and the quiet fill's tone; the outline's by
+  /// default.
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(painter: _HollowPainter(context.palette.outline));
+  State<ThumbnailPicture> createState() => _ThumbnailPictureState();
+}
+
+class _ThumbnailPictureState extends State<ThumbnailPicture> {
+  late final Future<Uint8List> _bytes = widget.thumbnail(widget.videoId);
+
+  @override
+  Widget build(BuildContext context) {
+    final hollow = HollowThumbnail(radius: widget.radius, color: widget.color);
+    return FutureBuilder(
+      future: _bytes,
+      builder: (context, snap) => switch (snap) {
+        AsyncSnapshot(hasData: true, :final data!) => Image.memory(
+          data,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => hollow,
+        ),
+        AsyncSnapshot(hasError: true) => hollow,
+        _ => ColoredBox(
+          color: (widget.color ?? context.palette.outline).withValues(
+            alpha: .24,
+          ),
+        ),
+      },
+    );
+  }
+}
+
+/// A thumbnail that did not come: the screen, hollow, in the outline tone
+/// (or [color]). The tile around it still plays.
+class HollowThumbnail extends StatelessWidget {
+  const HollowThumbnail({super.key, this.radius, this.color});
+
+  /// The corner; by default the shape ratio's for its height.
+  final double? radius;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _HollowPainter(color ?? context.palette.outline, radius),
+  );
 }
 
 class _HollowPainter extends CustomPainter {
-  const _HollowPainter(this.color);
+  const _HollowPainter(this.color, this.radius);
 
   final Color color;
+  final double? radius;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -390,7 +298,9 @@ class _HollowPainter extends CustomPainter {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         r,
-        Radius.circular(size.height * Radii.screenRatio - stroke / 2),
+        Radius.circular(
+          (radius ?? size.height * Radii.screenRatio) - stroke / 2,
+        ),
       ),
       Paint()
         ..color = color
@@ -400,71 +310,19 @@ class _HollowPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HollowPainter old) => old.color != color;
-}
-
-/// The shelves' place while the catalogue loads: quiet bars in the outline
-/// tone, two shelves' worth, read as what is loading.
-class ShelvesLoading extends StatelessWidget {
-  const ShelvesLoading({super.key});
-
-  static const label = 'Carregando vídeos';
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final tile = VideoTile.sizeFor(context);
-    final bar = p.outline.withValues(alpha: .24);
-    Widget block(Size size) => Container(
-      width: size.width,
-      height: size.height,
-      decoration: ShapeDecoration(
-        color: bar,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            size.shortestSide * Radii.screenRatio,
-          ),
-        ),
-      ),
-    );
-    return Semantics(
-      label: label,
-      liveRegion: true,
-      child: ExcludeSemantics(
-        child: Column(
-          children: [
-            for (var row = 0; row < 2; row++) ...[
-              if (row > 0) const SizedBox(height: Space.xxl),
-              // Bars run past the edge as tiles do; nothing scrolls yet.
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                child: Row(
-                  children: [
-                    const SizedBox(width: Space.xl),
-                    block(const Size.square(KidSizes.target)),
-                    const SizedBox(width: Space.md + 3),
-                    for (var i = 0; i < 4; i++) ...[
-                      if (i > 0) const SizedBox(width: Space.sm),
-                      block(tile),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  bool shouldRepaint(_HollowPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 /// The catalogue did not come: the mascot's crest raised over the hollow
 /// screen, a line for the adult and one way to try again.
 class ShelvesFailed extends StatelessWidget {
-  const ShelvesFailed({super.key, required this.onRetry});
+  const ShelvesFailed({super.key, required this.onRetry, this.scale = 1});
 
   final VoidCallback onRetry;
+
+  /// The picture's scale, as the empty shelf's.
+  final double scale;
 
   static const line = 'Os vídeos não carregaram.';
   static const retry = 'Tentar de novo';
@@ -474,7 +332,9 @@ class ShelvesFailed extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const Center(child: ShelfPicture(look: TeviLook.crestUp)),
+      Center(
+        child: ShelfPicture(look: TeviLook.crestUp, scale: scale),
+      ),
       const SizedBox(height: Space.lg),
       Text(
         line,

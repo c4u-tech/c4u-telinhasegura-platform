@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
@@ -20,7 +21,7 @@ import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
 import 'shelf_picture.dart';
-import 'kid_shelves_test.dart' show pixel, twoShelves, video;
+import 'kid_mosaic_test.dart' show pixel, twoShelves, video;
 
 /// The day's shelves plus one pacotinho of three videos, its cover the
 /// second.
@@ -473,7 +474,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/crianca');
-    expect(find.byType(ShelvesLoading), findsNothing);
+    expect(find.byType(MosaicLoading), findsNothing);
     expect(
       h.actions.where((a) => a == 'GET /v1/child/catalog').length,
       reads + 1,
@@ -539,14 +540,7 @@ void main() {
   testWidgets('outside a pacotinho, nothing plays next', (tester) async {
     final h = packKid();
     await h.pump(tester, initial: '/crianca');
-    await tester.tap(
-      find
-          .descendant(
-            of: find.byType(Shelf).first,
-            matching: find.byType(VideoTile),
-          )
-          .first,
-    );
+    await tester.tap(find.byType(OneTapPicture).first);
     await tester.pumpAndSettle();
     current(h).emit(const PlayerEnded());
     await tester.pumpAndSettle();

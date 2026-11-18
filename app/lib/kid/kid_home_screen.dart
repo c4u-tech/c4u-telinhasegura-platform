@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/api_error.dart';
+import '../curation/curation.dart' show VideoTheme;
 import '../curation/kid_catalog.dart';
 import '../design/tokens.dart';
 import '../family/avatars.dart';
@@ -18,6 +19,7 @@ import 'empty_shelf.dart';
 import 'hold_to_exit.dart';
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
+import 'mosaic.dart';
 import 'pack_player_screen.dart' show PackStart;
 import 'paused_profile.dart';
 import 'player_screen.dart';
@@ -26,15 +28,16 @@ import 'sleeping_telinha.dart';
 
 /// `/crianca`: the child home.
 /// The child finds their own avatar, from `AppModeModel.profile` on a
-/// shared and a linked device alike, small above their theme shelves.
-/// Without shelves (none yet, or the catalogue failed) the avatar and
-/// nickname stand large above the empty shelf or the way to try again,
-/// both larger from 840 px wide. Without a child (deleted, or the read
-/// failed) the neutral avatar stands alone and the exit still works.
+/// shared and a linked device alike, small at the strip's start, and the
+/// day on one screen: the highlight, the pictures that play at one tap
+/// and a block per theme (the mosaic). Without videos (none yet, or the
+/// catalogue failed) the empty shelf or the way to try again stands in
+/// its place, larger from 840 px wide. Without a child (deleted, or the
+/// read failed) the neutral avatar stands alone and the exit still works.
 /// A day without time (used up, or outside the hours) sleeps:
-/// the same composition with the sleeping telinha in the shelf's place,
-/// whatever the shelves hold. A profile waiting for a guardian to
-/// authorize it again is paused the same way, saying so; only the exit
+/// the avatar and nickname stand large with the sleeping telinha beneath
+/// them, whatever the catalogue holds. A profile waiting for a guardian
+/// to authorize it again is paused the same way, saying so; only the exit
 /// behind the PIN leaves it.
 class KidHomeScreen extends StatefulWidget {
   const KidHomeScreen({super.key});
@@ -280,14 +283,15 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
-  /// A resting tile tapped: nothing to ask the server, only why. The note
-  /// sits above the first shelf, so a tap from a lower shelf brings it into
-  /// view at once (no scroll animation: the shelves add no motion).
+  /// A resting picture tapped: nothing to ask the server, only why. The
+  /// note is the first thing on the home, so a tap further down takes the
+  /// home back to its top at once (no scroll animation: the home adds no
+  /// motion), the note below the strip.
   void _rest(String note) {
     setState(() => _notice = note);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final at = _noteKey.currentContext;
-      if (at != null && at.mounted) unawaited(Scrollable.ensureVisible(at));
+      if (at != null && at.mounted) Scrollable.maybeOf(at)?.position.jumpTo(0);
     });
   }
 
@@ -295,9 +299,13 @@ class _KidHomeScreenState extends State<KidHomeScreen>
 
   Widget _note(String message) => Padding(
     key: _noteKey,
-    padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
+    padding: const EdgeInsets.only(bottom: Space.xl),
     child: KidErrorNote(message, asleep: restsNote(message)),
   );
+
+  /// A theme's block tapped: the way into that theme's own page. The app
+  /// has no such page yet, so the block is a door that stays shut.
+  void _openTheme(VideoTheme theme) {}
 
   Future<Uint8List> _thumbnail(String id) =>
       _thumbs[id] ??= AppScope.of(context).child.thumbnail(id);
@@ -330,46 +338,68 @@ class _KidHomeScreenState extends State<KidHomeScreen>
       },
     );
     final paused = _paused;
-    if (!_failed &&
-        !asleep &&
-        !paused &&
-        (catalog == null ||
-            catalog.shelves.isNotEmpty ||
-            catalog.packs.isNotEmpty)) {
+    final wide = MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint;
+    // The child and their picture at the strip's start, read as their
+    // nickname: not a target.
+    final avatar = Semantics(
+      image: true,
+      label: _profile?.nickname,
+      child: AvatarDisc(
+        _profile?.avatar ?? Avatar.unknown,
+        size: KidMosaic.avatar,
+        excludeSemantics: true,
+      ),
+    );
+    final plan = catalog == null
+        ? null
+        : MosaicPlan.of(catalog, band: _profile?.ageBand ?? AgeBand.unknown);
+    final notice = _notice;
+    if (!_failed && !asleep && !paused && !(plan?.isEmpty ?? false)) {
       return KidLayout(
         exit: exit,
+        lead: avatar,
         fullWidth: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Semantics(
-                image: true,
-                label: _profile?.nickname,
-                child: AvatarDisc(
-                  _profile?.avatar ?? Avatar.unknown,
-                  size: KidShelves.avatar,
-                  excludeSemantics: true,
-                ),
-              ),
-            ),
-            const SizedBox(height: Space.xl),
-            if (_notice case final notice?) _note(notice),
-            if (catalog == null)
-              const ShelvesLoading()
-            else
-              KidShelves(
+        scrolls: false,
+        rise: KidMosaic.rise,
+        child: catalog == null
+            ? MosaicLoading(note: notice == null ? null : _note(notice))
+            : KidMosaic(
                 catalog: catalog,
+                band: _profile?.ageBand ?? AgeBand.unknown,
                 thumbnail: _thumbnail,
                 onPlay: _pending ? null : _play,
                 onOpenPack: _pending ? null : _openPack,
+                onOpenTheme: _pending ? null : _openTheme,
+                note: notice == null ? null : _note(notice),
               ),
-          ],
+      );
+    }
+    if (!asleep && !paused) {
+      // The picture grows on a wide screen, as the sleeping home's does.
+      final scale = wide ? 1.5 : 1.25;
+      return KidLayout(
+        exit: exit,
+        lead: avatar,
+        // Below the frame's kid theme, so the text takes the kid dialect.
+        child: Builder(
+          builder: (context) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (notice != null) ...[
+                KidErrorNote(notice, asleep: restsNote(notice)),
+                const SizedBox(height: Space.xl),
+              ],
+              if (_failed)
+                ShelvesFailed(onRetry: () => unawaited(_load()), scale: scale)
+              else
+                Center(child: EmptyShelf(scale: scale)),
+            ],
+          ),
         ),
       );
     }
     final profile = _profile;
-    final wide = MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint;
     final avatarSize = wide ? KidSizes.avatarWide : KidSizes.avatarLarge;
     return KidLayout(
       exit: exit,
@@ -402,28 +432,16 @@ class _KidHomeScreenState extends State<KidHomeScreen>
               ),
             ),
             const SizedBox(height: Space.xxxl),
-            // Paused, the line below already says why nothing opens.
-            if (_notice case final notice? when !asleep && !paused) ...[
-              KidErrorNote(notice, asleep: restsNote(notice)),
-              const SizedBox(height: Space.xl),
-            ],
-            if (_failed)
-              ShelvesFailed(onRetry: () => unawaited(_load()))
-            else if (paused)
+            if (paused)
               Center(
                 child: PausedProfile(scale: avatarSize / KidSizes.avatarLarge),
               )
-            else if (asleep)
+            else if (time != null)
               Center(
                 child: SleepingTelinha(
                   state: time,
                   scale: avatarSize / KidSizes.avatarLarge,
                 ),
-              )
-            else
-              // The shelf grows as the avatar does.
-              Center(
-                child: EmptyShelf(scale: avatarSize / KidSizes.avatarLarge),
               ),
           ],
         ),

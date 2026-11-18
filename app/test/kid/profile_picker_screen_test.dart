@@ -120,7 +120,13 @@ void main() {
     expect(h.services.appMode.mode, const LinkedDevice('m2'));
     expect(h.location(tester), '/crianca');
     expect(find.byType(KidHomeScreen), findsOneWidget);
-    expect(find.text('Téo'), findsOneWidget);
+    // The home's avatar is read by the new child's nickname.
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.label == 'Téo',
+      ),
+      findsOneWidget,
+    );
     expect(h.services.profilePick, isNull);
   });
 

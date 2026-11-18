@@ -47,7 +47,7 @@ import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show deviceJson, profileJson;
 import '../kid_mode/devices_screen_test.dart' show device;
 import '../kid/fake_player.dart';
-import '../kid/kid_shelves_test.dart' show pixel, twoShelves;
+import '../kid/kid_mosaic_test.dart' show pixel, twoShelves;
 import '../kid/more_time_door_test.dart' show holdExit;
 import '../kid/pack_player_test.dart' show packKid;
 import '../kid/sleeping_home_test.dart' show day, shelvesOn;

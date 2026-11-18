@@ -10,9 +10,9 @@ import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/design/pin_pad.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_exit_screen.dart';
-import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid/sleeping_telinha.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 
@@ -22,7 +22,7 @@ import '../kid_mode/set_pin_screen_test.dart' show modules, padEnabled;
 import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'kid_exit_screen_test.dart' show submit;
-import 'kid_shelves_test.dart' show pixel;
+import 'kid_mosaic_test.dart' show pixel;
 import 'link_out_test.dart' show leavingShared;
 import 'sleeping_home_test.dart' show catalogReads, day, shelvesOn;
 
@@ -216,7 +216,7 @@ void main() {
       expect(h.services.appMode.mode, mode);
       expect(catalogReads(h), 2);
       expect(find.byType(SleepingTelinha), findsNothing);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
     });
   }
 
