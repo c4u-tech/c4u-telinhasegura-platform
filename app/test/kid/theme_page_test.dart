@@ -166,6 +166,7 @@ void main() {
       expect(back.left, lessThan(Space.xl));
       final glyph = tester.getRect(find.bySemanticsLabel('Bichos'));
       expect(glyph.left, greaterThan(back.right));
+      expect(glyph.size, const Size.square(56));
       expect(glyph.center.dy, closeTo(back.center.dy, 1));
       final exit = tester.getRect(find.byType(HoldToExit));
       expect(exit.right, greaterThan(390 - Space.xl));

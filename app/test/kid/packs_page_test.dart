@@ -151,6 +151,12 @@ void main() {
       find.descendant(of: page, matching: find.byType(PackGlyph)),
       findsOne,
     );
+    expect(
+      tester.getSize(
+        find.descendant(of: page, matching: find.byType(PackGlyph)),
+      ),
+      const Size.square(56),
+    );
     expect(h.actions.where((a) => a == 'GET /v1/child/catalog'), hasLength(1));
     semantics.dispose();
   });

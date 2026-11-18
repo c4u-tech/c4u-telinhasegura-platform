@@ -433,7 +433,7 @@ class RoomBack extends StatefulWidget {
   final VoidCallback onPressed;
 
   /// The glyph beside the key.
-  static const glyph = 48.0;
+  static const glyph = 56.0;
 
   /// The play disc on the first picture.
   static const disc = 64.0;
