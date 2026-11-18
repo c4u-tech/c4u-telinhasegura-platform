@@ -18,6 +18,7 @@ import 'package:telinha_segura/parental/kid_mode_mark.dart';
 import 'package:telinha_segura/privacy/export_delivery.dart';
 import 'package:telinha_segura/screentime/time_zone_source.dart';
 import 'package:telinha_segura/shell/app.dart';
+import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/services.dart';
 
 import '../auth/fakes.dart';
@@ -296,9 +297,19 @@ class Harness {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(app(initial: initial));
     await tester.pumpAndSettle();
-    // A child screen lets no touch through just after it appears.
-    await tester.pump(TapGuard.window);
+    // A child screen lets no touch through just after it appears; any
+    // other screen's clock is left where it stands.
+    if (find.byType(Scaffold).evaluate().isNotEmpty &&
+        waitsForGuard(location(tester))) {
+      await tester.pump(TapGuard.window);
+    }
   }
+
+  /// Whether the screen at [location] is a child's, which ignores touches
+  /// just after it appears.
+  static bool waitsForGuard(String location) =>
+      Uri.parse(location).path == Routes.kidHome ||
+      Uri.parse(location).path.startsWith('${Routes.kidHome}/');
 
   Widget app({String initial = '/'}) =>
       TelinhaSeguraApp(services: services, initialLocation: initial);
