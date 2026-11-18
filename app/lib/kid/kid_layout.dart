@@ -10,7 +10,8 @@ import '../design/tokens.dart';
 /// The frame of every child screen, "dentro da telinha":
 /// the ink field is the whole ground, edge to edge, in either
 /// theme; the simplified mascot sits small at the top strip's start, quiet
-/// (fullscreen design); [exit] takes the top end corner; [child] is
+/// (fullscreen design), unless a [lead] takes its place; [exit] takes the
+/// top end corner; [child] is
 /// centred in a column that scrolls rather than overflow. Everything inside paints in the kid dialect. A [fullWidth]
 /// screen (the shelves) takes the whole width from the top instead, its
 /// rows running to the screen's edges. A screen that must not scroll (the
@@ -21,11 +22,14 @@ class KidLayout extends StatelessWidget {
     super.key,
     required this.child,
     this.exit,
+    this.lead,
+    this.rise = 0,
     this.fullWidth = false,
     this.scrolls = true,
     this.strip = true,
   }) : assert(scrolls || fullWidth, 'only a full-width screen fills'),
-       assert(strip || !scrolls, 'only a screen that fills goes bare');
+       assert(strip || !scrolls, 'only a screen that fills goes bare'),
+       assert(rise == 0 || (strip && !scrolls), 'only a filled strip rises');
 
   final Widget child;
 
@@ -38,6 +42,19 @@ class KidLayout extends StatelessWidget {
 
   /// The exit control, if the screen has one.
   final Widget? exit;
+
+  /// What stands at the strip's start in the mark's place (the child's
+  /// own avatar on their home).
+  final Widget? lead;
+
+  /// How far [child] reaches up into the strip, between [lead] and
+  /// [exit]: the mascot standing on the home's first picture lifts its
+  /// head there. The strip has no ground of its own, so what rises shows,
+  /// and [lead] and [exit] stay above it and keep their taps.
+  final double rise;
+
+  /// The strip's height: the exit's target and its inset on both sides.
+  static const stripHeight = KidSizes.target + 2 * exitInset;
 
   /// False: no top strip, neither mark nor exit; [child] fills the safe
   /// area (the player in fullscreen, fullscreen design).
@@ -55,6 +72,31 @@ class KidLayout extends StatelessWidget {
     final pad = MediaQuery.paddingOf(context);
     return math.max(pad.top, pad.bottom);
   }
+
+  Widget _strip() => SizedBox(
+    height: stripHeight,
+    child: Stack(
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(start: Space.xl),
+            // The child's ground is ink in both themes, so the figure
+            // keeps its day colours.
+            child:
+                lead ??
+                const Tevi(
+                  size: markSize,
+                  tier: TeviTier.simplified,
+                  semanticLabel: 'Telinha Segura',
+                ),
+          ),
+        ),
+        if (exit case final exit?)
+          PositionedDirectional(top: exitInset, end: exitInset, child: exit),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => Theme(
@@ -75,37 +117,25 @@ class KidLayout extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (strip)
-                SizedBox(
-                  height: KidSizes.target + 2 * exitInset,
-                  child: Stack(
-                    children: [
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: Space.xl,
-                          ),
-                          // The child's ground is ink in both themes, so
-                          // the figure keeps its day colours.
-                          child: const Tevi(
-                            size: markSize,
-                            tier: TeviTier.simplified,
-                            semanticLabel: 'Telinha Segura',
-                          ),
-                        ),
-                      ),
-                      if (exit case final exit?)
-                        PositionedDirectional(
-                          top: exitInset,
-                          end: exitInset,
-                          child: exit,
-                        ),
-                    ],
-                  ),
-                ),
+              if (strip && rise == 0) _strip(),
               Expanded(
-                child: !scrolls
+                child: rise > 0
+                    ? Stack(
+                        children: [
+                          Positioned.fill(
+                            top: stripHeight - rise,
+                            child: child,
+                          ),
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: stripHeight,
+                            child: _strip(),
+                          ),
+                        ],
+                      )
+                    : !scrolls
                     ? child
                     : fullWidth
                     ? SingleChildScrollView(

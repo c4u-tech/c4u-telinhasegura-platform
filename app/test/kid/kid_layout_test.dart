@@ -119,6 +119,58 @@ void main() {
     expect(exit.overlaps(tester.getRect(mark)), isFalse);
   });
 
+  testWidgets('a lead takes the mark\'s place at the strip\'s start, level '
+      'with the exit, and the mark is gone', (tester) async {
+    await pumpKid(
+      tester,
+      const KidLayout(
+        lead: SizedBox.square(key: Key('lead'), dimension: 48),
+        exit: SizedBox.square(key: Key('exit'), dimension: 64),
+        child: SizedBox(),
+      ),
+    );
+    expect(mark, findsNothing);
+    final lead = tester.getRect(find.byKey(const Key('lead')));
+    final exit = tester.getRect(find.byKey(const Key('exit')));
+    expect(lead.left, _safe.left + Space.xl);
+    expect(lead.center.dy, exit.center.dy);
+  });
+
+  testWidgets('content that rises reaches up into the strip, behind the '
+      'lead and the exit, which still take their taps', (tester) async {
+    var exitTaps = 0;
+    var contentTaps = 0;
+    await pumpKid(
+      tester,
+      KidLayout(
+        fullWidth: true,
+        scrolls: false,
+        rise: 40,
+        lead: const SizedBox.square(dimension: 48),
+        exit: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => exitTaps++,
+          child: const SizedBox.square(key: Key('exit'), dimension: 64),
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => contentTaps++,
+          child: const SizedBox.expand(key: Key('content')),
+        ),
+      ),
+    );
+    final strip = KidSizes.target + 2 * KidLayout.exitInset;
+    final content = tester.getRect(find.byKey(const Key('content')));
+    expect(content.top, _safe.top + strip - 40);
+    expect(content.bottom, 640 - _safe.bottom);
+
+    await tester.tap(find.byKey(const Key('exit')));
+    expect((exitTaps, contentTaps), (1, 0));
+    // Between the lead and the exit the strip lets the content take it.
+    await tester.tapAt(Offset(180, content.top + 4));
+    expect((exitTaps, contentTaps), (1, 1));
+  });
+
   for (final size in [const Size(360, 640), const Size(1280, 800)]) {
     testWidgets('the content column is centred and holds at 200% text at '
         '$size', (tester) async {
