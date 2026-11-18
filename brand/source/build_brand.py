@@ -51,6 +51,9 @@ def n(v):
     the output is the same on every run and every machine."""
     s = f'{v:.3f}'.rstrip('0').rstrip('.')
     return '0' if s == '-0' else s
+def n5(v):
+    """A scale factor to five decimals, so a ratio such as 58/64 is written exactly."""
+    return f'{v:.5f}'.rstrip('0').rstrip('.')
 def pts(*ps):
     return ' '.join(f'{n(x)} {n(y)}' for x, y in ps)
 
@@ -220,7 +223,7 @@ def lockup_svg(v, endorsed=False):
         body += f'<path fill="{VARIANTS[v]["end"]}" transform="translate({WORD_X} {y})" d="{END_PATH}"/>'
         h = max(h, math.ceil(y + END_B[3]) + 6 - FIG_ORIGIN)
         w = max(w, math.ceil(WORD_X + END_B[2]) + 6 - FIG_ORIGIN)
-    return svg(FIG_ORIGIN, FIG_ORIGIN, w, h, body)
+    return svg(FIG_ORIGIN, FIG_ORIGIN, w, h, body, 'Telinha Segura — Feito pela Coding4u' if endorsed else 'Telinha Segura')
 
 # The stacked signature: the two words at 58 px per em, the second 0.86 em
 # under the first.
@@ -229,7 +232,7 @@ def stacked_svg(v):
     p = VARIANTS[v]
     words = (word_paths(v, TOP_PATH) +
              f'<path fill="{p["word"]}" transform="translate(0 {n(49.88 / STACK)})" d="{BOTTOM_PATH}"/>')
-    body = figure('mark', v) + f'<g transform="translate({WORD_X} 55) scale({n(STACK)})">{words}</g>'
+    body = figure('mark', v) + f'<g transform="translate({WORD_X} 55) scale({n5(STACK)})">{words}</g>'
     return svg(FIG_ORIGIN, FIG_ORIGIN, 331, FIG, body)
 
 # The wordmark alone, in a box 60 tall with the baseline at 49: ascenders
@@ -237,8 +240,8 @@ def stacked_svg(v):
 def wordmark_svg(v):
     return svg(0, 0, WORD_W + 1, 60, f'<g transform="translate(0 49)">{word_paths(v)}</g>')
 
-def png(svg_text, w=None, h=None, bg=None):
-    data = cairosvg.svg2png(bytestring=svg_text.encode(), output_width=w, output_height=h, background_color=bg)
+def png(svg_text, w=None, h=None):
+    data = cairosvg.svg2png(bytestring=svg_text.encode(), output_width=w, output_height=h)
     return Image.open(io.BytesIO(data))
 
 def target(path):
@@ -261,15 +264,16 @@ for v in VARIANTS:
     files[f'svg/telinha-segura-wordmark-{v}.svg'] = wordmark_svg(v)
 for k, t in files.items(): write(k, t)
 
-def centred(size, s, tier, v, night=False):
+def centred(size, s, tier, v):
     """The figure at scale s with its drawing (not its box) centred in a
-    size-wide square."""
-    x0, y0, x1, y1 = FIG_BBOX if tier == 'mark' else SMALL_BBOX
-    return figure(tier, v, size / 2 - s * (x0 + x1) / 2, size / 2 - s * (y0 + y1) / 2, s, night)
-def placed(size, frac, tier, v, night=False):
+    size-wide square. Only the full figure in colour has a tail and legs; the
+    one-colour figure and the small tiers are drawn without them."""
+    x0, y0, x1, y1 = FIG_BBOX if tier == 'mark' and not VARIANTS[v]['one'] else SMALL_BBOX
+    return figure(tier, v, size / 2 - s * (x0 + x1) / 2, size / 2 - s * (y0 + y1) / 2, s)
+def placed(size, frac, tier, v):
     """The figure scaled so its 132-unit box spans frac of a size-wide
     square, its drawing centred in the square."""
-    return centred(size, size * frac / FIG, tier, v, night)
+    return centred(size, size * frac / FIG, tier, v)
 
 # favicon: the small figure on its own ink tile, one drawing for light and
 # dark tab strips; its drawing is 13 of the tile's 16 units wide
@@ -305,7 +309,7 @@ save_png('app-icon/android-adaptive-foreground.png', png(adaptive_fg, 432, 432))
 save_png('app-icon/android-adaptive-background.png', png(adaptive_bg, 432, 432))
 save_png('app-icon/android-monochrome.png', png(monochrome, 432, 432))
 # Native splash: the same figure on a transparent ground; the splash paints
-# ink (light) or dark behind it. 192 dp at 4x, and inside Android 12's
+# ink behind it in both themes. 192 dp at 4x, and inside Android 12's
 # 640 px circle.
 def splash(size, frac):
     return png(svg(0, 0, size, size, placed(size, frac, 'mark', 'color')), size, size)
@@ -380,7 +384,7 @@ COPIES = {
   'site/public/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',
   'site/public/brand/telinha-segura-wordmark-reversed.svg': 'brand/svg/telinha-segura-wordmark-reversed.svg',
   'site/public/brand/telinha-segura-lockup-endorsed-color.svg': 'brand/svg/telinha-segura-lockup-endorsed-color.svg',
-  'site/public/brand/telinha-segura-lockup-endorsed-color-on-dark.svg': 'brand/svg/telinha-segura-lockup-endorsed-color-on-dark.svg',
+  'site/public/brand/telinha-segura-lockup-endorsed-reversed.svg': 'brand/svg/telinha-segura-lockup-endorsed-reversed.svg',
 }
 for copy, master in COPIES.items():
     dst = os.path.join(ROOT, copy); os.makedirs(os.path.dirname(dst), exist_ok=True)

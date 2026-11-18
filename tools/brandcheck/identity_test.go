@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -174,5 +175,59 @@ func TestFaviconIsTheSmallFigureOnItsTile(t *testing.T) {
 	}
 	if !strings.Contains(svg, "#FFC42E") {
 		t.Error("the favicon lacks the figure")
+	}
+}
+
+// The one-colour layers are drawn about the centre of what they show: the
+// themed layer has no tail or legs, so centring it on the full figure's
+// extents would push it off to one side.
+func TestAndroidLayersAreCentred(t *testing.T) {
+	for _, file := range []string{
+		"brand/app-icon/android-monochrome.png",
+		"brand/app-icon/android-adaptive-foreground.png",
+	} {
+		img := decode(t, file)
+		b := img.Bounds()
+		minX, minY, maxX, maxY := b.Max.X, b.Max.Y, b.Min.X, b.Min.Y
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			for x := b.Min.X; x < b.Max.X; x++ {
+				if _, _, _, a := img.At(x, y).RGBA(); a == 0 {
+					continue
+				}
+				minX, maxX = min(minX, x), max(maxX, x+1)
+				minY, maxY = min(minY, y), max(maxY, y+1)
+			}
+		}
+		if maxX < minX {
+			t.Fatalf("%s is empty", file)
+		}
+		side := float64(b.Dx())
+		cx, cy := float64(minX+maxX)/2, float64(minY+maxY)/2
+		if math.Abs(cx-side/2) > side/100 || math.Abs(cy-side/2) > side/100 {
+			t.Errorf("%s is centred at %.1f,%.1f in a %.0f px square", file, cx, cy, side)
+		}
+	}
+}
+
+// A page's dark theme paints the same colour as the figure's dark parts
+// (tail, crown, mask, legs), so the signatures made for the brand's teal
+// ground would lose them there; a page uses the one-colour signature instead.
+func TestSiteNeverShowsTheTealGroundSignatures(t *testing.T) {
+	root := filepath.Join(Root(), "site", "public")
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".html") {
+			return err
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(b), "color-on-dark") {
+			t.Errorf("%s references a color-on-dark brand file", p)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
