@@ -1,0 +1,399 @@
+import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
+
+import 'package:flutter/widgets.dart';
+
+import 'tokens.dart';
+
+/// How much of the mascot is drawn. The simplified figure leaves out the
+/// tail, the legs and the eye's highlight, for sizes where they would
+/// blur into noise.
+enum TeviTier { full, simplified }
+
+/// The mascot's expression: a few continuous parameters rather than
+/// separate drawings, so one look can pass smoothly into another.
+@immutable
+class TeviLook {
+  const TeviLook({
+    this.lid = 0,
+    this.sag = 0,
+    this.gaze = 0,
+    this.crest = 0,
+    this.sleepMarks = false,
+  });
+
+  /// The eyelid: 0 open, 1 closed to a single curved line.
+  final double lid;
+
+  /// The closed eyelid's curve: 0 arches up (a wink), 1 sags down
+  /// (sleep).
+  final double sag;
+
+  /// 0 looks ahead, past the beak; 1 looks back over its shoulder.
+  final double gaze;
+
+  /// 0 flat; 1 the two crest feathers raised and the eye wide open.
+  final double crest;
+
+  /// The two small "Z" marks above the head.
+  final bool sleepMarks;
+
+  static const watching = TeviLook();
+  static const winking = TeviLook(lid: 1);
+  static const lookingBack = TeviLook(gaze: 1);
+  static const crestUp = TeviLook(crest: 1);
+  static const asleep = TeviLook(lid: 1, sag: 1, sleepMarks: true);
+
+  /// The look [t] of the way from [a] to [b]. The marks, which do not
+  /// fade, switch halfway.
+  static TeviLook lerp(TeviLook a, TeviLook b, double t) => TeviLook(
+    lid: lerpDouble(a.lid, b.lid, t)!,
+    sag: lerpDouble(a.sag, b.sag, t)!,
+    gaze: lerpDouble(a.gaze, b.gaze, t)!,
+    crest: lerpDouble(a.crest, b.crest, t)!,
+    sleepMarks: t < .5 ? a.sleepMarks : b.sleepMarks,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is TeviLook &&
+      other.lid == lid &&
+      other.sag == sag &&
+      other.gaze == gaze &&
+      other.crest == crest &&
+      other.sleepMarks == sleepMarks;
+
+  @override
+  int get hashCode => Object.hash(lid, sag, gaze, crest, sleepMarks);
+
+  @override
+  String toString() =>
+      'TeviLook(lid: $lid, sag: $sag, gaze: $gaze, crest: $crest, '
+      'sleepMarks: $sleepMarks)';
+}
+
+/// The mascot, facing right, drawn in its square
+/// 132-unit box (the figure's 120 units with 6 of air on each side)
+/// scaled to the canvas width.
+///
+/// The colours are the brand's own, not the theme's: the mascot is the
+/// mark. On the darkest ground its dark parts (tail, crown, mask, legs
+/// and pupil) would vanish, so [night] paints them in ink instead.
+class TeviPainter extends CustomPainter {
+  const TeviPainter({
+    this.look = TeviLook.watching,
+    this.tier = TeviTier.full,
+    this.night = false,
+  });
+
+  final TeviLook look;
+  final TeviTier tier;
+  final bool night;
+
+  /// The box's side, in figure units.
+  static const _box = 132.0;
+
+  /// The figure's origin inside the box.
+  static const _air = 6.0;
+
+  /// Where the legs end, as a fraction of the box's height from its top:
+  /// stand the figure on an edge by putting this line on it.
+  static const perchY = (103.4 + _air) / _box;
+
+  /// The body's rounded rectangle, as fractions of the box.
+  static const body = Rect.fromLTRB(
+    (14 + _air) / _box,
+    (20 + _air) / _box,
+    (98 + _air) / _box,
+    (90 + _air) / _box,
+  );
+
+  static final _body = RRect.fromRectAndRadius(
+    const Rect.fromLTWH(14, 20, 84, 70),
+    const Radius.circular(26),
+  );
+
+  static final _tail = _roundedTriangle(const [
+    Offset(21.27, 67.54),
+    Offset(6.90, 76.74),
+    Offset(22.42, 80.77),
+  ], 3.2);
+
+  static final _beak = _roundedTriangle(const [
+    Offset(97.40, 47.60),
+    Offset(111.63, 55.00),
+    Offset(97.40, 62.40),
+  ], 3.4);
+
+  /// The dark band across the eye, sloping down towards the beak.
+  static final _mask = Path()
+    ..addPolygon(const [
+      Offset(14, 46),
+      Offset(14, 54.75),
+      Offset(98, 59.28),
+      Offset(98, 46),
+      Offset(97.95, 44.5),
+      Offset(14.05, 44.5),
+    ], true);
+
+  static final _legs = [
+    for (final x in [41.6, 59.6])
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(x, 87.6, x + 4.8, 103.4),
+        const Radius.circular(2.4),
+      ),
+  ];
+
+  /// Two feathers, their bases tucked 2 units behind the top of the head.
+  static final _crest = Path()
+    ..addPath(
+      _roundedTriangle(const [
+        Offset(43.05, 19.80),
+        Offset(50.61, 19.80),
+        Offset(46.29, 10.08),
+      ], 2.2),
+      Offset.zero,
+    )
+    ..addPath(
+      _roundedTriangle(const [
+        Offset(55.79, 19.80),
+        Offset(62.66, 19.80),
+        Offset(59.72, 12.93),
+      ], 2.2),
+      Offset.zero,
+    );
+
+  /// How far the folded crest sinks: its tips end behind the head.
+  static const _crestSink = 14.2;
+
+  static const _z = [
+    Offset(0.40, 0.00),
+    Offset(0.40, -2.72),
+    Offset(5.42, -7.84),
+    Offset(5.42, -7.96),
+    Offset(0.50, -7.96),
+    Offset(0.50, -10.56),
+    Offset(9.20, -10.56),
+    Offset(9.20, -7.82),
+    Offset(4.18, -2.68),
+    Offset(4.18, -2.60),
+    Offset(9.26, -2.60),
+    Offset(9.26, 0.00),
+  ];
+
+  static final _marks = [
+    for (final (at, scale) in [
+      (const Offset(96, 30), 1.0),
+      (const Offset(108.4, 17.6), 0.7),
+    ])
+      Path()..addPolygon([for (final p in _z) at + p * scale], true),
+  ];
+
+  /// The width of the closed eyelid's line.
+  static const _lidWidth = 4.6;
+
+  /// Half the height of the opening an open eyelid leaves around the
+  /// lid's line: enough to clear the widest eye in either curve. Closing,
+  /// it narrows to the line's own half-width.
+  static const _lidOpen = 16.0;
+
+  /// From this far closed the pupil shrinks away, so the narrowing
+  /// opening ends cream, like the line it becomes.
+  static const _pupilFrom = .4;
+
+  /// From this far closed the line itself fades in over the opening, so
+  /// its round ends appear without a jump.
+  static const _lineFrom = .8;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dark = night ? BrandColors.ink : BrandColors.dark;
+    final full = tier == TeviTier.full;
+    Paint fill(Color c) => Paint()..color = c;
+
+    canvas.save();
+    canvas.scale(size.width / _box);
+    canvas.translate(_air, _air);
+
+    final crest = look.crest.clamp(0.0, 1.0);
+    if (crest > 0) {
+      if (crest < 1) {
+        canvas.save();
+        canvas.translate(0, (1 - crest) * _crestSink);
+      }
+      canvas.drawPath(_crest, fill(dark));
+      if (crest < 1) canvas.restore();
+    }
+
+    if (full) canvas.drawPath(_tail, fill(dark));
+    canvas.drawPath(_beak, fill(BrandColors.beak));
+    canvas.drawRRect(_body, fill(BrandColors.sun));
+
+    canvas.save();
+    canvas.clipRRect(_body);
+    canvas.drawRect(const Rect.fromLTRB(14, 20, 98, 38), fill(dark));
+    canvas.drawRect(
+      const Rect.fromLTRB(14, 38, 98, 44.5),
+      fill(BrandColors.cream),
+    );
+    canvas.drawPath(_mask, fill(dark));
+    canvas.restore();
+
+    if (full) {
+      for (final leg in _legs) {
+        canvas.drawRRect(leg, fill(dark));
+      }
+    }
+
+    _eye(canvas, dark, full, crest);
+
+    if (look.sleepMarks) {
+      for (final z in _marks) {
+        canvas.drawPath(z, fill(BrandColors.ink));
+      }
+    }
+    canvas.restore();
+  }
+
+  void _eye(Canvas canvas, Color dark, bool full, double crest) {
+    final lid = look.lid.clamp(0.0, 1.0);
+    final sag = look.sag.clamp(0.0, 1.0);
+    // The lid's line: from cap centre to cap centre, arched for a wink,
+    // sagging for sleep.
+    final ends = lerpDouble(55, 50, sag)!;
+    final bend = lerpDouble(44, 59, sag)!;
+
+    if (lid < 1) {
+      final open = lid > 0;
+      if (open) {
+        final half = lerpDouble(_lidOpen, _lidWidth / 2, lid)!;
+        canvas.save();
+        canvas.clipPath(_opening(ends, bend, half));
+      }
+      final shift = -6.2 * look.gaze;
+      final pupil = 1 - ((lid - _pupilFrom) / (1 - _pupilFrom)).clamp(0, 1);
+      canvas.drawCircle(
+        const Offset(74, 52),
+        lerpDouble(10.5, 12.5, crest)!,
+        Paint()..color = BrandColors.cream,
+      );
+      canvas.drawCircle(
+        Offset(lerpDouble(77, 74, crest)! + shift, 52),
+        lerpDouble(5, 4.2, crest)! * pupil,
+        Paint()..color = dark,
+      );
+      if (full) {
+        canvas.drawCircle(
+          Offset(lerpDouble(79, 76, crest)! + shift, 50),
+          1.7 * pupil,
+          Paint()..color = BrandColors.cream,
+        );
+      }
+      if (open) canvas.restore();
+    }
+
+    final line = ((lid - _lineFrom) / (1 - _lineFrom)).clamp(0.0, 1.0);
+    if (line > 0) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(65, ends)
+          ..quadraticBezierTo(74, bend, 83, ends),
+        Paint()
+          ..color = line < 1
+              ? BrandColors.cream.withValues(alpha: line)
+              : BrandColors.cream
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _lidWidth
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  /// What the eyelid leaves open: the band [half] above and below the
+  /// lid's line, run flat past the eye on both sides.
+  static Path _opening(double ends, double bend, double half) => Path()
+    ..moveTo(50, ends - half)
+    ..lineTo(65, ends - half)
+    ..quadraticBezierTo(74, bend - half, 83, ends - half)
+    ..lineTo(98, ends - half)
+    ..lineTo(98, ends + half)
+    ..lineTo(83, ends + half)
+    ..quadraticBezierTo(74, bend + half, 65, ends + half)
+    ..lineTo(50, ends + half)
+    ..close();
+
+  /// A triangle with its corners rounded: the outline around three discs
+  /// of radius [r] centred at [c].
+  static Path _roundedTriangle(List<Offset> c, double r) {
+    final centre = (c[0] + c[1] + c[2]) / 3;
+    // Each edge's outward normal, from corner i to corner i + 1.
+    final normals = [
+      for (var i = 0; i < 3; i++)
+        () {
+          final d = c[(i + 1) % 3] - c[i];
+          var n = Offset(d.dy, -d.dx) / d.distance;
+          final out = c[i] - centre;
+          if (n.dx * out.dx + n.dy * out.dy < 0) n = -n;
+          return n;
+        }(),
+    ];
+    final path = Path()
+      ..moveTo(c[0].dx + normals[0].dx * r, c[0].dy + normals[0].dy * r);
+    for (var i = 0; i < 3; i++) {
+      final corner = c[(i + 1) % 3];
+      final from = normals[i], to = normals[(i + 1) % 3];
+      path.lineTo(corner.dx + from.dx * r, corner.dy + from.dy * r);
+      var sweep = to.direction - from.direction;
+      while (sweep > math.pi) {
+        sweep -= 2 * math.pi;
+      }
+      while (sweep <= -math.pi) {
+        sweep += 2 * math.pi;
+      }
+      path.arcTo(
+        Rect.fromCircle(center: corner, radius: r),
+        from.direction,
+        sweep,
+        false,
+      );
+    }
+    return path..close();
+  }
+
+  @override
+  bool shouldRepaint(TeviPainter old) =>
+      old.look != look || old.tier != tier || old.night != night;
+}
+
+/// The mascot at [size] by [size]. It is decoration unless given a
+/// [semanticLabel]: most places name the app or the moment in words
+/// beside it.
+class Tevi extends StatelessWidget {
+  const Tevi({
+    super.key,
+    required this.size,
+    this.tier = TeviTier.full,
+    this.look = TeviLook.watching,
+    this.night = false,
+    this.semanticLabel,
+  });
+
+  final double size;
+  final TeviTier tier;
+  final TeviLook look;
+
+  /// The night colours, for the darkest ground.
+  final bool night;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final figure = CustomPaint(
+      size: Size.square(size),
+      painter: TeviPainter(look: look, tier: tier, night: night),
+    );
+    final label = semanticLabel;
+    if (label == null) return ExcludeSemantics(child: figure);
+    return Semantics(image: true, label: label, child: figure);
+  }
+}
