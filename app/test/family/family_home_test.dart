@@ -177,7 +177,7 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('Começar minha família creates it and the sun rises', (
+    testWidgets('Começar minha família creates it and the mascot winks', (
       tester,
     ) async {
       final h = await home(
@@ -185,18 +185,18 @@ void main() {
         family: null,
         api: (_) => json(201, ownerFamily),
       );
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, false);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, false);
 
       await tester.tap(find.text('Começar minha família'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Then Início reads the new family's child's day, the sun rising,
+      // Then Início reads the new family's child's day, the mascot winking,
       // before the first run opens.
       expect(h.actions.first, 'POST /v1/family');
       expect(h.actions.where((a) => a.startsWith('POST')), ['POST /v1/family']);
       expect(find.byType(Inicio), findsOneWidget);
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
 
       await tester.pumpAndSettle();
       expect(h.location(tester), '/comecar');

@@ -102,7 +102,7 @@ class _HoldToExitState extends State<HoldToExit>
                   painter: ExitRingPainter(
                     progress: _ring.value,
                     track: p.outline,
-                    fill: p.action,
+                    fill: p.meter,
                     focus: _focused ? p.muted : null,
                   ),
                   child: Center(
@@ -175,9 +175,9 @@ class ExitRingPainter extends CustomPainter {
       old.focus != focus;
 }
 
-/// The exit glyph, from the Espiadinha's vocabulary: the mark's screen
-/// (58 × 33, corner at 10/33 of its height) with an arrow leaving it
-/// through its side. No lock, shield or door.
+/// The exit glyph, from the avatars' vocabulary: a screen (close to
+/// 16:9, cornered at the shape ratio of its height) with an arrow leaving
+/// it through its side. No lock, shield or door.
 class ExitGlyphPainter extends CustomPainter {
   ExitGlyphPainter({required this.color});
 
@@ -193,7 +193,7 @@ class ExitGlyphPainter extends CustomPainter {
       ..strokeWidth = 2.25
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    const w = 20.0, h = w * 33 / 58;
+    const w = 20.0, h = w / Proportions.screen;
     const top = 16 - h / 2;
     // The screen, open where the arrow leaves it.
     canvas.save();

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
@@ -17,6 +19,7 @@ import 'package:telinha_segura/kid/sleeping_telinha.dart';
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
+import 'shelf_picture.dart';
 import 'kid_shelves_test.dart' show pixel, twoShelves, video;
 
 /// The day's shelves plus one pacotinho of three videos, its cover the
@@ -210,7 +213,7 @@ void main() {
   });
 
   testWidgets('a video\'s end lets the player go and shows the breath: the '
-      'next cover, the Espiadinha, the modules and "Continuar"', (
+      'next cover, the mascot winking on it, the modules and "Continuar"', (
     tester,
   ) async {
     final h = await inPack(tester);
@@ -220,6 +223,14 @@ void main() {
     expect(first.closed, isTrue);
     expect(find.byKey(FakePlayback.viewKey), findsNothing);
     expect(find.byType(PackBreath), findsOneWidget);
+    expectPerched(
+      tester,
+      find.byType(PackBreath),
+      TeviLook.winking,
+      filled: true,
+      // The player's stage is darker than the child's ground.
+      night: true,
+    );
     expect(progress(1, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsOneWidget);
     // No seconds, said or drawn.
@@ -423,7 +434,20 @@ void main() {
 
     expect(last.closed, isTrue);
     expect(find.byType(PackGoodbye), findsOneWidget);
+    // The mascot falls asleep over its empty screen.
+    final picture = expectPerched(
+      tester,
+      find.byType(PackGoodbye),
+      TeviLook.asleep,
+      night: true,
+    );
     expect(find.text(PackGoodbye.word), findsOneWidget);
+    // The same picture as the breath's, at the same size.
+    expect(
+      tester.getSize(picture),
+      ShelfPicture.size *
+          PackBreath.scaleFor(tester.getSize(find.byType(PackGoodbye))),
+    );
     expect(progress(3, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.back), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsNothing);

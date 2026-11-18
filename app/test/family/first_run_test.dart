@@ -138,7 +138,7 @@ Future<void> pumpUntil(WidgetTester tester, bool Function() done) async {
 
 void main() {
   group('after "Começar minha família"', () {
-    testWidgets('the sun rises on the home, then the path opens at its '
+    testWidgets('the mascot winks on the home, then the path opens at its '
         'first step', (tester) async {
       final h = Harness(
         signedIn: true,
@@ -157,9 +157,9 @@ void main() {
       await tester.pump();
 
       expect(h.location(tester), '/');
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
 
-      await tester.pump(FamilyHomeScreen.riseThenPath);
+      await tester.pump(FamilyHomeScreen.winkThenPath);
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/comecar');

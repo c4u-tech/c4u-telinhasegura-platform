@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/curation/curation.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
@@ -18,6 +19,7 @@ import 'package:telinha_segura/kid/theme_glyph.dart';
 
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
+import 'shelf_picture.dart';
 
 /// A 1 × 1 PNG: real image bytes, as `/v1/child/thumbs` answers.
 final pixel = base64Decode(
@@ -78,9 +80,7 @@ Finder tilesIn(Finder shelf) =>
     find.descendant(of: shelf, matching: find.byType(VideoTile));
 
 /// The hollow screen the empty shelf draws, which no row's end repeats.
-final hollowEnd = find.byWidgetPredicate(
-  (w) => w is CustomPaint && w.painter is EmptyShelfPainter,
-);
+final hollowEnd = find.byType(ShelfPicture);
 
 void main() {
   testWidgets('one shelf per theme in the catalogue\'s order, each led by '
@@ -277,6 +277,8 @@ void main() {
     );
 
     expect(find.byType(ShelvesFailed), findsOneWidget);
+    // The mascot raises its crest over the hollow screen.
+    expectPerched(tester, find.byType(ShelvesFailed), TeviLook.crestUp);
     final retry = find.widgetWithText(FilledButton, ShelvesFailed.retry);
     expect(ShelvesFailed.retry, 'Tentar de novo');
     expect(tester.getSize(retry).height, greaterThanOrEqualTo(KidSizes.target));

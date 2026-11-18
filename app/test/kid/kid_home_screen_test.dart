@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/auth/api_client.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family.dart';
@@ -20,6 +21,7 @@ import '../access/harness.dart';
 import '../family/avatars_test.dart' show RecordingCanvas;
 import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show profileJson;
+import 'shelf_picture.dart';
 
 /// `/crianca` on a shared device locked to [minorId]; the profile read
 /// answers [profile] (Lia by default).
@@ -91,14 +93,12 @@ void main() {
       tester.widget<Text>(name).style?.fontSize,
       theme(tester.element(name)).textTheme.displaySmall?.fontSize,
     );
-    // The shelf grows as the avatar does: 128 to 192 dp is half again.
+    // The shelf grows as the avatar does: 128 to 192 dp is half again,
+    // the mascot with it.
     final shelf = tester.getRect(
-      find.descendant(
-        of: find.byType(EmptyShelf),
-        matching: find.byType(CustomPaint),
-      ),
+      expectPerched(tester, find.byType(EmptyShelf), TeviLook.watching),
     );
-    expect(shelf.size, EmptyShelf.size * 1.5);
+    expect(shelf.size, ShelfPicture.size * 1.5);
     expect(shelf.center.dx, closeTo(1280 / 2, 0.5));
     // Its line grows with it, two type steps: the 192 dp avatar and the
     // shelf read as one composition.
@@ -122,10 +122,10 @@ void main() {
       tester.getSize(
         find.descendant(
           of: find.byType(EmptyShelf),
-          matching: find.byType(CustomPaint),
+          matching: find.byType(ShelfPicture),
         ),
       ),
-      EmptyShelf.size,
+      ShelfPicture.size,
     );
     expect(
       tester.widget<Text>(find.text(EmptyShelf.line)).style?.fontSize,
@@ -221,9 +221,10 @@ void main() {
     });
   }
 
-  testWidgets('below, the empty shelf: the Espiadinha peeking into an empty '
-      'screen and one short line', (tester) async {
+  testWidgets('below, the empty shelf: the mascot watching from the top of '
+      'an empty screen, and one short line', (tester) async {
     await kidHome(tester);
+    expectPerched(tester, find.byType(EmptyShelf), TeviLook.watching);
 
     final shelf = tester.getRect(find.byType(EmptyShelf));
     expect(shelf.top, greaterThan(tester.getRect(find.text('Lia')).bottom));
@@ -318,32 +319,6 @@ void main() {
     expect(find.text('Téo'), findsOneWidget);
   });
 
-  test('the shelf paints sun only in the head and fingers', () {
-    final canvas = DrawLog();
-    const EmptyShelfPainter().paint(canvas, EmptyShelf.size);
-
-    String part(Rect bounds) => bounds.width > 20 ? 'head' : 'finger';
-    final sun = [
-      for (final (name, color, bounds) in canvas.draws)
-        if (color == BrandColors.sun.toARGB32()) (name, part(bounds)),
-    ];
-    // The six fingertips and the head, cut flat: nothing else takes the
-    // sun.
-    expect(sun, [
-      for (var i = 0; i < 6; i++) (#drawPath, 'finger'),
-      (#drawPath, 'head'),
-    ]);
-    expect(
-      {for (final (_, color, _) in canvas.draws) color},
-      {
-        BrandColors.sun.toARGB32(),
-        BrandColors.cream.toARGB32(),
-        BrandColors.dark.toARGB32(),
-      },
-      reason: 'a cream screen, the eyes in dark',
-    );
-  });
-
   group('a paused profile', () {
     /// `/crianca` for a child whose consent is not current: the child
     /// routes answer `consent_required`.
@@ -367,6 +342,8 @@ void main() {
       await pausedHome(tester);
 
       expect(find.byType(PausedProfile), findsOneWidget);
+      // The mascot looks back over its shoulder, toward the adult.
+      expectPerched(tester, find.byType(PausedProfile), TeviLook.lookingBack);
       expect(
         PausedProfile.line,
         'Este perfil está pausado. Peça a um adulto para abrir o app e '
@@ -419,27 +396,4 @@ void main() {
       expect(find.text('Lia'), findsOneWidget);
     });
   });
-}
-
-/// Records each draw: its name, its paint's colour (ARGB) and its
-/// geometry's bounds in the painter's own units (transforms ignored).
-class DrawLog implements Canvas {
-  final draws = <(Symbol, int, Rect)>[];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    final name = invocation.memberName;
-    if (!name.toString().contains('draw')) return null;
-    final args = invocation.positionalArguments;
-    final paint = args.whereType<Paint>().single;
-    final shape = args.first;
-    final bounds = switch (shape) {
-      Path() => shape.getBounds(),
-      RRect() => shape.outerRect,
-      Rect() => shape,
-      _ => Rect.zero,
-    };
-    draws.add((name, paint.color.toARGB32(), bounds));
-    return null;
-  }
 }

@@ -32,7 +32,26 @@ Future<int Function()> pumpExit(
   return () => exits;
 }
 
+ExitRingPainter ring(WidgetTester tester) => tester
+    .widgetList<CustomPaint>(
+      find.descendant(
+        of: find.byType(HoldToExit),
+        matching: find.byType(CustomPaint),
+      ),
+    )
+    .map((p) => p.painter)
+    .whereType<ExitRingPainter>()
+    .single;
+
 void main() {
+  testWidgets('the ring fills in the meter\'s cream over the outline\'s '
+      'track: it measures the hold, it is not an action', (tester) async {
+    await pumpExit(tester);
+    expect(ring(tester).fill, Palette.kid.meter);
+    expect(ring(tester).fill, isNot(Palette.kid.action));
+    expect(ring(tester).track, Palette.kid.outline);
+  });
+
   testWidgets('a continuous 2-second press exits, filling the ring as it '
       'goes', (tester) async {
     final exits = await pumpExit(tester);

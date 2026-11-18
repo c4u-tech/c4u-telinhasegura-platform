@@ -193,8 +193,8 @@ class _InicioState extends State<Inicio> {
   );
 }
 
-/// The family's children grouped on one low-alpha ink band, the rows
-/// divided by reed hairlines: no card, no shadow. Beside the rail it
+/// The family's children grouped on one low-alpha ink band with a
+/// card's corners, the rows divided by reed hairlines, no shadow. Beside the rail it
 /// sets them in [columns].
 class ChildBand extends StatelessWidget {
   const ChildBand({super.key, required this.children, this.columns = 1});
@@ -246,7 +246,7 @@ class ChildBand extends StatelessWidget {
       key: bandKey,
       decoration: BoxDecoration(
         color: tint(p),
-        borderRadius: BorderRadius.circular(10 * FieldSizes.bandUnit),
+        borderRadius: BorderRadius.circular(Radii.card),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Space.lg),

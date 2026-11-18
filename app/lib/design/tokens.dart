@@ -20,7 +20,13 @@ abstract final class BrandColors {
 
 /// The UI palette the brand does not define. Every neutral is tinted from
 /// ink. Sun, beak and sky are brand colours for the mark and its
-/// grounds; none of them is text or a state colour.
+/// grounds, never text. Sun is a fill: it carries the active indicator
+/// and, on the dark and child grounds, the primary action, so selection
+/// (a chosen option or avatar) shows in it there, always under a dark
+/// label and never alone on a light ground. What measures (a step done,
+/// a module filled, a hold under way) takes [meter] instead, so sun
+/// keeps meaning "act here". Beak belongs to the mark and is never an
+/// error colour. Sky is a support ground.
 /// Contrast pairs are asserted in tokens_test.dart.
 class Palette {
   const Palette({
@@ -35,10 +41,12 @@ class Palette {
     required this.outline,
     required this.action,
     required this.onAction,
+    required this.meter,
+    required this.indicator,
+    required this.onIndicator,
     required this.focus,
     required this.error,
     required this.errorGround,
-    required this.headOutline,
   });
 
   final Brightness brightness;
@@ -46,7 +54,7 @@ class Palette {
   /// The work ground every form sits on.
   final Color ground;
 
-  /// The flat ink field: the Espiadinha's screen.
+  /// The flat ink field the mascot stands on.
   final Color field;
   final Color onField;
   final Color onFieldMuted;
@@ -58,14 +66,20 @@ class Palette {
   /// The primary action's fill.
   final Color action;
   final Color onAction;
+
+  /// The fill of what measures rather than acts: the filled modules of a
+  /// state, a step or a time, and a ring filling while it is held.
+  final Color meter;
+
+  /// The navigation's active destination: its indicator's fill and the
+  /// icon on it.
+  final Color indicator;
+  final Color onIndicator;
   final Color focus;
 
   /// A warm earth tone: errors are calm, never alarm red.
   final Color error;
   final Color errorGround;
-
-  /// The head's outline: required on light grounds (identity.md, Colour).
-  final Color headOutline;
 
   static const light = Palette(
     brightness: Brightness.light,
@@ -73,16 +87,18 @@ class Palette {
     field: BrandColors.ink,
     onField: BrandColors.cream,
     onFieldMuted: Color(0xFFD3E2E3),
-    text: Color(0xFF12343B),
+    text: BrandColors.dark,
     muted: Color(0xFF4A666B),
     input: Color(0xFFFFFDF8),
     outline: Color(0xFF6F8B90),
     action: BrandColors.ink,
     onAction: BrandColors.cream,
+    meter: BrandColors.ink,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: BrandColors.ink,
     error: Color(0xFF974614),
     errorGround: Color(0xFFF6E8DB),
-    headOutline: BrandColors.ink,
   );
 
   static const dark = Palette(
@@ -95,15 +111,17 @@ class Palette {
     muted: Color(0xFFA6BFC2),
     input: Color(0xFF16363D),
     outline: Color(0xFF6A8D93),
-    action: BrandColors.cream,
+    action: BrandColors.sun,
     onAction: BrandColors.dark,
+    meter: BrandColors.sky,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: Color(0xFFA6BFC2),
     error: Color(0xFFEFA97E),
     errorGround: Color(0xFF2B2E28),
-    headOutline: BrandColors.dark,
   );
 
-  /// The kid dialect: the child is inside the Espiadinha's screen, so ink
+  /// The kid dialect: the child is inside the ink field, so ink
   /// is the ground in both themes and cream the figure. Errors keep
   /// ember, on dark (tinted from ink) rather than the olive of the night
   /// palette; ember reads as text only on that ground.
@@ -117,12 +135,14 @@ class Palette {
     muted: Color(0xFFD3E2E3),
     input: Color(0xFF16363D),
     outline: Color(0xFFA6BFC2),
-    action: BrandColors.cream,
+    action: BrandColors.sun,
     onAction: BrandColors.dark,
+    meter: BrandColors.cream,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: BrandColors.cream,
     error: Color(0xFFEFA97E),
     errorGround: BrandColors.dark,
-    headOutline: BrandColors.dark,
   );
 }
 
@@ -137,21 +157,42 @@ abstract final class Space {
   static const xxxl = 48.0;
 }
 
-/// Corner radii cut from the mark's screen (radius 10 on a 33-unit-tall
-/// rectangle): every control keeps that ratio to its height.
+/// Corner radii cut from the mascot's body, a rounded rectangle 70 units
+/// tall with a 26-unit corner: every control keeps that ratio to its
+/// height, so a button reads as the same soft block the mascot is.
 abstract final class Radii {
-  static const screenRatio = 10 / 33;
+  /// The shape ratio: a corner over the height it rounds.
+  static const screenRatio = 26 / 70;
 
-  /// A 56 dp control.
-  static const control = 17.0;
+  /// A 56 dp control (the theme's buttons and fields) at the ratio: 20.8.
+  static const control = 56 * screenRatio;
   static const small = 8.0;
+
+  /// A panel that groups several rows.
+  static const card = 28.0;
 }
 
-/// Sizes of the flat field and its Espiadinha.
+/// The proportions of shapes the app draws more than once.
+abstract final class Proportions {
+  /// The small screen (the PIN's slots, a device's or a time's module),
+  /// width over height: 58 by 33, close to 16:9, a screen a child knows.
+  static const screen = 58 / 33;
+}
+
+/// Sizes of the flat field and the mascot standing on it.
 abstract final class FieldSizes {
-  /// Grid unit of the mark on the entry field: the head radius is 14 units.
-  static const heroUnit = 3.0;
-  static const bandUnit = 1.75;
+  /// The entry field's corner, on a phone and as the wide panel.
+  static const heroCorner = 40.0;
+
+  /// The band's corner: tighter, as the band is a much shorter field.
+  static const bandCorner = 26.0;
+
+  /// The mascot standing on the entry field.
+  static const heroTevi = 112.0;
+
+  /// The mascot standing on the band: small enough that a task screen's
+  /// first section still starts above the fold of a common phone.
+  static const bandTevi = 72.0;
   static const wideBreakpoint = 840.0;
   // Google's rendered web button tops out at 400 px; every control in
   // the column shares that width so their edges line up.
@@ -164,17 +205,27 @@ abstract final class FieldSizes {
 }
 
 /// The guardian's navigation: the ink rail on a wide window and the bar
-/// on a narrow one. The selected destination's indicator is the mark's
-/// screen (58 × 33) at [indicator] tall, cornered at the same ratio.
+/// on a narrow one. The selected destination's indicator is [indicator]
+/// tall, cornered at the mascot body's ratio.
 abstract final class ShellSizes {
-  /// The rail's ink field, the head over it drawn on the same grid.
-  static const railUnit = 2.0;
+  /// The ink rail's corner. The rail is a field, not a panel of rows,
+  /// so it keeps its own corner even where it matches a card's.
+  static const railCorner = 28.0;
+
+  /// The mascot standing on the rail: it takes about the room above the
+  /// rail that the navigation always kept there.
+  static const railTevi = 72.0;
   static const railWidth = 248.0;
 
   /// The rail's field inset from the window, as the wide panel's was.
   static const railInset = Space.lg;
   static const indicator = 32.0;
-  static const indicatorWidth = indicator * 58 / 33;
+
+  /// Wide enough that the indicator reads as a block behind its icon,
+  /// not a halo hugging it: on the light bar sun is close to the ground
+  /// in lightness, so the block's width is what keeps the active place
+  /// visible.
+  static const indicatorWidth = 56.0;
 
   /// A destination's row in the rail, a control's height.
   static const railItem = 56.0;

@@ -4,8 +4,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 
 /// The player's glyphs: the universal back, play and pause shapes, cut at
-/// the screen's 10/33 corner (the no-play-triangle rule stays the
-/// mark's).
+/// the shape ratio's corner.
 enum PlayerGlyph { back, play, pause }
 
 /// One of the player's controls, cut as the PIN pad's keys are: 64 dp at
@@ -82,15 +81,14 @@ class _PlayerKeyState extends State<PlayerKey> {
   }
 }
 
-/// Draws a [PlayerGlyph] at 28 dp in the key's middle, as the PIN pad's
-/// confirm arrow sits.
+/// Draws a [PlayerGlyph] [side] dp square in the canvas's middle: 28 in a
+/// key, as the PIN pad's confirm arrow sits.
 class PlayerGlyphPainter extends CustomPainter {
-  const PlayerGlyphPainter(this.glyph, this.color);
+  const PlayerGlyphPainter(this.glyph, this.color, {this.side = 28});
 
   final PlayerGlyph glyph;
   final Color color;
-
-  static const side = 28.0;
+  final double side;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -102,7 +100,7 @@ class PlayerGlyphPainter extends CustomPainter {
     );
     switch (glyph) {
       case PlayerGlyph.pause:
-        // Two bars, each a tall screen at its 10/33 corner.
+        // Two bars, each a tall screen at the shape ratio's corner.
         final w = side * .3;
         for (final left in [
           box.left + side * .12,
@@ -168,5 +166,5 @@ class PlayerGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PlayerGlyphPainter old) =>
-      old.glyph != glyph || old.color != color;
+      old.glyph != glyph || old.color != color || old.side != side;
 }

@@ -6,7 +6,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'family_model.dart';
 
-/// A bounded set shown as the mark's own modules: one per place, filled
+/// A bounded set shown as state modules: one per place, filled
 /// when taken, hollow when free, with [words] on their own line under
 /// them stating the same count. One layout at every width and text
 /// size, so the doors' rows read alike. Assistive technology reads the

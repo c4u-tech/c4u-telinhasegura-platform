@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/band_transition.dart';
+import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 
@@ -64,15 +65,17 @@ Future<AnimationController> pumpTransition(
 }
 
 void main() {
-  test('the band is where the guardian layout draws its ink field', () {
+  test('the band is where the guardian layout draws its ink field, under '
+      'the mascot standing on it', () {
+    final band = PerchedTevi.standOf(FieldSizes.bandTevi);
     expect(
       guardianBand(_phone, const EdgeInsets.only(top: 24)),
       RRect.fromLTRBR(
         12,
-        24 + 8 + 22 * FieldSizes.bandUnit,
+        24 + 8 + band,
         348,
-        24 + 8 + 22 * FieldSizes.bandUnit + 72,
-        const Radius.circular(10 * FieldSizes.bandUnit),
+        24 + 8 + band + 72,
+        const Radius.circular(FieldSizes.bandCorner),
       ),
     );
     expect(
@@ -80,12 +83,17 @@ void main() {
       // Wide, the guardian's ink field is the rail.
       RRect.fromLTRBR(
         ShellSizes.railInset,
-        ShellSizes.railInset + 22 * ShellSizes.railUnit,
+        ShellSizes.railInset + PerchedTevi.standOf(ShellSizes.railTevi),
         ShellSizes.railInset + ShellSizes.railWidth,
         800 - ShellSizes.railInset,
-        const Radius.circular(10 * ShellSizes.railUnit),
+        const Radius.circular(ShellSizes.railCorner),
       ),
     );
+  });
+
+  test('the move keeps its pace: 400 ms, easing out', () {
+    expect(BandTransition.duration, const Duration(milliseconds: 400));
+    expect(BandTransition.curve, Curves.easeOutCubic);
   });
 
   testWidgets('grow: the band widens into the whole screen', (tester) async {

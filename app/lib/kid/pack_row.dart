@@ -43,8 +43,8 @@ class PackRow extends StatelessWidget {
 
 /// A pacotinho on its row: its cover in a screen-ratio frame, a little
 /// larger than a video's, and beneath it one hollow module per video, the
-/// same modules its player fills. One button, read by its title
-/// and its count; nothing written on it.
+/// same modules its player fills, and a play disc in the cover's corner.
+/// One button, read by its title and its count; nothing written on it.
 class PackTile extends StatelessWidget {
   const PackTile({
     super.key,
@@ -100,6 +100,10 @@ class PackTile extends StatelessWidget {
             thumbnail: thumbnail,
             onTap: onTap,
             resting: !pack.fits,
+            playDisc: true,
+            // The disc grows as the tile does, so it sits the same in the
+            // corner on a phone and on a wide screen.
+            playDiscScale: size.height / narrow.height,
           ),
           const SizedBox(height: Space.sm),
           PackModules(count: pack.videos.length, filled: 0, height: module),
@@ -173,9 +177,9 @@ class PackGlyphPainter extends CustomPainter {
     final ground = Paint()..color = AvatarColors.ground;
     final mist = Paint()..color = AvatarColors.mist;
     final figure = Paint()..color = AvatarColors.figure;
-    // Back to front, each screen 40 × 23 (the mark's ratio), cut from the
-    // one behind by a wide sliver of the ground, so three screens read at
-    // 64 dp: two in the mid tone, the front one cream.
+    // Back to front, each screen 40 × 23 (close to 16:9), cut from the one
+    // behind by a wide sliver of the ground, so three screens read at 64 dp:
+    // two in the mid tone, the front one cream.
     const back = Rect.fromLTWH(18, 6, 40, 23);
     const middle = Rect.fromLTWH(12, 19, 40, 23);
     const front = Rect.fromLTWH(6, 32, 40, 23);

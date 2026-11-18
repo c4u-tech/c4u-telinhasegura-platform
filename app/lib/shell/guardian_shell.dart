@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/api_client.dart';
-import '../design/espiadinha.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
@@ -76,7 +75,7 @@ class GuardianShell extends StatefulWidget {
 class _GuardianShellState extends State<GuardianShell> {
   /// Keeps the framed screens' state as the frame around them changes.
   final _content = GlobalKey();
-  final _rises = ValueNotifier(0);
+  final _winks = ValueNotifier(0);
   late final AppServices _services;
   bool _started = false;
 
@@ -96,7 +95,7 @@ class _GuardianShellState extends State<GuardianShell> {
 
   @override
   void dispose() {
-    _rises.dispose();
+    _winks.dispose();
     super.dispose();
   }
 
@@ -162,7 +161,7 @@ class _GuardianShellState extends State<GuardianShell> {
                     listWidth: ListDetail.listWidthAt(scale),
                     list: ShellFrame(
                       rail: true,
-                      rises: _rises,
+                      winks: _winks,
                       pane: Pane.list,
                       chosen: Panes.itemOf(
                         widget.path,
@@ -173,14 +172,14 @@ class _GuardianShellState extends State<GuardianShell> {
                     ),
                     detail: ShellFrame(
                       rail: true,
-                      rises: _rises,
+                      winks: _winks,
                       pane: Pane.detail,
                       paneRoot: Panes.isPaneRoot,
                       leavesOnBack: Panes.leavesOnBack,
                       child: content,
                     ),
                   )
-                : ShellFrame(rail: true, rises: _rises, child: content);
+                : ShellFrame(rail: true, winks: _winks, child: content);
             return Material(
               color: context.palette.ground,
               child: Row(
@@ -192,7 +191,7 @@ class _GuardianShellState extends State<GuardianShell> {
                       destinations: destinations,
                       selected: current,
                       onOpen: open,
-                      rises: _rises,
+                      winks: _winks,
                     ),
                   ),
                   Expanded(
@@ -210,7 +209,7 @@ class _GuardianShellState extends State<GuardianShell> {
             );
           }
           final bar = Destination.isRoot(widget.path);
-          final framed = ShellFrame(rail: false, rises: _rises, child: content);
+          final framed = ShellFrame(rail: false, winks: _winks, child: content);
           if (!bar) return framed;
           return Material(
             color: context.palette.ground,
@@ -290,8 +289,8 @@ class ShellBar extends StatelessWidget {
   }
 }
 
-/// The wide window's navigation and its one ink field: the Espiadinha
-/// peeking over the rail's top edge, the wordmark inside it, then the
+/// The wide window's navigation and its one ink field: the mascot
+/// standing on the rail's top edge, the wordmark inside it, then the
 /// destinations.
 class InkRail extends StatelessWidget {
   const InkRail({
@@ -299,7 +298,7 @@ class InkRail extends StatelessWidget {
     required this.destinations,
     required this.selected,
     required this.onOpen,
-    required this.rises,
+    required this.winks,
   });
 
   static const fieldKey = Key('ink-rail');
@@ -308,8 +307,8 @@ class InkRail extends StatelessWidget {
   final Destination selected;
   final ValueChanged<Destination> onOpen;
 
-  /// The confirmations the framed screens asked for: the head rises.
-  final ValueNotifier<int> rises;
+  /// The confirmations the framed screens asked for: the mascot winks.
+  final ValueNotifier<int> winks;
 
   @override
   Widget build(BuildContext context) {
@@ -322,66 +321,61 @@ class InkRail extends StatelessWidget {
       ),
       child: SizedBox(
         width: ShellSizes.railWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ExcludeSemantics(
-              child: Center(
-                child: SizedBox(
-                  height: EspiadinhaPainter.height * ShellSizes.railUnit,
-                  child: ValueListenableBuilder(
-                    valueListenable: rises,
-                    builder: (context, n, _) =>
-                        PeekingHead(unit: ShellSizes.railUnit, rise: n > 0),
+        child: ValueListenableBuilder(
+          valueListenable: winks,
+          builder: (context, n, field) => PerchedTevi(
+            size: ShellSizes.railTevi,
+            wink: n > 0,
+            child: field!,
+          ),
+          child: DecoratedBox(
+            key: fieldKey,
+            decoration: BoxDecoration(
+              color: p.field,
+              borderRadius: BorderRadius.circular(ShellSizes.railCorner),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                Space.md,
+                Space.xl,
+                Space.md,
+                Space.xl,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // The name plate starts under the mascot's body, on the
+                  // destinations' start edge (inside their own padding).
+                  const Padding(
+                    padding: EdgeInsetsDirectional.only(start: Space.md),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Wordmark(height: WordmarkSizes.rail),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: Space.xxl),
+                  for (final d in destinations) ...[
+                    if (d != destinations.first)
+                      const SizedBox(height: Space.xs),
+                    DestinationTile(
+                      destination: d,
+                      selected: d == selected,
+                      onTap: () => onOpen(d),
+                      rail: true,
+                    ),
+                  ],
+                ],
               ),
             ),
-            Expanded(
-              child: DecoratedBox(
-                key: fieldKey,
-                decoration: BoxDecoration(
-                  color: p.field,
-                  borderRadius: BorderRadius.circular(10 * ShellSizes.railUnit),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    Space.md,
-                    Space.xl,
-                    Space.md,
-                    Space.xl,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // The name plate, on the head's axis above the
-                      // start-aligned destinations.
-                      const Center(child: Wordmark(height: WordmarkSizes.rail)),
-                      const SizedBox(height: Space.xxl),
-                      for (final d in destinations) ...[
-                        if (d != destinations.first)
-                          const SizedBox(height: Space.xs),
-                        DestinationTile(
-                          destination: d,
-                          selected: d == selected,
-                          onTap: () => onOpen(d),
-                          rail: true,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// One destination: its glyph inside the mark's screen, filled when it is
-/// the place shown and empty otherwise, with its name beside it (the
+/// One destination: its glyph inside a block cut like the mascot's body,
+/// filled in sun when it is the place shown and empty otherwise, with its name beside it (the
 /// rail) or under it (the bar). Read as a button by its name, with its
 /// selected state; the whole tile is the target.
 class DestinationTile extends StatefulWidget {
@@ -415,12 +409,9 @@ class _DestinationTileState extends State<DestinationTile> {
     final text = Theme.of(context).textTheme;
     final selected = widget.selected;
     final rail = widget.rail;
-    // On the ground the screen fills with the action colour; on the ink
-    // rail with cream, the field's own figure.
-    final fill = rail ? p.onField : p.action;
-    final glyph = selected
-        ? (rail ? p.field : p.onAction)
-        : (rail ? p.onField : p.muted);
+    // The place shown is marked in the mascot's sun, on the ground and on
+    // the ink rail alike, its glyph dark on it.
+    final glyph = selected ? p.onIndicator : (rail ? p.onField : p.muted);
     final words = rail
         ? (selected ? p.onField : p.onFieldMuted)
         : (selected ? p.text : p.muted);
@@ -429,7 +420,7 @@ class _DestinationTileState extends State<DestinationTile> {
       width: ShellSizes.indicatorWidth,
       height: ShellSizes.indicator,
       decoration: BoxDecoration(
-        color: selected ? fill : null,
+        color: selected ? p.indicator : null,
         borderRadius: BorderRadius.circular(
           ShellSizes.indicator * Radii.screenRatio,
         ),

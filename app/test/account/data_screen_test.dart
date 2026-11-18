@@ -73,7 +73,10 @@ Future<Harness> dataScreen(
 
 Finder get download => find.widgetWithText(FilledButton, 'Baixar meus dados');
 
+/// The action stands at the foot of the page: on a phone it may sit just
+/// below the fold, as a guardian would scroll to it.
 Future<void> tapDownload(WidgetTester tester) async {
+  await tester.ensureVisible(download);
   await tester.tap(download);
   await tester.pumpAndSettle();
 }
@@ -136,6 +139,7 @@ void main() {
     final handover = Handover();
     await atNight(() async {
       await dataScreen(tester, handover: handover, web: false);
+      await tester.ensureVisible(download);
       final action = tester.getRect(download);
 
       await tapDownload(tester);
@@ -275,6 +279,7 @@ void main() {
     final answer = Completer<http.Response>();
     await dataScreen(tester, answer: (_) => answer.future);
 
+    await tester.ensureVisible(download);
     await tester.tap(download);
     await tester.pump();
 

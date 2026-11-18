@@ -160,14 +160,15 @@ void main() {
       expect(find.text('Entregar para Criança 9'), findsOneWidget);
     });
 
-    testWidgets('the rows stand on a low-alpha ink band, divided by reed '
-        'hairlines, with no card and no shadow', (tester) async {
+    testWidgets('the rows stand on a low-alpha ink band with a card\'s '
+        'corners, divided by reed hairlines, with no shadow', (tester) async {
       await inicio(tester);
 
       final band = tester.widget<DecoratedBox>(find.byKey(ChildBand.bandKey));
       final box = band.decoration as BoxDecoration;
       expect(box.color, ChildBand.tint(Palette.light));
       expect(box.color!.a, lessThan(.2));
+      expect(box.borderRadius, BorderRadius.circular(Radii.card));
       expect(box.boxShadow, isNull);
       expect(find.byType(Card), findsNothing);
       final hairlines = tester.widgetList<Divider>(

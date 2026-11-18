@@ -372,7 +372,7 @@ tokens = {
 write('tokens/brand-tokens.json', json.dumps(tokens, ensure_ascii=False, indent=2) + '\n')
 # ---------------- shipped copies ----------------
 COPIES = {
-  'app/assets/brand/telinha-segura-wordmark-reversed.svg': 'brand/svg/telinha-segura-wordmark-reversed.svg',
+  'app/assets/brand/telinha-segura-wordmark-color-on-dark.svg': 'brand/svg/telinha-segura-wordmark-color-on-dark.svg',
   'app/web/favicon.svg': 'brand/favicon/favicon.svg',
   'app/web/favicon.ico': 'brand/favicon/favicon.ico',
   'app/web/icons/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',

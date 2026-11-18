@@ -271,7 +271,10 @@ void main() {
                 .shape!
             as RoundedRectangleBorder;
     final radius = (shape.borderRadius as BorderRadius).topLeft.x;
-    expect(radius, closeTo(tester.getSize(key).height * 10 / 33, 0.01));
+    expect(
+      radius,
+      closeTo(tester.getSize(key).height * Radii.screenRatio, 0.01),
+    );
   });
 
   for (final size in [const Size(360, 640), const Size(1280, 800)]) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/family.dart';
@@ -17,8 +18,9 @@ import 'package:telinha_segura/kid/sleeping_telinha.dart';
 
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
-import 'kid_home_screen_test.dart' show DrawLog, actionable, avatar;
+import 'kid_home_screen_test.dart' show actionable, avatar;
 import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'shelf_picture.dart';
 
 /// The day as the catalogue says it.
 Map<String, Object?> day(String state, [String? reason]) => {
@@ -102,15 +104,14 @@ void main() {
     await h.pump(tester, initial: '/crianca', size: const Size(1280, 800));
 
     expect(tester.widget<AvatarDisc>(avatar).size, KidSizes.avatarWide);
-    expect(
-      tester.getSize(
-        find.descendant(
-          of: find.byType(SleepingTelinha),
-          matching: find.byType(CustomPaint),
-        ),
-      ),
-      EmptyShelf.size * 1.5,
+    final picture = expectPerched(
+      tester,
+      find.byType(SleepingTelinha),
+      TeviLook.asleep,
+      perch: Perch.wire,
+      across: true,
     );
+    expect(tester.getSize(picture), ShelfPicture.size * 1.5);
   });
 
   testWidgets('asleep, only the exit can be acted on; no YouTube logo, no '
@@ -128,32 +129,34 @@ void main() {
     semantics.dispose();
   });
 
-  test('the sleeping picture closes the Espiadinha\'s eyes: two arcs, no '
-      'open eye, sun only in the head and fingers', () {
-    final awake = DrawLog();
-    const EmptyShelfPainter().paint(awake, EmptyShelf.size);
-    final asleep = DrawLog();
-    const EmptyShelfPainter(asleep: true).paint(asleep, EmptyShelf.size);
+  testWidgets('the sleeping picture: the mascot asleep on a wire across '
+      'the whole screen, edge to edge, no screen and no words of its own', (
+    tester,
+  ) async {
+    final h = sleepy();
+    await h.pump(tester, initial: '/crianca');
 
-    final dark = BrandColors.dark.toARGB32();
-    expect(
-      [
-        for (final (name, color, _) in awake.draws)
-          if (color == dark) name,
-      ],
-      [#drawOval, #drawOval],
+    final picture = expectPerched(
+      tester,
+      find.byType(SleepingTelinha),
+      TeviLook.asleep,
+      perch: Perch.wire,
+      across: true,
     );
     expect(
-      [
-        for (final (name, color, _) in asleep.draws)
-          if (color == dark) name,
-      ],
-      [#drawPath, #drawPath],
+      find.descendant(of: picture, matching: find.byType(Text)),
+      findsNothing,
     );
-    final sun = BrandColors.sun.toARGB32();
+    // The wire runs from the screen's start to its end, sagging gently.
+    final s = ShelfPicture.screen;
+    expect(ShelfPicture.wireAt(s.left), ShelfPicture.wireAt(s.right));
     expect(
-      asleep.draws.where((d) => d.$2 == sun),
-      hasLength(awake.draws.where((d) => d.$2 == sun).length),
+      ShelfPicture.wireAt(s.center.dx),
+      greaterThan(ShelfPicture.wireAt(s.left)),
+    );
+    expect(
+      ShelfPicture.wireAt(s.center.dx) - ShelfPicture.wireAt(s.left),
+      lessThan(s.width / 40),
     );
   });
 

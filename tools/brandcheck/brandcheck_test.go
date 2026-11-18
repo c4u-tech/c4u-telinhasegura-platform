@@ -38,7 +38,7 @@ func TestEveryGeneratedFileIsWhatTheGeneratorWrote(t *testing.T) {
 func TestEveryShippedCopyEqualsItsMaster(t *testing.T) {
 	m := mustManifest(t)
 	for copyPath, master := range map[string]string{
-		"app/assets/brand/telinha-segura-wordmark-reversed.svg": "brand/svg/telinha-segura-wordmark-reversed.svg",
+		"app/assets/brand/telinha-segura-wordmark-color-on-dark.svg": "brand/svg/telinha-segura-wordmark-color-on-dark.svg",
 		"app/web/favicon.svg":                                           "brand/favicon/favicon.svg",
 		"app/web/favicon.ico":                                           "brand/favicon/favicon.ico",
 		"app/web/icons/apple-touch-icon.png":                            "brand/favicon/apple-touch-icon.png",

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/family/inicio.dart' show ChildBand;
 
 double _luminance(Color c) {
   double channel(double v) =>
@@ -72,6 +73,7 @@ void main() {
           'onField/field': (palette.onField, palette.field),
           'onFieldMuted/field': (palette.onFieldMuted, palette.field),
           'onAction/action': (palette.onAction, palette.action),
+          'onIndicator/indicator': (palette.onIndicator, palette.indicator),
         };
         for (final MapEntry(:key, value: (fg, bg)) in pairs.entries) {
           expect(contrast(fg, bg), greaterThanOrEqualTo(4.5), reason: key);
@@ -86,6 +88,56 @@ void main() {
       });
     });
   }
+
+  test('text on the light ground is the brand\'s dark, and its action '
+      'stays ink with a cream label', () {
+    expect(Palette.light.text, BrandColors.dark);
+    expect(Palette.light.action, BrandColors.ink);
+    expect(Palette.light.onAction, BrandColors.cream);
+  });
+
+  test('the dark and child themes act in sun with a dark label', () {
+    for (final palette in [Palette.dark, Palette.kid]) {
+      expect(palette.action, BrandColors.sun);
+      expect(palette.onAction, BrandColors.dark);
+    }
+  });
+
+  test('meters and progress fill in their own colour, so sun stays the '
+      'action: ink in light, sky in dark, cream for the child', () {
+    expect(Palette.light.meter, BrandColors.ink);
+    expect(Palette.dark.meter, BrandColors.sky);
+    expect(Palette.kid.meter, BrandColors.cream);
+    for (final palette in [Palette.dark, Palette.kid]) {
+      expect(palette.meter, isNot(palette.action));
+    }
+  });
+
+  group('a meter reaches 3:1 against the ground it sits on', () {
+    // The child band's panel, laid over the guardian's ground.
+    Color panel(Palette p) => Color.alphaBlend(ChildBand.tint(p), p.ground);
+    final pairs = {
+      'light, on cream': (Palette.light.meter, Palette.light.ground),
+      'light, on the panel': (Palette.light.meter, panel(Palette.light)),
+      'light, on an input': (Palette.light.meter, Palette.light.input),
+      'dark, on dark': (Palette.dark.meter, Palette.dark.ground),
+      'dark, on the panel': (Palette.dark.meter, panel(Palette.dark)),
+      'dark, on an input': (Palette.dark.meter, Palette.dark.input),
+      'child, on ink': (Palette.kid.meter, Palette.kid.ground),
+    };
+    for (final MapEntry(:key, value: (fg, bg)) in pairs.entries) {
+      test(key, () {
+        expect(contrast(fg, bg), greaterThanOrEqualTo(3));
+      });
+    }
+  });
+
+  test('the active indicator is sun with a dark icon in every palette', () {
+    for (final palette in [Palette.light, Palette.dark, Palette.kid]) {
+      expect(palette.indicator, BrandColors.sun);
+      expect(palette.onIndicator, BrandColors.dark);
+    }
+  });
 
   test('buttons draw a 3 dp focus ring only when focused (WCAG 2.4.7)', () {
     for (final b in Brightness.values) {
@@ -121,11 +173,11 @@ void main() {
       expect(contrast(kid.error, BrandColors.dark), greaterThanOrEqualTo(4.5));
     });
 
-    test('ink is the ground and cream the figure', () {
+    test('ink is the ground, cream the text and sun the action', () {
       expect(kid.ground, BrandColors.ink);
       expect(kid.field, BrandColors.ink);
       expect(kid.text, BrandColors.cream);
-      expect(kid.action, BrandColors.cream);
+      expect(kid.action, BrandColors.sun);
       expect(kid.onAction, BrandColors.dark);
     });
 
@@ -134,6 +186,7 @@ void main() {
         'text/ground': (kid.text, kid.ground),
         'muted/ground': (kid.muted, kid.ground),
         'onAction/action': (kid.onAction, kid.action),
+        'onIndicator/indicator': (kid.onIndicator, kid.indicator),
         'error/errorGround': (kid.error, kid.errorGround),
       };
       for (final MapEntry(:key, value: (fg, bg)) in pairs.entries) {
@@ -157,6 +210,31 @@ void main() {
         Palette.light,
       );
     });
+  });
+
+  test('corners keep the mascot body\'s ratio, 26 for every 70 of height', () {
+    expect(Radii.screenRatio, 26 / 70);
+    // The theme's controls are 56 dp tall.
+    expect(Radii.control, closeTo(56 * 26 / 70, 1e-9));
+    expect(
+      buildTheme(Brightness.light).filledButtonTheme.style!.minimumSize!
+          .resolve({})!
+          .height,
+      56,
+    );
+    expect(Radii.card, 28);
+  });
+
+  test('the small screen drawn in the app is 58 wide for 33 tall, close '
+      'to 16:9', () {
+    expect(Proportions.screen, 58 / 33);
+  });
+
+  test('the ink fields keep their own corners: the entry field 40, the '
+      'band 26, the rail 28', () {
+    expect(FieldSizes.heroCorner, 40);
+    expect(FieldSizes.bandCorner, 26);
+    expect(ShellSizes.railCorner, 28);
   });
 
   test('kid sizes: 64 dp targets and 96-128 dp avatars', () {

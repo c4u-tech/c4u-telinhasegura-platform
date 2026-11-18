@@ -18,9 +18,11 @@ class ErrorNote extends StatelessWidget {
       liveRegion: true,
       container: true,
       child: DecoratedBox(
+        // The corner of the fields and buttons around it, so the note
+        // reads as one of the column's blocks.
         decoration: BoxDecoration(
           color: p.errorGround,
-          borderRadius: BorderRadius.circular(Radii.small),
+          borderRadius: BorderRadius.circular(Radii.control),
         ),
         child: Padding(
           padding: const EdgeInsets.all(Space.md),
@@ -198,8 +200,9 @@ class _PasswordFieldState extends State<PasswordField> {
   );
 }
 
-/// The state module: the mark's screen as a small rounded block, filled
-/// when its condition holds and hollow when it does not. State is never
+/// The state module: a small screen as a rounded block, filled in the
+/// meter's colour when its condition holds and hollow when it does not.
+/// It measures, so it never takes the action's colour. State is never
 /// carried by colour alone: the text beside it says the same.
 class StateModule extends StatelessWidget {
   const StateModule({super.key, required this.filled, this.height = 10});
@@ -217,12 +220,12 @@ class StateModule extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      width: h * 58 / 33,
+      width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(
-        color: filled ? p.action : Colors.transparent,
+        color: filled ? p.meter : Colors.transparent,
         borderRadius: BorderRadius.circular(h * Radii.screenRatio),
-        border: Border.all(color: filled ? p.action : p.outline, width: 1.5),
+        border: Border.all(color: filled ? p.meter : p.outline, width: 1.5),
       ),
     );
   }

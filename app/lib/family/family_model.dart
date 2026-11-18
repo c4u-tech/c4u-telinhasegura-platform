@@ -72,7 +72,7 @@ class FamilyModel extends ChangeNotifier {
   Future<void>? _reading;
   bool _read = false;
   String? _notice;
-  bool _rise = false;
+  bool _wink = false;
   int _account = 0;
 
   FamilyState get state => _state;
@@ -185,7 +185,7 @@ class FamilyModel extends ChangeNotifier {
   }
 
   /// Takes the pending invitation [id]: the
-  /// home greets the family with the rise, as after the emailed link.
+  /// home greets the family with the wink, as after the emailed link.
   /// Throws the `ApiError` the screen words; `invitation_unavailable` and
   /// `limit_reached` read the list again first.
   Future<void> acceptById(String id) async {
@@ -302,17 +302,17 @@ class FamilyModel extends ChangeNotifier {
     unawaited(_readInvitations());
   }
 
-  /// An accepted invitation: the family home greets it with the rise.
+  /// An accepted invitation: the family home greets it with the wink.
   void joined(Family family) {
-    _rise = true;
+    _wink = true;
     _set(FamilyReady(family));
   }
 
-  /// Whether the home should play "o sol sobe", once.
-  bool takeRise() {
-    final rise = _rise;
-    _rise = false;
-    return rise;
+  /// Whether the home should play the mascot's wink, once.
+  bool takeWink() {
+    final wink = _wink;
+    _wink = false;
+    return wink;
   }
 
   void _set(FamilyState state) {
@@ -331,7 +331,7 @@ class FamilyModel extends ChangeNotifier {
     _verified = false;
     _read = false;
     _notice = null;
-    _rise = false;
+    _wink = false;
     notifyListeners();
   }
 }

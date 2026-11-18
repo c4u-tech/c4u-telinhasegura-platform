@@ -327,10 +327,10 @@ class SessionRow extends StatelessWidget {
   final VoidCallback? onEnd;
   final bool busy;
 
-  /// The module's height: its width (58:33) sits in the avatar's 40 dp
-  /// column of the family rows.
+  /// The module's height: at the small screen's proportion its width
+  /// sits in the avatar's 40 dp column of the family rows.
   static const moduleHeight = 22.0;
-  static const _lead = moduleHeight * 58 / 33 + Space.lg;
+  static const _lead = moduleHeight * Proportions.screen + Space.lg;
 
   @override
   Widget build(BuildContext context) {

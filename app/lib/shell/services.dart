@@ -180,7 +180,7 @@ class AppServices {
   Future<bool> Function()? unkeptCodes;
 
   /// Set by a successful link and read once by the home screen, which
-  /// greets the linked account with "o sol sobe".
+  /// greets the linked account with the mascot's wink.
   bool justLinked = false;
 
   /// A calm line for the entry screen, which takes it once: why the app
