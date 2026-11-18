@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 /// (tokens_test.dart fails if they drift).
 abstract final class BrandColors {
   static const ink = Color(0xFF1E5B66);
-  static const sun = Color(0xFFF2B23A);
+  static const sun = Color(0xFFFFC42E);
   static const cream = Color(0xFFFBF6EC);
   static const dark = Color(0xFF0F2A30);
 }

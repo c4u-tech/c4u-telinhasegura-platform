@@ -11,9 +11,9 @@
       },
       "sun": {
         "$type": "color",
-        "$value": "#F2B23A",
+        "$value": "#FFC42E",
         "$extensions": {
-          "oklch": "oklch(0.804 0.148 78.8)"
+          "oklch": "oklch(0.851 0.164 84.8)"
         },
         "$description": "Amarelo-sol: só a cabeça e as mãos. Nunca texto; no claro, sempre com contorno ink."
       },
@@ -128,35 +128,35 @@
         "fg": "dark",
         "bg": "sun",
         "kind": "text",
-        "ratio": 8.04,
+        "ratio": 9.46,
         "pass": true
       },
       {
         "fg": "ink",
         "bg": "sun",
         "kind": "non-text",
-        "ratio": 4.08,
+        "ratio": 4.81,
         "pass": true
       },
       {
         "fg": "sun",
         "bg": "dark",
         "kind": "non-text",
-        "ratio": 8.04,
+        "ratio": 9.46,
         "pass": true
       },
       {
         "fg": "sun",
         "bg": "cream",
         "kind": "non-text",
-        "ratio": 1.74,
+        "ratio": 1.48,
         "pass": false
       },
       {
         "fg": "sun",
         "bg": "white",
         "kind": "non-text",
-        "ratio": 1.87,
+        "ratio": 1.59,
         "pass": false
       }
     ]
