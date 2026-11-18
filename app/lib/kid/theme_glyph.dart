@@ -194,13 +194,19 @@ class ThemeGlyphPainter extends CustomPainter {
   void _ball(Canvas c) {
     // A beach ball: a cream disc whose gores, two in the mid tone, curve
     // from a pole up to the left, so its roundness reads by silhouette.
+    // In one colour a solid disc would outweigh the other glyphs, so the
+    // ball is cut hollow in the ground, a rim left, and its two gores
+    // stay in the figure.
     const centre = Offset(32, 32);
     const r = 26.0;
+    final hollow = color != null;
     _disc(c, centre.dx, centre.dy, r, _figure);
+    if (hollow) _disc(c, centre.dx, centre.dy, r - _rim, _detail);
     c.save();
     c.clipPath(Path()..addOval(Rect.fromCircle(center: centre, radius: r)));
     const pole = Offset(20, 17);
-    for (final (sweep, paint) in [(0.0, _mist), (120.0, _mist)]) {
+    final gore = hollow ? _figure : _mist;
+    for (final sweep in [0.0, 120.0]) {
       c.save();
       c.translate(pole.dx, pole.dy);
       c.rotate(sweep * math.pi / 180);
@@ -210,13 +216,16 @@ class ThemeGlyphPainter extends CustomPainter {
           ..quadraticBezierTo(46, 6, 52, 46)
           ..quadraticBezierTo(22, 40, 0, 0)
           ..close(),
-        paint,
+        gore,
       );
       c.restore();
     }
     c.restore();
     _disc(c, pole.dx, pole.dy, 4, _figure);
   }
+
+  /// The hollow ball's rim.
+  static const _rim = 4.0;
 
   void _tree(Canvas c) {
     // Three discs of leaves over a mist trunk cut flat at the ground.
