@@ -36,9 +36,9 @@ const _inviteHelp =
 class FamilyHomeScreen extends StatefulWidget {
   const FamilyHomeScreen({super.key});
 
-  /// How long a family just started stays on the home, the sun rising,
-  /// before its first run opens.
-  static const riseThenPath = PeekingHead.riseDuration;
+  /// How long a family just started stays on the home, the mascot
+  /// winking, before its first run opens.
+  static const winkThenPath = PerchedTevi.winkDuration;
 
   @override
   State<FamilyHomeScreen> createState() => _FamilyHomeScreenState();
@@ -51,11 +51,12 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
   final _signOut = Submission();
   late final FamilyModel _model;
   bool _started = false;
-  bool _rise = false;
+  bool _wink = false;
   bool _resent = false;
   bool _inviteExplained = false;
 
-  /// Opens the first run once the sun has risen on a family just started.
+  /// Opens the first run once the mascot has winked at a family just
+  /// started.
   Timer? _toFirstRun;
 
   /// The invitation chosen among several; with one, that one.
@@ -71,7 +72,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     _started = true;
     final services = AppScope.of(context);
     _model = services.familyModel;
-    _rise = services.justLinked || _model.takeRise();
+    _wink = services.justLinked || _model.takeWink();
     services.justLinked = false;
     _notice = _model.takeNotice();
     _model.addListener(_takeNotice);
@@ -111,16 +112,16 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     );
     if (ok && mounted) {
       setState(() {
-        _rise = true;
+        _wink = true;
         _notice = null;
       });
       // A family started here goes on to its first child, PIN and
       // hand-over; one joined by invitation shares a family already set
-      // up, and stays on the home. Without motion there is no sun to wait
+      // up, and stays on the home. Without motion there is no wink to wait
       // for.
       final still = MediaQuery.of(context).disableAnimations;
       _toFirstRun = Timer(
-        still ? Duration.zero : FamilyHomeScreen.riseThenPath,
+        still ? Duration.zero : FamilyHomeScreen.winkThenPath,
         () {
           // Only if the guardian is still here, not gone elsewhere.
           if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
@@ -142,7 +143,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     );
     if (ok && mounted) {
       setState(() {
-        _rise = _model.takeRise();
+        _wink = _model.takeWink();
         _notice = null;
       });
     }
@@ -178,7 +179,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
                 box.maxWidth >= pair + 2 * Space.xxxl;
             return FieldLayout(
               title: greeting(clock.now()),
-              rise: _rise,
+              wink: _wink,
               columnWidth: paired ? pair : FieldSizes.columnMaxWidth,
               children: [
                 if (_notice case final notice?) ...[
@@ -200,7 +201,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
             'Você tem ${invitations.length}\u00a0convites',
           _ => 'Sua família',
         },
-        rise: _rise,
+        wink: _wink,
         children: [
           if (_notice case final notice?) ...[
             Notice(notice),

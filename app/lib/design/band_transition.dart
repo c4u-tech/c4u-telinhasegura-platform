@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'espiadinha.dart';
+import 'field_layout.dart';
 import 'tokens.dart';
 
 /// Which way the ink field moves between the guardian and the child.
@@ -17,7 +17,8 @@ enum BandMotion {
 /// Where the guardian's ink field stands on a screen of [size] with
 /// [padding] as safe area, the place a hand-over leaves from and an
 /// unlock returns to: narrow, the 72 dp band inset 12 px at the sides and
-/// 8 px at the top under the head strip; wide, the navigation's ink rail.
+/// 8 px at the top under the mascot standing on it; wide, the
+/// navigation's ink rail.
 RRect guardianBand(Size size, EdgeInsets padding) {
   final width = size.width - padding.horizontal;
   if (width >= FieldSizes.wideBreakpoint) {
@@ -25,14 +26,14 @@ RRect guardianBand(Size size, EdgeInsets padding) {
     const inset = ShellSizes.railInset;
     return RRect.fromLTRBR(
       padding.left + inset,
-      padding.top + inset + EspiadinhaPainter.height * unit,
+      padding.top + inset + PerchedTevi.standOf(ShellSizes.railTevi),
       padding.left + inset + ShellSizes.railWidth,
       size.height - padding.bottom - inset,
       const Radius.circular(10 * unit),
     );
   }
   const unit = FieldSizes.bandUnit;
-  final top = padding.top + Space.sm + EspiadinhaPainter.height * unit;
+  final top = padding.top + Space.sm + PerchedTevi.standOf(FieldSizes.bandTevi);
   return RRect.fromLTRBR(
     padding.left + Space.md,
     top,

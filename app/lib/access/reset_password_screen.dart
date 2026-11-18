@@ -87,7 +87,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         ),
         _Stage.done => FieldLayout(
           title: 'Senha nova salva',
-          rise: true,
+          wink: true,
           children: [
             const Notice(
               'Pronto. Por segurança, saímos da sua conta em todos os '

@@ -118,7 +118,7 @@ void main() {
   });
 
   testWidgets('a matching confirmation saves the PIN and returns to the '
-      'guide at Passo 2 de 2, the sun rising', (tester) async {
+      'guide at Passo 2 de 2, the mascot winking', (tester) async {
     final h = await setPin(tester);
 
     await enter(tester, '2580');
@@ -128,7 +128,7 @@ void main() {
     expect(h.location(tester), '/modo-crianca');
     final step = tester.widget<StepMarks>(find.byType(StepMarks));
     expect((step.step, step.of), (2, 2));
-    expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+    expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
     expect(
       find.text(
         'PIN criado. Avisamos por e-⁠mail os outros adultos da família.',

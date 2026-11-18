@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'display_title.dart';
-import 'espiadinha.dart';
+import 'tevi.dart';
 import 'theme.dart';
 import 'tokens.dart';
 import 'wordmark.dart';
@@ -43,7 +45,7 @@ class ShellFrame extends InheritedWidget {
   const ShellFrame({
     super.key,
     required this.rail,
-    required this.rises,
+    required this.winks,
     this.pane = Pane.single,
     this.chosen,
     this.chosenAtFirstLevel = false,
@@ -54,9 +56,9 @@ class ShellFrame extends InheritedWidget {
 
   final bool rail;
 
-  /// Counts the confirmations a framed screen asked to play: the rail's
-  /// head rises for them, since it is the field's head.
-  final ValueNotifier<int> rises;
+  /// Counts the confirmations a framed screen asked to play: the mascot
+  /// on the rail winks for them, since the rail is the screen's field.
+  final ValueNotifier<int> winks;
 
   /// Where the screens stand beside the rail.
   final Pane pane;
@@ -90,7 +92,7 @@ class ShellFrame extends InheritedWidget {
   @override
   bool updateShouldNotify(ShellFrame old) =>
       old.rail != rail ||
-      old.rises != rises ||
+      old.winks != winks ||
       old.pane != pane ||
       old.chosen != chosen ||
       old.chosenAtFirstLevel != chosenAtFirstLevel ||
@@ -98,10 +100,10 @@ class ShellFrame extends InheritedWidget {
       old.leavesOnBack != leavesOnBack;
 }
 
-/// The access surface's frame. The flat ink field is the Espiadinha's
-/// screen, with the head peeking over its top edge; the task sits on the
-/// ground beside it (wide) or below it (narrow). No cards: the field's
-/// edge does the dividing.
+/// The access surface's frame. The flat ink field carries the name plate,
+/// with the mascot standing on its top edge; the task sits on the ground
+/// beside it (wide) or below it (narrow). No cards: the field's edge does
+/// the dividing.
 class FieldLayout extends StatelessWidget {
   const FieldLayout({
     super.key,
@@ -112,13 +114,16 @@ class FieldLayout extends StatelessWidget {
     this.titleLine,
     this.size = FieldSize.band,
     this.onBack,
-    this.rise = false,
+    this.wink = false,
     this.promise = promiseLine,
     this.columnWidth = FieldSizes.columnMaxWidth,
   });
 
   /// The wide window's ink panel, absent when the rail stands for it.
   static const panelKey = Key('field-panel');
+
+  /// The ink field itself, narrow or in the wide panel.
+  static const fieldKey = Key('ink-field');
 
   final String title;
 
@@ -144,8 +149,8 @@ class FieldLayout extends StatelessWidget {
   final FieldSize size;
   final VoidCallback? onBack;
 
-  /// Plays "o sol sobe" once: the confirmations.
-  final bool rise;
+  /// The mascot winks once: the confirmations.
+  final bool wink;
 
   /// The width a column can take in a screen [width] wide: the screen
   /// less the side padding its place gives the column.
@@ -198,8 +203,8 @@ class FieldLayout extends StatelessWidget {
       final framed = _RailFramed(
         task: task,
         onBack: _atPaneRoot(context, frame) ? null : onBack,
-        rise: rise,
-        rises: frame.rises,
+        wink: wink,
+        winks: frame.winks,
         pane: frame.pane,
       );
       // Back from here leaves the place (the shell sees to it), so no
@@ -223,7 +228,8 @@ class FieldLayout extends StatelessWidget {
                       padding: const EdgeInsets.all(Space.lg),
                       child: _Field(
                         unit: 4,
-                        rise: rise,
+                        tevi: FieldSizes.heroTevi,
+                        wink: wink,
                         expand: true,
                         // At large text the panel behaves as the narrow
                         // field: no promise for a band screen (the band
@@ -267,7 +273,8 @@ class FieldLayout extends StatelessWidget {
                     ),
                     child: _Field(
                       unit: hero ? FieldSizes.heroUnit : FieldSizes.bandUnit,
-                      rise: rise,
+                      tevi: hero ? FieldSizes.heroTevi : FieldSizes.bandTevi,
+                      wink: wink,
                       child: _FieldContent(
                         size: hero ? FieldSize.hero : FieldSize.band,
                         onBack: onBack,
@@ -303,15 +310,15 @@ class _RailFramed extends StatefulWidget {
   const _RailFramed({
     required this.task,
     required this.onBack,
-    required this.rise,
-    required this.rises,
+    required this.wink,
+    required this.winks,
     required this.pane,
   });
 
   final Widget task;
   final VoidCallback? onBack;
-  final bool rise;
-  final ValueNotifier<int> rises;
+  final bool wink;
+  final ValueNotifier<int> winks;
   final Pane pane;
 
   /// The space around the column in each place beside the rail.
@@ -347,20 +354,20 @@ class _RailFramedState extends State<_RailFramed> {
   @override
   void initState() {
     super.initState();
-    _askRise();
+    _askWink();
   }
 
   @override
   void didUpdateWidget(_RailFramed old) {
     super.didUpdateWidget(old);
-    _askRise();
+    _askWink();
   }
 
-  /// A confirmation plays once, on the rail's head.
-  void _askRise() {
-    if (!widget.rise || _asked) return;
+  /// A confirmation plays once, on the rail's mascot.
+  void _askWink() {
+    if (!widget.wink || _asked) return;
     _asked = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => widget.rises.value++);
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.winks.value++);
   }
 
   @override
@@ -476,49 +483,40 @@ class _TaskColumn extends StatelessWidget {
   );
 }
 
-/// The head strip above a rounded ink field cut with the mark's radius
-/// (10 units on the same grid as the head).
+/// A rounded ink field cut on the grid of [unit] (10 units to its
+/// corner), the mascot at [tevi] standing on its top edge.
 class _Field extends StatelessWidget {
   const _Field({
     required this.unit,
+    required this.tevi,
     required this.child,
-    this.rise = false,
+    this.wink = false,
     this.expand = false,
   });
 
   final double unit;
+  final double tevi;
   final Widget child;
-  final bool rise;
+  final bool wink;
   final bool expand;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final field = DecoratedBox(
-      decoration: BoxDecoration(
-        color: p.field,
-        borderRadius: BorderRadius.circular(10 * unit),
-      ),
-      child: child,
+    final decoration = BoxDecoration(
+      color: p.field,
+      borderRadius: BorderRadius.circular(10 * unit),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ExcludeSemantics(
-          child: Center(
-            child: PeekingHead(unit: unit, rise: rise),
-          ),
-        ),
-        if (expand)
+    return PerchedTevi(
+      size: tevi,
+      wink: wink,
+      child: expand
           // The field fills the panel; at large text sizes its content
           // scrolls inside it rather than overflowing.
-          Expanded(
-            child: LayoutBuilder(
+          ? LayoutBuilder(
               builder: (context, box) => DecoratedBox(
-                decoration: BoxDecoration(
-                  color: p.field,
-                  borderRadius: BorderRadius.circular(10 * unit),
-                ),
+                key: FieldLayout.fieldKey,
+                decoration: decoration,
                 child: SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: box.maxHeight),
@@ -526,37 +524,85 @@ class _Field extends StatelessWidget {
                   ),
                 ),
               ),
+            )
+          : DecoratedBox(
+              key: FieldLayout.fieldKey,
+              decoration: decoration,
+              child: child,
             ),
-          )
-        else
-          field,
-      ],
     );
   }
 }
 
-/// The Espiadinha's head and fingers over an ink field drawn on the grid
-/// of [unit]; with [rise], "o sol sobe" plays once.
-class PeekingHead extends StatefulWidget {
-  const PeekingHead({super.key, required this.unit, required this.rise});
+/// The mascot standing on the top edge of [child], an ink field: whole,
+/// at the field's start, facing its content, its legs landing a little
+/// into the field. It takes [standOf] its [size] above the field and
+/// draws over the field's edge. With [wink], it winks once to confirm.
+class PerchedTevi extends StatefulWidget {
+  const PerchedTevi({
+    super.key,
+    required this.size,
+    required this.child,
+    this.wink = false,
+  });
 
-  /// How long "o sol sobe" plays.
-  static const riseDuration = Duration(milliseconds: 1400);
+  /// How long the wink takes: the eye closes, holds and opens again.
+  static const winkDuration = Duration(milliseconds: 1400);
 
-  final double unit;
-  final bool rise;
+  /// How far the legs run past the edge into the field, so they are seen
+  /// to land on it rather than hover.
+  static const overlap = 2.0;
+
+  /// Where the body starts, from the field's start: the inset the
+  /// field's own content keeps.
+  static const inset = Space.xl;
+
+  /// The room a mascot [size] wide takes above the field: from the top
+  /// of its body down to the edge. The air the figure's box keeps above
+  /// the body is left to overhang, since nothing is drawn there.
+  static double standOf(double size) =>
+      size * (TeviPainter.perchY - TeviPainter.body.top) - overlap;
+
+  final double size;
+  final bool wink;
+  final Widget child;
 
   @override
-  State<PeekingHead> createState() => _HeadState();
+  State<PerchedTevi> createState() => _PerchedTeviState();
 }
 
-class _HeadState extends State<PeekingHead>
+class _PerchedTeviState extends State<PerchedTevi>
     with SingleTickerProviderStateMixin {
-  late final _rise = AnimationController(
+  late final _wink = AnimationController(
     vsync: this,
-    duration: PeekingHead.riseDuration,
-    value: 1,
+    duration: PerchedTevi.winkDuration,
   );
+
+  /// The eyelid over the wink: it shuts quickly, stays shut long enough
+  /// to be read, then opens more gently.
+  late final _lid = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 0.0,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 20,
+    ),
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 0.0,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
+      weight: 40,
+    ),
+  ]).animate(_wink);
+
+  bool _played = false;
+
+  /// Under reduced motion the wink is shown, not played: the eye stays
+  /// shut until this ends.
+  Timer? _shut;
 
   @override
   void didChangeDependencies() {
@@ -565,40 +611,73 @@ class _HeadState extends State<PeekingHead>
   }
 
   /// A confirmation on a screen already shown (the family just created)
-  /// turns rise on in place.
+  /// turns the wink on in place.
   @override
-  void didUpdateWidget(PeekingHead old) {
+  void didUpdateWidget(PerchedTevi old) {
     super.didUpdateWidget(old);
-    if (!old.rise) _play();
+    if (!old.wink) _play();
   }
 
   void _play() {
-    final still = MediaQuery.of(context).disableAnimations;
-    if (widget.rise && !still && _rise.value == 1 && !_played) {
-      _played = true;
-      _rise.forward(from: 0);
+    if (!widget.wink || _played) return;
+    _played = true;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _shut = Timer(PerchedTevi.winkDuration, () {
+        if (mounted) setState(() => _shut = null);
+      });
+    } else {
+      _wink.forward(from: 0);
     }
   }
 
-  bool _played = false;
-
   @override
   void dispose() {
-    _rise.dispose();
+    _shut?.cancel();
+    _wink.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: EspiadinhaPainter.width * widget.unit,
-    height: EspiadinhaPainter.height * widget.unit,
-    child: AnimatedBuilder(
-      animation: _rise,
-      builder: (context, _) => CustomPaint(
-        painter: EspiadinhaPainter(palette: context.palette, rise: _rise.value),
+  Widget build(BuildContext context) {
+    final size = widget.size;
+    // On the dark theme's ground the figure's dark parts would vanish, so
+    // they take the night colours there.
+    final night = context.palette.brightness == Brightness.dark;
+    final figure = AnimatedBuilder(
+      animation: _lid,
+      builder: (context, _) => Tevi(
+        size: size,
+        night: night,
+        look: _shut != null
+            ? TeviLook.winking
+            : TeviLook.lerp(TeviLook.watching, TeviLook.winking, _lid.value),
       ),
-    ),
-  );
+    );
+    return Stack(
+      fit: StackFit.passthrough,
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: PerchedTevi.standOf(size)),
+          child: widget.child,
+        ),
+        // The figure's box is square and drawn facing the end side; its
+        // legs end at [TeviPainter.perchY] of its height.
+        PositionedDirectional(
+          top: -size * TeviPainter.body.top,
+          start: PerchedTevi.inset - size * TeviPainter.body.left,
+          width: size,
+          height: size,
+          child: IgnorePointer(
+            child: Transform.flip(
+              flipX: Directionality.of(context) == TextDirection.rtl,
+              child: figure,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _FieldContent extends StatelessWidget {
@@ -619,8 +698,8 @@ class _FieldContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    // The name plate sits on the head's axis: the field is centred under
-    // the head, so the wordmark is centred in the field.
+    // The name plate is centred in the field; the mascot stands at its
+    // start, above it.
     final wordmark = Wordmark(
       height: size == FieldSize.hero ? WordmarkSizes.hero : WordmarkSizes.band,
     );
@@ -682,7 +761,7 @@ class _FieldContent extends StatelessWidget {
             ],
           ),
           if (promise case final promise?) ...[
-            // Further from the name plate than the plate is from the head.
+            // Further from the name plate than the plate is from the edge.
             SizedBox(height: large ? Space.xxxl : Space.xxl),
             Text(
               promise,

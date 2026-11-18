@@ -75,7 +75,7 @@ void main() {
     });
 
     testWidgets('back from a PIN just created: Passo 2 de 2 with the two '
-        'moves, the sun rising and the adults told', (tester) async {
+        'moves, the mascot winking and the adults told', (tester) async {
       final h = await kidMode(tester, pinSet: true, extra: PinSaved.created);
 
       final step = tester.widget<StepMarks>(find.byType(StepMarks));
@@ -84,7 +84,7 @@ void main() {
       expect(door('Entregar este aparelho'), findsOne);
       expect(door('Vincular o aparelho da criança'), findsOne);
       expect(door('Trocar o PIN'), findsNothing);
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
       expect(find.textContaining('Avisamos por e-⁠mail'), findsOne);
 
       await open(tester, door('Entregar este aparelho'));
@@ -172,13 +172,13 @@ void main() {
       });
     }
 
-    testWidgets('a PIN changed shows the index with the sun rising and the '
+    testWidgets('a PIN changed shows the index with the mascot winking and the '
         'adults told', (tester) async {
       await kidMode(tester, pinSet: true, extra: PinSaved.changed);
 
       expect(find.byType(StepMarks), findsNothing);
       expect(door('Trocar o PIN'), findsOne);
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
       expect(find.textContaining('PIN trocado.'), findsOne);
     });
   });

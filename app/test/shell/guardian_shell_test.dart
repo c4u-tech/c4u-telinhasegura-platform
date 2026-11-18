@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/band_transition.dart';
 import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
@@ -284,7 +285,7 @@ void main() {
       });
     }
 
-    testWidgets('the rail centres the reversed wordmark under the head, '
+    testWidgets('the rail centres the reversed wordmark in its field, '
         'at least 22 tall, with the destinations at the start below', (
       tester,
     ) async {
@@ -298,18 +299,82 @@ void main() {
         of: rail,
         matching: find.byType(SvgPicture),
       );
-      final head = find.descendant(
-        of: rail,
-        matching: find.byType(PeekingHead),
-      );
       expect(tester.getSize(wordmark).height, greaterThanOrEqualTo(22));
       expect(
         tester.getCenter(wordmark).dx,
-        moreOrLessEquals(tester.getCenter(head).dx, epsilon: 2),
+        moreOrLessEquals(
+          tester.getCenter(find.byKey(InkRail.fieldKey)).dx,
+          epsilon: 2,
+        ),
       );
       final first = tester.getRect(find.byType(DestinationTile).first);
       expect(first.top, greaterThan(tester.getRect(wordmark).bottom));
       expect(first.left, lessThan(tester.getRect(wordmark).left));
+    });
+
+    for (final (width, brightness) in [
+      (wide.width, Brightness.light),
+      (wide.width, Brightness.dark),
+      (840.0, Brightness.light),
+      (1280.0, Brightness.dark),
+    ]) {
+      testWidgets('at $width, ${brightness.name}, the mascot stands whole on '
+          'the rail\'s top edge at its start, watching', (tester) async {
+        tester.platformDispatcher.platformBrightnessTestValue = brightness;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+        await shellAt(tester, '/', size: Size(width, 800));
+
+        final tevi = find.descendant(
+          of: find.byType(InkRail),
+          matching: find.byType(Tevi),
+        );
+        final figure = tester.widget<Tevi>(tevi);
+        expect(figure.look, TeviLook.watching);
+        expect(figure.size, ShellSizes.railTevi);
+        expect(figure.night, brightness == Brightness.dark);
+        final box = tester.getRect(tevi);
+        final field = tester.getRect(find.byKey(InkRail.fieldKey));
+        expect(
+          box.top + TeviPainter.perchY * box.width - field.top,
+          moreOrLessEquals(PerchedTevi.overlap, epsilon: .01),
+        );
+        expect(
+          box.left + TeviPainter.body.left * box.width,
+          moreOrLessEquals(field.left + Space.xl, epsilon: .01),
+        );
+        expect(box.top + TeviPainter.body.top * box.width, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a confirmation beside the rail makes its mascot wink', (
+      tester,
+    ) async {
+      final winks = ValueNotifier(0);
+      addTearDown(winks.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(Brightness.light),
+          home: Scaffold(
+            body: InkRail(
+              destinations: const [Destination.inicio, Destination.conta],
+              selected: Destination.inicio,
+              onOpen: (_) {},
+              winks: winks,
+            ),
+          ),
+        ),
+      );
+      TeviLook look() => tester.widget<Tevi>(find.byType(Tevi)).look;
+      expect(look(), TeviLook.watching);
+
+      winks.value++;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(look(), TeviLook.winking);
+
+      await tester.pumpAndSettle();
+      expect(look(), TeviLook.watching);
     });
 
     testWidgets('the rail is the ink field, cut at the mark radius, with no '

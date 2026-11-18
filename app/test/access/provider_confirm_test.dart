@@ -162,7 +162,7 @@ void main() {
       expect(h.actions.single, contains('"device_label":"$testDeviceLabel"'));
       expect(find.byType(FamilyHomeScreen), findsOneWidget);
       // "O sol sobe" greets the linked account, once.
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, isTrue);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, isTrue);
       expect(h.services.justLinked, isFalse);
     });
 

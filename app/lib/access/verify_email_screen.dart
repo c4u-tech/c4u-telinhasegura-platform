@@ -13,7 +13,7 @@ import 'widgets.dart';
 enum _Stage { confirming, confirmed, expired, failed }
 
 /// `/verificar-email?token=` from the mailed link: confirms once, then
-/// celebrates quietly with "o sol sobe".
+/// celebrates quietly with the mascot's wink.
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({super.key, required this.token});
 
@@ -90,7 +90,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         ),
         _Stage.confirmed => FieldLayout(
           title: 'E-\u2060mail confirmado',
-          rise: true,
+          wink: true,
           children: [
             Notice(
               signedIn

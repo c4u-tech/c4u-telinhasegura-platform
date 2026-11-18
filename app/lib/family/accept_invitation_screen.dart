@@ -66,7 +66,7 @@ class _AcceptInvitationState extends State<AcceptInvitationScreen> {
     final services = AppScope.of(context);
     // The token is in the URL now; memory lets it go. This
     // screen takes over from a link that just went through: the home
-    // must not replay its rise later.
+    // must not replay its wink later.
     services.heldInvitation = null;
     services.justLinked = false;
     _model = services.familyModel;

@@ -50,7 +50,7 @@ class Palette {
   /// The work ground every form sits on.
   final Color ground;
 
-  /// The flat ink field: the Espiadinha's screen.
+  /// The flat ink field the mascot stands on.
   final Color field;
   final Color onField;
   final Color onFieldMuted;
@@ -116,7 +116,7 @@ class Palette {
     headOutline: BrandColors.dark,
   );
 
-  /// The kid dialect: the child is inside the Espiadinha's screen, so ink
+  /// The kid dialect: the child is inside the ink field, so ink
   /// is the ground in both themes and cream the figure. Errors keep
   /// ember, on dark (tinted from ink) rather than the olive of the night
   /// palette; ember reads as text only on that ground.
@@ -167,11 +167,18 @@ abstract final class Radii {
   static const card = 28.0;
 }
 
-/// Sizes of the flat field and its Espiadinha.
+/// Sizes of the flat field and the mascot standing on it.
 abstract final class FieldSizes {
-  /// Grid unit of the mark on the entry field: the head radius is 14 units.
+  /// The grid each field's corner is cut on: 10 units.
   static const heroUnit = 3.0;
   static const bandUnit = 1.75;
+
+  /// The mascot standing on the entry field.
+  static const heroTevi = 112.0;
+
+  /// The mascot standing on the band: small enough that a task screen's
+  /// first section still starts above the fold of a common phone.
+  static const bandTevi = 72.0;
   static const wideBreakpoint = 840.0;
   // Google's rendered web button tops out at 400 px; every control in
   // the column shares that width so their edges line up.
@@ -187,8 +194,12 @@ abstract final class FieldSizes {
 /// on a narrow one. The selected destination's indicator is the mark's
 /// screen (58 × 33) at [indicator] tall, cornered at the same ratio.
 abstract final class ShellSizes {
-  /// The rail's ink field, the head over it drawn on the same grid.
+  /// The grid the rail's corner is cut on: 10 units.
   static const railUnit = 2.0;
+
+  /// The mascot standing on the rail: it takes about the room above the
+  /// rail that the navigation always kept there.
+  static const railTevi = 72.0;
   static const railWidth = 248.0;
 
   /// The rail's field inset from the window, as the wide panel's was.
