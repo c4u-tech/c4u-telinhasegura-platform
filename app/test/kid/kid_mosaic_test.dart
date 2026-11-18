@@ -495,6 +495,57 @@ void main() {
     expect(find.byType(ThemeGlyph), paints..rrect(color: BrandColors.dark));
   });
 
+  testWidgets('a quiet read that brings other videos redraws every picture '
+      'in its slot: the highlight, the pictures and the covers', (
+    tester,
+  ) async {
+    KidCatalog read(Map<String, Object?> j) =>
+        KidCatalog.fromJson(jsonDecode(jsonEncode(j)) as Map<String, dynamic>);
+    // The same day, every video replaced by another.
+    final renamed = jsonDecode(
+      jsonEncode(sixThemes)
+          .replaceAllMapped(RegExp(r'"id":"v(\d)"'), (m) => '"id":"w${m[1]}"'),
+    ) as Map<String, Object?>;
+    final asked = <String>[];
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Widget day(KidCatalog catalog) => MaterialApp(
+      theme: buildTheme(Brightness.dark, Palette.kid),
+      home: KidLayout(
+        fullWidth: true,
+        scrolls: false,
+        rise: KidMosaic.rise,
+        child: KidMosaic(
+          catalog: catalog,
+          band: AgeBand.from5To8,
+          thumbnail: (id) async {
+            asked.add(id);
+            return pixel;
+          },
+          onPlay: (_) {},
+          onOpenPack: (_) {},
+          onOpenTheme: (_, _) {},
+        ),
+      ),
+    );
+    await tester.pumpWidget(day(read(sixThemes)));
+    await tester.pumpAndSettle();
+    expect(asked, isNotEmpty);
+    expect(asked.every((id) => id.startsWith('v')), isTrue);
+
+    await tester.pumpWidget(day(read(renamed)));
+    await tester.pumpAndSettle();
+    final shown = {
+      for (final p in tester.widgetList<ThumbnailPicture>(
+        find.byType(ThumbnailPicture),
+      ))
+        p.videoId,
+    };
+    expect(shown.every((id) => id.startsWith('w')), isTrue);
+    expect(asked, containsAll(shown));
+  });
+
   testWidgets('a tap on a block opens its theme from where the block '
       'stands, through the home\'s one seam for it', (tester) async {
     final opened = <(VideoTheme, Rect)>[];

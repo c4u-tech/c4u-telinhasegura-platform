@@ -263,7 +263,7 @@ class _PlayDiscPainter extends CustomPainter {
       old.ringWidth != ringWidth;
 }
 
-/// A video's thumbnail from our API, read once while this stands: the
+/// A video's thumbnail from our API, read once per video it shows: the
 /// picture filling its box, a quiet fill while it comes, and the hollow
 /// screen if it does not.
 class ThumbnailPicture extends StatefulWidget {
@@ -290,7 +290,17 @@ class ThumbnailPicture extends StatefulWidget {
 }
 
 class _ThumbnailPictureState extends State<ThumbnailPicture> {
-  late final Future<Uint8List> _bytes = widget.thumbnail(widget.videoId);
+  late Future<Uint8List> _bytes = widget.thumbnail(widget.videoId);
+
+  /// A catalogue read again can put another video in this slot: its
+  /// picture is read then, or the slot would keep the one before.
+  @override
+  void didUpdateWidget(ThumbnailPicture old) {
+    super.didUpdateWidget(old);
+    if (old.videoId != widget.videoId) {
+      _bytes = widget.thumbnail(widget.videoId);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
