@@ -17,6 +17,7 @@ import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/shell/services.dart';
 
 import '../access/harness.dart';
+import '../kid/kid_home_screen_test.dart' show labelled;
 import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'hand_over_screen_test.dart' show pumpUntil, tapOn;
@@ -174,7 +175,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.location(tester), '/crianca');
     expect(find.byType(KidHomeScreen), findsOneWidget);
-    expect(find.text('Lia'), findsOneWidget);
+    // The home is the linked child's: their avatar, read by the nickname.
+    expect(
+      find.descendant(
+        of: find.byType(KidHomeScreen),
+        matching: labelled('Lia'),
+      ),
+      findsOneWidget,
+    );
   });
 
   group('the device name', () {
