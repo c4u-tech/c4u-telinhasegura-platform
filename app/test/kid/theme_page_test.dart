@@ -553,8 +553,15 @@ void main() {
       expect(early, isNotNull);
       expect(early!.width, lessThan(390));
       expect(early.width, greaterThanOrEqualTo(block.width));
+      // The door's own picture stays painted, travelling with the ground,
+      // while the page arrives.
+      final face = faceOf(tester);
+      expect(face, isNotNull);
+      expect(face!.opacity, greaterThan(.5));
+      expect(face.rect.width, greaterThanOrEqualTo(block.width));
       await tester.pumpAndSettle();
       expect(clipOf(tester), isNull);
+      expect(faceOf(tester), isNull);
 
       await tester.pump(TapGuard.window);
       await tester.tap(find.bySemanticsLabel(PlayerScreen.back));
@@ -565,6 +572,44 @@ void main() {
       expect(late!.width, lessThan(390));
       await tester.pumpAndSettle();
       expect(find.byType(RoomScreen), findsNothing);
+    });
+
+    testWidgets('on its first frame the door is still there: the ground and '
+        'the door\'s picture stand exactly where the block stood', (
+      tester,
+    ) async {
+      await home(tester);
+      final block = tester.getRect(blockOf(VideoTheme.bichos));
+      await tester.tap(blockOf(VideoTheme.bichos));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      final face = faceOf(tester)!;
+      expect(face.opacity, closeTo(1, 1e-6));
+      for (final r in [face.rect, clipOf(tester)!]) {
+        expect(r.left, closeTo(block.left, 1));
+        expect(r.top, closeTo(block.top, 1));
+        expect(r.width, closeTo(block.width, 2));
+      }
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('going back, the page shrinks onto where the block stands '
+        'now, though the screen changed while the page was open', (
+      tester,
+    ) async {
+      await room(tester);
+      tester.view.physicalSize = const Size(600, 844);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel(PlayerScreen.back));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 296));
+      final late = clipOf(tester)!;
+      await tester.pumpAndSettle();
+      final now = tester.getRect(blockOf(VideoTheme.bichos));
+      expect(late.left, closeTo(now.left, 4));
+      expect(late.top, closeTo(now.top, 4));
+      expect(late.width, closeTo(now.width, 8));
     });
 
     testWidgets('with animations off, the page simply replaces the home', (
@@ -726,6 +771,19 @@ double roomScroll(WidgetTester tester) => tester
     )
     .position
     .maxScrollExtent;
+
+/// The door's picture as the transition paints it; null at rest.
+({Rect rect, double opacity})? faceOf(WidgetTester tester) {
+  final paint = find.descendant(
+    of: find.byType(RoomTransition),
+    matching: find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter is RoomFacePainter,
+    ),
+  );
+  if (paint.evaluate().isEmpty) return null;
+  final painter = tester.widget<CustomPaint>(paint).painter! as RoomFacePainter;
+  return (rect: painter.rect, opacity: painter.opacity);
+}
 
 /// The growing ground's bounds while the page moves; null at rest.
 Rect? clipOf(WidgetTester tester) {

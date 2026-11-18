@@ -11,6 +11,7 @@ import '../family/family.dart' show AgeBand;
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
 import 'pack_row.dart';
+import 'room_transition.dart';
 import 'shelves.dart';
 import 'theme_glyph.dart';
 
@@ -118,10 +119,10 @@ class KidMosaic extends StatelessWidget {
   final ValueChanged<KidPack>? onOpenPack;
 
   /// A theme's block was tapped, standing [from] on the screen.
-  final void Function(VideoTheme theme, Rect from)? onOpenTheme;
+  final void Function(VideoTheme theme, DoorPlace from)? onOpenTheme;
 
   /// The door to every pacotinho was tapped, standing at the given place.
-  final ValueChanged<Rect>? onOpenPacks;
+  final ValueChanged<DoorPlace>? onOpenPacks;
 
   /// Floating over the home's foot (a refusal's note).
   final Widget? note;
@@ -171,6 +172,7 @@ class KidMosaic extends StatelessWidget {
         final door = !plan.packsDoor
             ? null
             : Builder(
+                key: _packsKey,
                 builder: (context) => PacksDoor(
                   size: Size(g.start, g.door),
                   // The next pacotinho in front, another peeking behind.
@@ -182,12 +184,13 @@ class KidMosaic extends StatelessWidget {
                   wide: g.wide,
                   onTap: onOpenPacks == null
                       ? null
-                      : () => onOpenPacks!(_placeOf(context)),
+                      : () => onOpenPacks!(_placeOf(context, _packsKey)),
                 ),
               );
         final blocks = [
           for (final shelf in plan.blocks)
             Builder(
+              key: _keyOf(shelf.theme),
               builder: (context) => ThemeBlock(
                 shelf: shelf,
                 world: worldOf(shelf.theme),
@@ -196,7 +199,10 @@ class KidMosaic extends StatelessWidget {
                 thumbnail: thumbnail,
                 onTap: onOpenTheme == null
                     ? null
-                    : () => onOpenTheme!(shelf.theme, _placeOf(context)),
+                    : () => onOpenTheme!(
+                        shelf.theme,
+                        _placeOf(context, _keyOf(shelf.theme)),
+                      ),
               ),
             ),
         ];
@@ -213,9 +219,30 @@ class KidMosaic extends StatelessWidget {
   }
 }
 
-/// Where the widget at [context] stands on the screen.
-Rect _placeOf(BuildContext context) {
-  final box = context.findRenderObject()! as RenderBox;
+/// Each door keeps its key from build to build, so a page opened from it
+/// finds it again when it goes back, wherever it stands then.
+GlobalKey _keyOf(VideoTheme theme) => _doorKeys[theme]!;
+final _doorKeys = {
+  for (final theme in VideoTheme.values)
+    theme: GlobalKey(debugLabel: 'door ${theme.name}'),
+};
+final _packsKey = GlobalKey(debugLabel: 'door pacotinhos');
+
+/// Where the door at [context] stands on the screen, how to find it
+/// again through [key], and a picture of what it shows.
+DoorPlace _placeOf(BuildContext context, GlobalKey key) => DoorPlace(
+  _rectOf(context)!,
+  measure: () => switch (key.currentContext) {
+    final context? => _rectOf(context),
+    null => null,
+  },
+  face: faceOf(context),
+);
+
+/// Where the widget at [context] stands on the screen, if it is laid out.
+Rect? _rectOf(BuildContext context) {
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.attached || !box.hasSize) return null;
   return box.localToGlobal(Offset.zero) & box.size;
 }
 
@@ -634,37 +661,47 @@ class _ThemeBlockState extends State<ThemeBlock> {
               clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
-                  PositionedDirectional(
-                    start: pad,
-                    top: pad,
-                    child: ThemeGlyph(
-                      widget.shelf.theme,
-                      size: glyph,
-                      color: w.figure,
-                      ground: w.ground,
-                    ),
-                  ),
-                  if (videos.length > 1)
-                    PositionedDirectional(
-                      end: Space.md + ThemeBlock.peek,
-                      top: front.top - ThemeBlock.peek,
-                      width: cover.width - 2 * ThemeBlock.peek,
-                      height: cover.height,
-                      child: BlockCover(
-                        videoId: videos[1].id,
-                        thumbnail: widget.thumbnail,
-                        color: w.figure,
+                  // What the door shows above its ground, pictured
+                  // as the page grows out of it.
+                  Positioned.fill(
+                    child: DoorFace(
+                      child: Stack(
+                        children: [
+                          PositionedDirectional(
+                            start: pad,
+                            top: pad,
+                            child: ThemeGlyph(
+                              widget.shelf.theme,
+                              size: glyph,
+                              color: w.figure,
+                              ground: w.ground,
+                            ),
+                          ),
+                          if (videos.length > 1)
+                            PositionedDirectional(
+                              end: Space.md + ThemeBlock.peek,
+                              top: front.top - ThemeBlock.peek,
+                              width: cover.width - 2 * ThemeBlock.peek,
+                              height: cover.height,
+                              child: BlockCover(
+                                videoId: videos[1].id,
+                                thumbnail: widget.thumbnail,
+                                color: w.figure,
+                              ),
+                            ),
+                          PositionedDirectional(
+                            end: Space.md,
+                            top: front.top,
+                            width: cover.width,
+                            height: cover.height,
+                            child: BlockCover(
+                              videoId: videos.first.id,
+                              thumbnail: widget.thumbnail,
+                              color: w.figure,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  PositionedDirectional(
-                    end: Space.md,
-                    top: front.top,
-                    width: cover.width,
-                    height: cover.height,
-                    child: BlockCover(
-                      videoId: videos.first.id,
-                      thumbnail: widget.thumbnail,
-                      color: w.figure,
                     ),
                   ),
                   Positioned.fill(
@@ -762,35 +799,45 @@ class _PacksDoorState extends State<PacksDoor> {
               clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
-                  PositionedDirectional(
-                    start: pad,
-                    top: (size.height - glyph) / 2,
-                    child: PackGlyph(size: glyph, color: figure),
+                  // What the door shows above its ground, pictured
+                  // as the page grows out of it.
+                  Positioned.fill(
+                    child: DoorFace(
+                      child: Stack(
+                        children: [
+                          PositionedDirectional(
+                            start: pad,
+                            top: (size.height - glyph) / 2,
+                            child: PackGlyph(size: glyph, color: figure),
+                          ),
+                          if (covers.length > 1)
+                            PositionedDirectional(
+                              end: Space.md + ThemeBlock.peek,
+                              bottom: Space.md + ThemeBlock.peek,
+                              width: cover.width - 2 * ThemeBlock.peek,
+                              height: cover.height,
+                              child: BlockCover(
+                                videoId: covers[1],
+                                thumbnail: thumbnail!,
+                                color: figure,
+                              ),
+                            ),
+                          if (covers.isNotEmpty)
+                            PositionedDirectional(
+                              end: Space.md,
+                              bottom: Space.md,
+                              width: cover.width,
+                              height: cover.height,
+                              child: BlockCover(
+                                videoId: covers.first,
+                                thumbnail: thumbnail!,
+                                color: figure,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                  if (covers.length > 1)
-                    PositionedDirectional(
-                      end: Space.md + ThemeBlock.peek,
-                      bottom: Space.md + ThemeBlock.peek,
-                      width: cover.width - 2 * ThemeBlock.peek,
-                      height: cover.height,
-                      child: BlockCover(
-                        videoId: covers[1],
-                        thumbnail: thumbnail!,
-                        color: figure,
-                      ),
-                    ),
-                  if (covers.isNotEmpty)
-                    PositionedDirectional(
-                      end: Space.md,
-                      bottom: Space.md,
-                      width: cover.width,
-                      height: cover.height,
-                      child: BlockCover(
-                        videoId: covers.first,
-                        thumbnail: thumbnail!,
-                        color: figure,
-                      ),
-                    ),
                   Positioned.fill(
                     child: InkWell(
                       onTap: widget.onTap,

@@ -581,7 +581,7 @@ void main() {
             thumbnail: (_) async => pixel,
             onPlay: (_) {},
             onOpenPack: (_) {},
-            onOpenTheme: (theme, from) => opened.add((theme, from)),
+            onOpenTheme: (theme, from) => opened.add((theme, from.rect)),
           ),
         ),
       ),

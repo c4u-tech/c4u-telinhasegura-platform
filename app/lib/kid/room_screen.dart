@@ -17,6 +17,7 @@ import 'kid_layout.dart';
 import 'pack_row.dart';
 import 'player_keys.dart';
 import 'player_screen.dart';
+import 'room_transition.dart';
 import 'shelves.dart';
 import 'tap_guard.dart';
 import 'theme_glyph.dart';
@@ -34,7 +35,7 @@ class RoomDoor {
   };
 
   final KidDay day;
-  final Rect? from;
+  final DoorPlace? from;
 }
 
 /// `/crianca/tema/:tema`: one theme's small room. The theme's world fills

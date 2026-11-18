@@ -23,6 +23,7 @@ import 'mosaic.dart';
 import 'paused_profile.dart';
 import 'player_screen.dart';
 import 'room_screen.dart' show RoomDoor;
+import 'room_transition.dart' show DoorPlace;
 import 'shelves.dart';
 import 'sleeping_telinha.dart';
 import 'tap_guard.dart';
@@ -185,7 +186,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
 
   /// A theme's block tapped: the theme's page grows from where the block
   /// stood, on the day this home read. A note from before stays here.
-  void _openTheme(VideoTheme theme, Rect from) {
+  void _openTheme(VideoTheme theme, DoorPlace from) {
     _day.note(null);
     context.go(
       Routes.theme(theme),
@@ -194,7 +195,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   }
 
   /// The door to every pacotinho, opening the same way.
-  void _openPacks(Rect from) {
+  void _openPacks(DoorPlace from) {
     _day.note(null);
     context.go(
       Routes.kidPacks,
