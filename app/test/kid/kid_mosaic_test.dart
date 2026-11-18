@@ -584,6 +584,46 @@ void main() {
     ]);
   });
 
+  testWidgets('a block and the pacotinhos\' door are read as enabled only '
+      'while a tap on them does something', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final shelf = KidCatalog.fromJson(
+      jsonDecode(jsonEncode(sixThemes)) as Map<String, dynamic>,
+    ).shelves.first;
+    for (final onTap in [() {}, null]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(Brightness.dark, Palette.kid),
+          home: Column(
+            children: [
+              ThemeBlock(
+                shelf: shelf,
+                world: worldOf(shelf.theme),
+                size: const Size(160, 120),
+                thumbnail: (_) async => pixel,
+                onTap: onTap,
+              ),
+              PacksDoor(size: const Size(160, 120), onTap: onTap),
+            ],
+          ),
+        ),
+      );
+      for (final label in [themeName(shelf.theme), PackGlyph.label]) {
+        expect(
+          tester.getSemantics(find.bySemanticsLabel(label)),
+          isSemantics(
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: onTap != null,
+            hasTapAction: onTap != null,
+          ),
+          reason: '$label, ${onTap == null ? 'no tap' : 'a tap'}',
+        );
+      }
+    }
+    semantics.dispose();
+  });
+
   testWidgets('a tap on a block plays nothing and opens the theme\'s page', (
     tester,
   ) async {

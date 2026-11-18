@@ -572,7 +572,7 @@ class _ThemeBlockState extends State<ThemeBlock> {
     return Semantics(
       container: true,
       button: true,
-      enabled: true,
+      enabled: widget.onTap != null,
       label: themeName(widget.shelf.theme),
       onTap: widget.onTap,
       child: ExcludeSemantics(
@@ -679,7 +679,7 @@ class _PacksDoorState extends State<PacksDoor> {
     return Semantics(
       container: true,
       button: true,
-      enabled: true,
+      enabled: widget.onTap != null,
       label: PackGlyph.label,
       onTap: widget.onTap,
       child: ExcludeSemantics(
