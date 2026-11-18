@@ -212,6 +212,85 @@ void main() {
     });
   });
 
+  group('colour worlds', () {
+    test('six worlds, one ground and one figure each, from the brand and '
+        'two lighter tones of it', () {
+      expect(ColourWorlds.lightInk, const Color(0xFF2F7482));
+      expect(ColourWorlds.lightSun, const Color(0xFFFFE08A));
+      final worlds = {
+        'bichos': (ColourWorlds.bichos, BrandColors.sun, BrandColors.dark),
+        'musica': (ColourWorlds.musica, BrandColors.sky, BrandColors.dark),
+        'historias': (
+          ColourWorlds.historias,
+          BrandColors.cream,
+          BrandColors.ink,
+        ),
+        'aprender': (ColourWorlds.aprender, BrandColors.dark, BrandColors.sun),
+        'natureza': (
+          ColourWorlds.natureza,
+          ColourWorlds.lightInk,
+          BrandColors.cream,
+        ),
+        'brincar': (
+          ColourWorlds.brincar,
+          ColourWorlds.lightSun,
+          BrandColors.dark,
+        ),
+      };
+      for (final MapEntry(:key, value: (world, ground, figure))
+          in worlds.entries) {
+        expect(world.ground, ground, reason: key);
+        expect(world.figure, figure, reason: key);
+      }
+      expect(ColourWorlds.all, hasLength(6));
+      expect(ColourWorlds.all.map((w) => w.ground).toSet(), hasLength(6));
+    });
+
+    test('every figure reaches 3:1 on its ground', () {
+      for (final world in ColourWorlds.all) {
+        expect(
+          contrast(world.figure, world.ground),
+          greaterThanOrEqualTo(3),
+          reason: _hex(world.ground),
+        );
+      }
+    });
+
+    test('the sun play disc keeps its dark triangle, and on a light ground '
+        'a dark ring that reaches 3:1 on it', () {
+      expect(
+        contrast(Palette.kid.onIndicator, Palette.kid.indicator),
+        greaterThanOrEqualTo(3),
+      );
+      final ringed = {
+        for (final w in ColourWorlds.all)
+          if (w.ringsDisc) w.ground,
+      };
+      expect(ringed, {
+        BrandColors.sun,
+        BrandColors.sky,
+        BrandColors.cream,
+        ColourWorlds.lightSun,
+      });
+      for (final ground in ringed) {
+        expect(
+          contrast(ColourWorlds.discRing, ground),
+          greaterThanOrEqualTo(3),
+          reason: _hex(ground),
+        );
+      }
+      expect(ColourWorlds.discRing, BrandColors.dark);
+      // Unringed, the sun disc stands out from the ground by itself.
+      for (final w in ColourWorlds.all.where((w) => !w.ringsDisc)) {
+        expect(
+          contrast(BrandColors.sun, w.ground),
+          greaterThanOrEqualTo(3),
+          reason: _hex(w.ground),
+        );
+      }
+    });
+  });
+
   test('corners keep the mascot body\'s ratio, 26 for every 70 of height', () {
     expect(Radii.screenRatio, 26 / 70);
     // The theme's controls are 56 dp tall.
