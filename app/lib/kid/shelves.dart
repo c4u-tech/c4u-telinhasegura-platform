@@ -398,17 +398,24 @@ class ShelvesFailed extends StatelessWidget {
             ?.copyWith(color: context.palette.muted),
       ),
       const SizedBox(height: Space.xl),
-      FilledButton(
-        onPressed: onRetry,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(KidSizes.target),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              KidSizes.target * Radii.screenRatio,
+      // As wide as the hollow frame above it, so the picture and its one
+      // way forward read as one.
+      Center(
+        child: SizedBox(
+          width: ShelfPicture.screen.width * scale,
+          child: FilledButton(
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(KidSizes.target),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  KidSizes.target * Radii.screenRatio,
+                ),
+              ),
             ),
+            child: const Text(retry),
           ),
         ),
-        child: const Text(retry),
       ),
     ],
   );

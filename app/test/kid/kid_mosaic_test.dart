@@ -1058,6 +1058,34 @@ void main() {
     semantics.dispose();
   });
 
+  for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+    testWidgets('at ${size.width.toInt()} px "Tentar de novo" is as wide as '
+        'the hollow frame above it, never under a target\'s height', (
+      tester,
+    ) async {
+      await mosaic(tester, catalog: () => problem(503, 'internal'), size: size);
+      final picture = tester.getRect(
+        find.descendant(
+          of: find.byType(ShelvesFailed),
+          matching: find.byType(ShelfPicture),
+        ),
+      );
+      final s = picture.width / ShelfPicture.size.width;
+      final retry = tester.getRect(
+        find.widgetWithText(FilledButton, ShelvesFailed.retry),
+      );
+      expect(
+        retry.left,
+        closeTo(picture.left + ShelfPicture.screen.left * s, .5),
+      );
+      expect(
+        retry.right,
+        closeTo(picture.left + ShelfPicture.screen.right * s, .5),
+      );
+      expect(retry.height, greaterThanOrEqualTo(KidSizes.target));
+    });
+  }
+
   testWidgets('a failed catalogue shows its picture and one "Tentar de '
       'novo" that fetches again', (tester) async {
     var fail = true;
