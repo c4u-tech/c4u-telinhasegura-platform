@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/svg/telinha-segura-lockup-color-on-dark.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="brand/svg/telinha-segura-lockup-reversed.svg">
     <img src="brand/svg/telinha-segura-lockup-color.svg" alt="Telinha Segura" width="320">
   </picture>
 

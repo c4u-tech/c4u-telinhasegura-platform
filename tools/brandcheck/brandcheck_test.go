@@ -39,18 +39,18 @@ func TestEveryShippedCopyEqualsItsMaster(t *testing.T) {
 	m := mustManifest(t)
 	for copyPath, master := range map[string]string{
 		"app/assets/brand/telinha-segura-wordmark-reversed.svg": "brand/svg/telinha-segura-wordmark-reversed.svg",
-		"app/web/favicon.svg":                                                "brand/favicon/favicon.svg",
-		"app/web/favicon.ico":                                                "brand/favicon/favicon.ico",
-		"app/web/icons/apple-touch-icon.png":                                 "brand/favicon/apple-touch-icon.png",
-		"app/web/icons/Icon-192.png":                                         "brand/favicon/icon-192.png",
-		"app/web/icons/Icon-512.png":                                         "brand/favicon/icon-512.png",
-		"app/web/icons/Icon-maskable-512.png":                                "brand/favicon/icon-maskable-512.png",
-		"site/public/favicon.svg":                                            "brand/favicon/favicon.svg",
-		"site/public/favicon.ico":                                            "brand/favicon/favicon.ico",
-		"site/public/apple-touch-icon.png":                                   "brand/favicon/apple-touch-icon.png",
-		"site/public/brand/telinha-segura-wordmark-reversed.svg":             "brand/svg/telinha-segura-wordmark-reversed.svg",
-		"site/public/brand/telinha-segura-lockup-endorsed-color.svg":         "brand/svg/telinha-segura-lockup-endorsed-color.svg",
-		"site/public/brand/telinha-segura-lockup-endorsed-color-on-dark.svg": "brand/svg/telinha-segura-lockup-endorsed-color-on-dark.svg",
+		"app/web/favicon.svg":                                           "brand/favicon/favicon.svg",
+		"app/web/favicon.ico":                                           "brand/favicon/favicon.ico",
+		"app/web/icons/apple-touch-icon.png":                            "brand/favicon/apple-touch-icon.png",
+		"app/web/icons/Icon-192.png":                                    "brand/favicon/icon-192.png",
+		"app/web/icons/Icon-512.png":                                    "brand/favicon/icon-512.png",
+		"app/web/icons/Icon-maskable-512.png":                           "brand/favicon/icon-maskable-512.png",
+		"site/public/favicon.svg":                                       "brand/favicon/favicon.svg",
+		"site/public/favicon.ico":                                       "brand/favicon/favicon.ico",
+		"site/public/apple-touch-icon.png":                              "brand/favicon/apple-touch-icon.png",
+		"site/public/brand/telinha-segura-wordmark-reversed.svg":        "brand/svg/telinha-segura-wordmark-reversed.svg",
+		"site/public/brand/telinha-segura-lockup-endorsed-color.svg":    "brand/svg/telinha-segura-lockup-endorsed-color.svg",
+		"site/public/brand/telinha-segura-lockup-endorsed-reversed.svg": "brand/svg/telinha-segura-lockup-endorsed-reversed.svg",
 	} {
 		if _, ok := m[copyPath]; !ok {
 			t.Errorf("%s is not in the manifest: the generator does not write it", copyPath)
