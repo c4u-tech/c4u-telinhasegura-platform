@@ -216,11 +216,26 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
-  // A touch just after the home appears was aimed at the screen before.
+  // A touch just after the home appears, or just after it changes what
+  // it shows, was aimed at what stood there before.
   @override
-  Widget build(BuildContext context) => TapGuard(child: _screen(context));
+  Widget build(BuildContext context) {
+    final catalog = _day.catalog;
+    final plan = catalog == null
+        ? null
+        : MosaicPlan.of(catalog, band: _profile?.ageBand ?? AgeBand.unknown);
+    final scene = switch (_day) {
+      KidDay(paused: true) => _Scene.paused,
+      KidDay(failed: true) => _Scene.failed,
+      KidDay(asleep: true) => _Scene.asleep,
+      _ when plan == null => _Scene.loading,
+      _ when plan.isEmpty => _Scene.empty,
+      _ => _Scene.pictures,
+    };
+    return TapGuard(scene: scene, child: _screen(context, plan));
+  }
 
-  Widget _screen(BuildContext context) {
+  Widget _screen(BuildContext context, MosaicPlan? plan) {
     final catalog = _day.catalog;
     final failed = _day.failed;
     final pending = _day.pending;
@@ -247,9 +262,6 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         excludeSemantics: true,
       ),
     );
-    final plan = catalog == null
-        ? null
-        : MosaicPlan.of(catalog, band: _profile?.ageBand ?? AgeBand.unknown);
     final notice = _day.notice;
     if (!failed && !asleep && !paused && !(plan?.isEmpty ?? false)) {
       return KidLayout(
@@ -313,3 +325,6 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     );
   }
 }
+
+/// What the home shows, as far as a touch is concerned.
+enum _Scene { loading, pictures, empty, failed, asleep, paused }

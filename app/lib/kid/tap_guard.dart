@@ -6,15 +6,22 @@ import 'package:flutter/widgets.dart';
 /// Lets no touch through for a short moment after the screen it covers
 /// appears, or appears again once what stood over it goes. A child taps
 /// again where the last screen's target was, and that tap must not land
-/// on whatever stands there now. Only touches wait: a screen reader's
-/// action is deliberate, and keeps working throughout.
+/// on whatever stands there now. The same holds when the screen changes
+/// what it shows in place: a [scene] that changes shuts touches again.
+/// Only touches wait: a screen reader's action and a key pressed on the
+/// focused control are deliberate, and keep working throughout. A touch
+/// begun while they wait stays out, however long it is held.
 class TapGuard extends StatefulWidget {
-  const TapGuard({super.key, required this.child});
+  const TapGuard({super.key, required this.child, this.scene});
 
   /// How long touches wait after the screen appears.
   static const window = Duration(milliseconds: 300);
 
   final Widget child;
+
+  /// What the screen shows (the pictures, a way to try again, the night):
+  /// when it changes, touches wait again.
+  final Object? scene;
 
   @override
   State<TapGuard> createState() => _TapGuardState();
@@ -39,6 +46,12 @@ class _TapGuardState extends State<TapGuard> {
     final current = ModalRoute.of(context)?.isCurrent ?? true;
     if (_current == false && current) setState(_shutFor);
     _current = current;
+  }
+
+  @override
+  void didUpdateWidget(TapGuard old) {
+    super.didUpdateWidget(old);
+    if (old.scene != widget.scene) _shutFor();
   }
 
   void _shutFor() {

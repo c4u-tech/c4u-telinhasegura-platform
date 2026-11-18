@@ -22,6 +22,7 @@ import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
 import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid/sleeping_telinha.dart';
+import 'package:telinha_segura/kid/tap_guard.dart';
 import 'package:telinha_segura/kid/theme_glyph.dart';
 import 'package:telinha_segura/shell/routes.dart';
 
@@ -968,6 +969,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.actions.where((c) => c == 'GET /v1/child/catalog'), hasLength(2));
     expect(blocks, findsNWidgets(2));
+  });
+
+  testWidgets('a second tap on "Tentar de novo" never lands on a picture '
+      'that just took its place', (tester) async {
+    var fail = true;
+    final h = await mosaic(
+      tester,
+      catalog: () => fail ? problem(503, 'internal') : json(200, twoShelves),
+    );
+    final retry = find.widgetWithText(FilledButton, ShelvesFailed.retry);
+    final at = tester.getCenter(retry);
+
+    fail = false;
+    await tester.tap(retry);
+    await tester.pump();
+    await tester.pump();
+    expect(highlight, findsOne);
+    await tester.tapAt(at);
+    await tester.tap(highlight, warnIfMissed: false);
+    await tester.pump();
+    expect(plays(h), isEmpty);
+
+    await tester.pump(TapGuard.window);
+    await tester.tap(highlight);
+    await tester.pump();
+    expect(plays(h), isNotEmpty);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('the sleeping home shows no mosaic', (tester) async {
