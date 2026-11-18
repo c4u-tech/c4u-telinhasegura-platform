@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,6 @@ import '../screentime/kid_time.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'beat_loop.dart';
-import 'empty_shelf.dart';
 import 'hold_to_exit.dart';
 import 'kid_layout.dart';
 import 'kid_player.dart';
@@ -424,10 +424,11 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
   }
 }
 
-/// The breath between two videos, in the window's place: on
-/// the input tone, the next video's cover in a screen frame with the
-/// mascot standing on its top edge, winking. No number, no filling bar.
-/// A tap continues; the key beside it says so to assistive technology.
+/// The breath between two videos, in the window's place: on the input
+/// tone, the next video's cover in a rounded frame with the mascot
+/// standing on its top edge toward the end, watching it. No number, no
+/// filling bar. A tap continues; the key beside it says so to assistive
+/// technology.
 class PackBreath extends StatelessWidget {
   const PackBreath({
     super.key,
@@ -440,46 +441,98 @@ class PackBreath extends StatelessWidget {
   final Future<Uint8List> cover;
   final VoidCallback onTap;
 
-  /// The picture's scale in a window of [size]: as large as the window
-  /// holds with room around it. The goodbye stands at the same size.
-  static double scaleFor(Size size) => [
-    size.height * .78 / ShelfPicture.size.height,
-    size.width * .7 / ShelfPicture.size.width,
-  ].reduce((a, b) => a < b ? a : b);
+  /// The frame's corner against its height: the highlight's on the home.
+  static const corner = FieldSizes.heroCorner / 197;
+
+  /// The mascot's box against the frame's height.
+  static const _tevi = .45;
+
+  /// How much of the window the frame and the mascot over it take, so the
+  /// window's own ground still frames them.
+  static const _width = .58;
+  static const _height = .85;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    // The window's stand-in is darker than the child's ground.
-    return TeviGround(
-      color: p.input,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        // The keys beside it say the same to assistive technology.
-        excludeFromSemantics: true,
-        onTap: onTap,
-        child: ExcludeSemantics(
-          child: SizedBox.fromSize(
-            size: size,
-            child: ColoredBox(
+    // The room the mascot takes above the frame, for each unit of the
+    // frame's height.
+    const stand = _tevi * (TeviPainter.perchY - TeviPainter.top);
+    final h = math.min(
+      size.width * _width * 9 / 16,
+      size.height * _height / (1 + stand),
+    );
+    final frame = Size(h * 16 / 9, h);
+    final tevi = h * _tevi;
+    final above = h * stand - TeviPainter.perchOverlap;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // The keys beside it say the same to assistive technology.
+      excludeFromSemantics: true,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: SizedBox.fromSize(
+          size: size,
+          child: ColoredBox(
+            color: p.input,
+            // The window's stand-in is darker than the child's ground.
+            child: TeviGround(
               color: p.input,
               child: Center(
-                child: ShelfPicture(
-                  look: TeviLook.winking,
-                  scale: scaleFor(size),
-                  screenChild: FutureBuilder(
-                    future: cover,
-                    builder: (context, snap) => switch (snap) {
-                      AsyncSnapshot(hasData: true, :final data!) =>
-                        Image.memory(
-                          data,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, _, _) => const HollowThumbnail(),
+                child: SizedBox(
+                  width: frame.width,
+                  height: above + frame.height,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: above,
+                        width: frame.width,
+                        height: frame.height,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(h * corner),
+                          child: FutureBuilder(
+                            future: cover,
+                            builder: (context, snap) => switch (snap) {
+                              AsyncSnapshot(hasData: true, :final data!) =>
+                                Image.memory(
+                                  data,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  errorBuilder: (_, _, _) =>
+                                      HollowThumbnail(radius: h * corner),
+                                ),
+                              AsyncSnapshot(hasError: true) => HollowThumbnail(
+                                radius: h * corner,
+                              ),
+                              _ => const SizedBox.expand(),
+                            },
+                          ),
                         ),
-                      AsyncSnapshot(hasError: true) => const HollowThumbnail(),
-                      _ => const SizedBox.expand(),
-                    },
+                      ),
+                      // Toward the end, looking on into the picture.
+                      PositionedDirectional(
+                        start:
+                            frame.width * .78 -
+                            tevi * TeviPainter.body.center.dx,
+                        top:
+                            above +
+                            TeviPainter.perchOverlap -
+                            tevi * TeviPainter.perchY,
+                        width: tevi,
+                        height: tevi,
+                        child: Builder(
+                          builder: (context) => Transform.flip(
+                            flipX:
+                                Directionality.of(context) == TextDirection.rtl,
+                            child: Tevi(
+                              size: tevi,
+                              night: TeviGround.nightAt(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -491,9 +544,9 @@ class PackBreath extends StatelessWidget {
   }
 }
 
-/// A pacotinho's end, in the window's place: the mascot
-/// asleep over its empty screen, and one word, "Fim". Nothing more to
-/// watch; a tap goes back to the shelves sooner.
+/// A pacotinho's end, in the window's place: the mascot winking goodbye,
+/// and one word beneath it, "Fim". Nothing more to watch; a tap goes back
+/// to the shelves sooner.
 class PackGoodbye extends StatelessWidget {
   const PackGoodbye({super.key, required this.size, required this.onTap});
 
@@ -510,33 +563,37 @@ class PackGoodbye extends StatelessWidget {
     final text = wide
         ? Theme.of(context).textTheme.displaySmall
         : Theme.of(context).textTheme.headlineSmall;
-    // The window's stand-in is darker than the child's ground.
-    return TeviGround(
-      color: p.input,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        // The keys beside it say the same to assistive technology.
-        excludeFromSemantics: true,
-        onTap: onTap,
-        child: SizedBox.fromSize(
-          size: size,
-          child: ColoredBox(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // The keys beside it say the same to assistive technology.
+      excludeFromSemantics: true,
+      onTap: onTap,
+      child: SizedBox.fromSize(
+        size: size,
+        child: ColoredBox(
+          color: p.input,
+          // The window's stand-in is darker than the child's ground.
+          child: TeviGround(
             color: p.input,
             child: Padding(
               padding: const EdgeInsets.all(Space.lg),
-              // At large text the picture and the word shrink together
+              // At large text the figure and the word shrink together
               // rather than leave the window.
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // The breath's picture, at the same size.
-                    ShelfPicture(
-                      look: TeviLook.asleep,
-                      scale: PackBreath.scaleFor(size),
+                    Builder(
+                      builder: (context) => Transform.flip(
+                        flipX: Directionality.of(context) == TextDirection.rtl,
+                        child: Tevi(
+                          size: size.height * .55,
+                          look: TeviLook.winking,
+                          night: TeviGround.nightAt(context),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: Space.md),
                     Semantics(
                       liveRegion: true,
                       child: Text(

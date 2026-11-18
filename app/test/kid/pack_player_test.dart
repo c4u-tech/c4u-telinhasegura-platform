@@ -9,7 +9,6 @@ import 'package:telinha_segura/access/widgets.dart' show StateModule;
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/kid/mosaic.dart';
-import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
@@ -23,7 +22,6 @@ import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
 import 'player_screen_test.dart' show expectNightStage;
-import 'shelf_picture.dart';
 import 'kid_mosaic_test.dart' show pixel, twoShelves, video;
 
 /// The day's shelves plus one pacotinho of three videos, its cover the
@@ -227,14 +225,42 @@ void main() {
     expect(first.closed, isTrue);
     expect(find.byKey(FakePlayback.viewKey), findsNothing);
     expect(find.byType(PackBreath), findsOneWidget);
-    expectPerched(
-      tester,
-      find.byType(PackBreath),
-      TeviLook.winking,
-      filled: true,
-      // The player's stage is darker than the child's ground.
-      night: true,
+    // The next cover in a rounded frame, the mascot watching from its top
+    // edge in its night colours, all inside the window's place.
+    final window = tester.getRect(find.byType(PackBreath));
+    final frame = find.descendant(
+      of: find.byType(PackBreath),
+      matching: find.byType(ClipRRect),
     );
+    expect(
+      find.descendant(of: frame, matching: find.byType(Image)),
+      findsOneWidget,
+    );
+    final cover = tester.getRect(frame);
+    expect(cover.width / cover.height, closeTo(16 / 9, .01));
+    expect(
+      tester.widget<ClipRRect>(frame).borderRadius,
+      BorderRadius.circular(cover.height * PackBreath.corner),
+    );
+    final figure = find.descendant(
+      of: find.byType(PackBreath),
+      matching: find.byType(Tevi),
+    );
+    final tevi = tester.widget<Tevi>(figure);
+    expect((tevi.look, tevi.night), (TeviLook.watching, true));
+    final at = tester.getRect(figure);
+    expect(
+      at.top + at.height * TeviPainter.perchY,
+      closeTo(cover.top + TeviPainter.perchOverlap, 1e-6),
+      reason: 'the legs land on the frame\'s top edge',
+    );
+    expect(at.center.dx, greaterThan(cover.center.dx));
+    for (final r in [cover, at]) {
+      expect(
+        window.contains(r.topLeft) && window.contains(r.bottomRight),
+        isTrue,
+      );
+    }
     expect(progress(1, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsOneWidget);
     // No seconds, said or drawn.
@@ -438,20 +464,25 @@ void main() {
 
     expect(last.closed, isTrue);
     expect(find.byType(PackGoodbye), findsOneWidget);
-    // The mascot falls asleep over its empty screen.
-    final picture = expectPerched(
-      tester,
-      find.byType(PackGoodbye),
-      TeviLook.asleep,
-      night: true,
+    // The mascot winks goodbye in its night colours, the word beneath it,
+    // both in the window's place.
+    final window = tester.getRect(find.byType(PackGoodbye));
+    final figure = find.descendant(
+      of: find.byType(PackGoodbye),
+      matching: find.byType(Tevi),
     );
+    final tevi = tester.widget<Tevi>(figure);
+    expect((tevi.look, tevi.night), (TeviLook.winking, true));
     expect(find.text(PackGoodbye.word), findsOneWidget);
-    // The same picture as the breath's, at the same size.
-    expect(
-      tester.getSize(picture),
-      ShelfPicture.size *
-          PackBreath.scaleFor(tester.getSize(find.byType(PackGoodbye))),
-    );
+    final word = tester.getRect(find.text(PackGoodbye.word));
+    final at = tester.getRect(figure);
+    expect(word.top, greaterThan(at.top + at.height * TeviPainter.perchY - 1));
+    for (final r in [at, word]) {
+      expect(
+        window.contains(r.topLeft) && window.contains(r.bottomRight),
+        isTrue,
+      );
+    }
     expect(progress(3, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.back), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsNothing);

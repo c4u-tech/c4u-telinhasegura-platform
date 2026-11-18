@@ -64,7 +64,6 @@ class ShelfPicture extends StatelessWidget {
     required this.look,
     this.perch = Perch.screen,
     this.scale = 1,
-    this.screenChild,
     this.across = false,
   });
 
@@ -79,10 +78,6 @@ class ShelfPicture extends StatelessWidget {
 
   /// The whole picture's scale: [size] at 1.
   final double scale;
-
-  /// Fills the screen, cut to its corners, instead of leaving it hollow
-  /// (the next video's cover).
-  final Widget? screenChild;
 
   static const size = Size(192, 165);
 
@@ -126,17 +121,10 @@ class ShelfPicture extends StatelessWidget {
     };
     final top =
         (stand + TeviPainter.perchOverlap) * s - side * TeviPainter.perchY;
-    final child = screenChild;
     final night = TeviGround.nightAt(context);
     final line = night && perch == Perch.wire
         ? BrandColors.ink
         : context.palette.onField;
-    final frame = Rect.fromLTRB(
-      screen.left * s,
-      screen.top * s,
-      screen.right * s,
-      screen.bottom * s,
-    );
     return ExcludeSemantics(
       child: SizedBox.fromSize(
         size: size * s,
@@ -150,16 +138,6 @@ class ShelfPicture extends StatelessWidget {
                   centre: wireAt((start + side * _feet) / s) * s,
                   stroke: stroke * s,
                   color: line,
-                ),
-              )
-            else if (child != null)
-              Positioned.fromRect(
-                rect: frame,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(
-                    screen.height * Radii.screenRatio * s,
-                  ),
-                  child: child,
                 ),
               )
             else
