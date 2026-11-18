@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../access/widgets.dart' show StateModule;
 import '../curation/kid_catalog.dart';
 import '../design/tokens.dart';
-import '../family/avatars.dart' show AvatarColors;
 import 'shelves.dart';
 
 /// A pacotinho: its cover in a rounded frame, with a play disc in its
@@ -108,13 +107,14 @@ class PackModules extends StatelessWidget {
 }
 
 /// The pacotinhos' sign: a bundle of three screens, offset like a
-/// small stack of telinhas, the front one cream. Drawn on the
-/// theme glyphs' 64-unit grid in the avatars' colours, never sun; read
-/// "Pacotinhos", never a target.
+/// small stack of telinhas. Drawn on the theme glyphs' 64-unit grid in
+/// one [color], as they are (the home's cream by default), never sun;
+/// read "Pacotinhos", never a target.
 class PackGlyph extends StatelessWidget {
-  const PackGlyph({super.key, this.size = KidSizes.target});
+  const PackGlyph({super.key, this.size = KidSizes.target, this.color});
 
   final double size;
+  final Color? color;
 
   static const label = 'Pacotinhos';
 
@@ -124,13 +124,15 @@ class PackGlyph extends StatelessWidget {
     label: label,
     child: SizedBox.square(
       dimension: size,
-      child: const CustomPaint(painter: PackGlyphPainter()),
+      child: CustomPaint(painter: PackGlyphPainter(color: color)),
     ),
   );
 }
 
 class PackGlyphPainter extends CustomPainter {
-  const PackGlyphPainter();
+  const PackGlyphPainter({this.color});
+
+  final Color? color;
 
   static const grid = 64.0;
 
@@ -141,23 +143,24 @@ class PackGlyphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.saveLayer(Offset.zero & size, Paint());
     canvas.scale(size.shortestSide / grid);
-    final ground = Paint()..color = AvatarColors.ground;
-    final mist = Paint()..color = AvatarColors.mist;
-    final figure = Paint()..color = AvatarColors.figure;
-    // Back to front, each screen 40 × 23 (close to 16:9), cut from the one
-    // behind by a wide sliver of the ground, so three screens read at 64 dp:
-    // two in the mid tone, the front one cream.
-    const back = Rect.fromLTWH(18, 6, 40, 23);
-    const middle = Rect.fromLTWH(12, 19, 40, 23);
-    const front = Rect.fromLTWH(6, 32, 40, 23);
-    canvas.drawRRect(_screen(back), mist);
-    canvas.drawRRect(_screen(middle.inflate(3.5)), ground);
-    canvas.drawRRect(_screen(middle), mist);
-    canvas.drawRRect(_screen(front.inflate(3.5)), ground);
+    final figure = Paint()..color = color ?? ColourWorlds.home.figure;
+    // Cuts through to whatever lies beneath.
+    final cut = Paint()..blendMode = BlendMode.clear;
+    // Back to front, each screen 36 × 20 (16:9), parted from the
+    // one behind by a wide cut, so three screens read even at 24 dp.
+    const back = Rect.fromLTWH(20, 8, 36, 20);
+    const middle = Rect.fromLTWH(14, 20, 36, 20);
+    const front = Rect.fromLTWH(8, 32, 36, 20);
+    canvas.drawRRect(_screen(back), figure);
+    canvas.drawRRect(_screen(middle.inflate(4)), cut);
+    canvas.drawRRect(_screen(middle), figure);
+    canvas.drawRRect(_screen(front.inflate(4)), cut);
     canvas.drawRRect(_screen(front), figure);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(PackGlyphPainter old) => false;
+  bool shouldRepaint(PackGlyphPainter old) => old.color != color;
 }
