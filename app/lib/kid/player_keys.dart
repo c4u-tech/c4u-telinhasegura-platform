@@ -4,7 +4,7 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 
 /// The player's glyphs: the universal back, play and pause shapes, cut at
-/// the screen's 10/33 corner (the no-play-triangle rule stays the
+/// the shape ratio's corner (the no-play-triangle rule stays the
 /// mark's).
 enum PlayerGlyph { back, play, pause }
 
@@ -102,7 +102,7 @@ class PlayerGlyphPainter extends CustomPainter {
     );
     switch (glyph) {
       case PlayerGlyph.pause:
-        // Two bars, each a tall screen at its 10/33 corner.
+        // Two bars, each a tall screen at the shape ratio's corner.
         final w = side * .3;
         for (final left in [
           box.left + side * .12,

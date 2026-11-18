@@ -152,14 +152,19 @@ abstract final class Space {
   static const xxxl = 48.0;
 }
 
-/// Corner radii cut from the mark's screen (radius 10 on a 33-unit-tall
-/// rectangle): every control keeps that ratio to its height.
+/// Corner radii cut from the mascot's body, a rounded rectangle 70 units
+/// tall with a 26-unit corner: every control keeps that ratio to its
+/// height, so a button reads as the same soft block the mascot is.
 abstract final class Radii {
-  static const screenRatio = 10 / 33;
+  /// The shape ratio: a corner over the height it rounds.
+  static const screenRatio = 26 / 70;
 
-  /// A 56 dp control.
-  static const control = 17.0;
+  /// A 56 dp control (the theme's buttons and fields) at the ratio: 20.8.
+  static const control = 56 * screenRatio;
   static const small = 8.0;
+
+  /// A panel that groups several rows.
+  static const card = 28.0;
 }
 
 /// Sizes of the flat field and its Espiadinha.

@@ -107,8 +107,9 @@ class RowMeta extends StatelessWidget {
 bool rowTextIsLarge(BuildContext context) =>
     MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
 
-/// The thumbnail at 96 × 54, the screen at 16:9 cornered at 10/33 of its
-/// height; while it loads, or if it never comes, the same screen hollow.
+/// The thumbnail at 96 × 54, the screen at 16:9 cornered at the shape
+/// ratio of its height; while it loads, or if it never comes, the same
+/// screen hollow.
 class VideoThumb extends StatefulWidget {
   const VideoThumb({super.key, required this.videoId, required this.thumbnail});
 

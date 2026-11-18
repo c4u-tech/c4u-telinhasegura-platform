@@ -176,8 +176,8 @@ class ExitRingPainter extends CustomPainter {
 }
 
 /// The exit glyph, from the Espiadinha's vocabulary: the mark's screen
-/// (58 × 33, corner at 10/33 of its height) with an arrow leaving it
-/// through its side. No lock, shield or door.
+/// (58 × 33, cornered at the shape ratio of its height) with an arrow
+/// leaving it through its side. No lock, shield or door.
 class ExitGlyphPainter extends CustomPainter {
   ExitGlyphPainter({required this.color});
 

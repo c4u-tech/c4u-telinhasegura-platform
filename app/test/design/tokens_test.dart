@@ -182,6 +182,19 @@ void main() {
     });
   });
 
+  test('corners keep the mascot body\'s ratio, 26 for every 70 of height', () {
+    expect(Radii.screenRatio, 26 / 70);
+    // The theme's controls are 56 dp tall.
+    expect(Radii.control, closeTo(56 * 26 / 70, 1e-9));
+    expect(
+      buildTheme(Brightness.light).filledButtonTheme.style!.minimumSize!
+          .resolve({})!
+          .height,
+      56,
+    );
+    expect(Radii.card, 28);
+  });
+
   test('kid sizes: 64 dp targets and 96-128 dp avatars', () {
     expect(KidSizes.target, 64);
     expect(KidSizes.avatar, 96);
