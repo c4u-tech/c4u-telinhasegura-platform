@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -17,10 +16,10 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'empty_shelf.dart';
 import 'hold_to_exit.dart';
+import 'kid_day.dart';
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
 import 'mosaic.dart';
-import 'pack_player_screen.dart' show PackStart;
 import 'paused_profile.dart';
 import 'player_screen.dart';
 import 'shelves.dart';
@@ -60,38 +59,16 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   bool _asked = false;
   Profile? _profile;
 
-  /// The child's shelves: null while loading; [_failed] when the read
-  /// failed.
-  KidCatalog? _catalog;
-  bool _failed = false;
-
-  /// The server answered `consent_required`: the profile is paused until
-  /// a guardian authorizes it again.
-  bool _paused = false;
-
   /// The profile read answered `consent_required`; it is read again once
   /// the shelves open.
   bool _profileRefused = false;
 
-  /// Each thumbnail read once per visit, however often a tile rebuilds.
-  final _thumbs = <String, Future<Uint8List>>{};
-
-  /// A play is on its way to the server; the shelves wait.
-  bool _pending = false;
-
-  /// The kid error note: a refused play here, or one the player sent
-  /// back.
-  String? _notice;
+  /// The day as read: the catalogue, a play on its way and the note,
+  /// shared with the pages that open from here.
+  late final KidDay _day;
 
   /// Asleep or paused, the catalogue is read again on this beat.
   Timer? _wake;
-
-  bool get _asleep =>
-      !_failed && (_catalog?.time.state ?? KidTimeState.ok) != KidTimeState.ok;
-
-  /// Waiting for something outside the child's hands: time again, or an
-  /// adult's new authorization.
-  bool get _waiting => _asleep || _paused;
 
   @override
   void initState() {
@@ -106,6 +83,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     _started = true;
     final services = AppScope.of(context);
     _mode = services.appMode;
+    _day = KidDay(services.child)..addListener(_onDay);
     _returns = services.kidReturn;
     _returns.addListener(_onReturn);
     _mode.addListener(_onMode);
@@ -120,7 +98,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     final back = _returns.value;
     if (back == null) return;
     _returns.value = null;
-    if (back.note case final note?) setState(() => _notice = note);
+    if (back.note case final note?) _day.note(note);
     // Without a note the shelves stay where they were while it reads,
     // and stay if it fails; awake past the limit, the home then sleeps.
     if (back.refetch) unawaited(_load(quiet: back.note == null));
@@ -132,6 +110,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     _wake?.cancel();
     _returns.removeListener(_onReturn);
     _mode.removeListener(_onMode);
+    _day.dispose();
     super.dispose();
   }
 
@@ -147,6 +126,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     if (_asked && minorId == _minorId) return;
     _asked = true;
     _minorId = minorId;
+    _day.child = minorId;
     if (!initial) setState(() => _profile = null);
     if (minorId != null) unawaited(_read(minorId));
     unawaited(_load());
@@ -155,57 +135,38 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// Back in the foreground, a sleeping or paused home asks again.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _waiting) {
+    if (state == AppLifecycleState.resumed && _day.waiting) {
       unawaited(_load(quiet: true));
     }
   }
 
-  /// Reads the shelves, and again on "Tentar de novo". A [quiet]
-  /// read keeps what stands, the picture of a sleeping home or the
-  /// shelves the player returned to, while it runs and if it fails.
-  Future<void> _load({bool quiet = false}) async {
+  /// Reads the shelves, and again on "Tentar de novo"; [quiet] keeps what
+  /// stands while it runs and if it fails.
+  Future<void> _load({bool quiet = false}) => _day.load(quiet: quiet);
+
+  /// The day changed: the home redraws, beats while it waits, and reads a
+  /// profile refused while paused once the shelves open; a note that
+  /// newly appears is brought into view.
+  void _onDay() {
+    if (!mounted) return;
+    final notice = _day.notice;
+    final fresh = notice != null && notice != _shown;
+    _shown = notice;
+    setState(() {});
+    _beat();
     final minorId = _minorId;
-    if (!quiet) {
-      setState(() {
-        _catalog = null;
-        _failed = false;
-        _paused = false;
-      });
+    if (_profileRefused && _day.catalog != null && minorId != null) {
+      unawaited(_read(minorId));
     }
-    try {
-      final catalog = await AppScope.of(context).child.catalog();
-      if (mounted && minorId == _minorId) {
-        setState(() {
-          _catalog = catalog;
-          _failed = false;
-          _paused = false;
-          // The paused line is true no longer once the shelves open.
-          if (_notice == PausedProfile.line) _notice = null;
-        });
-        // The profile read was refused while paused: read it now.
-        if (_profileRefused && minorId != null) unawaited(_read(minorId));
-      }
-    } on Object catch (e) {
-      if (mounted && minorId == _minorId) {
-        if (e is ApiError && e.code == 'consent_required') {
-          // Said even on a quiet read: the shelves no longer open.
-          setState(() {
-            _catalog = null;
-            _failed = false;
-            _paused = true;
-          });
-        } else if (!quiet) {
-          setState(() => _failed = true);
-        }
-      }
-    }
-    if (mounted) _beat();
+    if (fresh) _toNote();
   }
+
+  String? _shown;
 
   /// Asleep or paused, the catalogue is read every [KidHomeScreen.wake];
   /// otherwise, not at all.
   void _beat() {
-    if (!_waiting) {
+    if (!_day.waiting) {
       _wake?.cancel();
       _wake = null;
     } else {
@@ -216,80 +177,18 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
-  /// Re-checks the video with the server and opens the player with the
-  /// YouTube id it returns. A refusal says so and fetches the
-  /// shelves again, since the video has left them; a day without
-  /// time says nothing and fetches them, to sleep.
-  Future<void> _play(KidVideo video) async {
-    if (_pending) return;
-    if (!video.fits) return _rest(PlayerScreen.doesNotFit);
-    final services = AppScope.of(context);
-    final router = GoRouter.of(context);
-    setState(() {
-      _pending = true;
-      _notice = null;
-    });
-    try {
-      final play = await services.child.play(video.id);
-      if (mounted) router.go(Routes.watch(video.id), extra: play);
-    } on Object catch (e) {
-      if (!mounted) return;
-      final note = refusalNote(e);
-      setState(() => _notice = note);
-      if (refetchAfter(note)) unawaited(_load());
-    } finally {
-      if (mounted) setState(() => _pending = false);
-    }
-  }
+  /// Opens the player in the home's place.
+  void _open(String location, Object extra) =>
+      GoRouter.of(context).go(location, extra: extra);
 
-  /// Opens a pacotinho on its first video the server lets play:
-  /// a video refused is passed over for the next; a day without time
-  /// sleeps, a paused profile says so, and a video longer than the time
-  /// left stops the search, since no pacotinho should open past its first
-  /// video; with none left, the shelves say why the last one did not open.
-  Future<void> _openPack(KidPack pack) async {
-    if (_pending) return;
-    if (!pack.fits) return _rest(PlayerScreen.packDoesNotFit);
-    final services = AppScope.of(context);
-    final router = GoRouter.of(context);
-    setState(() {
-      _pending = true;
-      _notice = null;
-    });
-    try {
-      Object? refused;
-      for (final (i, video) in pack.videos.indexed) {
-        try {
-          final play = await services.child.play(video.id);
-          if (mounted) {
-            router.go(
-              Routes.pack(pack.id),
-              extra: PackStart(pack: pack, index: i, play: play),
-            );
-          }
-          return;
-        } on Object catch (e) {
-          refused = e;
-          if (refusesEvery(e) || doesNotFit(e)) {
-            break;
-          }
-        }
-      }
-      if (!mounted || refused == null) return;
-      final note = refusalNote(refused);
-      setState(() => _notice = note);
-      if (refetchAfter(note)) unawaited(_load());
-    } finally {
-      if (mounted) setState(() => _pending = false);
-    }
-  }
+  void _play(KidVideo video) => unawaited(_day.play(video, open: _open));
 
-  /// A resting picture tapped: nothing to ask the server, only why. The
-  /// note is the first thing on the home, so a tap further down takes the
-  /// home back to its top at once (no scroll animation: the home adds no
-  /// motion), the note below the strip.
-  void _rest(String note) {
-    setState(() => _notice = note);
+  void _openPack(KidPack pack) => unawaited(_day.openPack(pack, open: _open));
+
+  /// The note is the first thing on the home, so a tap further down takes
+  /// the home back to its top at once (no scroll animation: the home adds
+  /// no motion), the note below the strip.
+  void _toNote() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final at = _noteKey.currentContext;
       if (at != null && at.mounted) Scrollable.maybeOf(at)?.position.jumpTo(0);
@@ -307,9 +206,6 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// A theme's block tapped: the way into that theme's own page. The app
   /// has no such page yet, so the block is a door that stays shut.
   void _openTheme(VideoTheme theme) {}
-
-  Future<Uint8List> _thumbnail(String id) =>
-      _thumbs[id] ??= AppScope.of(context).child.thumbnail(id);
 
   Future<void> _read(String minorId) async {
     _profileRefused = false;
@@ -330,9 +226,11 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   Widget build(BuildContext context) => TapGuard(child: _screen(context));
 
   Widget _screen(BuildContext context) {
-    final catalog = _catalog;
+    final catalog = _day.catalog;
+    final failed = _day.failed;
+    final pending = _day.pending;
     // A day without time sleeps, shelves or none.
-    final time = _failed ? null : catalog?.time.state;
+    final time = failed ? null : catalog?.time.state;
     final asleep = time != null && time != KidTimeState.ok;
     // Asleep, the door it opens offers more time.
     final exit = HoldToExit(
@@ -341,7 +239,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         context.go(Routes.kidExit);
       },
     );
-    final paused = _paused;
+    final paused = _day.paused;
     final wide = MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint;
     // The child and their picture at the strip's start, read as their
     // nickname: not a target.
@@ -357,8 +255,8 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     final plan = catalog == null
         ? null
         : MosaicPlan.of(catalog, band: _profile?.ageBand ?? AgeBand.unknown);
-    final notice = _notice;
-    if (!_failed && !asleep && !paused && !(plan?.isEmpty ?? false)) {
+    final notice = _day.notice;
+    if (!failed && !asleep && !paused && !(plan?.isEmpty ?? false)) {
       return KidLayout(
         exit: exit,
         lead: avatar,
@@ -370,10 +268,10 @@ class _KidHomeScreenState extends State<KidHomeScreen>
             : KidMosaic(
                 catalog: catalog,
                 band: _profile?.ageBand ?? AgeBand.unknown,
-                thumbnail: _thumbnail,
-                onPlay: _pending ? null : _play,
-                onOpenPack: _pending ? null : _openPack,
-                onOpenTheme: _pending ? null : _openTheme,
+                thumbnail: _day.thumbnail,
+                onPlay: pending ? null : _play,
+                onOpenPack: pending ? null : _openPack,
+                onOpenTheme: pending ? null : _openTheme,
                 note: notice == null ? null : _note(notice),
               ),
       );
@@ -394,7 +292,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
                 KidErrorNote(notice, asleep: restsNote(notice)),
                 const SizedBox(height: Space.xl),
               ],
-              if (_failed)
+              if (failed)
                 ShelvesFailed(onRetry: () => unawaited(_load()), scale: scale)
               else
                 Center(child: EmptyShelf(scale: scale)),
