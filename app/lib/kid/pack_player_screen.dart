@@ -516,16 +516,7 @@ class PackBreath extends StatelessWidget {
                             tevi * TeviPainter.perchY,
                         width: tevi,
                         height: tevi,
-                        child: Builder(
-                          builder: (context) => Transform.flip(
-                            flipX:
-                                Directionality.of(context) == TextDirection.rtl,
-                            child: Tevi(
-                              size: tevi,
-                              night: TeviGround.nightAt(context),
-                            ),
-                          ),
-                        ),
+                        child: FacingTevi(size: tevi),
                       ),
                     ],
                   ),
@@ -579,16 +570,7 @@ class PackGoodbye extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Builder(
-                      builder: (context) => Transform.flip(
-                        flipX: Directionality.of(context) == TextDirection.rtl,
-                        child: Tevi(
-                          size: size.height * .55,
-                          look: TeviLook.winking,
-                          night: TeviGround.nightAt(context),
-                        ),
-                      ),
-                    ),
+                    FacingTevi(size: size.height * .55, look: TeviLook.winking),
                     Semantics(
                       liveRegion: true,
                       child: Text(

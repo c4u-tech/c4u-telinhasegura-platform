@@ -238,10 +238,7 @@ class PlayerPerch extends StatelessWidget {
               top: wire + TeviPainter.perchOverlap - size * TeviPainter.perchY,
               width: size,
               height: size,
-              child: Transform.flip(
-                flipX: Directionality.of(context) == TextDirection.rtl,
-                child: Tevi(size: size, night: TeviGround.nightAt(context)),
-              ),
+              child: FacingTevi(size: size),
             ),
         ],
       );

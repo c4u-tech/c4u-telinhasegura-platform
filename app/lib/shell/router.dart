@@ -715,10 +715,7 @@ List<RouteBase> _outsideRoutes(AppServices services) => [
         path: 'tema/:tema',
         pageBuilder: (_, state) {
           final theme = VideoTheme.parse(state.pathParameters['tema']);
-          final door = switch (state.extra) {
-            final RoomDoor d => d,
-            _ => null,
-          };
+          final door = RoomDoor.of(state.extra);
           // The home's block grows into the page.
           return roomPage(
             key: state.pageKey,
@@ -731,10 +728,7 @@ List<RouteBase> _outsideRoutes(AppServices services) => [
       GoRoute(
         path: 'pacotinhos',
         pageBuilder: (_, state) {
-          final door = switch (state.extra) {
-            final RoomDoor d => d,
-            _ => null,
-          };
+          final door = RoomDoor.of(state.extra);
           return roomPage(
             key: state.pageKey,
             from: door?.from,

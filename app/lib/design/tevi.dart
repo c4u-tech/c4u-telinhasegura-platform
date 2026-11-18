@@ -481,3 +481,32 @@ class Tevi extends StatelessWidget {
     return Semantics(image: true, label: label, child: figure);
   }
 }
+
+/// The mascot standing in a child's screen: it faces the content, so it
+/// is mirrored right to left, and takes its colours from the ground below
+/// it unless told [night].
+class FacingTevi extends StatelessWidget {
+  const FacingTevi({
+    super.key,
+    required this.size,
+    this.look = TeviLook.watching,
+    this.night,
+    this.markColor = BrandColors.ink,
+  });
+
+  final double size;
+  final TeviLook look;
+  final bool? night;
+  final Color markColor;
+
+  @override
+  Widget build(BuildContext context) => Transform.flip(
+    flipX: Directionality.of(context) == TextDirection.rtl,
+    child: Tevi(
+      size: size,
+      look: look,
+      night: night ?? TeviGround.nightAt(context),
+      markColor: markColor,
+    ),
+  );
+}

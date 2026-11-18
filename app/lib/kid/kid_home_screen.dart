@@ -274,6 +274,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
             ? MosaicLoading(note: notice == null ? null : _note(notice))
             : KidMosaic(
                 catalog: catalog,
+                plan: plan,
                 band: _profile?.ageBand ?? AgeBand.unknown,
                 thumbnail: _day.thumbnail,
                 onPlay: pending ? null : _play,

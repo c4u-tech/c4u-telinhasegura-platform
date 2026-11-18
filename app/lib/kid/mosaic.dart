@@ -89,9 +89,14 @@ class KidMosaic extends StatelessWidget {
     required this.onOpenTheme,
     this.onOpenPacks,
     this.note,
+    this.plan,
   });
 
   final KidCatalog catalog;
+
+  /// What to show of [catalog], when the screen around it already chose;
+  /// otherwise chosen here.
+  final MosaicPlan? plan;
 
   /// The child's age band, which tunes how many pictures and how large
   /// the blocks are.
@@ -120,7 +125,7 @@ class KidMosaic extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final plan = MosaicPlan.of(catalog, band: band);
+    final plan = this.plan ?? MosaicPlan.of(catalog, band: band);
     return LayoutBuilder(
       builder: (context, box) {
         final g = _Geometry.of(
@@ -329,14 +334,7 @@ class _Highlight extends StatelessWidget {
           width: size,
           height: size,
           child: IgnorePointer(
-            child: Transform.flip(
-              flipX: Directionality.of(context) == TextDirection.rtl,
-              child: Tevi(
-                size: size,
-                look: look ?? TeviLook.crestUp,
-                night: TeviGround.nightAt(context),
-              ),
-            ),
+            child: FacingTevi(size: size, look: look ?? TeviLook.crestUp),
           ),
         ),
       ],

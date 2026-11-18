@@ -98,6 +98,33 @@ const dark = BrandColors.dark;
 const cream = BrandColors.cream;
 
 void main() {
+  for (final (direction, mirrored) in [
+    (TextDirection.ltr, false),
+    (TextDirection.rtl, true),
+  ]) {
+    testWidgets('standing in a screen read ${direction.name}, the mascot '
+        '${mirrored ? 'is' : 'is not'} mirrored to face the content, and '
+        'takes its colours from the ground', (tester) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: direction,
+          child: const TeviGround(
+            color: BrandColors.dark,
+            child: Center(child: FacingTevi(size: 40)),
+          ),
+        ),
+      );
+      final flip = tester.widget<Transform>(
+        find.descendant(
+          of: find.byType(FacingTevi),
+          matching: find.byType(Transform),
+        ),
+      );
+      expect(flip.transform.entry(0, 0), mirrored ? -1 : 1);
+      expect(tester.widget<Tevi>(find.byType(Tevi)).night, isTrue);
+    });
+  }
+
   group('watching', () {
     final log = paintTevi();
     final d = log.draws;

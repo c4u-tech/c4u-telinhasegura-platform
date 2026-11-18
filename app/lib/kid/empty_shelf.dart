@@ -136,14 +136,11 @@ class ShelfPicture extends StatelessWidget {
               top: top,
               width: side,
               height: side,
-              child: Transform.flip(
-                flipX: Directionality.of(context) == TextDirection.rtl,
-                child: Tevi(
-                  size: side,
-                  look: look,
-                  night: night,
-                  markColor: BrandColors.sky,
-                ),
+              child: FacingTevi(
+                size: side,
+                look: look,
+                night: night,
+                markColor: BrandColors.sky,
               ),
             ),
           ],

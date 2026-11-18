@@ -27,6 +27,12 @@ import 'theme_glyph.dart';
 class RoomDoor {
   const RoomDoor({required this.day, this.from});
 
+  /// The door a route was handed, if its [extra] is one.
+  static RoomDoor? of(Object? extra) => switch (extra) {
+    final RoomDoor door => door,
+    _ => null,
+  };
+
   final KidDay day;
   final Rect? from;
 }
@@ -410,12 +416,7 @@ class _Standing extends StatelessWidget {
               geometry.lead.width * 2 / 3 - size * TeviPainter.body.center.dx,
           width: size,
           height: size,
-          child: IgnorePointer(
-            child: Transform.flip(
-              flipX: Directionality.of(context) == TextDirection.rtl,
-              child: Tevi(size: size, night: TeviGround.nightAt(context)),
-            ),
-          ),
+          child: IgnorePointer(child: FacingTevi(size: size)),
         ),
       ],
     );
