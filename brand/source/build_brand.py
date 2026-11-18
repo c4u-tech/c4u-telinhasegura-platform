@@ -34,6 +34,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.boundsPen import BoundsPen
 from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
+sys.dont_write_bytecode = True  # the helper import must not leave a cache folder in the tree
 from contrast import cr, oklch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -111,14 +112,14 @@ LEGS = [(41.6, 87.6), (59.6, 87.6)]; LEG_W, LEG_H, LEG_R = 4.8, 15.8, 2.4
 # stands 3 units off the body (its base cut at x 101), so the ground reads
 # through where the colours used to meet.
 BEAK_CUT = 101
-def _cut_beak():
+def cut_beak():
     up, low, _ = offset_edges(BEAK, BEAK_R)
     return (f'M{BEAK_CUT} {n(y_at(up, BEAK_CUT))}L{pts(up[1])}A{n(BEAK_R)} {n(BEAK_R)} 0 0 1 {pts(low[0])}'
             f'L{BEAK_CUT} {n(y_at(low, BEAK_CUT))}Z')
-CUT_BEAK = _cut_beak()
-_ex, _ey, _er = EYE; _eh = math.sqrt(_er * _er - (BROW_Y - _ey) ** 2)
+CUT_BEAK = cut_beak()
+eye_x, eye_y, eye_r = EYE; eye_half = math.sqrt(eye_r * eye_r - (BROW_Y - eye_y) ** 2)
 LOWER_BODY = (f'M{br} {n(BROW_Y)}{ARC} 98 46V64{ARC} 72 90H40{ARC} 14 64V46{ARC} {bl} {n(BROW_Y)}'
-              f'H{n(_ex - _eh)}A{n(_er)} {n(_er)} 0 1 0 {n(_ex + _eh)} {n(BROW_Y)}Z')  # top edge notched by the eye
+              f'H{n(eye_x - eye_half)}A{n(eye_r)} {n(eye_r)} 0 1 0 {n(eye_x + eye_half)} {n(BROW_Y)}Z')  # top edge notched by the eye
 ONE_COLOUR = {
   'mark': CROWN + circle_path(*PUPIL) + CUT_BEAK + LOWER_BODY,
   'mini': BODY + circle_path(*MINI_EYE) + CUT_BEAK,
@@ -188,13 +189,13 @@ def shape_path(text, size, font, data, tracking=0.0, liga=True):
 WORD_SIZE = 64             # px per em, baseline at y 0
 def word(text):
     return shape_path(text, WORD_SIZE, FONT_HEAVY, HEAVY_DATA, tracking=-0.02, liga=False)
-WORD_PATH, WORD_W, WORD_B = word('telınha segura')
+WORD_PATH, WORD_W, _ = word('telınha segura')
 TOP_PATH, _, _ = word('telınha')
 BOTTOM_PATH, _, _ = word('segura')
 PLAY_DOT = rounded_triangle([(72.53, -46.45), (81.84, -41.37), (72.53, -36.29)], 0.8)
 END = 'Feito pela Coding4u'
 END_SIZE = 22.0
-END_PATH, END_W, END_B = shape_path(END, END_SIZE, FONT_MED, MED_DATA, tracking=0.01)
+END_PATH, _, END_B = shape_path(END, END_SIZE, FONT_MED, MED_DATA, tracking=0.01)
 
 def svg(x, y, w, h, body, title='Telinha Segura'):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{n(x)} {n(y)} {n(w)} {n(h)}" width="{n(w)}" height="{n(h)}" role="img" aria-label="{title}">'
@@ -285,7 +286,7 @@ def tile_svg(size, ground, night=False, maskable=False):
     fig = centred(size, MASKABLE, 'mark', 'color') if maskable else figure('mark', 'color', 27, 24, 1.6, night)
     return svg(0, 0, size, size, f'<rect width="{size}" height="{size}" fill="{ground}"/>' + fig)
 # Android shows 72 of the adaptive layer's 108 dp and masks it to a 66 dp
-# circle; the drawing's half-diagonal is 69.55 units, so 0.44 keeps it inside.
+# circle; at 0.44 the figure's drawing fits inside that circle with a margin.
 ADAPTIVE = 0.44
 MASKABLE = 1.30              # the web's maskable safe zone is the inner 80 % circle
 app_icon = tile_svg(240, C['ink'])
@@ -390,4 +391,4 @@ def sha256(path):
 open(os.path.join(OUT, 'manifest.sha256'), 'w').write(''.join(f'{sha256(p)}  {p}\n' for p in sorted(set(WRITTEN))))
 
 print(json.dumps(pairs, indent=0))
-print('word width units', round(WORD_W, 2), 'bounds', [round(b, 2) for b in WORD_B])
+print('word width units', round(WORD_W, 2))
