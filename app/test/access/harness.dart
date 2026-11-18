@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/kid/tap_guard.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -295,6 +296,8 @@ class Harness {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(app(initial: initial));
     await tester.pumpAndSettle();
+    // A child screen lets no touch through just after it appears.
+    await tester.pump(TapGuard.window);
   }
 
   Widget app({String initial = '/'}) =>

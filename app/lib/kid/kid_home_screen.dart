@@ -25,6 +25,7 @@ import 'paused_profile.dart';
 import 'player_screen.dart';
 import 'shelves.dart';
 import 'sleeping_telinha.dart';
+import 'tap_guard.dart';
 
 /// `/crianca`: the child home.
 /// The child finds their own avatar, from `AppModeModel.profile` on a
@@ -324,8 +325,11 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
+  // A touch just after the home appears was aimed at the screen before.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => TapGuard(child: _screen(context));
+
+  Widget _screen(BuildContext context) {
     final catalog = _catalog;
     // A day without time sleeps, shelves or none.
     final time = _failed ? null : catalog?.time.state;
