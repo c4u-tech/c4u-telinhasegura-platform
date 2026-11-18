@@ -1,5 +1,5 @@
-"""Builds the Telinha Segura brand set (direction A, Espiadinha) from one
-geometry, and writes every copy the app, its web build and the site ship.
+"""Builds the Telinha Segura brand set from one geometry, and writes every
+copy the app, its web build and the site ship.
 
     python brand/source/build_brand.py [root]
 
@@ -8,23 +8,24 @@ to write a fresh tree there and diff it against the committed one. Needs
 Python with fonttools, uharfbuzz, cairosvg (and the cairo library; on macOS
 with Homebrew, run with DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib) and
 pillow. The wordmark is outlined from the app's bundled variable font,
-app/assets/fonts/BricolageGrotesque.ttf, instanced at wght 700, opsz 24,
+app/assets/fonts/BricolageGrotesque.ttf, instanced at wght 800, opsz 96,
 wdth 100 (the endorsement at wght 500, opsz 14).
 
 It writes, under root:
-- brand/svg, brand/png, brand/tokens: every tier in four variants, the
-  e-mail PNGs and the design tokens;
-- brand/app-icon: the app icon (the simplified mark at 72 % of an ink
-  tile, and its dark variant), the Android adaptive layers and monochrome,
-  and the native splash marks; flutter_launcher_icons and
-  flutter_native_splash read these PNGs (see app/*.yaml);
-- brand/favicon: the monogram favicon (16, 32, 48 px) and the web icons;
+- brand/svg, brand/png, brand/tokens: the mascot in three tiers (mark,
+  simplified, mini), the wordmark and the horizontal, stacked and endorsed
+  signatures, each in four variants; the e-mail PNGs and the design tokens;
+- brand/app-icon: the app icon (the mascot on an ink tile, and its dark
+  variant), the Android adaptive layers and monochrome, and the native
+  splash marks; flutter_launcher_icons and flutter_native_splash read these
+  PNGs (see app/*.yaml);
+- brand/favicon: the mini mascot favicon (16, 32, 48 px) and the web icons;
 - the copies listed in COPIES, byte for byte;
 - brand/manifest.sha256: the hash of every file above. tools/brandcheck
   fails when a committed file no longer matches it, so a copy edited by
   hand, or a master changed without running this script, is caught.
 """
-import hashlib, io, json, math, os, shutil, sys
+import hashlib, io, json, math, os, re, shutil, sys
 import uharfbuzz as hb, cairosvg
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
@@ -33,6 +34,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.boundsPen import BoundsPen
 from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
+sys.dont_write_bytecode = True  # the helper import must not leave a cache folder in the tree
 from contrast import cr, oklch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -42,52 +44,125 @@ OUT = os.path.join(ROOT, 'brand')
 FONT_SRC = os.path.join(REPO, 'app', 'assets', 'fonts', 'BricolageGrotesque.ttf')
 WRITTEN = []  # repository-relative paths of every file written
 
-C = dict(cream='#FBF6EC', dark='#0F2A30', ink='#1E5B66', sun='#F2B23A', white='#FFFFFF')
+C = dict(cream='#FBF6EC', dark='#0F2A30', ink='#1E5B66', sun='#FFC42E', beak='#FF5A36', sky='#A9DDE8', white='#FFFFFF')
 
-# ---------------- geometry (64-unit grid) ----------------
-def seg(cx, cy, r, cut):
-    dy = cut - cy; dx = math.sqrt(r * r - dy * dy)
-    return f'M{cx-dx:.3f} {cut}A{r} {r} 0 1 1 {cx+dx:.3f} {cut}Z'
+def n(v):
+    """A coordinate to at most three decimals, trailing zeros dropped, so
+    the output is the same on every run and every machine."""
+    s = f'{v:.3f}'.rstrip('0').rstrip('.')
+    return '0' if s == '-0' else s
+def n5(v):
+    """A scale factor to five decimals, so a ratio such as 58/64 is written exactly."""
+    return f'{v:.5f}'.rstrip('0').rstrip('.')
+def pts(*ps):
+    return ' '.join(f'{n(x)} {n(y)}' for x, y in ps)
+
+# ---------------- the mascot (a 132-unit box, the figure in 0..120) ----------------
+FIG = 132
+FIG_ORIGIN = -6
+FIG_BBOX = (3.7, 20.0, 115.03, 103.4)   # tail's back to beak tip, crown to feet
+SMALL_BBOX = (14.0, 20.0, 115.03, 90.0)  # the tiers without tail and legs
+
 def rrect(x, y, w, h, r):
-    return (f'M{x+r} {y}H{x+w-r}A{r} {r} 0 0 1 {x+w} {y+r}V{y+h-r}A{r} {r} 0 0 1 {x+w-r} {y+h}'
-            f'H{x+r}A{r} {r} 0 0 1 {x} {y+h-r}V{y+r}A{r} {r} 0 0 1 {x+r} {y}Z')
-def ell(cx, cy, rx, ry):  # counter-clockwise, used as a hole with evenodd
-    return f'M{cx+rx} {cy}A{rx} {ry} 0 1 0 {cx-rx} {cy}A{rx} {ry} 0 1 0 {cx+rx} {cy}Z'
-def rect(x, y, w, h):
-    return f'M{x} {y}V{y+h}H{x+w}V{y}Z'
+    return (f'M{n(x+r)} {n(y)}H{n(x+w-r)}A{n(r)} {n(r)} 0 0 1 {n(x+w)} {n(y+r)}V{n(y+h-r)}A{n(r)} {n(r)} 0 0 1 {n(x+w-r)} {n(y+h)}'
+            f'H{n(x+r)}A{n(r)} {n(r)} 0 0 1 {n(x)} {n(y+h-r)}V{n(y+r)}A{n(r)} {n(r)} 0 0 1 {n(x+r)} {n(y)}Z')
+def circle_path(cx, cy, r):
+    return f'M{n(cx+r)} {n(cy)}A{n(r)} {n(r)} 0 1 0 {n(cx-r)} {n(cy)}A{n(r)} {n(r)} 0 1 0 {n(cx+r)} {n(cy)}Z'
 
-G = {
-  'mark': dict(vb=64, head=seg(32, 19, 14, 24.5), eyes=[ell(26.5, 17, 2.6, 3.2), ell(37.5, 17, 2.6, 3.2)],
-               eyesfill=[(26.5, 17, 2.6, 3.2), (37.5, 17, 2.6, 3.2)],
-               hands=[seg(x, 25.6, 2.15, 24.5) for x in (9.6, 13.4, 17.2, 46.8, 50.6, 54.4)], screen=rrect(3, 27, 58, 33, 10), stroke=2.4, handstroke=1.5),
-  'monogram': dict(vb=16, head=seg(8, 6.2, 4.6, 8), eyes=[rect(6, 4, 1, 2), rect(9, 4, 1, 2)],
-               eyesrect=[(6, 4, 1, 2), (9, 4, 1, 2)], hands=[], screen=rrect(1, 9, 14, 6, 2), stroke=0.9),
+def offset_edges(c, r):
+    """Each edge of a polygon, clockwise on screen, moved outward by r."""
+    out = []
+    for (x0, y0), (x1, y1) in zip(c, c[1:] + c[:1]):
+        L = math.hypot(x1 - x0, y1 - y0); nx, ny = (y1 - y0) / L * r, -(x1 - x0) / L * r
+        out.append(((x0 + nx, y0 + ny), (x1 + nx, y1 + ny)))
+    return out
+def rounded_triangle(c, r):
+    """The outline of a triangle whose corners are arcs of radius r around
+    the points of c (clockwise on screen)."""
+    e = offset_edges(c, r); d = f'M{pts(e[0][0])}'
+    for i, (_, b) in enumerate(e):
+        d += f'L{pts(b)}A{n(r)} {n(r)} 0 0 1 {pts(e[(i + 1) % 3][0])}'
+    return d + 'Z'
+def y_at(edge, x):
+    (x0, y0), (x1, y1) = edge
+    return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+
+# The body is a rounded rectangle; the head's bands are slices of it, cut
+# by straight chords in the path data rather than by a clip-path, which some
+# icon tools ignore.
+BX, BY, BW, BH, BR = 14, 20, 84, 70, 26
+BODY = rrect(BX, BY, BW, BH, BR)
+ARC = f'A{BR} {BR} 0 0 1'
+def chord(y):
+    """Where a height in the upper corners meets the body's left and right edges."""
+    d = math.sqrt(BR * BR - (BY + BR - y) ** 2)
+    return n(BX + BR - d), n(BX + BW - BR + d)
+CROWN_Y, BROW_Y = 38, 44.5
+(cl, cr_), (bl, br) = chord(CROWN_Y), chord(BROW_Y)
+CROWN = f'M{cl} {CROWN_Y}{ARC} 40 20H72{ARC} {cr_} {CROWN_Y}Z'
+EYEBROW = f'M{cl} {CROWN_Y}H{cr_}{ARC} {br} {n(BROW_Y)}H{bl}{ARC} {cl} {CROWN_Y}Z'
+MASK = pts((14, 44.5), (98, 44.5), (98, 59.28), (14, 54.75))
+BAND = f'M{cl} {CROWN_Y}H{cr_}{ARC} 98 46V64H14V46{ARC} {cl} {CROWN_Y}Z'  # the mini's one band, y 38-64
+
+EYE, PUPIL, SHINE = (74, 52, 10.5), (77, 52, 5), (79, 50, 1.7)
+MINI_EYE = (74, 51, 7.5)
+BEAK = [(97.4, 47.6), (111.63, 55), (97.4, 62.4)]; BEAK_R = 3.4
+TAIL = [(21.25, 67.55), (6.9, 76.75), (22.42, 80.77)]; TAIL_R = 3.2
+LEGS = [(41.6, 87.6), (59.6, 87.6)]; LEG_W, LEG_H, LEG_R = 4.8, 15.8, 2.4
+
+# One-colour figures are one even-odd shape. The eyebrow band and the eye
+# are left open, the pupil sits as a disc in the eye's hole, and the beak
+# stands 3 units off the body (its base cut at x 101), so the ground reads
+# through where the colours used to meet.
+BEAK_CUT = 101
+def cut_beak():
+    up, low, _ = offset_edges(BEAK, BEAK_R)
+    return (f'M{BEAK_CUT} {n(y_at(up, BEAK_CUT))}L{pts(up[1])}A{n(BEAK_R)} {n(BEAK_R)} 0 0 1 {pts(low[0])}'
+            f'L{BEAK_CUT} {n(y_at(low, BEAK_CUT))}Z')
+CUT_BEAK = cut_beak()
+eye_x, eye_y, eye_r = EYE; eye_half = math.sqrt(eye_r * eye_r - (BROW_Y - eye_y) ** 2)
+LOWER_BODY = (f'M{br} {n(BROW_Y)}{ARC} 98 46V64{ARC} 72 90H40{ARC} 14 64V46{ARC} {bl} {n(BROW_Y)}'
+              f'H{n(eye_x - eye_half)}A{n(eye_r)} {n(eye_r)} 0 1 0 {n(eye_x + eye_half)} {n(BROW_Y)}Z')  # top edge notched by the eye
+ONE_COLOUR = {
+  'mark': CROWN + circle_path(*PUPIL) + CUT_BEAK + LOWER_BODY,
+  'mini': BODY + circle_path(*MINI_EYE) + CUT_BEAK,
 }
-G['simplified'] = dict(G['mark'], hands=[])
+ONE_COLOUR['simplified'] = ONE_COLOUR['mark']
 
 VARIANTS = {
-  'color':          dict(screen=C['ink'],   head=C['sun'],   eyes=C['ink'],  outline=C['ink'], holes=False, word=C['ink']),
-  'color-on-dark':  dict(screen=C['cream'], head=C['sun'],   eyes=C['dark'], outline=None,     holes=False, word=C['cream']),
-  'mono':           dict(screen=C['ink'],   head=C['ink'],   eyes=None,      outline=None,     holes=True,  word=C['ink']),
-  'reversed':       dict(screen=C['cream'], head=C['cream'], eyes=None,      outline=None,     holes=True,  word=C['cream']),
+  'color':          dict(one=None,       word=C['dark'],  play=C['beak'], end=C['ink']),
+  'color-on-dark':  dict(one=None,       word=C['cream'], play=C['beak'], end=C['cream']),
+  'mono':           dict(one=C['dark'],  word=C['dark'],  play=C['dark'], end=C['dark']),
+  'reversed':       dict(one=C['cream'], word=C['cream'], play=C['cream'], end=C['cream']),
 }
 
-def mark_paths(tier, v, ox=0, oy=0, scale=1):
-    g = G[tier]; p = VARIANTS[v]; out = []
-    t = f' transform="translate({ox:g} {oy:g}) scale({scale:g})"' if (ox or oy or scale != 1) else ''
-    out.append(f'<path fill="{p["screen"]}" d="{g["screen"]}"/>')
-    for h in [g['head']] + g['hands']:
-        if p['holes'] and h == g['head']:
-            out.append(f'<path fill="{p["head"]}" fill-rule="evenodd" d="{h}{"".join(g["eyes"])}"/>')
-        else:
-            sw = g['stroke'] if h == g['head'] else g.get('handstroke', g['stroke'])
-            st = f' stroke="{p["outline"]}" stroke-width="{sw}" stroke-linejoin="round"' if p['outline'] else ''
-            out.append(f'<path fill="{p["head"]}"{st} d="{h}"/>')
-    if not p['holes']:
-        if tier == 'monogram':
-            out += [f'<rect fill="{p["eyes"]}" x="{x}" y="{y}" width="{w}" height="{h}"/>' for x, y, w, h in g['eyesrect']]
-        else:
-            out += [f'<ellipse fill="{p["eyes"]}" cx="{x}" cy="{y}" rx="{rx}" ry="{ry}"/>' for x, y, rx, ry in g['eyesfill']]
+def figure(tier, v, ox=0, oy=0, scale=1, night=False):
+    """The mascot as an SVG group. tier is 'mark' (everything), 'simplified'
+    (no tail, legs or highlight) or 'mini' (beak, body, one band and the
+    eye); night paints the dark parts in ink, for a dark ground."""
+    t = f' transform="translate({n(ox)} {n(oy)}) scale({n(scale)})"' if (ox or oy or scale != 1) else ''
+    one = VARIANTS[v]['one']
+    if one:
+        return f'<g{t}><path fill="{one}" fill-rule="evenodd" d="{ONE_COLOUR[tier]}"/></g>'
+    d = C['ink'] if night else C['dark']
+    def tri(c, r, fill):  # a polygon of the corner centres, stroked round to the corner radius
+        return f'<polygon fill="{fill}" stroke="{fill}" stroke-width="{n(2 * r)}" stroke-linejoin="round" points="{pts(*c)}"/>'
+    def dot(c, fill):
+        return f'<circle fill="{fill}" cx="{n(c[0])}" cy="{n(c[1])}" r="{n(c[2])}"/>'
+    out = []
+    if tier == 'mark':
+        out.append(tri(TAIL, TAIL_R, d))
+    out += [tri(BEAK, BEAK_R, C['beak']), f'<path fill="{C["sun"]}" d="{BODY}"/>']
+    if tier == 'mini':
+        out += [f'<path fill="{d}" d="{BAND}"/>', dot(MINI_EYE, C['cream'])]
+    else:
+        out += [f'<path fill="{d}" d="{CROWN}"/>', f'<path fill="{C["cream"]}" d="{EYEBROW}"/>',
+                f'<polygon fill="{d}" points="{MASK}"/>']
+        if tier == 'mark':
+            out += [f'<rect fill="{d}" x="{n(x)}" y="{n(y)}" width="{n(LEG_W)}" height="{n(LEG_H)}" rx="{n(LEG_R)}"/>' for x, y in LEGS]
+        out += [dot(EYE, C['cream']), dot(PUPIL, d)]
+        if tier == 'mark':
+            out.append(dot(SHINE, C['cream']))
     return f'<g{t}>' + ''.join(out) + '</g>'
 
 # ---------------- wordmark outlines ----------------
@@ -96,64 +171,77 @@ def load_font(wght, opsz):
     inst = instantiateVariableFont(f, {'wght': wght, 'opsz': opsz, 'wdth': 100})
     buf = io.BytesIO(); inst.save(buf); data = buf.getvalue()
     return TTFont(io.BytesIO(data)), data
-FONT_BOLD, BOLD_DATA = load_font(700, 24)
+FONT_HEAVY, HEAVY_DATA = load_font(800, 96)
 FONT_MED, MED_DATA = load_font(500, 14)
 
-def shape_path(text, size, font, data, tracking=0.0):
+def shape_path(text, size, font, data, tracking=0.0, liga=True):
     upem = font['head'].unitsPerEm
     face = hb.Face(data); hfont = hb.Font(face); buf = hb.Buffer(); buf.add_str(text); buf.guess_segment_properties()
-    hb.shape(hfont, buf, {'kern': True, 'liga': True})
+    hb.shape(hfont, buf, {'kern': True, 'liga': liga})
     gs = font.getGlyphSet(); order = font.getGlyphOrder()
-    s = size / upem; x = 0; pen = SVGPathPen(gs); bp = BoundsPen(gs)
+    s = size / upem; x = 0; pen = SVGPathPen(gs, ntos=n); bp = BoundsPen(gs)
     for info, pos in zip(buf.glyph_infos, buf.glyph_positions):
         name = order[info.codepoint]
         tp = TransformPen(pen, (s, 0, 0, -s, x + pos.x_offset * s, -pos.y_offset * s)); gs[name].draw(tp)
         tb = TransformPen(bp, (s, 0, 0, -s, x + pos.x_offset * s, -pos.y_offset * s)); gs[name].draw(tb)
-        x += pos.x_advance * s + tracking * size
-    return pen.getCommands(), x - tracking * size, bp.bounds  # bounds: xmin, ymin, xmax, ymax (y-down after flip)
+        x += pos.x_advance * s + tracking * size  # tracking follows every glyph, as CSS letter-spacing does
+    return pen.getCommands(), x, bp.bounds  # bounds: xmin, ymin, xmax, ymax (y-down after flip)
 
-WORD = 'telinha segura'
-WORD_SIZE = 31.0           # in mark units (mark is 64 tall)
-WORD_PATH, WORD_W, WORD_B = shape_path(WORD, WORD_SIZE, FONT_BOLD, BOLD_DATA, tracking=-0.015)
+# The name is set without its i's dot (a dotless i), and a small play
+# triangle in the beak's colour takes the dot's place.
+WORD_SIZE = 64             # px per em, baseline at y 0
+def word(text):
+    return shape_path(text, WORD_SIZE, FONT_HEAVY, HEAVY_DATA, tracking=-0.02, liga=False)
+WORD_PATH, WORD_W, _ = word('telınha segura')
+TOP_PATH, _, _ = word('telınha')
+BOTTOM_PATH, _, _ = word('segura')
+PLAY_DOT = rounded_triangle([(72.53, -46.45), (81.84, -41.37), (72.53, -36.29)], 0.8)
 END = 'Feito pela Coding4u'
-END_SIZE = 11.0
-END_PATH, END_W, END_B = shape_path(END, END_SIZE, FONT_MED, MED_DATA, tracking=0.01)
+END_SIZE = 22.0
+END_PATH, _, END_B = shape_path(END, END_SIZE, FONT_MED, MED_DATA, tracking=0.01)
 
-def svg(w, h, body, title='Telinha Segura'):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:g} {h:g}" width="{w:g}" height="{h:g}" role="img" aria-label="{title}">'
+def svg(x, y, w, h, body, title='Telinha Segura'):
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{n(x)} {n(y)} {n(w)} {n(h)}" width="{n(w)}" height="{n(h)}" role="img" aria-label="{title}">'
             f'<title>{title}</title>{body}</svg>\n')
 
 def mark_svg(tier, v):
-    vb = G[tier]['vb']; return svg(vb, vb, mark_paths(tier, v))
+    return svg(FIG_ORIGIN, FIG_ORIGIN, FIG, FIG, figure(tier, v))
 
-GAP = 14          # mark to wordmark, = head radius (the clear-space unit)
-BASE = 53.5       # wordmark baseline in mark units, sits on the screen's lower third
-def lockup_svg(v, endorsed=False, tier='simplified'):
+def word_paths(v, d=WORD_PATH):
     p = VARIANTS[v]
-    x0 = 64 + GAP
-    w = x0 + WORD_B[2] + 1
-    body = mark_paths(tier, v)
-    body += f'<path fill="{p["word"]}" transform="translate({x0} {BASE})" d="{WORD_PATH}"/>'
+    return f'<path fill="{p["word"]}" d="{d}"/><path fill="{p["play"]}" fill-rule="evenodd" d="{PLAY_DOT}"/>'
+
+# The horizontal signature: the full figure, then the name on a baseline
+# low on the body, 18 units clear of the figure's nominal 120 box.
+WORD_X, WORD_Y = 138, 82
+def lockup_svg(v, endorsed=False):
+    body = figure('mark', v) + f'<g transform="translate({WORD_X} {WORD_Y})">{word_paths(v)}</g>'
+    w, h = 546, FIG
     if endorsed:
-        # endorsement below the lockup, aligned to the wordmark, on its own line
-        body += f'<path fill="{p["word"]}" transform="translate({x0} {BASE + 20})" d="{END_PATH}"/>'
-        h = BASE + 20 + 4
-    else:
-        h = 64
-    return svg(round(w, 2), h, body, 'Telinha Segura' + (' — Feito pela Coding4u' if endorsed else ''))
+        # the endorsement on its own line under the name, left-aligned to it
+        y = WORD_Y + 30
+        body += f'<path fill="{VARIANTS[v]["end"]}" transform="translate({WORD_X} {y})" d="{END_PATH}"/>'
+        h = max(h, math.ceil(y + END_B[3]) + 6 - FIG_ORIGIN)
+        w = max(w, math.ceil(WORD_X + END_B[2]) + 6 - FIG_ORIGIN)
+    return svg(FIG_ORIGIN, FIG_ORIGIN, w, h, body, 'Telinha Segura — Feito pela Coding4u' if endorsed else 'Telinha Segura')
 
-# The wordmark alone, for a field the head already peeks over: the lockup's
-# outlines at the lockup's size, in a box 29 units tall (the lockup is 64),
-# so at a lockup height H the wordmark file is shown H * 29 / 64 tall.
-WORDMARK_TOP = 23
-WORDMARK_H = 29
+# The stacked signature: the two words at 58 px per em, the second 0.86 em
+# under the first.
+STACK = 58 / WORD_SIZE
+def stacked_svg(v):
+    p = VARIANTS[v]
+    words = (word_paths(v, TOP_PATH) +
+             f'<path fill="{p["word"]}" transform="translate(0 {n(49.88 / STACK)})" d="{BOTTOM_PATH}"/>')
+    body = figure('mark', v) + f'<g transform="translate({WORD_X} 55) scale({n5(STACK)})">{words}</g>'
+    return svg(FIG_ORIGIN, FIG_ORIGIN, 331, FIG, body)
+
+# The wordmark alone, in a box 60 tall with the baseline at 49: ascenders
+# and the g's descender inside it.
 def wordmark_svg(v):
-    w = round(WORD_B[2] + 1, 2)
-    body = f'<path fill="{VARIANTS[v]["word"]}" transform="translate(0 {WORDMARK_TOP})" d="{WORD_PATH}"/>'
-    return svg(w, WORDMARK_H, body)
+    return svg(0, 0, WORD_W + 1, 60, f'<g transform="translate(0 49)">{word_paths(v)}</g>')
 
-def png(svg_text, w=None, h=None, bg=None):
-    data = cairosvg.svg2png(bytestring=svg_text.encode(), output_width=w, output_height=h, background_color=bg)
+def png(svg_text, w=None, h=None):
+    data = cairosvg.svg2png(bytestring=svg_text.encode(), output_width=w, output_height=h)
     return Image.open(io.BytesIO(data))
 
 def target(path):
@@ -169,38 +257,47 @@ files = {}
 for v in VARIANTS:
     files[f'svg/telinha-segura-mark-{v}.svg'] = mark_svg('mark', v)
     files[f'svg/telinha-segura-mark-simplified-{v}.svg'] = mark_svg('simplified', v)
-    files[f'svg/telinha-segura-monogram-{v}.svg'] = mark_svg('monogram', v)
+    files[f'svg/telinha-segura-mark-mini-{v}.svg'] = mark_svg('mini', v)
     files[f'svg/telinha-segura-lockup-{v}.svg'] = lockup_svg(v)
-    files[f'svg/telinha-segura-lockup-endorsed-{v}.svg'] = lockup_svg(v, endorsed=True, tier='mark')
+    files[f'svg/telinha-segura-lockup-stacked-{v}.svg'] = stacked_svg(v)
+    files[f'svg/telinha-segura-lockup-endorsed-{v}.svg'] = lockup_svg(v, endorsed=True)
     files[f'svg/telinha-segura-wordmark-{v}.svg'] = wordmark_svg(v)
 for k, t in files.items(): write(k, t)
 
-# favicon: monogram, adapts to the browser's dark tab strip
-fav = mark_paths('monogram', 'color')
-fav_dark = mark_paths('monogram', 'color-on-dark')
-write('favicon/favicon.svg',
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><style>.d{display:none}@media (prefers-color-scheme:dark){.l{display:none}.d{display:inline}}</style>'
-      f'<g class="l">{fav}</g><g class="d">{fav_dark}</g></svg>\n')
-ico_imgs = [png(mark_svg('monogram', 'color'), s, s) for s in (16, 32, 48)]
+def centred(size, s, tier, v):
+    """The figure at scale s with its drawing (not its box) centred in a
+    size-wide square. Only the full figure in colour has a tail and legs; the
+    one-colour figure and the small tiers are drawn without them."""
+    x0, y0, x1, y1 = FIG_BBOX if tier == 'mark' and not VARIANTS[v]['one'] else SMALL_BBOX
+    return figure(tier, v, size / 2 - s * (x0 + x1) / 2, size / 2 - s * (y0 + y1) / 2, s)
+def placed(size, frac, tier, v):
+    """The figure scaled so its 132-unit box spans frac of a size-wide
+    square, its drawing centred in the square."""
+    return centred(size, size * frac / FIG, tier, v)
+
+# favicon: the small figure on its own ink tile, one drawing for light and
+# dark tab strips; its drawing is 13 of the tile's 16 units wide
+fav_scale = 13 / (SMALL_BBOX[2] - SMALL_BBOX[0])
+favicon = svg(0, 0, 16, 16, f'<rect width="16" height="16" rx="3.5" fill="{C["ink"]}"/>' + centred(16, fav_scale, 'mini', 'color'))
+write('favicon/favicon.svg', favicon)
+ico_imgs = [png(favicon, s, s) for s in (16, 32, 48)]
 ico_full = target('favicon/favicon.ico'); ico_imgs[2].save(ico_full, sizes=[(16, 16), (32, 32), (48, 48)], append_images=ico_imgs[:2])
 
-# App icon: the simplified mark in its on-dark colours (cream screen, sun
-# head, dark eyes) on an ink tile, so the tile holds its edge on light and
-# dark wallpapers alike; the dark variant sits on the dark ground. The
-# mark's drawing (x 3-61, y 5-60 of its 64 grid) is centred on the tile.
-def placed_mark(size, frac, v, tier='simplified'):
-    s = size * frac / 64
-    return mark_paths(tier, v, size / 2 - 32 * s, size / 2 - 32.5 * s, s)
-def tile_svg(size, frac, ground, v='color-on-dark'):
-    return svg(size, size, f'<rect width="{size}" height="{size}" fill="{ground}"/>' + placed_mark(size, frac, v))
-ICON = 0.72                  # of the visible tile
-ADAPTIVE = ICON * 72 / 108   # Android shows 72 of the layer's 108 dp; the mark stays in the 66 dp safe circle
-MASKABLE = ICON * 0.8        # the web's maskable safe zone is the inner 80 % circle
-app_icon = tile_svg(100, ICON, C['ink'])
-app_icon_dark = tile_svg(100, ICON, C['dark'])
-adaptive_fg = svg(108, 108, placed_mark(108, ADAPTIVE, 'color-on-dark'))
-adaptive_bg = svg(108, 108, f'<rect width="108" height="108" fill="{C["ink"]}"/>')
-monochrome = svg(108, 108, placed_mark(108, ADAPTIVE, 'mono'))
+# App icon: the full figure on an ink tile; the dark variant sits on the
+# dark ground with its dark parts in ink, so they stay visible. The tile is
+# 240 units; the figure's box is placed at (27, 24) at scale 1.6.
+def tile_svg(size, ground, night=False, maskable=False):
+    fig = centred(size, MASKABLE, 'mark', 'color') if maskable else figure('mark', 'color', 27, 24, 1.6, night)
+    return svg(0, 0, size, size, f'<rect width="{size}" height="{size}" fill="{ground}"/>' + fig)
+# Android shows 72 of the adaptive layer's 108 dp and masks it to a 66 dp
+# circle; at 0.44 the figure's drawing fits inside that circle with a margin.
+ADAPTIVE = 0.44
+MASKABLE = 1.30              # the web's maskable safe zone is the inner 80 % circle
+app_icon = tile_svg(240, C['ink'])
+app_icon_dark = tile_svg(240, C['dark'], night=True)
+adaptive_fg = svg(0, 0, 108, 108, centred(108, ADAPTIVE, 'mark', 'color'))
+adaptive_bg = svg(0, 0, 108, 108, f'<rect width="108" height="108" fill="{C["ink"]}"/>')
+monochrome = svg(0, 0, 108, 108, centred(108, ADAPTIVE, 'mark', 'mono'))
 write('app-icon/app-icon.svg', app_icon)
 write('app-icon/app-icon-dark.svg', app_icon_dark)
 write('app-icon/android-adaptive-foreground.svg', adaptive_fg)
@@ -211,26 +308,25 @@ save_png('app-icon/app-icon-dark-1024.png', png(app_icon_dark, 1024, 1024).conve
 save_png('app-icon/android-adaptive-foreground.png', png(adaptive_fg, 432, 432))
 save_png('app-icon/android-adaptive-background.png', png(adaptive_bg, 432, 432))
 save_png('app-icon/android-monochrome.png', png(monochrome, 432, 432))
-# Native splash: the same mark on a transparent ground; the splash paints
-# ink (light) or dark behind it. 192 dp at 4x, and inside Android 12's
+# Native splash: the same figure on a transparent ground; the splash paints
+# ink behind it in both themes. 192 dp at 4x, and inside Android 12's
 # 640 px circle.
 def splash(size, frac):
-    m = size * frac; o = (size - m) / 2
-    return png(svg(size, size, mark_paths('simplified', 'color-on-dark', o, o, m / 64)), size, size)
+    return png(svg(0, 0, size, size, placed(size, frac, 'mark', 'color')), size, size)
 save_png('app-icon/splash-mark.png', splash(768, 0.8))
 save_png('app-icon/splash-android12.png', splash(960, 0.5))
-# Web icons from 180 px up are the app icon; the monogram stays at 16-48.
+# Web icons from 180 px up are the app icon; the mini favicon stays at 16-48.
 save_png('favicon/apple-touch-icon.png', png(app_icon, 180, 180).convert('RGB'))
 save_png('favicon/icon-192.png', png(app_icon, 192, 192))
 save_png('favicon/icon-512.png', png(app_icon, 512, 512))
-save_png('favicon/icon-maskable-512.png', png(tile_svg(100, MASKABLE, C['ink']), 512, 512))
+save_png('favicon/icon-maskable-512.png', png(tile_svg(240, C['ink'], maskable=True), 512, 512))
 
 # e-mail PNGs at 1x and 2x (transparent; colour on light, reversed for dark headers)
-def lockup_dims(t):
-    import re; m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', t); return float(m.group(1)), float(m.group(2))
+def view_size(t):
+    m = re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"', t); return float(m.group(1)), float(m.group(2))
 for name, h1 in [('lockup', 40), ('lockup-endorsed', 56), ('mark', 64), ('mark-simplified', 32)]:
     for v in ('color', 'reversed'):
-        t = files[f'svg/telinha-segura-{name}-{v}.svg']; w, h = lockup_dims(t)
+        t = files[f'svg/telinha-segura-{name}-{v}.svg']; w, h = view_size(t)
         for k in (1, 2):
             hh = h1 * k; ww = round(w * hh / h)
             save_png(f'png/telinha-segura-{name}-{v}@{k}x.png', png(t, ww, hh))
@@ -238,28 +334,34 @@ for name, h1 in [('lockup', 40), ('lockup-endorsed', 56), ('mark', 64), ('mark-s
 # ---------------- tokens ----------------
 def col(hexv, desc): return {'$type': 'color', '$value': hexv, '$extensions': {'oklch': oklch(hexv)}, '$description': desc}
 pairs = []
-for fg, bg, kind in [('ink', 'cream', 'text'), ('ink', 'white', 'text'), ('cream', 'ink', 'text'), ('cream', 'dark', 'text'),
-                     ('dark', 'sun', 'text'), ('ink', 'sun', 'non-text'), ('sun', 'dark', 'non-text'), ('sun', 'cream', 'non-text'), ('sun', 'white', 'non-text')]:
+for fg, bg, kind in [('dark', 'cream', 'text'), ('dark', 'sky', 'text'), ('dark', 'sun', 'text'), ('cream', 'ink', 'text'),
+                     ('cream', 'dark', 'text'), ('ink', 'cream', 'text'), ('ink', 'sky', 'text'),
+                     ('sun', 'ink', 'non-text'), ('sun', 'dark', 'non-text'), ('beak', 'dark', 'non-text'),
+                     ('sun', 'cream', 'non-text'), ('sun', 'sky', 'non-text'), ('sun', 'white', 'non-text'),
+                     ('beak', 'ink', 'non-text'), ('beak', 'cream', 'non-text'), ('beak', 'sky', 'non-text'),
+                     ('dark', 'ink', 'non-text')]:
     r = cr(C[fg], C[bg]); need = 4.5 if kind == 'text' else 3.0
     pairs.append({'fg': fg, 'bg': bg, 'kind': kind, 'ratio': round(r, 2), 'pass': r >= need})
 tokens = {
   'brand': {
     'color': {
-      'ink':   col(C['ink'], 'Verde-petróleo de tinta: a telinha, o wordmark, todo texto de marca no claro.'),
-      'sun':   col(C['sun'], 'Amarelo-sol: só a cabeça e as mãos. Nunca texto; no claro, sempre com contorno ink.'),
-      'cream': col(C['cream'], 'Fundo da marca.'),
-      'dark':  col(C['dark'], 'Fundo escuro da marca.'),
+      'sun':   col(C['sun'], 'Amarelo-sol: o corpo do mascote. Preenchimento, nunca texto.'),
+      'dark':  col(C['dark'], 'Texto, coroa e máscara; fundo escuro da marca.'),
+      'ink':   col(C['ink'], 'Verde-petróleo: o fundo principal.'),
+      'cream': col(C['cream'], 'Fundo claro da marca.'),
+      'beak':  col(C['beak'], 'Coral: o bico e o pingo do i. Só na marca.'),
+      'sky':   col(C['sky'], 'Azul-céu: fundo de apoio.'),
     },
     'font': {
-      'family': {'$type': 'fontFamily', '$value': ['Bricolage Grotesque', 'sans-serif'], '$description': 'OFL. Display e wordmark; optical size 24 no wordmark, 12–14 em texto pequeno.'},
-      'wordmark-weight': {'$type': 'fontWeight', '$value': 700},
+      'family': {'$type': 'fontFamily', '$value': ['Bricolage Grotesque', 'sans-serif'], '$description': 'OFL. Display e wordmark; optical size 96 no wordmark, 12–14 em texto pequeno.'},
+      'wordmark-weight': {'$type': 'fontWeight', '$value': 800},
     },
     'mark': {
-      'clear-space': {'$type': 'number', '$value': 0.219, '$description': 'Raio da cabeça (14/64 da altura da marca) livre em volta de marca e lockup.'},
+      'clear-space': {'$type': 'number', '$value': 0.2, '$description': 'Fração da caixa da figura (o raio de canto do corpo) livre em volta de marca e lockup.'},
       'min-size': {
-        'mark':        {'$type': 'dimension', '$value': {'value': 48, 'unit': 'px'}, '$description': 'Marca primária, com mãos.'},
-        'simplified':  {'$type': 'dimension', '$value': {'value': 20, 'unit': 'px'}},
-        'monogram':    {'$type': 'dimension', '$value': {'value': 16, 'unit': 'px'}},
+        'mark':        {'$type': 'dimension', '$value': {'value': 48, 'unit': 'px'}, '$description': 'Marca primária.'},
+        'simplified':  {'$type': 'dimension', '$value': {'value': 24, 'unit': 'px'}},
+        'mini':        {'$type': 'dimension', '$value': {'value': 16, 'unit': 'px'}},
         'lockup-height': {'$type': 'dimension', '$value': {'value': 24, 'unit': 'px'}},
         'lockup-endorsed-height': {'$type': 'dimension', '$value': {'value': 56, 'unit': 'px'}},
       },
@@ -282,7 +384,7 @@ COPIES = {
   'site/public/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',
   'site/public/brand/telinha-segura-wordmark-reversed.svg': 'brand/svg/telinha-segura-wordmark-reversed.svg',
   'site/public/brand/telinha-segura-lockup-endorsed-color.svg': 'brand/svg/telinha-segura-lockup-endorsed-color.svg',
-  'site/public/brand/telinha-segura-lockup-endorsed-color-on-dark.svg': 'brand/svg/telinha-segura-lockup-endorsed-color-on-dark.svg',
+  'site/public/brand/telinha-segura-lockup-endorsed-reversed.svg': 'brand/svg/telinha-segura-lockup-endorsed-reversed.svg',
 }
 for copy, master in COPIES.items():
     dst = os.path.join(ROOT, copy); os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -293,4 +395,4 @@ def sha256(path):
 open(os.path.join(OUT, 'manifest.sha256'), 'w').write(''.join(f'{sha256(p)}  {p}\n' for p in sorted(set(WRITTEN))))
 
 print(json.dumps(pairs, indent=0))
-print('word width units', round(WORD_W, 2), 'bounds', [round(b, 2) for b in WORD_B])
+print('word width units', round(WORD_W, 2))

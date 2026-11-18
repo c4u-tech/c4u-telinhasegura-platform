@@ -1,16 +1,26 @@
 import 'package:flutter/widgets.dart';
 
-/// The brand's four colours, copied from `brand/tokens/brand-tokens.json`
+/// The brand's six colours, copied from `brand/tokens/brand-tokens.json`
 /// (tokens_test.dart fails if they drift).
 abstract final class BrandColors {
   static const ink = Color(0xFF1E5B66);
-  static const sun = Color(0xFFF2B23A);
+
+  /// The mascot's body: a fill, never text.
+  static const sun = Color(0xFFFFC42E);
   static const cream = Color(0xFFFBF6EC);
   static const dark = Color(0xFF0F2A30);
+
+  /// The beak of the mark and the dot of the wordmark's i. It belongs to
+  /// the mark: never an error colour, never text.
+  static const beak = Color(0xFFFF5A36);
+
+  /// A support ground, light enough for dark text.
+  static const sky = Color(0xFFA9DDE8);
 }
 
 /// The UI palette the brand does not define. Every neutral is tinted from
-/// ink; sun appears only in the Espiadinha's head, never as text or state.
+/// ink. Sun, beak and sky are brand colours for the mark and its
+/// grounds; none of them is text or a state colour.
 /// Contrast pairs are asserted in tokens_test.dart.
 class Palette {
   const Palette({
