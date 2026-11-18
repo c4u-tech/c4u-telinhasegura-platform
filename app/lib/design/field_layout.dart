@@ -693,8 +693,8 @@ class _FieldContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    // The name plate is centred in the field; the mascot stands at its
-    // start, above it.
+    // The name plate starts under the mascot's body, on the edge the text
+    // below it keeps, so figure, name and text read down one line.
     final wordmark = Wordmark(
       height: size == FieldSize.hero ? WordmarkSizes.hero : WordmarkSizes.band,
     );
@@ -707,19 +707,21 @@ class _FieldContent extends StatelessWidget {
             icon: const Icon(Icons.arrow_back_rounded),
           );
     if (size == FieldSize.band) {
+      // A back control keeps the band's start; the name plate follows it
+      // at the band's own spacing.
       return Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Space.sm,
-          vertical: Space.sm,
+        padding: EdgeInsetsDirectional.fromSTEB(
+          back == null ? TeviPainter.perchInset : Space.sm,
+          Space.sm,
+          Space.sm,
+          Space.sm,
         ),
         child: SizedBox(
           height: 56,
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
+              if (back != null) ...[back, const SizedBox(width: Space.sm)],
               wordmark,
-              if (back != null)
-                Align(alignment: AlignmentDirectional.centerStart, child: back),
             ],
           ),
         ),
@@ -728,9 +730,9 @@ class _FieldContent extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        Space.xl,
+        TeviPainter.perchInset,
         back == null ? Space.xl : Space.sm,
-        Space.xl,
+        TeviPainter.perchInset,
         large ? Space.xxxl : Space.xl,
       ),
       child: Column(
@@ -752,7 +754,7 @@ class _FieldContent extends StatelessWidget {
                     child: back,
                   ),
                 ),
-              Center(child: wordmark),
+              wordmark,
             ],
           ),
           if (promise case final promise?) ...[

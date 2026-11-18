@@ -84,60 +84,125 @@ void wideAtLargeText() {
 }
 
 // The mascot stands above the ink field, so the field carries the
-// wordmark alone, as its name plate: centred in the field, and never the
-// smallest text in it.
+// wordmark alone, as its name plate: starting under the mascot's body, on
+// the edge the text below it keeps, and never the smallest text in it.
 void wordmarkInTheField() {
   group('the field carries the wordmark, not a second mark', () {
-    for (final (name, size, width, back, floor) in [
-      ('narrow band', FieldSize.band, 390.0, false, 20.0),
-      ('narrow band with a back control', FieldSize.band, 320.0, true, 20.0),
-      ('narrow hero', FieldSize.hero, 390.0, false, 26.0),
-      ('narrow hero with a back control', FieldSize.hero, 320.0, true, 26.0),
-      ('wide panel', FieldSize.hero, 1280.0, false, 26.0),
+    for (final (name, size, width, back, floor, direction) in [
+      ('narrow band', FieldSize.band, 390.0, false, 20.0, TextDirection.ltr),
+      (
+        'narrow band with a back control',
+        FieldSize.band,
+        320.0,
+        true,
+        20.0,
+        TextDirection.ltr,
+      ),
+      ('narrow hero', FieldSize.hero, 390.0, false, 26.0, TextDirection.ltr),
+      (
+        'narrow hero with a back control',
+        FieldSize.hero,
+        320.0,
+        true,
+        26.0,
+        TextDirection.ltr,
+      ),
+      ('wide panel', FieldSize.hero, 1280.0, false, 26.0, TextDirection.ltr),
+      (
+        'narrow band, right to left',
+        FieldSize.band,
+        390.0,
+        false,
+        20.0,
+        TextDirection.rtl,
+      ),
+      (
+        'narrow band with a back control, right to left',
+        FieldSize.band,
+        320.0,
+        true,
+        20.0,
+        TextDirection.rtl,
+      ),
+      (
+        'narrow hero, right to left',
+        FieldSize.hero,
+        390.0,
+        false,
+        26.0,
+        TextDirection.rtl,
+      ),
     ]) {
-      testWidgets('the $name centres the reversed wordmark in the field, '
-          'at least $floor tall, clear of the mascot', (tester) async {
-        final view = Size(width, 844);
-        tester.view.physicalSize = view;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: buildTheme(Brightness.light),
-            home: FieldLayout(
-              title: 'Título',
-              size: size,
-              onBack: back ? () {} : null,
-              children: const [],
-            ),
-          ),
+      testWidgets('the $name starts the wordmark under the mascot, at '
+          'least $floor tall, clear of it', (tester) async {
+        await pumpField(
+          tester,
+          size: size,
+          width: width,
+          back: back,
+          direction: direction,
         );
-        await tester.pumpAndSettle();
 
         final assets = brandAssets(tester, find.byType(FieldLayout));
         expect(assets.map((a) => a.$1), [
-          'assets/brand/telinha-segura-wordmark-reversed.svg',
+          'assets/brand/telinha-segura-wordmark-color-on-dark.svg',
         ]);
         final wordmark = find.byType(SvgPicture);
         expect(tester.getSize(wordmark).height, greaterThanOrEqualTo(floor));
+        final rtl = direction == TextDirection.rtl;
+        final plate = tester.getRect(wordmark);
+        // The edge a line starts from: the left, or the right mirrored.
+        double start(Rect r) => rtl ? r.right : r.left;
+        // How far [r] starts past [edge], read in the line's direction.
+        double past(Rect r, double edge) =>
+            rtl ? edge - start(r) : start(r) - edge;
+        final field = tester.getRect(find.byKey(FieldLayout.fieldKey));
+        final box = tester.getRect(find.byType(Tevi));
+        final bodyStart = rtl
+            ? box.right - TeviPainter.body.left * box.width
+            : box.left + TeviPainter.body.left * box.width;
+        if (size == FieldSize.band && back) {
+          // On a band the back control keeps the start; the name plate
+          // follows its target at the band's own spacing.
+          final control = tester.getRect(
+            find.ancestor(
+              of: find.byTooltip('Voltar'),
+              matching: find.byType(IconButton),
+            ),
+          );
+          expect(
+            past(plate, rtl ? control.left : control.right),
+            moreOrLessEquals(Space.sm, epsilon: .01),
+          );
+          expect(control.overlaps(plate), isFalse);
+        } else {
+          expect(
+            start(plate),
+            moreOrLessEquals(bodyStart, epsilon: .01),
+            reason: 'the name plate starts under the mascot\'s body',
+          );
+          expect(
+            past(plate, start(field)),
+            moreOrLessEquals(TeviPainter.perchInset, epsilon: .01),
+            reason: 'on the field content\'s inset',
+          );
+        }
+        if (find.text(promiseLine).evaluate().isNotEmpty) {
+          expect(
+            start(tester.getRect(find.text(promiseLine))),
+            moreOrLessEquals(start(plate), epsilon: .01),
+            reason: 'the promise below keeps the same edge',
+          );
+        }
         expect(
-          tester.getCenter(wordmark).dx,
-          moreOrLessEquals(
-            tester.getCenter(find.byKey(FieldLayout.fieldKey)).dx,
-            epsilon: 2,
-          ),
-        );
-        expect(
-          bodyOf(tester).overlaps(tester.getRect(wordmark)),
+          bodyOf(tester).overlaps(plate),
           isFalse,
           reason: 'the mascot stands above the name plate',
         );
         expect(find.bySemanticsLabel('Telinha Segura'), findsOneWidget);
         if (back) {
-          // The back control keeps the start, clear of the name plate.
           final control = tester.getRect(find.byTooltip('Voltar'));
-          expect(control.left, lessThan(tester.getRect(wordmark).left));
-          expect(control.overlaps(tester.getRect(wordmark)), isFalse);
+          expect(control.overlaps(plate), isFalse);
         }
       });
     }

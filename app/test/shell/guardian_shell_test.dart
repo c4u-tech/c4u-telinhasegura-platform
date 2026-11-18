@@ -305,31 +305,39 @@ void main() {
       });
     }
 
-    testWidgets('the rail centres the reversed wordmark in its field, '
-        'at least 22 tall, with the destinations at the start below', (
-      tester,
-    ) async {
+    testWidgets('the rail starts the wordmark under the mascot, at least '
+        '22 tall, on the destinations\' start edge below it', (tester) async {
       await shellAt(tester, '/', size: wide);
 
       final rail = find.byType(InkRail);
       expect(brandAssets(tester, rail).map((a) => a.$1), [
-        'assets/brand/telinha-segura-wordmark-reversed.svg',
+        'assets/brand/telinha-segura-wordmark-color-on-dark.svg',
       ]);
       final wordmark = find.descendant(
         of: rail,
         matching: find.byType(SvgPicture),
       );
       expect(tester.getSize(wordmark).height, greaterThanOrEqualTo(22));
+      final plate = tester.getRect(wordmark);
+      final indicator = tester.getRect(
+        find.byKey(DestinationTile.indicatorKey).first,
+      );
       expect(
-        tester.getCenter(wordmark).dx,
+        plate.left,
+        moreOrLessEquals(indicator.left, epsilon: .01),
+        reason: 'the destinations\' start edge',
+      );
+      final box = tester.getRect(find.byType(Tevi));
+      expect(
+        plate.left,
         moreOrLessEquals(
-          tester.getCenter(find.byKey(InkRail.fieldKey)).dx,
-          epsilon: 2,
+          box.left + TeviPainter.body.left * box.width,
+          epsilon: .01,
         ),
+        reason: 'under the mascot\'s body',
       );
       final first = tester.getRect(find.byType(DestinationTile).first);
-      expect(first.top, greaterThan(tester.getRect(wordmark).bottom));
-      expect(first.left, lessThan(tester.getRect(wordmark).left));
+      expect(first.top, greaterThan(plate.bottom));
     });
 
     for (final (width, brightness) in [
