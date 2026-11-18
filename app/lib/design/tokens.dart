@@ -20,7 +20,9 @@ abstract final class BrandColors {
 
 /// The UI palette the brand does not define. Every neutral is tinted from
 /// ink. Sun, beak and sky are brand colours for the mark and its
-/// grounds; none of them is text or a state colour.
+/// grounds; none of them is text or a state colour. Sun also fills the
+/// active indicator and, on the dark grounds, the primary action, always
+/// under a dark label, never alone on a light ground.
 /// Contrast pairs are asserted in tokens_test.dart.
 class Palette {
   const Palette({
@@ -35,6 +37,8 @@ class Palette {
     required this.outline,
     required this.action,
     required this.onAction,
+    required this.indicator,
+    required this.onIndicator,
     required this.focus,
     required this.error,
     required this.errorGround,
@@ -58,6 +62,11 @@ class Palette {
   /// The primary action's fill.
   final Color action;
   final Color onAction;
+
+  /// The navigation's active destination: its indicator's fill and the
+  /// icon on it.
+  final Color indicator;
+  final Color onIndicator;
   final Color focus;
 
   /// A warm earth tone: errors are calm, never alarm red.
@@ -73,12 +82,14 @@ class Palette {
     field: BrandColors.ink,
     onField: BrandColors.cream,
     onFieldMuted: Color(0xFFD3E2E3),
-    text: Color(0xFF12343B),
+    text: BrandColors.dark,
     muted: Color(0xFF4A666B),
     input: Color(0xFFFFFDF8),
     outline: Color(0xFF6F8B90),
     action: BrandColors.ink,
     onAction: BrandColors.cream,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: BrandColors.ink,
     error: Color(0xFF974614),
     errorGround: Color(0xFFF6E8DB),
@@ -95,8 +106,10 @@ class Palette {
     muted: Color(0xFFA6BFC2),
     input: Color(0xFF16363D),
     outline: Color(0xFF6A8D93),
-    action: BrandColors.cream,
+    action: BrandColors.sun,
     onAction: BrandColors.dark,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: Color(0xFFA6BFC2),
     error: Color(0xFFEFA97E),
     errorGround: Color(0xFF2B2E28),
@@ -117,8 +130,10 @@ class Palette {
     muted: Color(0xFFD3E2E3),
     input: Color(0xFF16363D),
     outline: Color(0xFFA6BFC2),
-    action: BrandColors.cream,
+    action: BrandColors.sun,
     onAction: BrandColors.dark,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: BrandColors.cream,
     error: Color(0xFFEFA97E),
     errorGround: BrandColors.dark,

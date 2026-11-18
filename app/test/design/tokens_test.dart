@@ -72,6 +72,7 @@ void main() {
           'onField/field': (palette.onField, palette.field),
           'onFieldMuted/field': (palette.onFieldMuted, palette.field),
           'onAction/action': (palette.onAction, palette.action),
+          'onIndicator/indicator': (palette.onIndicator, palette.indicator),
         };
         for (final MapEntry(:key, value: (fg, bg)) in pairs.entries) {
           expect(contrast(fg, bg), greaterThanOrEqualTo(4.5), reason: key);
@@ -86,6 +87,27 @@ void main() {
       });
     });
   }
+
+  test('text on the light ground is the brand\'s dark, and its action '
+      'stays ink with a cream label', () {
+    expect(Palette.light.text, BrandColors.dark);
+    expect(Palette.light.action, BrandColors.ink);
+    expect(Palette.light.onAction, BrandColors.cream);
+  });
+
+  test('the dark and child themes act in sun with a dark label', () {
+    for (final palette in [Palette.dark, Palette.kid]) {
+      expect(palette.action, BrandColors.sun);
+      expect(palette.onAction, BrandColors.dark);
+    }
+  });
+
+  test('the active indicator is sun with a dark icon in every palette', () {
+    for (final palette in [Palette.light, Palette.dark, Palette.kid]) {
+      expect(palette.indicator, BrandColors.sun);
+      expect(palette.onIndicator, BrandColors.dark);
+    }
+  });
 
   test('buttons draw a 3 dp focus ring only when focused (WCAG 2.4.7)', () {
     for (final b in Brightness.values) {
@@ -121,11 +143,11 @@ void main() {
       expect(contrast(kid.error, BrandColors.dark), greaterThanOrEqualTo(4.5));
     });
 
-    test('ink is the ground and cream the figure', () {
+    test('ink is the ground, cream the text and sun the action', () {
       expect(kid.ground, BrandColors.ink);
       expect(kid.field, BrandColors.ink);
       expect(kid.text, BrandColors.cream);
-      expect(kid.action, BrandColors.cream);
+      expect(kid.action, BrandColors.sun);
       expect(kid.onAction, BrandColors.dark);
     });
 
@@ -134,6 +156,7 @@ void main() {
         'text/ground': (kid.text, kid.ground),
         'muted/ground': (kid.muted, kid.ground),
         'onAction/action': (kid.onAction, kid.action),
+        'onIndicator/indicator': (kid.onIndicator, kid.indicator),
         'error/errorGround': (kid.error, kid.errorGround),
       };
       for (final MapEntry(:key, value: (fg, bg)) in pairs.entries) {
