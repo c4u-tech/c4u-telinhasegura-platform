@@ -17,6 +17,7 @@ import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
 import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/paused_profile.dart';
+import 'package:telinha_segura/kid/profile_picker_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 
 import '../access/harness.dart';
@@ -150,7 +151,7 @@ void main() {
     });
   }
 
-  for (final disc in [KidSizes.avatar, 132.0]) {
+  for (final disc in [KidSizes.avatar, ProfilePickerScreen.avatar]) {
     testWidgets('a ${disc.toInt()} dp avatar keeps the animal clear inside '
         'its ring, ink between them: no ear reaches it (fix round, item 2)', (
       tester,

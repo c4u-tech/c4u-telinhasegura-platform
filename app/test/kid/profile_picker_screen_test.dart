@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/entry_screen.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_client.dart';
+import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
@@ -290,6 +292,106 @@ void main() {
       });
     }
   });
+
+  testWidgets('the mascot looks back from the top edge of a dark panel that '
+      'holds the title and the children, 132 dp each with the nickname', (
+    tester,
+  ) async {
+    await linkedExit(tester);
+    await toPicker(tester);
+
+    final panel = find.byKey(ProfilePickerScreen.panelKey);
+    final box = tester.getRect(panel);
+    final decoration =
+        tester.widget<DecoratedBox>(panel).decoration as BoxDecoration;
+    expect(decoration.color, BrandColors.dark);
+    // On the child's ink behind it, in its day colours; no small mark.
+    final figures = find.descendant(
+      of: find.byType(ProfilePickerScreen),
+      matching: find.byType(Tevi),
+    );
+    expect(figures, findsOneWidget);
+    final tevi = tester.widget<Tevi>(figures);
+    expect((tevi.look, tevi.night), (TeviLook.lookingBack, false));
+    final at = tester.getRect(figures);
+    expect(
+      at.top + at.height * TeviPainter.perchY,
+      closeTo(box.top + TeviPainter.perchOverlap, 1e-6),
+      reason: 'the legs land on the panel\'s top edge',
+    );
+    expect(
+      at.left + at.width * TeviPainter.body.center.dx,
+      closeTo(box.center.dx, .5),
+    );
+    bool inside(Rect r) =>
+        box.contains(r.topLeft) && box.contains(r.bottomRight);
+    expect(inside(tester.getRect(find.text('Quem vai assistir?'))), isTrue);
+    // In the kid dialect: cream on the dark panel.
+    expect(
+      tester.widget<Text>(find.text('Quem vai assistir?')).style?.color,
+      Palette.kid.text,
+    );
+    for (final name in ['Lia', 'Téo']) {
+      expect(inside(tester.getRect(find.text(name))), isTrue);
+    }
+    final discs = find.descendant(
+      of: find.byType(ChildChoice),
+      matching: find.byType(AvatarDisc),
+    );
+    expect(discs, findsNWidgets(2));
+    for (final disc in discs.evaluate()) {
+      final rect = tester.getRect(find.byWidget(disc.widget));
+      expect(rect.size, const Size.square(ProfilePickerScreen.avatar));
+      expect(inside(rect), isTrue);
+    }
+    expect(ProfilePickerScreen.avatar, greaterThanOrEqualTo(132));
+    // Two children side by side on a phone.
+    expect(
+      tester.getRect(find.text('Lia')).top,
+      tester.getRect(find.text('Téo')).top,
+    );
+    expect(tester.getRect(find.text('Voltar')).top, greaterThan(box.bottom));
+  });
+
+  for (final count in [1, 6]) {
+    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+      testWidgets('$count children at 200% text at ${size.width.toInt()} px: '
+          'the panel holds, every child and "Voltar" reachable', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final names = ['Lia', 'Téo', 'Nina', 'Davi', 'Bia', 'Caio'];
+        final kids = [
+          for (var i = 0; i < count; i++)
+            {
+              'id': 'm${i + 1}',
+              'nickname': names[i],
+              'avatar': 'fox',
+              'age_band': '5-8',
+            },
+        ];
+        await linkedExit(
+          tester,
+          size: size,
+          profiles: (_) => json(200, {'profiles': kids}),
+        );
+        await toPicker(tester);
+
+        expect(tester.takeException(), isNull);
+        for (final target in [
+          ...[for (final n in names.take(count)) find.text(n)],
+          find.text('Voltar'),
+        ]) {
+          await tester.ensureVisible(target);
+          await tester.pumpAndSettle();
+          final r = tester.getRect(target);
+          expect(r.top, greaterThanOrEqualTo(0));
+          expect(r.bottom, lessThanOrEqualTo(size.height));
+        }
+      });
+    }
+  }
 
   testWidgets('the heading and "Voltar" are centred, as the grid is', (
     tester,
