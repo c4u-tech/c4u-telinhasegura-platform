@@ -957,6 +957,42 @@ void main() {
     semantics.dispose();
   });
 
+  for (final (band, pictures) in [('5-8', 2), ('ate-4', 0), (null, 0)]) {
+    testWidgets('while the catalogue loads, the quiet fills take the layout '
+        'of the child\'s age (${band ?? 'not yet known'}): $pictures '
+        'pictures', (tester) async {
+      final gate = Completer<http.Response>();
+      final profile = Completer<http.Response>();
+      final h = Harness(
+        signedIn: true,
+        api: (req) => switch (req.url.path) {
+          '/v1/child/profile' => profile.future,
+          '/v1/child/catalog' => gate.future,
+          _ => http.Response('', 204),
+        },
+      )..kidMode = {'minor_id': 'm1'};
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(h.app(initial: '/crianca'));
+      await tester.pump();
+      if (band != null) {
+        profile.complete(json(200, {...profileJson, 'age_band': band}));
+      }
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final fills = find.descendant(
+        of: find.byType(MosaicLoading),
+        matching: find.byType(Container),
+      );
+      // The highlight, the pictures, six blocks.
+      expect(fills, findsNWidgets(1 + pictures + 6));
+      gate.complete(json(200, twoShelves));
+      if (band == null) profile.complete(json(200, profileJson));
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('while the catalogue loads, quiet fills hold the home\'s shapes '
       'with the mascot watching, read "Carregando vídeos"', (tester) async {
     final semantics = tester.ensureSemantics();

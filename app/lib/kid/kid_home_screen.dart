@@ -271,7 +271,10 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         scrolls: false,
         rise: KidMosaic.rise,
         child: catalog == null
-            ? MosaicLoading(note: notice == null ? null : _note(notice))
+            ? MosaicLoading(
+                band: _profile?.ageBand,
+                note: notice == null ? null : _note(notice),
+              )
             : KidMosaic(
                 catalog: catalog,
                 plan: plan,

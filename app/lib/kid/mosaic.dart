@@ -849,8 +849,13 @@ class BlockCover extends StatelessWidget {
 
 /// The home while the catalogue loads: its shapes as quiet fills, the
 /// mascot watching from the highlight's place, read as what is loading.
+/// When the child's [band] is known, the fills take that band's layout
+/// (the pictures for a child of 5 to 8), so nothing jumps as the
+/// catalogue arrives.
 class MosaicLoading extends StatelessWidget {
-  const MosaicLoading({super.key, this.note});
+  const MosaicLoading({super.key, this.note, this.band});
+
+  final AgeBand? band;
 
   static const label = 'Carregando vídeos';
 
@@ -878,14 +883,16 @@ class MosaicLoading extends StatelessWidget {
       child: ExcludeSemantics(
         child: LayoutBuilder(
           builder: (context, box) {
+            final band = this.band;
+            final pictures = band != null && band != AgeBand.upTo4;
             final g = _Geometry.of(
               box,
               wide:
                   MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint,
               pack: false,
-              pictures: false,
+              pictures: pictures,
               blocks: _blocks,
-              grow: true,
+              grow: !pictures,
             );
             return _Arrangement(
               geometry: g,
@@ -895,7 +902,11 @@ class MosaicLoading extends StatelessWidget {
                 look: TeviLook.watching,
                 child: quiet(g.highlight, FieldSizes.heroCorner),
               ),
-              pictures: const [],
+              pictures: [
+                if (pictures)
+                  for (var i = 0; i < MosaicPlan.maxPictures; i++)
+                    quiet(g.picture, Radii.card),
+              ],
               blocks: [
                 for (var i = 0; i < _blocks; i++) quiet(g.block, Radii.card),
               ],
