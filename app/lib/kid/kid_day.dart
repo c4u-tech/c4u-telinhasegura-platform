@@ -146,19 +146,23 @@ class KidDay extends ChangeNotifier {
     try {
       Object? refused;
       for (final (i, video) in pack.videos.indexed) {
+        final KidPlay play;
         try {
-          final play = await _api.play(video.id);
-          if (!_disposed) {
-            open(
-              Routes.pack(pack.id),
-              PackStart(pack: pack, index: i, play: play),
-            );
-          }
-          return;
+          play = await _api.play(video.id);
         } on Object catch (e) {
           refused = e;
           if (refusesEvery(e) || doesNotFit(e)) break;
+          continue;
         }
+        // Outside the guard above: an opener that fails is not the
+        // server refusing the video.
+        if (!_disposed) {
+          open(
+            Routes.pack(pack.id),
+            PackStart(pack: pack, index: i, play: play),
+          );
+        }
+        return;
       }
       if (_disposed || refused == null) return;
       final message = refusalNote(refused);

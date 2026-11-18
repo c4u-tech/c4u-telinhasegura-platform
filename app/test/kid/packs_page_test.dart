@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show StateModule;
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
@@ -15,7 +18,7 @@ import 'package:telinha_segura/shell/routes.dart';
 
 import '../access/harness.dart';
 import 'kid_mosaic_test.dart' show blocks, video;
-import 'pack_player_test.dart' show packKid, withPack;
+import 'pack_player_test.dart' show opened, packKid, withPack;
 import 'theme_page_test.dart' show plays;
 
 /// The day with three pacotinhos, the last longer than the time left.
@@ -45,8 +48,12 @@ Finder get packTiles =>
     find.descendant(of: page, matching: find.byType(PackTile));
 
 /// The child home with [threePacks], then the pacotinhos' page.
-Future<Harness> packsPage(WidgetTester tester, {Size? size}) async {
-  final h = packKid(catalog: () => threePacks);
+Future<Harness> packsPage(
+  WidgetTester tester, {
+  Size? size,
+  FutureOr<http.Response> Function(String videoId)? play,
+}) async {
+  final h = packKid(catalog: () => threePacks, play: play);
   await h.pump(tester, initial: '/crianca', size: size ?? const Size(390, 844));
   await tester.ensureVisible(door);
   await tester.pumpAndSettle();
@@ -161,6 +168,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.location(tester), Routes.kidPacks);
     expect(find.byType(RoomScreen), findsOneWidget);
+  });
+
+  testWidgets('leaving the page while a pacotinho opens says nothing when the '
+      'play comes back, and asks for it once', (tester) async {
+    final answer = Completer<http.Response>();
+    final h = await packsPage(tester, play: (_) => answer.future);
+
+    await tester.tap(packTiles.at(1));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel(PlayerScreen.back));
+    await tester.pumpAndSettle();
+    expect(h.location(tester), '/crianca');
+
+    answer.complete(json(201, opened('v4')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(KidErrorNote), findsNothing);
+    expect(plays(h), ['v4']);
+    expect(h.actions.where((a) => a == 'GET /v1/child/catalog'), hasLength(1));
+    expect(h.location(tester), '/crianca');
   });
 
   testWidgets('a pacotinho that does not fit asks for nothing and says why', (

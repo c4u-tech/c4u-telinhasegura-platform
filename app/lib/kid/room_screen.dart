@@ -116,9 +116,12 @@ class _RoomScreenState extends State<RoomScreen> {
     });
   }
 
-  /// The player stands over the page, so its end comes back here.
-  void _open(String location, Object extra) =>
-      unawaited(GoRouter.of(context).push<void>(location, extra: extra));
+  /// The player stands over the page, so its end comes back here. A play
+  /// that answers after the child left the page opens nothing.
+  void _open(String location, Object extra) {
+    if (!mounted) return;
+    unawaited(GoRouter.of(context).push<void>(location, extra: extra));
+  }
 
   @override
   Widget build(BuildContext context) {

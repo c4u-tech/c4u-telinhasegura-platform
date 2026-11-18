@@ -342,6 +342,32 @@ void main() {
       expect(reads(h), 2);
     });
 
+    testWidgets('leaving the page while a play is on its way says nothing '
+        'when the play comes back, and asks for it once', (tester) async {
+      final answer = Completer<http.Response>();
+      final h = await room(tester, play: (_) => answer.future);
+
+      await tester.tap(tiles.at(1));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel(PlayerScreen.back));
+      await tester.pumpAndSettle();
+      expect(h.location(tester), '/crianca');
+
+      answer.complete(
+        json(201, {
+          'play_id': 'p-v2',
+          'youtube_id': 'yt-v2',
+          'remaining_seconds': 600,
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(KidErrorNote), findsNothing);
+      expect(plays(h), ['v2']);
+      expect(reads(h), 1);
+      expect(h.location(tester), '/crianca');
+    });
+
     testWidgets('a day that runs out on a play sends the child to the '
         'sleeping home', (tester) async {
       var asleep = false;
