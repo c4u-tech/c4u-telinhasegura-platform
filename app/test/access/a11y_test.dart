@@ -22,7 +22,9 @@ import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/pack_player_screen.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
 import 'package:telinha_segura/kid/player_keys.dart';
+import 'package:telinha_segura/kid/mosaic.dart' show ThemeBlock;
 import 'package:telinha_segura/kid/player_screen.dart';
+import 'package:telinha_segura/kid/room_screen.dart' show RoomBack;
 import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid_mode/kid_mode_screen.dart';
 import 'package:telinha_segura/shell/services.dart';
@@ -1181,6 +1183,13 @@ final handOverScreens =
         },
       ),
       'player': (kidWithShelves, '/crianca/assistir/v1', true, null),
+      // A theme's page, opened from its block on the home.
+      'theme page': (
+        kidWithShelves,
+        '/crianca',
+        true,
+        (tester) => tapOn(tester, find.byType(ThemeBlock).first),
+      ),
       // Pacotinhos: the row, the pacotinho's player, its
       // breath and its goodbye.
       'child home, pacotinhos': (packKid, '/crianca', true, null),
@@ -2954,6 +2963,7 @@ void main() {
               w is ChildChoice ||
               w is SelectableRow ||
               w is HoldToExit ||
+              w is RoomBack ||
               w is VideoTile ||
               w is PackTile ||
               w is PlayerKey ||

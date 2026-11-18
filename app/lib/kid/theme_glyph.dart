@@ -28,10 +28,7 @@ ColourWorld worldOf(VideoTheme theme) => switch (theme) {
   VideoTheme.brincar => ColourWorlds.brincar,
   VideoTheme.natureza => ColourWorlds.natureza,
   // Never shown: the catalogue leaves an unknown theme out.
-  VideoTheme.unknown => const ColourWorld(
-    ground: BrandColors.ink,
-    figure: BrandColors.cream,
-  ),
+  VideoTheme.unknown => ColourWorlds.home,
 };
 
 /// A theme drawn, read by its name, never a target. On the kid ground it

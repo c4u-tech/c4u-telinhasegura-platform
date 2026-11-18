@@ -207,6 +207,13 @@ abstract final class ColourWorlds {
 
   static const all = [bichos, musica, historias, aprender, natureza, brincar];
 
+  /// The home's own ground, for a page that opens from the home and is no
+  /// theme's (every pacotinho of the day).
+  static const home = ColourWorld(
+    ground: BrandColors.ink,
+    figure: BrandColors.cream,
+  );
+
   /// The ring around the play disc on a light ground.
   static const discRing = BrandColors.dark;
 }

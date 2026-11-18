@@ -22,6 +22,7 @@ import 'kid_layout.dart';
 import 'mosaic.dart';
 import 'paused_profile.dart';
 import 'player_screen.dart';
+import 'room_screen.dart' show RoomDoor;
 import 'shelves.dart';
 import 'sleeping_telinha.dart';
 import 'tap_guard.dart';
@@ -203,9 +204,15 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     child: KidErrorNote(message, asleep: restsNote(message)),
   );
 
-  /// A theme's block tapped: the way into that theme's own page. The app
-  /// has no such page yet, so the block is a door that stays shut.
-  void _openTheme(VideoTheme theme) {}
+  /// A theme's block tapped: the theme's page grows from where the block
+  /// stood, on the day this home read. A note from before stays here.
+  void _openTheme(VideoTheme theme, Rect from) {
+    _day.note(null);
+    context.go(
+      Routes.theme(theme),
+      extra: RoomDoor(day: _day, from: from),
+    );
+  }
 
   Future<void> _read(String minorId) async {
     _profileRefused = false;

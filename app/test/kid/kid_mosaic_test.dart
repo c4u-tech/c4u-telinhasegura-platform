@@ -488,9 +488,9 @@ void main() {
     expect(find.byType(ThemeGlyph), paints..rrect(color: BrandColors.dark));
   });
 
-  testWidgets('a tap on a block opens its theme, through the home\'s one '
-      'seam for it', (tester) async {
-    final opened = <VideoTheme>[];
+  testWidgets('a tap on a block opens its theme from where the block '
+      'stands, through the home\'s one seam for it', (tester) async {
+    final opened = <(VideoTheme, Rect)>[];
     final catalog = KidCatalog.fromJson(
       jsonDecode(jsonEncode(sixThemes)) as Map<String, dynamic>,
     );
@@ -510,7 +510,7 @@ void main() {
             thumbnail: (_) async => pixel,
             onPlay: (_) {},
             onOpenPack: (_) {},
-            onOpenTheme: opened.add,
+            onOpenTheme: (theme, from) => opened.add((theme, from)),
           ),
         ),
       ),
@@ -519,15 +519,20 @@ void main() {
 
     await tester.tap(blockOf(VideoTheme.historias));
     await tester.tap(blockOf(VideoTheme.natureza));
-    expect(opened, [VideoTheme.historias, VideoTheme.natureza]);
+    expect(opened, [
+      (VideoTheme.historias, tester.getRect(blockOf(VideoTheme.historias))),
+      (VideoTheme.natureza, tester.getRect(blockOf(VideoTheme.natureza))),
+    ]);
   });
 
-  testWidgets('a tap on a block plays nothing', (tester) async {
+  testWidgets('a tap on a block plays nothing and opens the theme\'s page', (
+    tester,
+  ) async {
     final h = await mosaic(tester, catalog: () => json(200, sixThemes));
     await tester.tap(blocks.first);
     await tester.pumpAndSettle();
     expect(plays(h), isEmpty);
-    expect(h.location(tester), '/crianca');
+    expect(h.location(tester), '/crianca/tema/bichos');
   });
 
   group('a pacotinho leads', () {

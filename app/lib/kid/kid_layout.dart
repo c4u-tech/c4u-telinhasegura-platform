@@ -23,6 +23,8 @@ class KidLayout extends StatelessWidget {
     required this.child,
     this.exit,
     this.lead,
+    this.leadInset = Space.xl,
+    this.ground,
     this.rise = 0,
     this.fullWidth = false,
     this.scrolls = true,
@@ -46,6 +48,14 @@ class KidLayout extends StatelessWidget {
   /// What stands at the strip's start in the mark's place (the child's
   /// own avatar on their home).
   final Widget? lead;
+
+  /// [lead]'s distance from the start edge: a key as large as the exit
+  /// stands as far from its edge as the exit does from its own.
+  final double leadInset;
+
+  /// The ground edge to edge, when the screen is a theme's world rather
+  /// than the ink field.
+  final Color? ground;
 
   /// How far [child] reaches up into the strip, between [lead] and
   /// [exit]: the mascot standing on the home's first picture lifts its
@@ -80,7 +90,7 @@ class KidLayout extends StatelessWidget {
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: Padding(
-            padding: const EdgeInsetsDirectional.only(start: Space.xl),
+            padding: EdgeInsetsDirectional.only(start: leadInset),
             // The child's ground is ink in both themes, so the figure
             // keeps its day colours.
             child:
@@ -104,7 +114,7 @@ class KidLayout extends StatelessWidget {
     child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: Palette.kid.ground,
+        backgroundColor: ground ?? Palette.kid.ground,
         // Bare, the safe area's larger vertical inset stands on both sides,
         // so what fills it is centred on the screen, clear of a home
         // indicator (fullscreen design).

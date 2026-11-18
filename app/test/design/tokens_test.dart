@@ -246,6 +246,17 @@ void main() {
       expect(ColourWorlds.all.map((w) => w.ground).toSet(), hasLength(6));
     });
 
+    test('the home\'s own world is the kid ground with its cream figure, '
+        'which reads on it, and rings no disc', () {
+      expect(ColourWorlds.home.ground, Palette.kid.ground);
+      expect(ColourWorlds.home.figure, BrandColors.cream);
+      expect(ColourWorlds.home.ringsDisc, isFalse);
+      expect(
+        contrast(ColourWorlds.home.figure, ColourWorlds.home.ground),
+        greaterThanOrEqualTo(3),
+      );
+    });
+
     test('every figure reaches 3:1 on its ground', () {
       for (final world in ColourWorlds.all) {
         expect(

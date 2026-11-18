@@ -33,6 +33,9 @@ import '../kid/kid_home_screen.dart';
 import '../kid/pack_player_screen.dart';
 import '../kid/player_screen.dart';
 import '../kid/profile_picker_screen.dart';
+import '../kid/room_screen.dart';
+import '../kid/room_transition.dart';
+import '../kid/theme_glyph.dart' show worldOf;
 import '../kid_mode/devices_screen.dart';
 import '../kid_mode/hand_over_screen.dart';
 import '../kid_mode/kid_mode_screen.dart';
@@ -73,7 +76,8 @@ import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
 import '../curation/shared_link.dart';
 import '../curation/approve_screen.dart';
-import '../curation/curation.dart' show AuditCandidate, HeldVideo, Video;
+import '../curation/curation.dart'
+    show AuditCandidate, HeldVideo, Video, VideoTheme;
 import '../curation/publish_doubt_screen.dart';
 import '../curation/curator_terms_screen.dart';
 import '../curation/queue_screen.dart';
@@ -706,6 +710,23 @@ List<RouteBase> _outsideRoutes(AppServices services) => [
     routes: [
       GoRoute(path: 'sair', builder: (_, _) => const KidExitScreen()),
       GoRoute(path: 'quem', builder: (_, _) => const ProfilePickerScreen()),
+      GoRoute(
+        path: 'tema/:tema',
+        pageBuilder: (_, state) {
+          final theme = VideoTheme.parse(state.pathParameters['tema']);
+          final door = switch (state.extra) {
+            final RoomDoor d => d,
+            _ => null,
+          };
+          // The home's block grows into the page.
+          return roomPage(
+            key: state.pageKey,
+            from: door?.from,
+            ground: worldOf(theme).ground,
+            child: RoomScreen.theme(theme: theme, day: door?.day),
+          );
+        },
+      ),
       GoRoute(
         path: 'pacotinho/:id',
         builder: (_, state) => PackPlayerScreen(

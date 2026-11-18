@@ -93,8 +93,8 @@ class KidMosaic extends StatelessWidget {
   final ValueChanged<KidVideo>? onPlay;
   final ValueChanged<KidPack>? onOpenPack;
 
-  /// A theme's block was tapped.
-  final ValueChanged<VideoTheme>? onOpenTheme;
+  /// A theme's block was tapped, standing [from] on the screen.
+  final void Function(VideoTheme theme, Rect from)? onOpenTheme;
 
   /// Shown above the highlight (a refusal's note).
   final Widget? note;
@@ -141,15 +141,17 @@ class KidMosaic extends StatelessWidget {
         ];
         final blocks = [
           for (final shelf in plan.blocks)
-            ThemeBlock(
-              shelf: shelf,
-              world: worldOf(shelf.theme),
-              size: g.block,
-              wide: g.wide,
-              thumbnail: thumbnail,
-              onTap: onOpenTheme == null
-                  ? null
-                  : () => onOpenTheme!(shelf.theme),
+            Builder(
+              builder: (context) => ThemeBlock(
+                shelf: shelf,
+                world: worldOf(shelf.theme),
+                size: g.block,
+                wide: g.wide,
+                thumbnail: thumbnail,
+                onTap: onOpenTheme == null
+                    ? null
+                    : () => onOpenTheme!(shelf.theme, _placeOf(context)),
+              ),
             ),
         ];
         return _Arrangement(
@@ -162,6 +164,12 @@ class KidMosaic extends StatelessWidget {
       },
     );
   }
+}
+
+/// Where the widget at [context] stands on the screen.
+Rect _placeOf(BuildContext context) {
+  final box = context.findRenderObject()! as RenderBox;
+  return box.localToGlobal(Offset.zero) & box.size;
 }
 
 /// The home's measures for the room it has.

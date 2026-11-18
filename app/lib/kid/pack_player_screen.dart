@@ -284,7 +284,12 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     unawaited(_close());
     final returns = AppScope.of(context).kidReturn;
     returns.value ??= (note: null, refetch: true);
-    context.go(Routes.kidHome);
+    // Back where it was opened from: the home, or a page over it.
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(Routes.kidHome);
+    }
   }
 
   Future<void> _close() async {

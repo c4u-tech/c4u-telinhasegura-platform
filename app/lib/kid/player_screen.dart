@@ -211,7 +211,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     unawaited(_close());
     final returns = AppScope.of(context).kidReturn;
     returns.value ??= (note: null, refetch: true);
-    context.go(Routes.kidHome);
+    // Back where it was opened from: the home, or a page over it.
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(Routes.kidHome);
+    }
   }
 
   /// Lets the player go at once; nothing it says afterwards counts.
