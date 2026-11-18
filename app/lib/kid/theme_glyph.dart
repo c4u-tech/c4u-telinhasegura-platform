@@ -18,12 +18,38 @@ String themeName(VideoTheme theme) => switch (theme) {
   VideoTheme.unknown => '',
 };
 
-/// A shelf's label: the theme drawn, read by its name, never a target.
+/// A theme's colour world: the ground of its block and its page, and the
+/// figure drawn on it.
+ColourWorld worldOf(VideoTheme theme) => switch (theme) {
+  VideoTheme.bichos => ColourWorlds.bichos,
+  VideoTheme.musica => ColourWorlds.musica,
+  VideoTheme.historias => ColourWorlds.historias,
+  VideoTheme.aprender => ColourWorlds.aprender,
+  VideoTheme.brincar => ColourWorlds.brincar,
+  VideoTheme.natureza => ColourWorlds.natureza,
+  // Never shown: the catalogue leaves an unknown theme out.
+  VideoTheme.unknown => const ColourWorld(
+    ground: BrandColors.ink,
+    figure: BrandColors.cream,
+  ),
+};
+
+/// A theme drawn, read by its name, never a target. On the kid ground it
+/// keeps its own colours; on a theme's world it takes the world's
+/// [color], over [ground].
 class ThemeGlyph extends StatelessWidget {
-  const ThemeGlyph(this.theme, {super.key, this.size = KidSizes.target});
+  const ThemeGlyph(
+    this.theme, {
+    super.key,
+    this.size = KidSizes.target,
+    this.color,
+    this.ground,
+  });
 
   final VideoTheme theme;
   final double size;
+  final Color? color;
+  final Color? ground;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -31,25 +57,44 @@ class ThemeGlyph extends StatelessWidget {
     label: themeName(theme),
     child: SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: ThemeGlyphPainter(theme)),
+      child: CustomPaint(
+        painter: ThemeGlyphPainter(theme, color: color, ground: ground),
+      ),
     ),
   );
 }
 
 /// The six themes, cut from the avatars' vocabulary (discs, a rounded
 /// screen at the shape ratio's corner, flat cuts) on the same 64-unit
-/// grid, straight on the kid ground: a cream figure, dark details and the
-/// one mid tone. Each reads by silhouette alone; sun stays the mascot's.
+/// grid. Straight on the kid ground: a cream figure, dark details and the
+/// one mid tone; each reads by silhouette alone, and sun stays the
+/// mascot's. In one [color], the mid tone is that colour part of the way
+/// from [ground], and the details are cut in the ground itself.
 class ThemeGlyphPainter extends CustomPainter {
-  const ThemeGlyphPainter(this.theme);
+  const ThemeGlyphPainter(this.theme, {this.color, this.ground});
 
   final VideoTheme theme;
+  final Color? color;
+  final Color? ground;
 
   static const grid = 64.0;
 
-  static final _figure = Paint()..color = AvatarColors.figure;
-  static final _detail = Paint()..color = AvatarColors.detail;
-  static final _mist = Paint()..color = AvatarColors.mist;
+  /// How far the mid tone lies from the ground toward [color].
+  static const _mid = .55;
+
+  Paint get _figure => Paint()..color = color ?? AvatarColors.figure;
+
+  Paint get _detail => Paint()
+    ..color = color == null
+        ? AvatarColors.detail
+        : ground ?? Colors.transparent;
+
+  Paint get _mist => Paint()
+    ..color = switch ((color, ground)) {
+      (null, _) => AvatarColors.mist,
+      (final c?, final g?) => Color.lerp(g, c, _mid)!,
+      (final c?, null) => c.withValues(alpha: _mid),
+    };
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -185,5 +230,6 @@ class ThemeGlyphPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(ThemeGlyphPainter old) => old.theme != theme;
+  bool shouldRepaint(ThemeGlyphPainter old) =>
+      old.theme != theme || old.color != color || old.ground != ground;
 }
