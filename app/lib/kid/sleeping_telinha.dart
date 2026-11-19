@@ -11,13 +11,22 @@ import 'empty_shelf.dart';
 /// the picture says the day is done, and the line is all assistive
 /// technology reads.
 class SleepingTelinha extends StatelessWidget {
-  const SleepingTelinha({super.key, required this.state, this.scale = 1});
+  const SleepingTelinha({
+    super.key,
+    required this.state,
+    this.scale = 1,
+    this.pictureKey,
+  });
 
   /// [KidTimeState.timeUp] or [KidTimeState.outsideWindow].
   final KidTimeState state;
 
   /// Grows the drawing with the child home's avatar on wide screens.
   final double scale;
+
+  /// The picture's key: the home that shows one resting screen after
+  /// another keeps the one mascot, so it falls asleep only once.
+  final Key? pictureKey;
 
   static const timeUp = 'Acabou por hoje';
 
@@ -32,7 +41,13 @@ class SleepingTelinha extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShelfPicture(look: TeviLook.asleep, perch: Perch.wire, scale: scale),
+        ShelfPicture(
+          key: pictureKey,
+          look: TeviLook.asleep,
+          perch: Perch.wire,
+          scale: scale,
+          fallsAsleep: true,
+        ),
         const SizedBox(height: Space.lg),
         Text(
           state == KidTimeState.outsideWindow ? outsideWindow : timeUp,

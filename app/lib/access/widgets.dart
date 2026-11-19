@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../design/busy_ring.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 
@@ -89,10 +90,7 @@ class PrimaryButton extends StatelessWidget {
             label: label,
             child: SizedBox.square(
               dimension: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: context.palette.text,
-              ),
+              child: BusyRing(strokeWidth: 2.5, color: context.palette.text),
             ),
           )
         // At large text a long label wraps; its lines stay centred.
@@ -228,8 +226,8 @@ class StateModule extends StatelessWidget {
     final p = context.palette;
     final h = height;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+      duration: Motion.of(context, Motion.change),
+      curve: Motion.settle,
       width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(
@@ -387,7 +385,7 @@ class QuietAction extends StatelessWidget {
       icon: busy
           ? SizedBox.square(
               dimension: 18,
-              child: CircularProgressIndicator(
+              child: BusyRing(
                 strokeWidth: 2,
                 color: color ?? context.palette.text,
               ),

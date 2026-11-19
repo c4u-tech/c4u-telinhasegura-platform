@@ -326,6 +326,7 @@ class InkRail extends StatelessWidget {
           builder: (context, n, field) => PerchedTevi(
             size: ShellSizes.railTevi,
             wink: n > 0,
+            corner: ShellSizes.railCorner,
             child: field!,
           ),
           child: DecoratedBox(

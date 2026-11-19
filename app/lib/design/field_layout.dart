@@ -512,6 +512,7 @@ class _Field extends StatelessWidget {
     return PerchedTevi(
       size: tevi,
       wink: wink,
+      corner: corner,
       child: expand
           // The field fills the panel; at large text sizes its content
           // scrolls inside it rather than overflowing.
@@ -546,6 +547,7 @@ class PerchedTevi extends StatefulWidget {
     required this.size,
     required this.child,
     this.wink = false,
+    this.corner = 0,
   });
 
   /// How long the wink takes: the eye closes, holds and opens again.
@@ -562,6 +564,10 @@ class PerchedTevi extends StatefulWidget {
   final bool wink;
   final Widget child;
 
+  /// The field's corner radius: the app's opening, landing its mascot on
+  /// this one, closes its ground onto the field's shape.
+  final double corner;
+
   @override
   State<PerchedTevi> createState() => _PerchedTeviState();
 }
@@ -577,23 +583,20 @@ class _PerchedTeviState extends State<PerchedTevi>
   /// to be read, then opens more gently.
   late final _lid = TweenSequence<double>([
     TweenSequenceItem(
-      tween: Tween(
-        begin: 0.0,
-        end: 1.0,
-      ).chain(CurveTween(curve: Curves.easeOut)),
+      tween: Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Motion.shut)),
       weight: 20,
     ),
     TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
     TweenSequenceItem(
-      tween: Tween(
-        begin: 1.0,
-        end: 0.0,
-      ).chain(CurveTween(curve: Curves.easeInOut)),
+      tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Motion.sway)),
       weight: 40,
     ),
   ]).animate(_wink);
 
   bool _played = false;
+
+  /// The field it stands on, for the app's opening to close onto.
+  final _field = GlobalKey();
 
   /// Under reduced motion the wink is shown, not played: the eye stays
   /// shut until this ends.
@@ -643,9 +646,11 @@ class _PerchedTeviState extends State<PerchedTevi>
         context.palette.brightness == Brightness.dark;
     final figure = AnimatedBuilder(
       animation: _lid,
+      // The wink moves the look itself, frame by frame.
       builder: (context, _) => Tevi(
         size: size,
         night: night,
+        eases: false,
         look: _shut != null
             ? TeviLook.winking
             : TeviLook.lerp(TeviLook.watching, TeviLook.winking, _lid.value),
@@ -657,7 +662,7 @@ class _PerchedTeviState extends State<PerchedTevi>
       children: [
         Padding(
           padding: EdgeInsets.only(top: PerchedTevi.standOf(size)),
-          child: widget.child,
+          child: KeyedSubtree(key: _field, child: widget.child),
         ),
         // The figure's box is square and drawn facing the end side; its
         // legs end at [TeviPainter.perchY] of its height.
@@ -666,10 +671,17 @@ class _PerchedTeviState extends State<PerchedTevi>
           start: TeviPainter.perchInset - size * TeviPainter.body.left,
           width: size,
           height: size,
-          child: IgnorePointer(
-            child: Transform.flip(
-              flipX: Directionality.of(context) == TextDirection.rtl,
-              child: figure,
+          child: TeviLanding(
+            look: TeviLook.watching,
+            night: night,
+            flipped: Directionality.of(context) == TextDirection.rtl,
+            field: _field,
+            fieldCorner: widget.corner,
+            child: IgnorePointer(
+              child: Transform.flip(
+                flipX: Directionality.of(context) == TextDirection.rtl,
+                child: figure,
+              ),
             ),
           ),
         ),

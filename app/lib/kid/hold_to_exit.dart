@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import 'press_sink.dart';
 
 /// The child side's only control: an icon in a top
 /// corner that exits only after a continuous 2-second press, its ring
@@ -17,7 +18,7 @@ class HoldToExit extends StatefulWidget {
   const HoldToExit({super.key, required this.onExit, this.color});
 
   static const label = 'Sair do modo criança';
-  static const hold = Duration(seconds: 2);
+  static const hold = Motion.hold;
 
   final VoidCallback onExit;
 
@@ -94,26 +95,28 @@ class _HoldToExitState extends State<HoldToExit>
             if (!on) _release();
             setState(() => _focused = on);
           },
-          child: Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerDown: (_) => _press(),
-            onPointerUp: (_) => _release(),
-            onPointerCancel: (_) => _release(),
-            child: SizedBox.square(
-              dimension: KidSizes.target,
-              child: AnimatedBuilder(
-                animation: _ring,
-                builder: (context, _) => CustomPaint(
-                  painter: ExitRingPainter(
-                    progress: _ring.value,
-                    track: color?.withValues(alpha: .4) ?? p.outline,
-                    fill: color ?? p.meter,
-                    focus: _focused ? color ?? p.muted : null,
-                  ),
-                  child: Center(
-                    child: CustomPaint(
-                      size: const Size.square(32),
-                      painter: ExitGlyphPainter(color: color ?? p.outline),
+          child: PressSink(
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) => _press(),
+              onPointerUp: (_) => _release(),
+              onPointerCancel: (_) => _release(),
+              child: SizedBox.square(
+                dimension: KidSizes.target,
+                child: AnimatedBuilder(
+                  animation: _ring,
+                  builder: (context, _) => CustomPaint(
+                    painter: ExitRingPainter(
+                      progress: _ring.value,
+                      track: color?.withValues(alpha: .4) ?? p.outline,
+                      fill: color ?? p.meter,
+                      focus: _focused ? color ?? p.muted : null,
+                    ),
+                    child: Center(
+                      child: CustomPaint(
+                        size: const Size.square(32),
+                        painter: ExitGlyphPainter(color: color ?? p.outline),
+                      ),
                     ),
                   ),
                 ),

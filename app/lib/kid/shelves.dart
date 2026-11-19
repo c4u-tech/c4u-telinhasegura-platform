@@ -7,6 +7,7 @@ import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'empty_shelf.dart';
+import 'press_sink.dart';
 import 'player_keys.dart';
 
 /// Reads a video's thumbnail bytes from our API.
@@ -110,63 +111,66 @@ class _VideoTileState extends State<VideoTile> {
       label: VideoTile.label(widget.video.title, resting: widget.resting),
       onTap: widget.onTap,
       child: ExcludeSemantics(
-        child: SizedBox.fromSize(
-          size: widget.size,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(
-              shape: shape.copyWith(side: ring ?? BorderSide.none),
-            ),
-            // The resting stroke sits inside the frame and the focus ring
-            // outside it, so a focused resting tile keeps both signs.
+        child: PressSink(
+          enabled: widget.onTap != null,
+          child: SizedBox.fromSize(
+            size: widget.size,
             child: DecoratedBox(
               position: DecorationPosition.foreground,
-              decoration: ShapeDecoration(shape: shape.copyWith(side: rest)),
-              child: Material(
-                type: MaterialType.transparency,
-                shape: shape,
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // The disc is part of the picture, so a resting
-                    // tile quiets it with the rest.
-                    _picture(
-                      Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ThumbnailPicture(
-                            videoId: widget.video.id,
-                            thumbnail: widget.thumbnail,
-                            radius: radius,
-                          ),
-                          if (widget.playDisc)
-                            PositionedDirectional(
-                              end: PlayDisc.inset * widget.playDiscScale,
-                              bottom: PlayDisc.inset * widget.playDiscScale,
-                              child: PlayDisc(
-                                scale: widget.playDiscScale,
-                                ring: world?.ringsDisc ?? false
-                                    ? ColourWorlds.discRing
-                                    : null,
-                              ),
+              decoration: ShapeDecoration(
+                shape: shape.copyWith(side: ring ?? BorderSide.none),
+              ),
+              // The resting stroke sits inside the frame and the focus ring
+              // outside it, so a focused resting tile keeps both signs.
+              child: DecoratedBox(
+                position: DecorationPosition.foreground,
+                decoration: ShapeDecoration(shape: shape.copyWith(side: rest)),
+                child: Material(
+                  type: MaterialType.transparency,
+                  shape: shape,
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // The disc is part of the picture, so a resting
+                      // tile quiets it with the rest.
+                      _picture(
+                        Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ThumbnailPicture(
+                              videoId: widget.video.id,
+                              thumbnail: widget.thumbnail,
+                              radius: radius,
                             ),
-                        ],
+                            if (widget.playDisc)
+                              PositionedDirectional(
+                                end: PlayDisc.inset * widget.playDiscScale,
+                                bottom: PlayDisc.inset * widget.playDiscScale,
+                                child: PlayDisc(
+                                  scale: widget.playDiscScale,
+                                  ring: world?.ringsDisc ?? false
+                                      ? ColourWorlds.discRing
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                        world?.ground ?? p.ground,
                       ),
-                      world?.ground ?? p.ground,
-                    ),
-                    InkWell(
-                      onTap: widget.onTap,
-                      // Kept focusable while a play is pending: the ring
-                      // stays where the child left it.
-                      canRequestFocus: true,
-                      onFocusChange: (f) => setState(() => _focused = f),
-                      focusColor: Colors.transparent,
-                      hoverColor: line.withValues(alpha: .08),
-                      highlightColor: line.withValues(alpha: .12),
-                      splashColor: line.withValues(alpha: .12),
-                    ),
-                  ],
+                      InkWell(
+                        onTap: widget.onTap,
+                        // Kept focusable while a play is pending: the ring
+                        // stays where the child left it.
+                        canRequestFocus: true,
+                        onFocusChange: (f) => setState(() => _focused = f),
+                        focusColor: Colors.transparent,
+                        hoverColor: line.withValues(alpha: .08),
+                        highlightColor: line.withValues(alpha: .12),
+                        splashColor: line.withValues(alpha: .12),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -403,17 +407,19 @@ class ShelvesFailed extends StatelessWidget {
       Center(
         child: SizedBox(
           width: ShelfPicture.screen.width * scale,
-          child: FilledButton(
-            onPressed: onRetry,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(KidSizes.target),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  KidSizes.target * Radii.screenRatio,
+          child: PressSink(
+            child: FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(KidSizes.target),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    KidSizes.target * Radii.screenRatio,
+                  ),
                 ),
               ),
+              child: const Text(retry),
             ),
-            child: const Text(retry),
           ),
         ),
       ),

@@ -64,10 +64,23 @@ class ShelfPicture extends StatelessWidget {
     required this.look,
     this.perch = Perch.screen,
     this.scale = 1,
+    this.blinks = true,
+    this.arrivesFrom,
+    this.fallsAsleep = false,
   });
 
   final TeviLook look;
   final Perch perch;
+
+  /// As [Tevi.fallsAsleep].
+  final bool fallsAsleep;
+
+  /// As [Tevi.arrivesFrom].
+  final TeviLook? arrivesFrom;
+
+  /// Whether the mascot blinks once as its screen arrives: not where the
+  /// picture answers a problem rather than a place.
+  final bool blinks;
 
   /// The whole picture's scale: [size] at 1.
   final double scale;
@@ -141,6 +154,9 @@ class ShelfPicture extends StatelessWidget {
                 look: look,
                 night: night,
                 markColor: BrandColors.sky,
+                blinks: blinks,
+                arrivesFrom: arrivesFrom,
+                fallsAsleep: fallsAsleep,
               ),
             ),
           ],

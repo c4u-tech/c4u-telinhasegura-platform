@@ -43,6 +43,8 @@ class KidErrorNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    // A warning is an answer: the crest rises as the note appears.
+    final from = asleep ? null : TeviLook.watching;
     const corner = Radius.circular(48 * Radii.screenRatio);
     final line = DecoratedBox(
       decoration: BoxDecoration(
@@ -76,12 +78,16 @@ class KidErrorNote extends StatelessWidget {
               size: picture,
               look: asleep ? TeviLook.asleep : TeviLook.crestUp,
               markColor: BrandColors.sky,
+              blinks: false,
+              arrivesFrom: from,
             )
           else
             ShelfPicture(
               look: asleep ? TeviLook.asleep : TeviLook.crestUp,
               perch: asleep ? Perch.wire : Perch.screen,
               scale: picture / ShelfPicture.size.height,
+              blinks: false,
+              arrivesFrom: from,
             ),
           beside
               ? const SizedBox(width: Space.sm)
@@ -220,7 +226,7 @@ class MascotUnderNote extends StatelessWidget {
 
   final Widget child;
 
-  static const fade = Duration(milliseconds: 150);
+  static const fade = Motion.quick;
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +235,7 @@ class MascotUnderNote extends StatelessWidget {
         false;
     return AnimatedOpacity(
       opacity: showing ? 0 : 1,
-      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : fade,
+      duration: Motion.of(context, fade),
       child: child,
     );
   }

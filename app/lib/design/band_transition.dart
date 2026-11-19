@@ -53,8 +53,8 @@ class BandTransition extends AnimatedWidget {
     required this.child,
   }) : super(listenable: animation);
 
-  static const duration = Duration(milliseconds: 400);
-  static const curve = Curves.easeOutCubic;
+  static const duration = Motion.band;
+  static const curve = Motion.settle;
 
   final BandMotion motion;
   final Widget child;

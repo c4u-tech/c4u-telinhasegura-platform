@@ -231,3 +231,63 @@ func TestSiteNeverShowsTheTealGroundSignatures(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The launch screen shows the body alone, the sun rounded rectangle, where
+// the whole figure would stand: its drawing centred in the square, its
+// 132-unit box spanning frac of it. The app draws the rest over it at the
+// same place, so the body must not move between the two.
+func TestLaunchMarksAreTheBodyAlone(t *testing.T) {
+	sun := color.RGBA{0xFF, 0xC4, 0x2E, 0xFF}
+	// Each launch image is drawn at 4 pixels to the dp: below Android 12
+	// and on iOS the image itself, 192 dp across; from Android 12 the
+	// system's icon, 288 dp across and masked to a 192 dp circle. Either
+	// way the mascot's box is 192 dp, so the app's opening draws one box
+	// on every version.
+	const box = 192.0
+	for file, dp := range map[string]float64{
+		"brand/app-icon/splash-mark.png":      192,
+		"brand/app-icon/splash-android12.png": 288,
+	} {
+		img := decode(t, file)
+		b := img.Bounds()
+		side := float64(b.Dx())
+		if side != dp*4 {
+			t.Errorf("%s is %v px across, want %v (%v dp at 4x)", file, side, dp*4, dp)
+		}
+		minX, minY, maxX, maxY := b.Max.X, b.Max.Y, b.Min.X, b.Min.Y
+		reach := 0.0
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			for x := b.Min.X; x < b.Max.X; x++ {
+				c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+				if c.A == 0 {
+					continue
+				}
+				if c.A == 0xFF && (c.R != sun.R || c.G != sun.G || c.B != sun.B) {
+					t.Fatalf("%s pixel %d,%d is %v, not the body's sun", file, x, y, c)
+				}
+				minX, maxX = min(minX, x), max(maxX, x+1)
+				minY, maxY = min(minY, y), max(maxY, y+1)
+				// The farthest corner of the pixel from the image's centre.
+				dx := math.Max(math.Abs(float64(x)-side/2), math.Abs(float64(x+1)-side/2))
+				dy := math.Max(math.Abs(float64(y)-side/2), math.Abs(float64(y+1)-side/2))
+				reach = math.Max(reach, math.Hypot(dx, dy))
+			}
+		}
+		// The whole figure's drawing runs 3.7..115.03 by 20..103.4 units;
+		// the body 14..98 by 20..90.
+		s := box * 4 / 132
+		ox, oy := side/2-s*(3.7+115.03)/2, side/2-s*(20+103.4)/2
+		want := [4]float64{ox + 14*s, oy + 20*s, ox + 98*s, oy + 90*s}
+		got := [4]float64{float64(minX), float64(minY), float64(maxX), float64(maxY)}
+		for i := range want {
+			if math.Abs(got[i]-want[i]) > 1.5 {
+				t.Errorf("%s body spans %v, want %v", file, got, want)
+				break
+			}
+		}
+		// The body stays inside the 192 dp circle Android 12 shows.
+		if reach > 96*4 {
+			t.Errorf("%s body reaches %.1f px from the centre, past the 384 px circle", file, reach)
+		}
+	}
+}

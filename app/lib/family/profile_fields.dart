@@ -115,8 +115,8 @@ class _AvatarTile extends StatelessWidget {
         // The ring stands 2 px off the disc, so it reads against the
         // disc's own ink.
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+          duration: Motion.of(context, Motion.change),
+          curve: Motion.settle,
           padding: const EdgeInsets.all(2),
           decoration: ShapeDecoration(
             shape: CircleBorder(
@@ -271,8 +271,8 @@ class SelectableRow extends StatelessWidget {
       radius: radius,
       toggle: toggle,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+        duration: Motion.of(context, Motion.change),
+        curve: Motion.settle,
         constraints: BoxConstraints(minHeight: height),
         // One line of words stands centred in the row's height.
         alignment: asKey ? Alignment.center : Alignment.centerLeft,

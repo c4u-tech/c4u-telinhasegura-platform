@@ -45,13 +45,18 @@ class TeviLook {
   static const asleep = TeviLook(lid: 1, sag: 1, sleepMarks: true);
 
   /// The look [t] of the way from [a] to [b]. The marks, which do not
-  /// fade, switch halfway.
+  /// fade, show only at an end that has them: over a half-shut eye they
+  /// would say asleep too early, or still asleep once it wakes.
   static TeviLook lerp(TeviLook a, TeviLook b, double t) => TeviLook(
     lid: lerpDouble(a.lid, b.lid, t)!,
     sag: lerpDouble(a.sag, b.sag, t)!,
     gaze: lerpDouble(a.gaze, b.gaze, t)!,
     crest: lerpDouble(a.crest, b.crest, t)!,
-    sleepMarks: t < .5 ? a.sleepMarks : b.sleepMarks,
+    sleepMarks: switch (t) {
+      <= 0 => a.sleepMarks,
+      >= 1 => b.sleepMarks,
+      _ => a.sleepMarks && b.sleepMarks,
+    },
   );
 
   @override
@@ -72,6 +77,51 @@ class TeviLook {
       'sleepMarks: $sleepMarks)';
 }
 
+/// How far each part of the mascot has come out of its body, 0 not yet
+/// to 1 in place: the app's opening builds the figure from the body
+/// alone, as the launch screen shows it. A value past 1 overshoots, for a
+/// part that springs into place.
+@immutable
+class TeviAssembly {
+  const TeviAssembly({
+    this.look = 1,
+    this.eye = 1,
+    this.legs = 1,
+    this.ends = 1,
+  });
+
+  /// The head's crown, eyebrow and mask, wiping across from the tail's
+  /// side.
+  final double look;
+
+  /// The eye, growing from its centre.
+  final double eye;
+
+  /// The legs, dropping from under the body.
+  final double legs;
+
+  /// The beak and the tail, sliding out from behind the body.
+  final double ends;
+
+  static const whole = TeviAssembly();
+  static const body = TeviAssembly(look: 0, eye: 0, legs: 0, ends: 0);
+
+  @override
+  bool operator ==(Object other) =>
+      other is TeviAssembly &&
+      other.look == look &&
+      other.eye == eye &&
+      other.legs == legs &&
+      other.ends == ends;
+
+  @override
+  int get hashCode => Object.hash(look, eye, legs, ends);
+
+  @override
+  String toString() =>
+      'TeviAssembly(look: $look, eye: $eye, legs: $legs, ends: $ends)';
+}
+
 /// The mascot, facing right, drawn in its square
 /// 132-unit box (the figure's 120 units with 6 of air on each side)
 /// scaled to the canvas width.
@@ -88,11 +138,15 @@ class TeviPainter extends CustomPainter {
     this.tier = TeviTier.full,
     this.night = false,
     this.markColor = BrandColors.ink,
+    this.assembly = TeviAssembly.whole,
   });
 
   final TeviLook look;
   final TeviTier tier;
   final bool night;
+
+  /// How much of the figure is out of its body.
+  final TeviAssembly assembly;
 
   /// The two "Z" marks of sleep.
   final Color markColor;
@@ -119,6 +173,17 @@ class TeviPainter extends CustomPainter {
   /// of the box's height from its top: a picture that must hold every
   /// look keeps this line inside it.
   static const top = (7.88 + _air) / _box;
+
+  /// The middle of the whole figure's drawing, tail to beak and crown to
+  /// feet, as fractions of the box: where a launch screen centres it.
+  static const drawingCentre = Offset(
+    ((3.70 + 115.03) / 2 + _air) / _box,
+    ((20 + 103.4) / 2 + _air) / _box,
+  );
+
+  /// How far the beak and the tail sit behind the body before they come
+  /// out: far enough to hide them whole.
+  static const _tuckedEnds = 18.0;
 
   /// The body's rounded rectangle, as fractions of the box.
   static const body = Rect.fromLTRB(
@@ -264,26 +329,76 @@ class TeviPainter extends CustomPainter {
       if (crest < 1) canvas.restore();
     }
 
-    if (full) canvas.drawPath(_tail, fill(dark));
-    canvas.drawPath(_beak, fill(BrandColors.beak));
+    final parts = assembly;
+    // Behind the body, the tail and the beak slide out of it.
+    if (parts.ends > 0) {
+      final tucked = (1 - parts.ends) * _tuckedEnds;
+      if (full) {
+        _moved(canvas, Offset(tucked, 0), () {
+          canvas.drawPath(_tail, fill(dark));
+        });
+      }
+      _moved(canvas, Offset(-tucked, 0), () {
+        canvas.drawPath(_beak, fill(BrandColors.beak));
+      });
+    }
     canvas.save();
     canvas.clipRRect(_body);
-    canvas.drawPath(_sun, fill(BrandColors.sun));
-    canvas.drawRect(const Rect.fromLTRB(14, 20, 98, 38), fill(dark));
-    canvas.drawRect(
-      const Rect.fromLTRB(14, 38, 98, 44.5),
-      fill(BrandColors.cream),
-    );
-    canvas.drawPath(_mask, fill(dark));
+    final wiping = parts.look < 1;
+    if (wiping) {
+      // The body still bare, as the launch screen shows it, with the look
+      // wiping over it from the tail's side.
+      canvas.drawRect(
+        const Rect.fromLTRB(14, 20, 98, 90),
+        fill(BrandColors.sun),
+      );
+    }
+    if (parts.look > 0) {
+      if (wiping) {
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, 14 + 84 * parts.look, _box));
+      }
+      canvas.drawPath(_sun, fill(BrandColors.sun));
+      canvas.drawRect(const Rect.fromLTRB(14, 20, 98, 38), fill(dark));
+      canvas.drawRect(
+        const Rect.fromLTRB(14, 38, 98, 44.5),
+        fill(BrandColors.cream),
+      );
+      canvas.drawPath(_mask, fill(dark));
+      if (wiping) canvas.restore();
+    }
     canvas.restore();
 
-    if (full) {
-      for (final leg in _legs) {
-        canvas.drawRRect(leg, fill(dark));
+    if (full && parts.legs > 0) {
+      void legs() {
+        for (final leg in _legs) {
+          canvas.drawRRect(leg, fill(dark));
+        }
+      }
+
+      if (parts.legs < 1) {
+        // Hanging from where they leave the body.
+        canvas.save();
+        canvas.translate(0, _legs.first.top);
+        canvas.scale(1, parts.legs);
+        canvas.translate(0, -_legs.first.top);
+        legs();
+        canvas.restore();
+      } else {
+        legs();
       }
     }
 
-    _eye(canvas, dark, full, crest);
+    if (parts.eye > 0) {
+      if (parts.eye != 1) {
+        canvas.save();
+        canvas.translate(74, 52);
+        canvas.scale(parts.eye);
+        canvas.translate(-74, -52);
+      }
+      _eye(canvas, dark, full, crest);
+      if (parts.eye != 1) canvas.restore();
+    }
 
     if (look.sleepMarks) {
       for (final z in _marks) {
@@ -347,6 +462,15 @@ class TeviPainter extends CustomPainter {
     }
   }
 
+  /// Draws with [draw] moved by [by], or in place when it is zero.
+  static void _moved(Canvas canvas, Offset by, VoidCallback draw) {
+    if (by == Offset.zero) return draw();
+    canvas.save();
+    canvas.translate(by.dx, by.dy);
+    draw();
+    canvas.restore();
+  }
+
   /// What the eyelid leaves open: the band [half] above and below the
   /// lid's line, run flat past the eye on both sides.
   static Path _opening(double ends, double bend, double half) => Path()
@@ -403,7 +527,8 @@ class TeviPainter extends CustomPainter {
       old.look != look ||
       old.tier != tier ||
       old.night != night ||
-      old.markColor != markColor;
+      old.markColor != markColor ||
+      old.assembly != assembly;
 }
 
 /// The ground behind every mascot drawn below it, so each picks its
@@ -440,10 +565,185 @@ class TeviGround extends InheritedWidget {
   bool updateShouldNotify(TeviGround old) => old.color != color;
 }
 
+/// The hand-over from the app's opening to its first screen: the opening's
+/// mascot travels onto the screen's own, which waits unseen until it has
+/// landed. While [holding], every mascot below a [TeviHandoffScope] holds
+/// back what it would play as its screen arrives (a blink, a look easing
+/// in, a gaze sweeping), and a [TeviLanding] is not painted; [release]
+/// lets them all go at once, as the travelling one lands.
+class TeviHandoff extends ChangeNotifier {
+  /// It holds from the start unless made with false.
+  TeviHandoff([this._holding = true]);
+
+  bool _holding;
+  bool get holding => _holding;
+
+  final _landings = <_TeviLandingState>[];
+
+  void release() {
+    if (!_holding) return;
+    _holding = false;
+    notifyListeners();
+  }
+
+  /// The first screen's mascot as it stands in [ancestor] now: the first
+  /// laid out on the page in front, or null where it has none.
+  TeviSpot? spotIn(RenderBox ancestor) {
+    for (final landing in _landings) {
+      if (landing._spotIn(ancestor) case final spot?) return spot;
+    }
+    return null;
+  }
+}
+
+/// Where a mascot the opening lands on stands, and how it looks, so the
+/// travelling one arrives as it: the same box, look, colours and facing.
+@immutable
+class TeviSpot {
+  const TeviSpot({
+    required this.box,
+    required this.look,
+    required this.night,
+    required this.flipped,
+    this.field,
+  });
+
+  /// The mascot's square box.
+  final Rect box;
+  final TeviLook look;
+  final bool night;
+
+  /// Whether it is drawn mirrored, facing the start side.
+  final bool flipped;
+
+  /// The ink field it stands on, if any.
+  final RRect? field;
+
+  @override
+  String toString() => 'TeviSpot($box, $look, night: $night, field: $field)';
+}
+
+/// Below it, the mascots wait for [handoff] to let them go.
+class TeviHandoffScope extends InheritedNotifier<TeviHandoff> {
+  const TeviHandoffScope({
+    super.key,
+    required TeviHandoff handoff,
+    required super.child,
+  }) : super(notifier: handoff);
+
+  static TeviHandoff? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TeviHandoffScope>()?.notifier;
+
+  /// Whether the mascots below [context] are still held back.
+  static bool holdsAt(BuildContext context) =>
+      maybeOf(context)?.holding ?? false;
+}
+
+/// A screen's own mascot that the app's opening may land on: [child] is
+/// its square box, drawn with [look] and [night], mirrored if [flipped].
+/// It stands on the ink field [field] holds, with corners of
+/// [fieldCorner], if it stands on one. Where no opening is under way it
+/// is simply [child].
+class TeviLanding extends StatefulWidget {
+  const TeviLanding({
+    super.key,
+    required this.look,
+    required this.night,
+    this.flipped = false,
+    this.field,
+    this.fieldCorner = 0,
+    required this.child,
+  });
+
+  final TeviLook look;
+  final bool night;
+  final bool flipped;
+  final GlobalKey? field;
+  final double fieldCorner;
+  final Widget child;
+
+  @override
+  State<TeviLanding> createState() => _TeviLandingState();
+}
+
+class _TeviLandingState extends State<TeviLanding> {
+  TeviHandoff? _handoff;
+  ModalRoute<Object?>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    final handoff = TeviHandoffScope.maybeOf(context);
+    if (handoff == _handoff) return;
+    _handoff?._landings.remove(this);
+    _handoff = handoff?.._landings.add(this);
+  }
+
+  // Out of the tree, even for a frame, it is nowhere to land.
+  @override
+  void deactivate() {
+    _handoff?._landings.remove(this);
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _handoff?._landings.add(this);
+  }
+
+  @override
+  void dispose() {
+    _handoff?._landings.remove(this);
+    super.dispose();
+  }
+
+  TeviSpot? _spotIn(RenderBox ancestor) {
+    if (!mounted || !(_route?.isCurrent ?? true)) return null;
+    final box = _rectIn(context, ancestor);
+    if (box == null) return null;
+    final field = switch (widget.field?.currentContext) {
+      final field? => _rectIn(field, ancestor),
+      null => null,
+    };
+    return TeviSpot(
+      box: box,
+      look: widget.look,
+      night: widget.night,
+      flipped: widget.flipped,
+      field: field == null
+          ? null
+          : RRect.fromRectAndRadius(field, Radius.circular(widget.fieldCorner)),
+    );
+  }
+
+  static Rect? _rectIn(BuildContext context, RenderBox ancestor) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    return MatrixUtils.transformRect(
+      box.getTransformTo(ancestor),
+      Offset.zero & box.size,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+    // Unseen until the opening's mascot lands on it and goes.
+    opacity: TeviHandoffScope.holdsAt(context) ? 0 : 1,
+    child: widget.child,
+  );
+}
+
 /// The mascot at [size] by [size]. It is decoration unless given a
 /// [semanticLabel]: most places name the app or the moment in words
 /// beside it.
-class Tevi extends StatelessWidget {
+///
+/// A new [look] on a mascot already shown eases in over [Motion.change],
+/// or [Motion.fallAsleep] when it goes to sleep, once and never again on
+/// its own; under reduced motion it is a cut. With [blinks] it blinks
+/// once as its screen arrives; while [searching] its gaze sweeps.
+class Tevi extends StatefulWidget {
   const Tevi({
     super.key,
     required this.size,
@@ -452,11 +752,21 @@ class Tevi extends StatelessWidget {
     this.night = false,
     this.markColor = BrandColors.ink,
     this.semanticLabel,
+    this.eases = true,
+    this.blinks = false,
+    this.searching = false,
+    this.assembly = TeviAssembly.whole,
+    this.arrivesFrom,
+    this.fallsAsleep = false,
   });
 
   final double size;
   final TeviTier tier;
   final TeviLook look;
+
+  /// How much of the figure is out of its body: whole but for the
+  /// opening, which brings the parts out frame by frame.
+  final TeviAssembly assembly;
 
   /// The night colours, for the darkest ground.
   final bool night;
@@ -465,18 +775,276 @@ class Tevi extends StatelessWidget {
   final Color markColor;
   final String? semanticLabel;
 
+  /// Whether a new [look] eases in. A caller that moves the look itself,
+  /// frame by frame, draws each one as given.
+  final bool eases;
+
+  /// Whether it blinks once, over [Motion.blink], when its screen has
+  /// arrived: a sign of life on the child's screens, never repeated while
+  /// it stays. An eye already shut, or a platform asking for reduced
+  /// motion, has no blink.
+  final bool blinks;
+
+  /// Whether its gaze sweeps slowly back over its shoulder and ahead
+  /// again, once every [Motion.gaze]: what is loading, shown as someone
+  /// looking for it. The one motion a mascot makes on its own, so it is
+  /// kept for a screen that only waits, and runs only while shown; under
+  /// reduced motion the mascot looks ahead, still.
+  final bool searching;
+
+  /// The look it shows first, easing from it into [look] once it is
+  /// shown: a mascot that answers something just as it appears, as the
+  /// crest rising on a warning. Under reduced motion it shows [look] at
+  /// once.
+  final TeviLook? arrivesFrom;
+
+  /// Whether it arrives awake and falls asleep into [look] once its
+  /// screen has arrived: a resting screen's own arrival, in place of the
+  /// blink. It watches for [Motion.change] first, so the child sees it
+  /// awake, then its eye closes over [Motion.fallAsleep]; it never
+  /// replays while it stays. Where motion is still (reduced motion, or
+  /// loops switched off) it is asleep from the first frame.
+  final bool fallsAsleep;
+
+  /// How long the passage to [look] takes: a sleepy eye closes slowly.
+  static Duration lengthTo(TeviLook look) =>
+      look.sleepMarks ? Motion.fallAsleep : Motion.change;
+
+  @override
+  State<Tevi> createState() => _TeviState();
+}
+
+class _TeviState extends State<Tevi> with TickerProviderStateMixin {
+  late final _change = AnimationController(vsync: this);
+
+  /// The eye shutting and opening again: 0 open, 1 shut, halfway in.
+  late final _blink = AnimationController(vsync: this, duration: Motion.blink);
+  late final Animation<double> _shut = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 1),
+  ]).chain(CurveTween(curve: Motion.sway)).animate(_blink);
+
+  /// The gaze sweeping: back in the first half, ahead in the second.
+  late final _search = AnimationController(vsync: this, duration: Motion.gaze);
+  late final Animation<double> _back = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 1),
+  ]).chain(CurveTween(curve: Motion.sway)).animate(_search);
+
+  /// The gaze coming back ahead once the search ends, from [_backFrom].
+  late final _ahead = AnimationController(vsync: this, duration: Motion.change);
+  double _backFrom = 0;
+
+  /// Whether the arrival was already seen, blink or not.
+  bool _arrived = false;
+
+  /// The page this mascot arrives with, while it is still coming in.
+  Animation<double>? _coming;
+
+  /// Whether it still watches, before falling asleep on arrival.
+  bool _awake = false;
+
+  /// What to do once the page has arrived.
+  VoidCallback? _then;
+
+  /// Where the passage under way started.
+  late TeviLook _from = widget.look;
+
+  late final CurvedAnimation _eased = CurvedAnimation(
+    parent: _change,
+    curve: Motion.settle,
+  );
+
+  TeviLook get _look {
+    final look = _change.isAnimating
+        ? TeviLook.lerp(_from, widget.look, _eased.value)
+        : _awake
+        ? TeviLook.watching
+        : widget.look;
+    if (!_blink.isAnimating && !_search.isAnimating && !_ahead.isAnimating) {
+      return look;
+    }
+    final shut = _blink.isAnimating ? _shut.value : 0.0;
+    final back = _search.isAnimating
+        ? _back.value
+        : _ahead.isAnimating
+        ? _backFrom * (1 - Motion.settle.transform(_ahead.value))
+        : 0.0;
+    return TeviLook(
+      lid: look.lid + (1 - look.lid) * shut,
+      sag: look.sag,
+      gaze: look.gaze + (1 - look.gaze) * back,
+      crest: look.crest,
+      sleepMarks: look.sleepMarks,
+    );
+  }
+
+  bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  /// Whether the opening still holds this mascot back, unseen.
+  bool _held = false;
+
+  void _searchOrNot() {
+    final loops = Motion.loopsIn(context);
+    if (widget.searching && loops && !_held) {
+      _ahead.reset();
+      if (!_search.isAnimating) _search.repeat();
+      return;
+    }
+    // A search that ends while the mascot is still shown turns its gaze
+    // back ahead rather than snapping there; one stilled for reduced
+    // motion simply stops.
+    if (_search.isAnimating && loops && _back.value > 0) {
+      _backFrom = _back.value;
+      _ahead.forward(from: 0);
+    }
+    _search.reset();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _held = TeviHandoffScope.holdsAt(context);
+    _searchOrNot();
+    // Awake from its first frame, until its screen is there to watch it
+    // fall asleep; a screen whose motion is stilled meanwhile cuts to it.
+    final falls = widget.fallsAsleep && Motion.loopsIn(context);
+    if (!_arrived && falls) _awake = true;
+    if (_awake && !falls) _awake = false;
+    // Its arrival waits for the opening to let it go: until then it is
+    // under the opening's ground, or unseen beneath the mascot landing on
+    // it.
+    if (_arrived || _held) return;
+    _arrived = true;
+    if (widget.arrivesFrom case final from? when widget.eases && !_still) {
+      _ease(from);
+    }
+    if (_awake) {
+      _awaitArrival(ModalRoute.of(context), _fallAsleep);
+      return;
+    }
+    if (!widget.blinks || widget.look.lid > 0 || _still) {
+      return;
+    }
+    _awaitArrival(ModalRoute.of(context), _blinkOnce);
+  }
+
+  void _blinkOnce() {
+    if (widget.look.lid == 0) _blink.forward();
+  }
+
+  /// From watching into [Tevi.look], after a beat of [Motion.change].
+  void _fallAsleep() {
+    if (!_awake) return;
+    _awake = false;
+    final length = Tevi.lengthTo(widget.look);
+    final total = Motion.change + length;
+    _from = TeviLook.watching;
+    _eased.curve = Interval(
+      Motion.change.inMicroseconds / total.inMicroseconds,
+      1,
+      curve: widget.look.sleepMarks ? Motion.sway : Motion.settle,
+    );
+    _change
+      ..duration = total
+      ..forward(from: 0);
+  }
+
+  /// Does [then] once [route] has arrived. A page still growing in would
+  /// hide most of an arrival's gesture, so it waits for it; a page being
+  /// laid out unseen, before its first shown frame, is not there yet
+  /// either.
+  void _awaitArrival(ModalRoute<Object?>? route, VoidCallback then) {
+    if (!mounted) return;
+    if (route == null) {
+      then();
+    } else if (route.offstage) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _awaitArrival(route, then),
+      );
+    } else if (route.animation case final page? when !page.isCompleted) {
+      _then = then;
+      _coming = page..addStatusListener(_pageMoved);
+    } else {
+      then();
+    }
+  }
+
+  void _pageMoved(AnimationStatus status) {
+    if (status.isAnimating) return;
+    _coming?.removeStatusListener(_pageMoved);
+    _coming = null;
+    final then = _then;
+    _then = null;
+    // A page that went back instead never arrived; a resting mascot is
+    // then simply asleep.
+    if (status.isCompleted) {
+      then?.call();
+    } else if (_awake) {
+      setState(() => _awake = false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(Tevi old) {
+    super.didUpdateWidget(old);
+    if (widget.searching != old.searching) _searchOrNot();
+    if (widget.look == old.look) return;
+    final awake = _awake;
+    _awake = false;
+    if (!widget.eases || _still) {
+      _change.stop();
+      return;
+    }
+    // From the look drawn now, so a change during a change never jumps.
+    _ease(
+      _change.isAnimating
+          ? TeviLook.lerp(_from, old.look, _eased.value)
+          : awake
+          ? TeviLook.watching
+          : old.look,
+    );
+  }
+
+  /// Eases from [from] into the look asked for now.
+  void _ease(TeviLook from) {
+    _from = from;
+    _eased.curve = widget.look.sleepMarks ? Motion.sway : Motion.settle;
+    _change
+      ..duration = Tevi.lengthTo(widget.look)
+      ..forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _coming?.removeStatusListener(_pageMoved);
+    _eased.dispose();
+    _change.dispose();
+    _blink.dispose();
+    _search.dispose();
+    _ahead.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final figure = CustomPaint(
-      size: Size.square(size),
-      painter: TeviPainter(
-        look: look,
-        tier: tier,
-        night: night,
-        markColor: markColor,
+    Widget figure = AnimatedBuilder(
+      animation: Listenable.merge([_change, _blink, _search, _ahead]),
+      builder: (context, _) => CustomPaint(
+        size: Size.square(widget.size),
+        painter: TeviPainter(
+          look: _look,
+          tier: widget.tier,
+          night: widget.night,
+          markColor: widget.markColor,
+          assembly: widget.assembly,
+        ),
       ),
     );
-    final label = semanticLabel;
+    // A loop repaints every frame: on a layer of its own, the screen
+    // around it is not repainted with it.
+    if (_search.isAnimating) figure = RepaintBoundary(child: figure);
+    final label = widget.semanticLabel;
     if (label == null) return ExcludeSemantics(child: figure);
     return Semantics(image: true, label: label, child: figure);
   }
@@ -484,7 +1052,8 @@ class Tevi extends StatelessWidget {
 
 /// The mascot standing in a child's screen: it faces the content, so it
 /// is mirrored right to left, and takes its colours from the ground below
-/// it unless told [night].
+/// it unless told [night]. It blinks once as its screen arrives, unless
+/// told not to [blinks].
 class FacingTevi extends StatelessWidget {
   const FacingTevi({
     super.key,
@@ -492,12 +1061,26 @@ class FacingTevi extends StatelessWidget {
     this.look = TeviLook.watching,
     this.night,
     this.markColor = BrandColors.ink,
+    this.blinks = true,
+    this.searching = false,
+    this.arrivesFrom,
+    this.fallsAsleep = false,
   });
 
   final double size;
   final TeviLook look;
   final bool? night;
+
+  /// As [Tevi.fallsAsleep].
+  final bool fallsAsleep;
   final Color markColor;
+  final bool blinks;
+
+  /// As [Tevi.arrivesFrom].
+  final TeviLook? arrivesFrom;
+
+  /// As [Tevi.searching].
+  final bool searching;
 
   @override
   Widget build(BuildContext context) => Transform.flip(
@@ -507,6 +1090,10 @@ class FacingTevi extends StatelessWidget {
       look: look,
       night: night ?? TeviGround.nightAt(context),
       markColor: markColor,
+      blinks: blinks,
+      searching: searching,
+      arrivesFrom: arrivesFrom,
+      fallsAsleep: fallsAsleep,
     ),
   );
 }

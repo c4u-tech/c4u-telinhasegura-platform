@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Easing;
 import 'package:flutter/widgets.dart';
 
 /// The brand's six colours, copied from `brand/tokens/brand-tokens.json`
@@ -330,4 +331,97 @@ abstract final class KidSizes {
 
 abstract final class Typefaces {
   static const family = 'Bricolage Grotesque';
+}
+
+/// One motion scale. Motion answers what the person did or what the app
+/// just learned; nothing moves on its own to call for attention. Under
+/// reduced motion every animation is a cut or a still, except [hold],
+/// which is how long a press must last, not how it looks.
+abstract final class Motion {
+  /// A target sinking under the finger: quick enough to feel attached.
+  static const press = Duration(milliseconds: 90);
+
+  /// A small fade beside what the person is reading.
+  static const quick = Duration(milliseconds: 150);
+
+  /// A change of state in place: a choice filling, a frame fading in, the
+  /// mascot's look passing to another.
+  static const change = Duration(milliseconds: 220);
+
+  /// A page opening from the home's door.
+  static const room = Duration(milliseconds: 300);
+
+  /// The ink field growing from the guardian's band to the whole screen.
+  static const band = Duration(milliseconds: 400);
+
+  /// The longest the opening may take.
+  static const opening = Duration(milliseconds: 1000);
+
+  /// How long a child-proof press is held.
+  static const hold = Duration(milliseconds: 2000);
+
+  /// The mascot's eye shutting and opening again, once.
+  static const blink = Duration(milliseconds: 160);
+
+  /// A target coming back up once the finger lifts: slower than [press],
+  /// so the return is seen.
+  static const release = Duration(milliseconds: 160);
+
+  /// The eyelid going down to sleep: slow, as a sleepy eye is.
+  static const fallAsleep = Duration(milliseconds: 600);
+
+  /// One breath of a guardian's placeholder bars, out and back.
+  static const breath = Duration(milliseconds: 1400);
+
+  /// One sweep of the mascot's gaze while the child's home loads.
+  static const gaze = Duration(milliseconds: 1800);
+
+  /// What arrives or settles: fast at first, gentle at the end.
+  static const settle = Curves.easeOutCubic;
+
+  /// What travels across the screen, as a page from its door.
+  static const travel = Easing.standard;
+
+  /// An eyelid shutting.
+  static const shut = Curves.easeOut;
+
+  /// What goes and comes back: a loop, a blink, an eyelid reopening.
+  static const sway = Curves.easeInOut;
+
+  /// The opening's look wiping across the body: quick, then easing in.
+  static const wipe = Cubic(.2, .7, .2, 1);
+
+  /// The opening's eye popping open, a little past its size and back.
+  static const pop = Cubic(.3, 1.5, .5, 1);
+
+  /// The opening's beak and tail springing out of the body.
+  static const spring = Cubic(.3, 1.4, .5, 1);
+
+  /// [length], or none where the platform asks for reduced motion: what
+  /// would have eased then simply changes.
+  static Duration of(BuildContext context, Duration length) =>
+      MediaQuery.disableAnimationsOf(context) ? Duration.zero : length;
+
+  /// Whether a loop (a loader's breath or gaze) runs below [context]:
+  /// never under reduced motion, where a loader stays still.
+  static bool loopsIn(BuildContext context) =>
+      loops && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+
+  /// Off, every loop stays still, as under reduced motion. A widget test
+  /// settles only once nothing moves, and a loop never stops on its own,
+  /// so the tests turn loops off and back on where they watch one.
+  @visibleForTesting
+  static bool loops = true;
+
+  /// Whether the app's opening plays below [context]: never under
+  /// reduced motion, where the mascot stands whole and still.
+  static bool opensIn(BuildContext context) =>
+      opens && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+
+  /// Off, the app's opening is cut, as under reduced motion: the whole
+  /// mascot stands on its ground until the mode is known, and the first
+  /// screen shows at once. A test that starts the app then finds that
+  /// screen as soon as the mode settles, as it always has.
+  @visibleForTesting
+  static bool opens = true;
 }

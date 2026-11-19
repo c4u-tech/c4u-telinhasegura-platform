@@ -17,6 +17,7 @@ import 'kid_layout.dart';
 import 'pack_row.dart';
 import 'player_keys.dart';
 import 'player_screen.dart';
+import 'press_sink.dart';
 import 'room_transition.dart';
 import 'shelves.dart';
 import 'tap_guard.dart';
@@ -463,24 +464,26 @@ class _RoomBackState extends State<RoomBack> {
       label: PlayerScreen.back,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: SizedBox.square(
-          dimension: KidSizes.target,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
-            child: Material(
-              color: w.figure,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: widget.onPressed,
-                onFocusChange: (f) => setState(() => _focused = f),
-                focusColor: Colors.transparent,
-                hoverColor: w.ground.withValues(alpha: .08),
-                highlightColor: w.ground.withValues(alpha: .16),
-                splashColor: w.ground.withValues(alpha: .16),
-                child: CustomPaint(
-                  painter: PlayerGlyphPainter(PlayerGlyph.back, w.ground),
+        child: PressSink(
+          child: SizedBox.square(
+            dimension: KidSizes.target,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
+              child: Material(
+                color: w.figure,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onPressed,
+                  onFocusChange: (f) => setState(() => _focused = f),
+                  focusColor: Colors.transparent,
+                  hoverColor: w.ground.withValues(alpha: .08),
+                  highlightColor: w.ground.withValues(alpha: .16),
+                  splashColor: w.ground.withValues(alpha: .16),
+                  child: CustomPaint(
+                    painter: PlayerGlyphPainter(PlayerGlyph.back, w.ground),
+                  ),
                 ),
               ),
             ),

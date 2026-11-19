@@ -57,7 +57,7 @@ class PackPlayerScreen extends StatefulWidget {
   static const goodbye = Duration(seconds: 3);
 
   /// The one crossfade between window states.
-  static const fade = Duration(milliseconds: 220);
+  static const fade = Motion.change;
 
   static String progressLabel(int k, int n) => 'Vídeo $k de $n';
 
@@ -322,7 +322,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
       key: key,
       tween: Tween(begin: still ? 1 : 0, end: 1),
       duration: still ? Duration.zero : PackPlayerScreen.fade,
-      curve: Curves.easeOutCubic,
+      curve: Motion.settle,
       builder: (_, t, child) => Opacity(opacity: t, child: child),
       child: child,
     );

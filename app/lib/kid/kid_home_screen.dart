@@ -56,6 +56,10 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   late final AppModeModel _mode;
   bool _started = false;
 
+  /// The resting picture's: from a day without time to a paused profile
+  /// and back, the mascot that fell asleep stays asleep.
+  final _resting = GlobalKey();
+
   /// The child the profile was read for, and what it answered.
   String? _minorId;
   bool _asked = false;
@@ -324,8 +328,8 @@ class _KidHomeScreenState extends State<KidHomeScreen>
       // Below the frame's kid theme, so the text takes the kid dialect.
       child: Center(
         child: paused
-            ? PausedProfile(scale: scale)
-            : SleepingTelinha(state: time!, scale: scale),
+            ? PausedProfile(scale: scale, pictureKey: _resting)
+            : SleepingTelinha(state: time!, scale: scale, pictureKey: _resting),
       ),
     );
   }
