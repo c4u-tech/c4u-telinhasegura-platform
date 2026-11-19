@@ -413,7 +413,9 @@ class _Highlight extends StatelessWidget {
           width: size,
           height: size,
           child: IgnorePointer(
-            child: FacingTevi(size: size, look: look ?? TeviLook.crestUp),
+            child: MascotUnderNote(
+              child: FacingTevi(size: size, look: look ?? TeviLook.crestUp),
+            ),
           ),
         ),
       ],

@@ -21,6 +21,7 @@ import 'package:telinha_segura/shell/routes.dart';
 import '../access/harness.dart';
 import 'kid_mosaic_test.dart' show blocks, mosaic, sixThemes, video;
 import 'pack_player_test.dart' show opened, packKid, withPack;
+import 'shelf_picture.dart' show shownTevis;
 import 'theme_page_test.dart' show plays;
 
 /// The day with three pacotinhos, the last longer than the time left.
@@ -257,6 +258,41 @@ void main() {
     expect(plays(h), isEmpty);
     expect(find.byType(KidErrorNote), findsOne);
     expect(find.text(PlayerScreen.packDoesNotFit), findsOne);
+  });
+
+  testWidgets('with the note showing, its mascot is the only one on the '
+      'page; the standing mascot keeps its place unseen and is back once '
+      'the note leaves', (tester) async {
+    await packsPage(tester);
+    final standing = find.descendant(
+      of: find.byType(MascotUnderNote),
+      matching: find.byType(Tevi),
+    );
+    expect(standing, findsOne);
+    expect(shownTevis(tester), hasLength(1));
+    final place = tester.getRect(standing);
+    final lead = tester.getRect(packTiles.first);
+
+    await tester.ensureVisible(packTiles.at(2));
+    await tester.pumpAndSettle();
+    final scrolled = tester.getRect(packTiles.first);
+    final perch = tester.getRect(standing);
+    await tester.tap(packTiles.at(2));
+    await tester.pumpAndSettle();
+    final note = find.descendant(
+      of: find.byType(FloatingNote),
+      matching: find.byType(Tevi),
+    );
+    expect(shownTevis(tester), [tester.widget<Tevi>(note)]);
+    expect(tester.getRect(standing), perch, reason: 'its place is kept');
+    expect(tester.getRect(packTiles.first), scrolled, reason: 'nothing moves');
+
+    tester.widget<RoomScreen>(page).day!.note(null);
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingNote), findsNothing);
+    expect(shownTevis(tester), [tester.widget<Tevi>(standing)]);
+    expect(place.size, tester.getRect(standing).size);
+    expect(lead.size, tester.getRect(packTiles.first).size);
   });
 
   testWidgets('the back key returns to the home', (tester) async {

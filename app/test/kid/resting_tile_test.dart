@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
@@ -9,6 +12,7 @@ import 'package:telinha_segura/kid/player_screen.dart';
 import 'package:telinha_segura/kid/shelves.dart';
 
 import '../access/harness.dart';
+import '../parental/parental_api_test.dart' show profileJson;
 import 'kid_mosaic_test.dart';
 import 'shelf_picture.dart';
 
@@ -218,5 +222,59 @@ void main() {
     final note = tester.getRect(find.byType(FloatingNote));
     expect(note.top, greaterThanOrEqualTo(KidLayout.stripHeight));
     expect(note.bottom, closeTo(640 - Space.md, .5));
+  });
+
+  testWidgets('with the note showing, its mascot is the only one on the '
+      'home; the highlight\'s mascot keeps its place unseen and is back '
+      'once the note leaves', (tester) async {
+    // A play that never answers keeps the home on screen once the note
+    // is gone.
+    final h = Harness(
+      signedIn: true,
+      api: (req) {
+        final path = req.url.path;
+        if (path == '/v1/child/profile') return json(200, profileJson);
+        if (path == '/v1/child/catalog') return json(200, notAll);
+        if (path.startsWith('/v1/child/thumbs/')) {
+          return http.Response.bytes(pixel, 200);
+        }
+        if (path == '/v1/child/plays') {
+          return Completer<http.Response>().future;
+        }
+        return http.Response('', 204);
+      },
+    )..kidMode = {'minor_id': 'm1'};
+    await h.pump(tester, initial: '/crianca', size: const Size(390, 844));
+    await tester.pumpAndSettle();
+    final perched = find.descendant(
+      of: find.byType(MascotUnderNote),
+      matching: find.byType(Tevi),
+    );
+    expect(shownTevis(tester), hasLength(1));
+    final place = tester.getRect(perched);
+    final top = tester.getRect(highlight);
+
+    await tester.tap(highlight);
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingNote), findsOne);
+    final shown = shownTevis(tester);
+    expect(shown, hasLength(1));
+    expect(
+      shown.single,
+      tester.widget<Tevi>(
+        find.descendant(
+          of: find.byType(FloatingNote),
+          matching: find.byType(Tevi),
+        ),
+      ),
+    );
+    expect(tester.getRect(perched), place, reason: 'its place is kept');
+    expect(tester.getRect(highlight), top, reason: 'nothing moves');
+
+    await tester.tap(pictures.first);
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingNote), findsNothing);
+    expect(shownTevis(tester), [tester.widget<Tevi>(perched)]);
+    expect(tester.getRect(highlight), top);
   });
 }

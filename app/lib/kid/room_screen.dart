@@ -413,7 +413,9 @@ class _Standing extends StatelessWidget {
               geometry.lead.width * 2 / 3 - size * TeviPainter.body.center.dx,
           width: size,
           height: size,
-          child: IgnorePointer(child: FacingTevi(size: size)),
+          child: IgnorePointer(
+            child: MascotUnderNote(child: FacingTevi(size: size)),
+          ),
         ),
       ],
     );

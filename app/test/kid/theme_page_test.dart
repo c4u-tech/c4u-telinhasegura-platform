@@ -26,6 +26,7 @@ import 'package:telinha_segura/shell/routes.dart';
 
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
+import 'shelf_picture.dart' show shownTevis;
 import 'kid_mosaic_test.dart' show blockOf, pixel, video;
 
 /// [child] on the kid ground, as a child screen paints it.
@@ -308,6 +309,57 @@ void main() {
             )
             .night,
         isTrue,
+      );
+    });
+
+    testWidgets('on Noite, with the note showing, its mascot is the only one '
+        'on the page; the standing mascot keeps its place unseen and is '
+        'back once the note leaves', (tester) async {
+      await room(tester, theme: VideoTheme.aprender);
+      final standing = find.descendant(
+        of: find.byType(MascotUnderNote),
+        matching: find.byType(Tevi),
+      );
+      expect(shownTevis(tester), hasLength(1));
+      final place = tester.getRect(standing);
+      final lead = tester.getRect(tiles.first);
+
+      final day = tester.widget<RoomScreen>(page).day!;
+      day.note(PlayerScreen.doesNotFit);
+      await tester.pumpAndSettle();
+      final note = find.descendant(
+        of: find.byType(FloatingNote),
+        matching: find.byType(Tevi),
+      );
+      expect(shownTevis(tester), [tester.widget<Tevi>(note)]);
+      expect(tester.getRect(standing), place, reason: 'its place is kept');
+      expect(tester.getRect(tiles.first), lead, reason: 'nothing moves');
+
+      day.note(null);
+      await tester.pumpAndSettle();
+      expect(find.byType(FloatingNote), findsNothing);
+      expect(shownTevis(tester), [tester.widget<Tevi>(standing)]);
+      expect(tester.getRect(tiles.first), lead);
+    });
+
+    testWidgets('with animations off, the standing mascot leaves at once when '
+        'the note comes', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await room(tester, theme: VideoTheme.aprender);
+
+      tester.widget<RoomScreen>(page).day!.note(PlayerScreen.doesNotFit);
+      await tester.pump();
+      expect(shownTevis(tester), hasLength(1));
+      expect(
+        find.descendant(
+          of: find.byType(FloatingNote),
+          matching: find.byType(Tevi),
+        ),
+        findsOne,
       );
     });
 

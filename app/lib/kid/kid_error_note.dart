@@ -169,7 +169,12 @@ class _NoteOverState extends State<NoteOver> {
     return LayoutBuilder(
       builder: (context, box) => Stack(
         children: [
-          Positioned.fill(child: widget.content(note == null ? 0 : _room)),
+          Positioned.fill(
+            child: _NoteShowing(
+              showing: note != null,
+              child: widget.content(note == null ? 0 : _room),
+            ),
+          ),
           if (note != null)
             Positioned(
               left: Space.lg,
@@ -192,6 +197,40 @@ class _NoteOverState extends State<NoteOver> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Whether a note floats over the content beneath it.
+class _NoteShowing extends InheritedWidget {
+  const _NoteShowing({required this.showing, required super.child});
+
+  final bool showing;
+
+  @override
+  bool updateShouldNotify(_NoteShowing old) => showing != old.showing;
+}
+
+/// A screen's own mascot, which steps aside while a note floats over the
+/// screen: the note brings its own, and a child sees one mascot at a
+/// time. It keeps its place, so nothing around it moves, and fades back
+/// when the note leaves.
+class MascotUnderNote extends StatelessWidget {
+  const MascotUnderNote({super.key, required this.child});
+
+  final Widget child;
+
+  static const fade = Duration(milliseconds: 150);
+
+  @override
+  Widget build(BuildContext context) {
+    final showing =
+        context.dependOnInheritedWidgetOfExactType<_NoteShowing>()?.showing ??
+        false;
+    return AnimatedOpacity(
+      opacity: showing ? 0 : 1,
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : fade,
+      child: child,
     );
   }
 }

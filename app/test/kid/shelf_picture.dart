@@ -147,3 +147,26 @@ void expectNoteFigure(WidgetTester tester, Finder within, TeviLook look) {
   );
   expect(tester.getSize(figure).height, greaterThanOrEqualTo(72));
 }
+
+/// The mascots a child sees: a figure kept in its place under a fully
+/// faded or hidden ancestor is not painted, and does not count.
+List<Tevi> shownTevis(WidgetTester tester) => [
+  for (final e in find.byType(Tevi).evaluate())
+    if (_painted(e)) e.widget as Tevi,
+];
+
+bool _painted(Element element) {
+  var painted = true;
+  element.visitAncestorElements((a) {
+    final w = a.widget;
+    if ((w is Opacity && w.opacity == 0) ||
+        (w is FadeTransition && w.opacity.value == 0) ||
+        (w is Visibility && !w.visible) ||
+        (w is Offstage && w.offstage)) {
+      painted = false;
+      return false;
+    }
+    return true;
+  });
+  return painted;
+}
