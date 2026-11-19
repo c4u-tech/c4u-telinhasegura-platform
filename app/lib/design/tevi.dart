@@ -652,6 +652,10 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 1),
   ]).chain(CurveTween(curve: Motion.sway)).animate(_search);
 
+  /// The gaze coming back ahead once the search ends, from [_backFrom].
+  late final _ahead = AnimationController(vsync: this, duration: Motion.change);
+  double _backFrom = 0;
+
   /// Whether the arrival was already seen, blink or not.
   bool _arrived = false;
 
@@ -670,9 +674,15 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     final look = _change.isAnimating
         ? TeviLook.lerp(_from, widget.look, _eased.value)
         : widget.look;
-    if (!_blink.isAnimating && !_search.isAnimating) return look;
+    if (!_blink.isAnimating && !_search.isAnimating && !_ahead.isAnimating) {
+      return look;
+    }
     final shut = _blink.isAnimating ? _shut.value : 0.0;
-    final back = _search.isAnimating ? _back.value : 0.0;
+    final back = _search.isAnimating
+        ? _back.value
+        : _ahead.isAnimating
+        ? _backFrom * (1 - Motion.settle.transform(_ahead.value))
+        : 0.0;
     return TeviLook(
       lid: look.lid + (1 - look.lid) * shut,
       sag: look.sag,
@@ -685,11 +695,20 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
   void _searchOrNot() {
-    if (!widget.searching || !Motion.loopsIn(context)) {
-      _search.reset();
-    } else if (!_search.isAnimating) {
-      _search.repeat();
+    final loops = Motion.loopsIn(context);
+    if (widget.searching && loops) {
+      _ahead.reset();
+      if (!_search.isAnimating) _search.repeat();
+      return;
     }
+    // A search that ends while the mascot is still shown turns its gaze
+    // back ahead rather than snapping there; one stilled for reduced
+    // motion simply stops.
+    if (_search.isAnimating && loops && _back.value > 0) {
+      _backFrom = _back.value;
+      _ahead.forward(from: 0);
+    }
+    _search.reset();
   }
 
   @override
@@ -763,13 +782,14 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     _change.dispose();
     _blink.dispose();
     _search.dispose();
+    _ahead.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final figure = AnimatedBuilder(
-      animation: Listenable.merge([_change, _blink, _search]),
+    Widget figure = AnimatedBuilder(
+      animation: Listenable.merge([_change, _blink, _search, _ahead]),
       builder: (context, _) => CustomPaint(
         size: Size.square(widget.size),
         painter: TeviPainter(
@@ -781,6 +801,9 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
         ),
       ),
     );
+    // A loop repaints every frame: on a layer of its own, the screen
+    // around it is not repainted with it.
+    if (_search.isAnimating) figure = RepaintBoundary(child: figure);
     final label = widget.semanticLabel;
     if (label == null) return ExcludeSemantics(child: figure);
     return Semantics(image: true, label: label, child: figure);

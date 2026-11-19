@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/mosaic.dart';
 
@@ -58,4 +59,60 @@ void main() {
     expect(await oneSweep(tester), everyElement(0));
     expect(tester.binding.transientCallbackCount, 0);
   });
+
+  testWidgets('once the wait ends, the gaze eases back ahead rather than '
+      'snapping', (tester) async {
+    runLoops();
+    final searching = ValueNotifier(true);
+    addTearDown(searching.dispose);
+    await pumpSearching(tester, searching);
+    await tester.pump(Motion.gaze * .4);
+    final back = drawn(tester).gaze;
+    expect(back, greaterThan(.5));
+
+    searching.value = false;
+    await tester.pump();
+    expect(drawn(tester).gaze, closeTo(back, .05), reason: 'no snap');
+    await tester.pump(Motion.change ~/ 2);
+    expect(drawn(tester).gaze, inExclusiveRange(0, back));
+    await tester.pump(Motion.change ~/ 2);
+    expect(drawn(tester).gaze, 0);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(tester.binding.transientCallbackCount, 0, reason: 'no loop left');
+  });
+
+  testWidgets('a mascot paints on a layer of its own only while it loops', (
+    tester,
+  ) async {
+    runLoops();
+    final searching = ValueNotifier(true);
+    addTearDown(searching.dispose);
+    await pumpSearching(tester, searching);
+    final own = find.descendant(
+      of: find.byType(Tevi),
+      matching: find.byType(RepaintBoundary),
+    );
+    expect(own, findsOneWidget);
+
+    searching.value = false;
+    await tester.pump();
+    await tester.pump(Motion.change);
+    expect(own, findsNothing);
+  });
 }
+
+/// A mascot whose searching [searching] holds.
+Future<void> pumpSearching(
+  WidgetTester tester,
+  ValueNotifier<bool> searching,
+) => tester.pumpWidget(
+  Directionality(
+    textDirection: TextDirection.ltr,
+    child: Center(
+      child: ValueListenableBuilder(
+        valueListenable: searching,
+        builder: (_, on, _) => Tevi(size: 66, searching: on),
+      ),
+    ),
+  ),
+);
