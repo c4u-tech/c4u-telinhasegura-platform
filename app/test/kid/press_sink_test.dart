@@ -23,6 +23,7 @@ Future<List<String>> pumpTarget(
   WidgetTester tester, {
   bool still = false,
   bool enabled = true,
+  Size size = const Size.square(200),
 }) async {
   final taps = <String>[];
   await pumpOn(
@@ -36,9 +37,9 @@ Future<List<String>> pumpTarget(
         child: GestureDetector(
           key: _target,
           onTap: () => taps.add('tap'),
-          child: const ColoredBox(
+          child: ColoredBox(
             color: BrandColors.sun,
-            child: SizedBox.square(dimension: 100),
+            child: SizedBox.fromSize(size: size),
           ),
         ),
       ),
@@ -86,6 +87,28 @@ void main() {
     await tester.pump();
     expect(scale(tester), 1);
     expect(tester.binding.transientCallbackCount, 0);
+  });
+
+  testWidgets('a small target sinks at least 3 dp at each edge, never below '
+      '90 %; a large one keeps 96 %', (tester) async {
+    for (final (size, depth) in [
+      (const Size.square(64), 1 - 6 / 64),
+      (const Size(300, 64), 1 - 6 / 64),
+      (const Size.square(150), .96),
+      (const Size(320, 240), .96),
+      (const Size.square(40), .9),
+    ]) {
+      await pumpTarget(tester, size: size);
+      final press = await tester.startGesture(
+        tester.getCenter(find.byKey(_target)),
+      );
+      await tester.pumpAndSettle();
+      expect(scale(tester), closeTo(depth, 1e-9), reason: '$size');
+      await press.up();
+      await tester.pumpAndSettle();
+      expect(scale(tester), 1);
+    }
+    expect(PressSink.depthOf(const Size.square(64)), closeTo(.91, .005));
   });
 
   testWidgets('a target that cannot act does not sink', (tester) async {
