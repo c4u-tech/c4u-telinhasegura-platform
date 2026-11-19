@@ -213,3 +213,18 @@ func TestStoreURLsPointAtTheSite(t *testing.T) {
 		}
 	}
 }
+
+// The child's home is a mosaic with one door per theme, no longer a row of
+// shelves, so the descriptions stop promising shelves.
+func TestDescriptionsDescribeTheThemesAsTheAppShowsThem(t *testing.T) {
+	shelves := regexp.MustCompile(`(?i)prateleira|shel(f|ves)`)
+	for _, rel := range []string{
+		androidMeta + "/pt-BR/full_description.txt",
+		iosMeta + "/pt-BR/description.txt",
+		iosMeta + "/en-GB/description.txt",
+	} {
+		if m := shelves.FindString(metaText(t, rel)); m != "" {
+			t.Errorf("%s still says %q", rel, m)
+		}
+	}
+}
