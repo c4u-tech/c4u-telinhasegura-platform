@@ -148,6 +148,22 @@ abstract final class CatalogWords {
         'última revisão ${CurationWords.ago(p.provenance.lastReviewedAt, now)}',
       ]);
 
+  /// Beneath [seenBy] on a pacotinho, who approved it by role, then who
+  /// built it and when it was last reviewed: "2 mães ou pais · montado por
+  /// pedagogo(a) · última revisão há 3 dias"; null when no approval is
+  /// counted, where [packProvenance] says it all.
+  static String? packSeenByWhom(
+    FamilyPack p,
+    DateTime now,
+  ) => switch (_approvers(p.provenance)) {
+    final who? => CurationWords.joined([
+      who,
+      'montado por ${p.composerRole.inline}',
+      'última revisão ${CurationWords.ago(p.provenance.lastReviewedAt, now)}',
+    ]),
+    null => null,
+  };
+
   /// A pacotinho's video skipped for [nickname].
   static String packSkipped(String nickname) => 'Fica de fora para $nickname';
 

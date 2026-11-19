@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../curation/curation.dart';
+import '../curation/family_catalog.dart';
 import '../design/people_wire.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
@@ -11,21 +12,31 @@ import 'words.dart';
 /// role and when it was last reviewed. With no approval counted there is
 /// no one to draw, so only the last review is said.
 class ProvenanceView extends StatelessWidget {
-  const ProvenanceView(this.provenance, {super.key, required this.now});
+  const ProvenanceView(this.provenance, {super.key, required this.now})
+    : pack = null;
+
+  /// A pacotinho the family reads: beneath the count, who built it too,
+  /// after the roles; with no approval counted, its own plain line.
+  ProvenanceView.pack(FamilyPack this.pack, {super.key, required this.now})
+    : provenance = pack.provenance;
 
   final Provenance provenance;
+  final FamilyPack? pack;
   final DateTime now;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final lead = CatalogWords.seenBy(provenance);
-    final whom = CatalogWords.seenByWhom(provenance, now);
+    final whom = switch (pack) {
+      final p? => CatalogWords.packSeenByWhom(p, now),
+      null => CatalogWords.seenByWhom(provenance, now),
+    };
     if (lead == null || whom == null) {
-      return Text(
-        CatalogWords.provenance(provenance, now),
-        style: text.bodyLarge,
-      );
+      return Text(switch (pack) {
+        final p? => CatalogWords.packProvenance(p, now),
+        null => CatalogWords.provenance(provenance, now),
+      }, style: text.bodyLarge);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

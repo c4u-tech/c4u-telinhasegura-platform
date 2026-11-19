@@ -102,6 +102,33 @@ void main() {
       );
     });
 
+    test('beneath who saw it before, the roles first, then who built it '
+        'and when, without "revisado por"', () {
+      expect(
+        plain(
+          CatalogWords.packSeenByWhom(
+            pack(
+              [(240, false), (240, false), (240, false)],
+              approvals: {DisplayRole.pedagogo: 1, DisplayRole.maePai: 2},
+            ),
+            now,
+          )!,
+        ),
+        '2 mães ou pais e 1 pedagogo(a) · montado por pedagogo(a) · '
+        'última revisão há 3 dias',
+      );
+    });
+
+    test('with no approval counted, no line beneath who saw it before', () {
+      expect(
+        CatalogWords.packSeenByWhom(
+          pack([(240, false)], approvals: {DisplayRole.maePai: 0}),
+          now,
+        ),
+        isNull,
+      );
+    });
+
     test('a skipped video and the way to hide one', () {
       expect(CatalogWords.packSkipped('Lia'), 'Fica de fora para Lia');
       expect(

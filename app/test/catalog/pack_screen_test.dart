@@ -8,11 +8,14 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/catalog/pack_rows.dart';
 import 'package:telinha_segura/catalog/video_row.dart';
 import 'package:telinha_segura/catalog/words.dart';
+import 'package:telinha_segura/design/people_wire.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid_mode/kid_mode_door.dart' show StateLine;
 
 import '../access/harness.dart';
 import '../curation/fixtures.dart' show nb, nbt;
 import '../curation/appoint_screen_test.dart' show tapOn;
+import '../design/pump.dart' show semanticsStrings;
 import 'child_catalog_screen_test.dart' show catalogue, packRow, reads;
 import 'fixtures.dart';
 
@@ -30,6 +33,43 @@ Future<Harness> fromRow(WidgetTester tester) async {
   return h;
 }
 
+const seenByLine = 'Visto antes por 2 pessoas';
+const seenByWhomLine =
+    '2 pedagogos(as) · montado por mãe ou pai · última revisão há 3 dias';
+
+Finder get wire => find.byType(PeopleWire);
+
+/// Opens, by its address, a pacotinho built by a mother or father and
+/// approved as [approvals] say.
+Future<Harness> approvedBy(
+  WidgetTester tester,
+  Map<String, int> approvals, {
+  Size size = const Size(390, 844),
+  double textScale = 1,
+}) => catalogue(
+  tester,
+  catalog: (_, offset) => page(
+    liaVideos,
+    packs: offset == 0
+        ? [
+            packItem(
+              'k9',
+              'Hora de dormir',
+              composer: 'mae-pai',
+              approvals: approvals,
+              videos: [
+                ('d1', 'A lua e o sono', 300, false),
+                ('d3', 'Canção de ninar', 420, false),
+              ],
+            ),
+          ]
+        : const [],
+  ),
+  initial: '/familia/videos/m1/pacotinho/k9',
+  size: size,
+  textScale: textScale,
+);
+
 void main() {
   testWidgets('titled "Pacotinho": its title whole and its count, then who '
       'built and reviewed it', (tester) async {
@@ -39,10 +79,9 @@ void main() {
       find.text('Pacotinho'),
       find.text('Hora de dormir'),
       find.text(nbt('2 de 3 vídeos para Lia · 12 min')),
-      plainText(
-        'Montado por mãe ou pai · revisado por 2 pedagogos(as) · última '
-        'revisão há 3 dias',
-      ),
+      wire,
+      plainText(seenByLine),
+      plainText(seenByWhomLine),
       find.text('Vídeos, nesta ordem'),
     ];
     for (final f in order) {
@@ -50,7 +89,121 @@ void main() {
     }
     final tops = [for (final f in order) tester.getTopLeft(f).dy];
     expect(tops, [...tops]..sort());
+    expect(tester.widget<PeopleWire>(wire).people, 2);
+    expect(find.textContaining('Montado por'), findsNothing);
+    expect(find.textContaining('revisado por'), findsNothing);
   });
+
+  testWidgets('one person who approved it is said in the singular', (
+    tester,
+  ) async {
+    await approvedBy(tester, {'pediatra': 1});
+
+    expect(plainText('Visto antes por 1 pessoa'), findsOneWidget);
+    expect(
+      plainText(
+        '1 pediatra · montado por mãe ou pai · última revisão há 3 dias',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<PeopleWire>(wire).people, 1);
+  });
+
+  testWidgets('twelve people: every role summed, five birds and "+7"', (
+    tester,
+  ) async {
+    await approvedBy(tester, {'mae-pai': 9, 'psicologo': 3});
+
+    expect(plainText('Visto antes por 12 pessoas'), findsOneWidget);
+    expect(
+      plainText(
+        '9 mães ou pais e 3 psicólogos(as) · montado por mãe ou pai · '
+        'última revisão há 3 dias',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('+7'), findsOneWidget);
+  });
+
+  testWidgets('with no approval counted, today\'s line and no wire', (
+    tester,
+  ) async {
+    await approvedBy(tester, {'mae-pai': 0});
+
+    expect(
+      plainText('Montado por mãe ou pai · última revisão há 3 dias'),
+      findsOneWidget,
+    );
+    expect(wire, findsNothing);
+    expect(find.textContaining('Visto antes'), findsNothing);
+  });
+
+  testWidgets('the screen reader hears who saw it before and who they '
+      'were, in that order, and nothing of the wire', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await approvedBy(tester, {'mae-pai': 9, 'psicologo': 3});
+
+    final heard = [
+      for (final s in semanticsStrings(tester)) s.replaceAll('\u00A0', ' '),
+    ];
+    final lead = heard.indexOf('Visto antes por 12 pessoas');
+    expect(lead, isNot(-1));
+    expect(
+      heard.indexOf(
+        '9 mães ou pais e 3 psicólogos(as) · montado por mãe ou pai · '
+        'última revisão há 3 dias',
+      ),
+      lead + 1,
+    );
+    expect(heard.where((s) => s.startsWith('+')), isEmpty);
+    semantics.dispose();
+  });
+
+  for (final (name, size, scale, dark) in [
+    ('dark', const Size(390, 844), 1.0, true),
+    ('200 % text at 360 × 640', const Size(360, 640), 2.0, false),
+  ]) {
+    testWidgets('the wire of twelve people holds $name', (tester) async {
+      if (dark) {
+        tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      }
+      await approvedBy(
+        tester,
+        {'mae-pai': 9, 'psicologo': 3},
+        size: size,
+        textScale: scale,
+      );
+
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(wire);
+      await tester.pumpAndSettle();
+      final painter =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: wire,
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter!
+              as PeopleWirePainter;
+      expect(painter.birds, 5);
+      expect(painter.color, dark ? Palette.dark.text : Palette.light.text);
+      final more = tester.getRect(find.text('+7'));
+      final row = tester.getRect(wire);
+      expect(row.left, greaterThanOrEqualTo(0));
+      expect(row.right, lessThanOrEqualTo(size.width));
+      expect(more.left, greaterThan(row.left + painter.birdsWidth));
+      expect(more.right, lessThanOrEqualTo(row.right));
+      expect(
+        row.bottom,
+        lessThan(
+          tester.getTopLeft(plainText('Visto antes por 12 pessoas')).dy + 1,
+        ),
+      );
+    });
+  }
 
   testWidgets('"Vídeos, nesta ordem" is a title-medium header', (tester) async {
     final semantics = tester.ensureSemantics();
