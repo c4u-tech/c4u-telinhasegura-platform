@@ -127,6 +127,7 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
     ..addStatusListener(_moved);
 
   _Stage _stage = _Stage.assembling;
+  final _screen = GlobalKey();
 
   bool get _still => !Motion.opensIn(context);
 
@@ -197,16 +198,17 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
       _ => _ground(),
     };
     final hidden = _stage == _Stage.assembling || _stage == _Stage.waiting;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // The first screen, beneath the ground from the moment the mode is
-        // known, so it is ready to show when the ground lifts.
-        if (widget.ready)
-          ExcludeSemantics(excluding: hidden, child: widget.child),
-        ?cover,
-      ],
+    // The first screen lies beneath the ground from the moment the mode is
+    // known, so it is ready when the ground lifts. Its key keeps it, state
+    // and all, when the ground goes and it stands alone, with nothing
+    // painted over it.
+    final screen = KeyedSubtree(
+      key: _screen,
+      child: ExcludeSemantics(excluding: hidden, child: widget.child),
     );
+    if (!widget.ready) return cover!;
+    if (cover == null) return screen;
+    return Stack(fit: StackFit.expand, children: [screen, cover]);
   }
 
   Widget _ground() => Splash(

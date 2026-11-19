@@ -137,6 +137,7 @@ void main() {
     expect(find.byType(Splash), findsOneWidget);
     expect(find.byType(FamilyHomeScreen), findsOneWidget, reason: 'beneath');
     expect(tester.getRect(find.byType(Splash)).top, 0);
+    final beneath = tester.element(find.byType(FamilyHomeScreen));
 
     // The assembly ends a frame after its last instant; the lift starts
     // on the frame after that.
@@ -150,7 +151,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 16));
     expect(find.byType(Splash), findsNothing);
-    expect(find.byType(FamilyHomeScreen), findsOneWidget);
+    expect(
+      tester.element(find.byType(FamilyHomeScreen)),
+      same(beneath),
+      reason: 'the screen shown is the one built beneath, not a new one',
+    );
+    expect(
+      find.ancestor(
+        of: find.byType(FamilyHomeScreen),
+        matching: find.byType(Stack),
+      ),
+      findsNothing,
+      reason: 'nothing is left painted over it',
+    );
     await finish(tester);
   });
 
