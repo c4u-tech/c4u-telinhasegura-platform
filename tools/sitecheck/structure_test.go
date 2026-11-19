@@ -114,11 +114,12 @@ func TestImagesCarryTheirSizeAndAlternative(t *testing.T) {
 
 // The mascot the site used before is gone from the pictures and their
 // descriptions: the drawing over the header, the old sun in the stylesheet
-// and the link preview's card, and the name in any text alternative. (The
-// terms of use still name the old character as a trademark; that is legal
-// text, changed only with the terms.)
+// and the link preview's card, and the name anywhere else. The terms of use
+// still name the old character once, as a trademark; that is legal text,
+// changed only with the terms, so that one sentence is the only exception.
 func TestTheOldMascotIsGone(t *testing.T) {
 	old := regexp.MustCompile(`(?i)class="head"|#f2b23a|espiadinha`)
+	const trademark = "a Espiadinha (o personagem da marca)"
 	files, _ := filepath.Glob(filepath.Join(Root(), "site", "public", "*.html"))
 	files = append(files, filepath.Join(Root(), "site", "public", "site.css"), filepath.Join(Root(), "site", "og", "card.html"))
 	for _, f := range files {
@@ -127,7 +128,7 @@ func TestTheOldMascotIsGone(t *testing.T) {
 			t.Fatal(err)
 		}
 		if filepath.Base(f) == "termos.html" {
-			b = regexp.MustCompile(`(?s)<main.*</main>`).ReplaceAll(b, nil)
+			b = []byte(strings.Replace(string(b), trademark, "", 1))
 		}
 		if m := old.Find(b); m != nil {
 			t.Errorf("%s still carries %q", filepath.Base(f), m)
@@ -154,8 +155,29 @@ func TestHomeShowsTheReviewAndTheCode(t *testing.T) {
 		if n := strings.Count(item, `class="bird"`); n != i {
 			t.Errorf("step %d shows %d birds", i+1, n)
 		}
+		if !strings.Contains(item, "<svg") {
+			t.Errorf("step %d has no drawn wire", i+1)
+		}
+	}
+	// The second approval is the moment the video enters the app; it reads
+	// as the step's headline.
+	if !strings.Contains(items[2], `<p class="moment">Só agora o vídeo entra no app.</p>`) {
+		t.Error("the third step does not set its moment apart")
+	}
+	// On a phone the words about the resting screen come before its picture.
+	night := regexp.MustCompile(`(?s)<section id="uma-telinha-com-fim".*?</section>`).FindString(raw)
+	if h, i := strings.Index(night, "<h2"), strings.Index(night, "<img"); h < 0 || i < 0 || h > i {
+		t.Error("the resting section does not put its heading before its picture")
 	}
 	p := mustPages(t)["/"]
+	for _, s := range []string{
+		"Pedimos o mínimo sobre a criança: um apelido, um avatar e a faixa de idade.",
+		"Você entrega o celular no modo criança, ou vincula o tablet da criança à sua família.",
+	} {
+		if !strings.Contains(p.Text, s) {
+			t.Errorf("the home page no longer says %q", s)
+		}
+	}
 	for i, h := range p.Hrefs {
 		if h == RepoURL && p.HrefTexts[i] == "Código no GitHub" {
 			return
@@ -193,11 +215,17 @@ func TestColourPairsKeepTheirContrast(t *testing.T) {
 		min    float64
 	}
 	pairs := []pair{
-		{"text", "ground", 4.5}, {"muted", "ground", 4.5}, {"kicker", "ground", 4.5}, {"text", "paper", 4.5},
+		{"text", "ground", 4.5}, {"muted", "ground", 4.5}, {"text", "paper", 4.5},
 		{"muted", "paper", 4.5}, {"focus", "ground", 3}, {"focus", "paper", 3},
 		{"cream", "ink", 4.5}, {"sun", "ink", 3}, {"dark", "sun", 4.5}, {"cream", "dark", 4.5},
 		{"sky", "dark", 4.5}, {"muted-on-dark", "dark", 4.5}, {"cream", "night", 4.5}, {"sky", "night", 4.5},
 		{"focus-on-field", "ink", 3}, {"focus-on-field", "dark", 3}, {"focus-on-field", "night", 3},
+		// The skip link opens over the header's ink ground, so its ring
+		// takes the on-field colour.
+		{"skip-focus", "ink", 3},
+	}
+	if !regexp.MustCompile(`(?s)\.skip:focus-visible \{[^}]*outline-color: var\(--skip-focus\);`).MatchString(css) {
+		t.Error("the skip link's focus ring does not use --skip-focus")
 	}
 	for scheme, vars := range map[string]map[string]string{"light": light, "dark": dark} {
 		for _, p := range pairs {

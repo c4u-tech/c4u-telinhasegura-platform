@@ -21,8 +21,8 @@
   --ground: var(--cream);
   --text: var(--dark);
   --muted: #4a666b;
-  --kicker: var(--ink);
   --paper: #ffffff;
+  --paper-edge: transparent;
   --outline: #6f8b90;
   --hairline: rgb(111 139 144 / 0.5);
   --focus: var(--dark);
@@ -33,6 +33,7 @@
   --night: var(--dark);
   --muted-on-dark: #a6bfc2;
   --focus-on-field: var(--cream);
+  --skip-focus: var(--focus-on-field);
 
   --xs: 4px;
   --sm: 8px;
@@ -52,8 +53,8 @@
     --ground: #0f2a30;
     --text: #fbf6ec;
     --muted: #a6bfc2;
-    --kicker: #a9dde8;
     --paper: #16363d;
+    --paper-edge: #6a8d93;
     --outline: #6a8d93;
     --hairline: rgb(106 141 147 / 0.5);
     --focus: #fbf6ec;
@@ -155,6 +156,11 @@ a:hover {
 
 .skip:focus {
   top: var(--lg);
+}
+
+/* The skip link opens over the header's ink ground in both schemes. */
+.skip:focus-visible {
+  outline-color: var(--skip-focus);
 }
 
 .wrap {
@@ -319,15 +325,6 @@ strong {
   font-size: 1.125rem;
 }
 
-.kicker {
-  margin: 0 0 var(--md);
-  color: var(--kicker);
-  font-size: 0.8125rem;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .home h2 {
   margin: 0 0 var(--lg);
   max-width: 18ch;
@@ -447,13 +444,15 @@ strong {
   }
 }
 
-/* The review, step by step: a wire with the people who saw the video. */
+/* The review, step by step. The first two steps happen outside the app,
+   on the page's own ground; the last two share one surface, the app,
+   because the second approval is what lets the video in. */
 .wire-steps {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 14px;
+  row-gap: var(--lg);
 }
 
 .wire-steps li {
@@ -461,9 +460,34 @@ strong {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 18px;
   align-items: center;
+  grid-column: 1;
   margin: 0;
-  padding: 20px 22px;
+  padding-inline: 22px;
+}
+
+.wire-steps li:nth-child(1) { grid-row: 1; }
+.wire-steps li:nth-child(2) { grid-row: 2; }
+
+.wire-steps li:nth-child(3) {
+  grid-row: 3;
+  margin-top: var(--lg);
+  padding-top: 26px;
+}
+
+.wire-steps li:nth-child(4) {
+  grid-row: 4;
+  padding-bottom: 26px;
+}
+
+/* The surface is a grid item of its own under steps three and four, so the
+   list keeps only its four items and their order. */
+.wire-steps::before {
+  content: "";
+  grid-row: 3 / 5;
+  grid-column: 1;
+  margin-top: var(--lg);
   background: var(--paper);
+  border: 1.5px solid var(--paper-edge);
   border-radius: 28px;
 }
 
@@ -474,45 +498,94 @@ strong {
   letter-spacing: -0.01em;
 }
 
-
 .wire-steps p {
   margin: 0;
   font-size: 1rem;
 }
 
+.home .wire-steps .moment {
+  margin-top: var(--xs);
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 1.875rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* A drawn wire that sags a little between its posts; the birds stand on
+   it by their feet. */
 .wire {
+  position: relative;
   display: flex;
+  justify-content: center;
   align-items: flex-end;
   gap: 2px;
   width: 136px;
-  height: 44px;
-  padding: 0 8px;
-  border-bottom: 3px solid currentColor;
-  border-radius: 0 0 40% 40% / 0 0 8px 8px;
+  height: 48px;
+}
+
+.wire svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.wire path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
 }
 
 .wire.empty {
-  border-bottom-style: dashed;
   color: var(--muted);
+}
+
+.wire.empty path {
+  stroke-dasharray: 6 7;
 }
 
 /* The perched figure tinted to the text's colour: the drawing is the
    mask, the colour follows light and dark. */
 .bird {
+  position: relative;
   flex: none;
   width: 40px;
   height: 40px;
-  margin-bottom: -9px;
   background: currentColor;
   -webkit-mask: url("/brand/telinha-segura-mark-perched-mono.svg") center / contain no-repeat;
   mask: url("/brand/telinha-segura-mark-perched-mono.svg") center / contain no-repeat;
 }
 
-/* On a phone the wire stands above its step's words. */
+/* Away from the middle the wire rides higher, and so do the feet. The
+   drawing is the wire's first child, so a pair of birds is children two
+   and three, a row of three is two to four. */
+.bird:nth-child(2):nth-last-child(2),
+.bird:nth-child(3):nth-last-child(1) {
+  top: -1px;
+}
+
+.bird:nth-child(2):nth-last-child(3),
+.bird:nth-child(4):nth-last-child(1) {
+  top: -3px;
+}
+
+/* On a phone the wire stands above its step's words; the empty one keeps
+   only the room its line needs. */
 @media (max-width: 519.98px) {
   .wire-steps li {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--md);
+    gap: var(--sm);
+  }
+
+  .wire.empty {
+    height: 16px;
+  }
+
+  .wire.empty svg {
+    top: auto;
+    height: 48px;
+    bottom: 0;
   }
 }
 
@@ -521,16 +594,25 @@ strong {
   background: var(--night);
 }
 
-.night .kicker {
-  color: var(--sky);
+.shot {
+  width: min(300px, 78%);
+  margin: 0 auto;
+  border: 10px solid var(--ink);
+  border-radius: 44px;
+  background: var(--ink);
 }
 
-.shot {
-  width: min(320px, 100%);
+.shot img {
+  width: 100%;
   height: auto;
-  margin: 0 auto;
-  border: 8px solid var(--ink);
-  border-radius: 36px;
+  border-radius: 34px;
+}
+
+/* The words lead on a phone; from the wide layout the screen sits first. */
+@media (min-width: 840px) {
+  .shot {
+    order: -1;
+  }
 }
 
 /* The rest of the deal: three facts. */
@@ -580,7 +662,12 @@ strong {
 
 .pattern-row {
   height: 96px;
-  background: url("/brand/telinha-segura-pattern-row.svg") left center / auto 96px repeat-x;
+  /* Whole tiles only: each repeat is stretched or shrunk, keeping its
+     shapes round, until a whole number of tiles fills the row. The tile
+     opens with a narrower margin than it closes with; the small shift
+     evens the two edges of the row. */
+  background: url("/brand/telinha-segura-pattern-row.svg") 9px center / 364px auto;
+  background-repeat: round no-repeat;
 }
 
 .closing .inner {
@@ -657,10 +744,6 @@ strong {
 }
 
 li::marker {
-  color: var(--muted);
-}
-
-.muted {
   color: var(--muted);
 }
 
@@ -878,8 +961,14 @@ li::marker {
 }
 
 .lockup img {
-  height: 56px;
+  height: 64px;
   width: auto;
+}
+
+/* The lockup carries its own clear space (20 of its 132 units on the left,
+   26 above); pulling it back lines the mark up with the text below. */
+.lockup {
+  margin: calc(-64px * 26 / 132) 0 0 calc(-64px * 20 / 132);
 }
 
 .tagline {

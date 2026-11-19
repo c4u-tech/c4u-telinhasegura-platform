@@ -31,11 +31,11 @@ and never runs; it must parse and claim no rating or review.
   and the closing band repeats the pattern row as a background.
 - **Screens:** `public/telas/` holds two captures of the app at a phone's
   width (390 points at 2x): the child's home (`crianca-inicio.png`) and the
-  resting screen when the day's time is over (`crianca-descanso.png`, the
-  middle of the screen, 1080 px tall). Their video covers are the app's
+  resting screen when the day's time is over (`crianca-descanso.png`, from
+  the app's top bar down to its words, 1200 px tall). Their video covers are the app's
   test pictures, not real videos. To refresh them, capture the same two
   screens from the app at 390 × 844 points and 2x, crop the resting screen
-  to its middle 1080 px, and save each as an indexed PNG of at most 256
+  to the 1200 px that start 80 px from its top, and save each as an indexed PNG of at most 256
   colours (Pillow: `image.quantize(256, method=Image.Quantize.MEDIANCUT,
   dither=Image.Dither.NONE).save(path, optimize=True)`); keep the `width` and
   `height` in `index.html` equal to the files'.
