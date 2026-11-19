@@ -446,7 +446,8 @@ class TeviGround extends InheritedWidget {
 ///
 /// A new [look] on a mascot already shown eases in over [Motion.change],
 /// or [Motion.fallAsleep] when it goes to sleep, once and never again on
-/// its own; under reduced motion it is a cut.
+/// its own; under reduced motion it is a cut. With [blinks] it blinks
+/// once as its screen arrives.
 class Tevi extends StatefulWidget {
   const Tevi({
     super.key,
@@ -457,6 +458,7 @@ class Tevi extends StatefulWidget {
     this.markColor = BrandColors.ink,
     this.semanticLabel,
     this.eases = true,
+    this.blinks = false,
   });
 
   final double size;
@@ -474,6 +476,12 @@ class Tevi extends StatefulWidget {
   /// frame by frame, draws each one as given.
   final bool eases;
 
+  /// Whether it blinks once, over [Motion.blink], when its screen has
+  /// arrived: a sign of life on the child's screens, never repeated while
+  /// it stays. An eye already shut, or a platform asking for reduced
+  /// motion, has no blink.
+  final bool blinks;
+
   /// How long the passage to [look] takes: a sleepy eye closes slowly.
   static Duration lengthTo(TeviLook look) =>
       look.sleepMarks ? Motion.fallAsleep : Motion.change;
@@ -482,8 +490,21 @@ class Tevi extends StatefulWidget {
   State<Tevi> createState() => _TeviState();
 }
 
-class _TeviState extends State<Tevi> with SingleTickerProviderStateMixin {
+class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   late final _change = AnimationController(vsync: this);
+
+  /// The eye shutting and opening again: 0 open, 1 shut, halfway in.
+  late final _blink = AnimationController(vsync: this, duration: Motion.blink);
+  late final Animation<double> _shut = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 1),
+  ]).chain(CurveTween(curve: Motion.sway)).animate(_blink);
+
+  /// Whether the arrival was already seen, blink or not.
+  bool _arrived = false;
+
+  /// The page this mascot arrives with, while it is still coming in.
+  Animation<double>? _coming;
 
   /// Where the passage under way started.
   late TeviLook _from = widget.look;
@@ -493,9 +514,56 @@ class _TeviState extends State<Tevi> with SingleTickerProviderStateMixin {
     curve: Motion.settle,
   );
 
-  TeviLook get _look => _change.isAnimating
-      ? TeviLook.lerp(_from, widget.look, _eased.value)
-      : widget.look;
+  TeviLook get _look {
+    final look = _change.isAnimating
+        ? TeviLook.lerp(_from, widget.look, _eased.value)
+        : widget.look;
+    if (!_blink.isAnimating) return look;
+    final shut = _shut.value;
+    return TeviLook(
+      lid: look.lid + (1 - look.lid) * shut,
+      sag: look.sag,
+      gaze: look.gaze,
+      crest: look.crest,
+      sleepMarks: look.sleepMarks,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_arrived) return;
+    _arrived = true;
+    if (!widget.blinks ||
+        widget.look.lid > 0 ||
+        (MediaQuery.maybeDisableAnimationsOf(context) ?? false)) {
+      return;
+    }
+    _awaitArrival(ModalRoute.of(context));
+  }
+
+  /// Blinks once [route] has arrived. A page still growing in would hide
+  /// most of a blink, so it waits for it; a page being laid out unseen,
+  /// before its first shown frame, is not there yet either.
+  void _awaitArrival(ModalRoute<Object?>? route) {
+    if (!mounted) return;
+    if (route == null) {
+      _blink.forward();
+    } else if (route.offstage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _awaitArrival(route));
+    } else if (route.animation case final page? when !page.isCompleted) {
+      _coming = page..addStatusListener(_pageMoved);
+    } else {
+      _blink.forward();
+    }
+  }
+
+  void _pageMoved(AnimationStatus status) {
+    if (status.isAnimating) return;
+    _coming?.removeStatusListener(_pageMoved);
+    _coming = null;
+    if (status.isCompleted && widget.look.lid == 0) _blink.forward();
+  }
 
   @override
   void didUpdateWidget(Tevi old) {
@@ -520,15 +588,17 @@ class _TeviState extends State<Tevi> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    _coming?.removeStatusListener(_pageMoved);
     _eased.dispose();
     _change.dispose();
+    _blink.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final figure = AnimatedBuilder(
-      animation: _change,
+      animation: Listenable.merge([_change, _blink]),
       builder: (context, _) => CustomPaint(
         size: Size.square(widget.size),
         painter: TeviPainter(
@@ -547,7 +617,8 @@ class _TeviState extends State<Tevi> with SingleTickerProviderStateMixin {
 
 /// The mascot standing in a child's screen: it faces the content, so it
 /// is mirrored right to left, and takes its colours from the ground below
-/// it unless told [night].
+/// it unless told [night]. It blinks once as its screen arrives, unless
+/// told not to [blinks].
 class FacingTevi extends StatelessWidget {
   const FacingTevi({
     super.key,
@@ -555,12 +626,14 @@ class FacingTevi extends StatelessWidget {
     this.look = TeviLook.watching,
     this.night,
     this.markColor = BrandColors.ink,
+    this.blinks = true,
   });
 
   final double size;
   final TeviLook look;
   final bool? night;
   final Color markColor;
+  final bool blinks;
 
   @override
   Widget build(BuildContext context) => Transform.flip(
@@ -570,6 +643,7 @@ class FacingTevi extends StatelessWidget {
       look: look,
       night: night ?? TeviGround.nightAt(context),
       markColor: markColor,
+      blinks: blinks,
     ),
   );
 }

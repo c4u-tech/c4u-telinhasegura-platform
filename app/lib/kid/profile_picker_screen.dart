@@ -202,6 +202,7 @@ class _ProfilePickerScreenState extends State<ProfilePickerScreen> {
                         size: size,
                         look: TeviLook.lookingBack,
                         night: TeviGround.nightAt(context),
+                        blinks: true,
                       ),
                     ),
                   ),

@@ -76,12 +76,14 @@ class KidErrorNote extends StatelessWidget {
               size: picture,
               look: asleep ? TeviLook.asleep : TeviLook.crestUp,
               markColor: BrandColors.sky,
+              blinks: false,
             )
           else
             ShelfPicture(
               look: asleep ? TeviLook.asleep : TeviLook.crestUp,
               perch: asleep ? Perch.wire : Perch.screen,
               scale: picture / ShelfPicture.size.height,
+              blinks: false,
             ),
           beside
               ? const SizedBox(width: Space.sm)
