@@ -294,38 +294,34 @@ class TeviPainter extends CustomPainter {
   ];
 
   /// The figure in one colour, in its own 120 units (no air around it):
-  /// the crown, the body from below the eyebrow with the eye cut out of
-  /// it, the pupil inside that hole and the beak's tip clear of the body.
-  /// No tail, no legs. Filled in one colour it is a figure's outline
-  /// rather than the mascot itself, for where a bird stands for someone.
+  /// tail, body, beak and legs as one shape, with the eyebrow band and
+  /// the eye cut out so the ground shows through, and the pupil inside
+  /// that hole. The beak runs straight out of the body. Small and filled
+  /// in one colour it still reads as a bird, for where a bird stands for
+  /// someone, without being the mascot in its colours.
   static final oneColour = () {
     Path cut(Path a, Path b, PathOperation op) => Path.combine(op, a, b);
-    final body = Path()..addRRect(_body);
-    final crown = cut(
-      body,
-      Path()..addRect(const Rect.fromLTRB(0, 0, 120, 38)),
-      PathOperation.intersect,
+    var shape = Path()..addRRect(_body);
+    for (final part in [
+      _tail,
+      _beak,
+      for (final leg in _legs) Path()..addRRect(leg),
+    ]) {
+      shape = cut(shape, part, PathOperation.union);
+    }
+    shape = cut(
+      shape,
+      Path()..addRect(const Rect.fromLTRB(0, 38, 120, 44.5)),
+      PathOperation.difference,
     );
-    final lower = cut(
-      cut(
-        body,
-        Path()..addRect(const Rect.fromLTRB(0, 44.5, 120, 120)),
-        PathOperation.intersect,
-      ),
+    shape = cut(
+      shape,
       Path()
         ..addOval(Rect.fromCircle(center: const Offset(74, 52), radius: 10.5)),
       PathOperation.difference,
     );
-    final beak = cut(
-      _beak,
-      Path()..addRect(const Rect.fromLTRB(101, 0, 120, 120)),
-      PathOperation.intersect,
-    );
-    return Path()
-      ..addPath(crown, Offset.zero)
-      ..addPath(lower, Offset.zero)
-      ..addOval(Rect.fromCircle(center: const Offset(77, 52), radius: 5))
-      ..addPath(beak, Offset.zero);
+    return shape
+      ..addOval(Rect.fromCircle(center: const Offset(77, 52), radius: 5));
   }();
 
   /// The width of the closed eyelid's line.

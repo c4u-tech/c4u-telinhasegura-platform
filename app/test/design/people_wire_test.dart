@@ -21,26 +21,34 @@ void main() {
   group('the mascot in one colour', () {
     final figure = TeviPainter.oneColour;
 
-    test('keeps the crown, the pupil, the body below the eyebrow and the '
-        'beak\'s tip', () {
+    test('keeps the crown, the pupil, the body below the eyebrow, the '
+        'tail, both legs and the whole beak', () {
       for (final p in const [
         Offset(56, 30), // crown
         Offset(77, 52), // pupil
         Offset(40, 70), // lower body
         Offset(108, 55), // beak
+        Offset(8, 76), // tail
+        Offset(44, 98), // front leg
+        Offset(62, 98), // back leg
       ]) {
         expect(figure.contains(p), isTrue, reason: '$p');
       }
     });
 
-    test('opens the eyebrow, the eye around the pupil and the gap before '
-        'the beak, and leaves out the tail and the legs', () {
+    test('runs the beak straight out of the body, with no gap before it', () {
+      for (var x = 96.0; x <= 104; x += .5) {
+        expect(figure.contains(Offset(x, 55)), isTrue, reason: 'x $x');
+      }
+    });
+
+    test('opens the eyebrow and the eye around the pupil to the ground, '
+        'and the air between the legs', () {
       for (final p in const [
         Offset(30, 41), // eyebrow
+        Offset(96, 41), // eyebrow, over the beak's root
         Offset(66, 52), // the eye, outside the pupil
-        Offset(99.5, 55), // between body and beak
-        Offset(8, 76), // tail
-        Offset(44, 98), // leg
+        Offset(53, 98), // between the legs
       ]) {
         expect(figure.contains(p), isFalse, reason: '$p');
       }
