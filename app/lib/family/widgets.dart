@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../access/copy.dart';
 import '../access/widgets.dart';
+import '../design/busy_ring.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import 'family_model.dart';
@@ -170,10 +171,7 @@ class _DoorRowState extends State<DoorRow> {
                 if (widget.busy)
                   SizedBox.square(
                     dimension: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: p.text,
-                    ),
+                    child: BusyRing(strokeWidth: 2.5, color: p.text),
                   )
                 else
                   Icon(
