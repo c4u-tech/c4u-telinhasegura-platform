@@ -114,6 +114,19 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('who saw it before reads a step below the video\'s title', (
+    tester,
+  ) async {
+    await video(tester);
+
+    final title = tester
+        .widget<Text>(find.text('O sapo que pulava alto'))
+        .style!;
+    final lead = tester.widget<Text>(plainText(seenByLine)).style!;
+    expect(lead.fontSize, lessThan(title.fontSize!));
+    expect(lead.fontWeight!.value, lessThanOrEqualTo(title.fontWeight!.value));
+  });
+
   testWidgets('with no approval counted, today\'s line and no wire', (
     tester,
   ) async {

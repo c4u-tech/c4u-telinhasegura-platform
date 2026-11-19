@@ -32,7 +32,12 @@ class ProvenanceView extends StatelessWidget {
       children: [
         PeopleWire(people: CatalogWords.people(provenance)),
         const SizedBox(height: Space.sm),
-        Text(lead, style: text.titleMedium),
+        // A step below the title it sits under, so the count supports the
+        // video rather than outweighs it.
+        Text(
+          lead,
+          style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: Space.xs),
         Text(
           whom,
