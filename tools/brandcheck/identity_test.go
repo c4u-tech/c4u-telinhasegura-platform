@@ -231,3 +231,45 @@ func TestSiteNeverShowsTheTealGroundSignatures(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The launch screen shows the body alone, the sun rounded rectangle, where
+// the whole figure would stand: its drawing centred in the square, its
+// 132-unit box spanning frac of it. The app draws the rest over it at the
+// same place, so the body must not move between the two.
+func TestLaunchMarksAreTheBodyAlone(t *testing.T) {
+	sun := color.RGBA{0xFF, 0xC4, 0x2E, 0xFF}
+	for file, frac := range map[string]float64{
+		"brand/app-icon/splash-mark.png":      0.8,
+		"brand/app-icon/splash-android12.png": 0.5,
+	} {
+		img := decode(t, file)
+		b := img.Bounds()
+		side := float64(b.Dx())
+		minX, minY, maxX, maxY := b.Max.X, b.Max.Y, b.Min.X, b.Min.Y
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			for x := b.Min.X; x < b.Max.X; x++ {
+				c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+				if c.A == 0 {
+					continue
+				}
+				if c.A == 0xFF && (c.R != sun.R || c.G != sun.G || c.B != sun.B) {
+					t.Fatalf("%s pixel %d,%d is %v, not the body's sun", file, x, y, c)
+				}
+				minX, maxX = min(minX, x), max(maxX, x+1)
+				minY, maxY = min(minY, y), max(maxY, y+1)
+			}
+		}
+		// The whole figure's drawing runs 3.7..115.03 by 20..103.4 units;
+		// the body 14..98 by 20..90.
+		s := side * frac / 132
+		ox, oy := side/2-s*(3.7+115.03)/2, side/2-s*(20+103.4)/2
+		want := [4]float64{ox + 14*s, oy + 20*s, ox + 98*s, oy + 90*s}
+		got := [4]float64{float64(minX), float64(minY), float64(maxX), float64(maxY)}
+		for i := range want {
+			if math.Abs(got[i]-want[i]) > 1.5 {
+				t.Errorf("%s body spans %v, want %v", file, got, want)
+				break
+			}
+		}
+	}
+}

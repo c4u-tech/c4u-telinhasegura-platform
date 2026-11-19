@@ -308,11 +308,16 @@ save_png('app-icon/app-icon-dark-1024.png', png(app_icon_dark, 1024, 1024).conve
 save_png('app-icon/android-adaptive-foreground.png', png(adaptive_fg, 432, 432))
 save_png('app-icon/android-adaptive-background.png', png(adaptive_bg, 432, 432))
 save_png('app-icon/android-monochrome.png', png(monochrome, 432, 432))
-# Native splash: the same figure on a transparent ground; the splash paints
-# ink behind it in both themes. 192 dp at 4x, and inside Android 12's
-# 640 px circle.
+# Native splash: the body alone, the sun rounded rectangle, on a transparent
+# ground; the splash paints ink behind it in both themes. It stands exactly
+# where the whole figure would (the full figure's drawing centred, its box
+# spanning frac), so the app's opening can draw the rest of the mascot over
+# it without the body moving. 192 dp at 4x, and inside Android 12's 640 px
+# circle.
 def splash(size, frac):
-    return png(svg(0, 0, size, size, placed(size, frac, 'mark', 'color')), size, size)
+    s = size * frac / FIG; x0, y0, x1, y1 = FIG_BBOX
+    t = f'translate({n(size / 2 - s * (x0 + x1) / 2)} {n(size / 2 - s * (y0 + y1) / 2)}) scale({n(s)})'
+    return png(svg(0, 0, size, size, f'<g transform="{t}"><path fill="{C["sun"]}" d="{BODY}"/></g>'), size, size)
 save_png('app-icon/splash-mark.png', splash(768, 0.8))
 save_png('app-icon/splash-android12.png', splash(960, 0.5))
 # Web icons from 180 px up are the app icon; the mini favicon stays at 16-48.

@@ -1,6 +1,6 @@
 # Native splash from the brand (brand/app-icon, written by
-# brand/source/build_brand.py): the app icon's mark on its ink ground, and
-# on the same ground at night. Regenerate with
+# brand/source/build_brand.py): the mascot's body alone on its ink ground,
+# by day and at night, where the app's opening then draws the rest of it. Regenerate with
 # dart run flutter_native_splash:create; the outputs are committed.
 flutter_native_splash:
   color: "#1E5B66"
