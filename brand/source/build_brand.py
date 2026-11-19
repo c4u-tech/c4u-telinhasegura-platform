@@ -14,7 +14,9 @@ wdth 100 (the endorsement at wght 500, opsz 14).
 It writes, under root:
 - brand/svg, brand/png, brand/tokens: the mascot in three tiers (mark,
   simplified, mini), the wordmark and the horizontal, stacked and endorsed
-  signatures, each in four variants; the e-mail PNGs and the design tokens;
+  signatures, each in four variants; the mascot looking back, the perched
+  one-colour figure and one row of the brand pattern, for the site; the
+  e-mail PNGs and the design tokens;
 - brand/app-icon: the app icon (the mascot on an ink tile, and its dark
   variant), the Android adaptive layers and monochrome, and the native
   splash marks; flutter_launcher_icons and flutter_native_splash read these
@@ -136,10 +138,13 @@ VARIANTS = {
   'reversed':       dict(one=C['cream'], word=C['cream'], play=C['cream'], end=C['cream']),
 }
 
-def figure(tier, v, ox=0, oy=0, scale=1, night=False):
+LOOK_BACK = (-6, 0)  # how far the pupil and its highlight move when the figure looks behind it
+
+def figure(tier, v, ox=0, oy=0, scale=1, night=False, back=False):
     """The mascot as an SVG group. tier is 'mark' (everything), 'simplified'
     (no tail, legs or highlight) or 'mini' (beak, body, one band and the
-    eye); night paints the dark parts in ink, for a dark ground."""
+    eye); night paints the dark parts in ink, for a dark ground; back turns
+    the eye toward the tail."""
     t = f' transform="translate({n(ox)} {n(oy)}) scale({n(scale)})"' if (ox or oy or scale != 1) else ''
     one = VARIANTS[v]['one']
     if one:
@@ -160,9 +165,10 @@ def figure(tier, v, ox=0, oy=0, scale=1, night=False):
                 f'<polygon fill="{d}" points="{MASK}"/>']
         if tier == 'mark':
             out += [f'<rect fill="{d}" x="{n(x)}" y="{n(y)}" width="{n(LEG_W)}" height="{n(LEG_H)}" rx="{n(LEG_R)}"/>' for x, y in LEGS]
-        out += [dot(EYE, C['cream']), dot(PUPIL, d)]
+        dx = LOOK_BACK[0] if back else 0
+        out += [dot(EYE, C['cream']), dot((PUPIL[0] + dx, PUPIL[1], PUPIL[2]), d)]
         if tier == 'mark':
-            out.append(dot(SHINE, C['cream']))
+            out.append(dot((SHINE[0] + dx, SHINE[1], SHINE[2]), C['cream']))
     return f'<g{t}>' + ''.join(out) + '</g>'
 
 # ---------------- wordmark outlines ----------------
@@ -262,6 +268,42 @@ for v in VARIANTS:
     files[f'svg/telinha-segura-lockup-stacked-{v}.svg'] = stacked_svg(v)
     files[f'svg/telinha-segura-lockup-endorsed-{v}.svg'] = lockup_svg(v, endorsed=True)
     files[f'svg/telinha-segura-wordmark-{v}.svg'] = wordmark_svg(v)
+# The site's 404 page: the full figure looking back over its shoulder.
+files['svg/telinha-segura-mark-looking-back-color.svg'] = svg(FIG_ORIGIN, FIG_ORIGIN, FIG, FIG, figure('mark', 'color', back=True))
+
+# The perched figure: the whole mascot, tail and legs included, in one
+# colour. The body is the one-colour mark (brow and eye cut out); tail and
+# legs are a second shape of the same colour, so where they overlap the
+# body it stays filled. A page tints it to its ground (as a mask).
+def perched(fill):
+    tail = rounded_triangle([TAIL[0], TAIL[2], TAIL[1]], TAIL_R)  # clockwise on screen
+    legs = ''.join(rrect(x, y, LEG_W, LEG_H, LEG_R) for x, y in LEGS)
+    return (f'<g><path fill="{fill}" fill-rule="evenodd" d="{ONE_COLOUR["mark"]}"/>'
+            f'<path fill="{fill}" d="{tail}{legs}"/></g>')
+files['svg/telinha-segura-mark-perched-mono.svg'] = svg(FIG_ORIGIN, FIG_ORIGIN, FIG, FIG, perched(C['dark']))
+
+# One row of the brand pattern, to repeat sideways behind a short line: the
+# body's rounded square, the beak, the masked eye on its band and a sky
+# disc, each a unit wide, 1.75 units apart, the row centred in its height.
+PAT_U, PAT_H = 52, 96
+def pattern_row():
+    u = PAT_U; pitch = u * 1.75; y = (PAT_H - u) / 2; out = []
+    for k in range(4):
+        x = u * 0.2 + k * pitch
+        if k == 0:
+            out.append(f'<path fill="{C["sun"]}" d="{rrect(x, y, u, u, u * 0.3)}"/>')
+        elif k == 1:
+            tri = [(x + u * 0.2, y + u * 0.16), (x + u * 0.82, y + u * 0.5), (x + u * 0.2, y + u * 0.84)]
+            out.append(f'<path fill="{C["beak"]}" d="{rounded_triangle(tri, u * 0.06)}"/>')
+        elif k == 2:
+            ph = u * 0.45
+            out.append(f'<path fill="{C["dark"]}" d="{rrect(x - u * 0.1, y + (u - ph) / 2, u * 1.2, ph, ph / 2)}"/>'
+                       f'<path fill="{C["cream"]}" d="{circle_path(x + u * 0.72, y + u / 2, u * 0.125)}"/>'
+                       f'<path fill="{C["dark"]}" d="{circle_path(x + u * 0.75, y + u / 2, u * 0.065)}"/>')
+        else:
+            out.append(f'<path fill="{C["sky"]}" d="{circle_path(x + u / 2, y + u / 2, u / 2)}"/>')
+    return svg(0, 0, pitch * 4, PAT_H, ''.join(out))
+files['svg/telinha-segura-pattern-row.svg'] = pattern_row()
 for k, t in files.items(): write(k, t)
 
 def centred(size, s, tier, v):
@@ -390,7 +432,9 @@ COPIES = {
   'site/public/favicon.ico': 'brand/favicon/favicon.ico',
   'site/public/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',
   'site/public/brand/telinha-segura-wordmark-reversed.svg': 'brand/svg/telinha-segura-wordmark-reversed.svg',
-  'site/public/brand/telinha-segura-lockup-endorsed-color.svg': 'brand/svg/telinha-segura-lockup-endorsed-color.svg',
+  'site/public/brand/telinha-segura-mark-looking-back-color.svg': 'brand/svg/telinha-segura-mark-looking-back-color.svg',
+  'site/public/brand/telinha-segura-mark-perched-mono.svg': 'brand/svg/telinha-segura-mark-perched-mono.svg',
+  'site/public/brand/telinha-segura-pattern-row.svg': 'brand/svg/telinha-segura-pattern-row.svg',
   'site/public/brand/telinha-segura-lockup-endorsed-reversed.svg': 'brand/svg/telinha-segura-lockup-endorsed-reversed.svg',
 }
 for copy, master in COPIES.items():

@@ -1,5 +1,5 @@
-/* The public site. Colours, type, radii and spacing follow the app's
-   design system; nothing here loads from outside the site (CSP
+/* The public site. Colours, type, radii and spacing follow the brand and
+   the app's design system; nothing here loads from outside the site (CSP
    default-src 'self'). */
 
 @font-face {
@@ -12,24 +12,28 @@
 :root {
   color-scheme: light dark;
   --ink: #1e5b66;
-  --sun: #f2b23a;
+  --sun: #ffc42e;
+  --beak: #ff5a36;
+  --sky: #a9dde8;
   --cream: #fbf6ec;
   --dark: #0f2a30;
 
   --ground: var(--cream);
-  --text: #12343b;
+  --text: var(--dark);
   --muted: #4a666b;
-  --paper: #fffdf8;
+  --paper: #ffffff;
+  --paper-edge: transparent;
   --outline: #6f8b90;
   --hairline: rgb(111 139 144 / 0.5);
-  --focus: #12343b;
-  --head-outline: var(--ink);
-  --eyes: var(--ink);
+  --focus: var(--dark);
   --selection: rgb(30 91 102 / 0.18);
 
-  --field: var(--ink);
-  --on-field: var(--cream);
-  --field-focus: var(--cream);
+  /* The coloured grounds (header, opening, night, closing band, footer)
+     stay the same in light and dark. */
+  --night: var(--dark);
+  --muted-on-dark: #a6bfc2;
+  --focus-on-field: var(--cream);
+  --skip-focus: var(--focus-on-field);
 
   --xs: 4px;
   --sm: 8px;
@@ -38,6 +42,7 @@
   --xl: 24px;
   --xxl: 32px;
   --xxxl: 48px;
+  --section: 96px;
 
   --measure: 38rem;
   --page: 72rem;
@@ -45,16 +50,16 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ground: var(--dark);
-    --text: var(--cream);
+    --ground: #0f2a30;
+    --text: #fbf6ec;
     --muted: #a6bfc2;
     --paper: #16363d;
+    --paper-edge: #6a8d93;
     --outline: #6a8d93;
     --hairline: rgb(106 141 147 / 0.5);
-    --focus: #a6bfc2;
-    --head-outline: transparent;
-    --eyes: var(--dark);
+    --focus: #fbf6ec;
     --selection: rgb(166 191 194 / 0.28);
+    --night: #091c20;
   }
 }
 
@@ -108,6 +113,35 @@ a:hover {
   border-radius: 8px;
 }
 
+/* The grounds that keep their colour in both schemes: cream text, a cream
+   focus ring, a lighter selection. */
+.site-header,
+.hero,
+.night,
+.closing,
+.site-footer,
+.lost {
+  color: var(--cream);
+}
+
+.site-header :focus-visible,
+.hero :focus-visible,
+.night :focus-visible,
+.closing :focus-visible,
+.site-footer :focus-visible,
+.lost :focus-visible {
+  outline-color: var(--focus-on-field);
+}
+
+.site-header ::selection,
+.hero ::selection,
+.night ::selection,
+.closing ::selection,
+.site-footer ::selection,
+.lost ::selection {
+  background: rgb(251 246 236 / 0.3);
+}
+
 .skip {
   position: absolute;
   left: var(--lg);
@@ -124,294 +158,77 @@ a:hover {
   top: var(--lg);
 }
 
-/* ---------------------------------------------------------------- field */
+/* The skip link opens over the header's ink ground in both schemes. */
+.skip:focus-visible {
+  outline-color: var(--skip-focus);
+}
 
-/* The Espiadinha over the field's top edge: the mark's strip from y 5
-   (head top) to y 27 (screen top), 64 × 22 units, centred. */
-.head {
-  display: block;
+.wrap {
+  max-width: calc(var(--page) + 2 * var(--xl));
   margin: 0 auto;
-  width: calc(64 * var(--unit));
-  height: calc(22 * var(--unit));
-  overflow: visible;
+  padding-inline: var(--xl);
 }
 
-.head .sun {
-  fill: var(--sun);
-  stroke: var(--head-outline);
-  stroke-linejoin: round;
+/* --------------------------------------------------------------- header */
+
+.site-header {
+  background: var(--ink);
 }
 
-.head .eye {
-  fill: var(--eyes);
-}
-
-.field {
-  background: var(--field);
-  color: var(--on-field);
-  border-radius: calc(10 * var(--unit));
-}
-
-.field ::selection {
-  background: rgb(251 246 236 / 0.3);
-}
-
-.field :focus-visible {
-  outline-color: var(--field-focus);
-}
-
-/* ------------------------------------------------------------ letterhead */
-
-.letterhead {
-  --unit: 3px;
-  padding: var(--sm) var(--md) 0;
-  max-width: calc(var(--page) + 2 * var(--lg));
-  margin: 0 auto;
-}
-
-.letterhead .field {
-  display: grid;
-  gap: var(--xl);
-  padding: var(--xl) var(--xl) var(--xxl);
-}
-
-/* The head already peeks over the field, so the field carries the
-   wordmark alone as its name plate: centred under the head, and never the
-   smallest text in the field. The heights are the wordmark's box, from
-   ascender to descender. */
-.wordmark {
-  justify-self: center;
+.site-header .bar {
   display: flex;
   align-items: center;
-  min-height: 32px;
+  justify-content: space-between;
+  gap: var(--xl);
+  min-height: 80px;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
   border-radius: 8px;
 }
 
 .wordmark img {
-  display: block;
   height: 28px;
   width: auto;
 }
 
-.promise {
-  margin: var(--sm) 0 0;
-  font-size: 2rem;
-  line-height: 1.12;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  max-width: 20ch;
-  text-wrap: balance;
+/* On a phone the footer carries these places; the header keeps the name. */
+.site-nav {
+  display: none;
 }
 
-.offer {
-  display: grid;
-  gap: var(--md);
-  justify-items: start;
-}
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 56px;
-  padding: 0 var(--xl);
-  border-radius: 17px;
-  font-size: 1rem;
-  line-height: 1.25;
-  font-weight: 620;
-  text-decoration: none;
-  cursor: pointer;
-  border: 0;
-  font-family: inherit;
-}
-
-.button--primary {
-  background: var(--ink);
-  color: var(--cream);
-}
-
-.button--primary:hover {
-  background: #12343b;
-}
-
-.button--outlined {
-  background: var(--paper);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1.5px var(--outline);
-}
-
-.button--outlined:hover {
-  box-shadow: inset 0 0 0 2.5px var(--outline);
-}
-
-@media (prefers-color-scheme: dark) {
-  .button--primary {
-    background: var(--cream);
-    color: var(--dark);
-  }
-
-  .button--primary:hover {
-    background: #fffdf8;
-  }
-}
-
-/* The stores' own badges, untouched: same height, a quarter of it apart,
-   as both stores' badge guidelines ask. */
-.stores {
+.site-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  flex-wrap: wrap;
   gap: var(--lg);
 }
 
-.store {
-  display: block;
-  border-radius: 9px;
-}
-
-.store img {
-  display: block;
-  height: 52px;
-  width: auto;
-}
-
-.web-link {
-  display: inline-block;
-  padding: 10px 0;
-  font-size: 1rem;
-  font-weight: 560;
-}
-
-@media (min-width: 840px) {
-  .letterhead {
-    --unit: 4px;
-    padding: var(--lg) var(--lg) 0;
-  }
-
-  .letterhead .field {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto 1fr;
-    min-height: 26rem;
-    padding: var(--xxl) var(--xxxl) var(--xxxl);
-    column-gap: var(--xxxl);
-  }
-
-  .letterhead .wordmark {
-    grid-column: 1 / -1;
-  }
-
-  .letterhead .wordmark img {
-    height: 32px;
-  }
-
-  .promise {
-    align-self: end;
-    font-size: clamp(2.75rem, 1.2rem + 3.1vw, 3.625rem);
-    line-height: 1.07;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    max-width: 17ch;
-  }
-
-  .offer {
-    align-self: end;
-    justify-items: end;
-    text-align: right;
-  }
-
-  .stores {
-    justify-content: flex-end;
-  }
-}
-
-/* ----------------------------------------------------------------- band */
-
-/* Every Read page: the task screen's 72 px band with the wordmark. */
-.band {
-  --unit: 1.75px;
-  padding: var(--sm) var(--md) 0;
-  max-width: calc(var(--page) + 2 * var(--lg));
-  margin: 0 auto;
-}
-
-.band .field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--lg);
-  min-height: 72px;
-  padding: var(--sm) var(--sm) var(--sm) var(--lg);
-}
-
-.band .wordmark {
-  min-height: 24px;
-}
-
-.band .wordmark img {
-  height: 20px;
-}
-
-/* On a narrow phone the name plate and the action share the band: the
-   wordmark keeps the start and the action may break onto two lines. */
-@media (max-width: 599.98px) {
-  .band .wordmark {
-    flex: none;
-  }
-
-  .band .band-action {
-    white-space: normal;
-    text-align: end;
-  }
-}
-
-/* With room for both, the name plate sits on the head's axis, the action
-   at the end: three columns, the outer two equal, even padding. */
-@media (min-width: 600px) {
-  .band .field {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    padding-inline: var(--sm);
-  }
-
-  .band .wordmark {
-    grid-column: 2;
-  }
-
-  .band .band-action {
-    grid-column: 3;
-    justify-self: end;
-  }
-}
-
-.band-action {
+.site-nav a {
   display: inline-flex;
   align-items: center;
   min-height: 48px;
-  padding: 0 var(--md);
-  border-radius: 8px;
-  color: var(--on-field);
-  font-weight: 620;
+  padding: 0 var(--sm);
+  font-weight: 600;
   text-decoration: none;
-  white-space: nowrap;
 }
 
-.band-action:hover {
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
   text-decoration: underline;
-  text-decoration-thickness: 1.5px;
 }
 
 @media (min-width: 840px) {
-  .band {
-    padding: var(--lg) var(--lg) 0;
+  .site-nav {
+    display: block;
   }
 }
 
-/* ------------------------------------------------------------- the note */
-
-.column {
-  max-width: calc(var(--measure) + 2 * var(--xl));
-  margin: 0 auto;
-  padding: var(--xxl) var(--xl) var(--xxxl);
-}
+/* ----------------------------------------------------------------- type */
 
 h1,
 h2,
@@ -421,36 +238,17 @@ h3 {
 
 h1 {
   margin: 0 0 var(--xl);
-  font-size: 2.25rem;
-  line-height: 1.11;
-  font-weight: 720;
-  letter-spacing: -0.02em;
-}
-
-.note h1 {
-  margin-bottom: var(--xxl);
-  font-size: 1.75rem;
-  line-height: 1.14;
-}
-
-.column .lead {
-  margin: 0 0 var(--lg);
-  font-size: 1.25rem;
-  line-height: 1.5;
-  font-weight: 450;
-}
-
-.note section,
-.read section {
-  margin-top: var(--xxxl);
-  scroll-margin-top: var(--xl);
+  font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.25rem);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 h2 {
   margin: 0 0 var(--md);
   font-size: 1.5rem;
   line-height: 1.25;
-  font-weight: 560;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
@@ -458,7 +256,7 @@ h3 {
   margin: var(--xl) 0 var(--sm);
   font-size: 1.125rem;
   line-height: 1.33;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 h2 a,
@@ -473,6 +271,442 @@ dl {
   margin: 0 0 var(--lg);
 }
 
+strong {
+  font-weight: 650;
+}
+
+/* The stores' own badges, untouched: same height, a quarter of it apart,
+   as both stores' badge guidelines ask. */
+.offer {
+  display: grid;
+  gap: var(--sm);
+  justify-items: start;
+}
+
+.stores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 13px;
+}
+
+.store {
+  display: block;
+  border-radius: 9px;
+}
+
+.store img {
+  height: 52px;
+  width: auto;
+}
+
+/* On a phone both badges keep one row, still at one height. */
+@media (max-width: 419.98px) {
+  .stores {
+    gap: 12px;
+  }
+
+  .store img {
+    height: 48px;
+  }
+}
+
+.web-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------------- home */
+
+.home p {
+  font-size: 1.125rem;
+}
+
+.home h2 {
+  margin: 0 0 var(--lg);
+  max-width: 18ch;
+  font-size: clamp(2rem, 1.3rem + 2.4vw, 3.2rem);
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.home h3 {
+  margin: 0 0 var(--sm);
+  font-size: 1.375rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.section {
+  padding-block: 64px;
+  scroll-margin-top: var(--xl);
+}
+
+.two {
+  display: grid;
+  gap: var(--xxl);
+  align-items: center;
+}
+
+.two p {
+  max-width: 46ch;
+  margin-bottom: 14px;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 800;
+}
+
+@media (min-width: 840px) {
+  .section {
+    padding-block: var(--section);
+  }
+
+  .two {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 56px;
+  }
+}
+
+/* The opening: the question and its answer, the offer, and the child's
+   screen in a phone that runs off the bottom edge. */
+.hero {
+  background: var(--ink);
+  overflow: hidden;
+}
+
+.hero-grid {
+  display: grid;
+  gap: 28px;
+  padding-top: var(--xl);
+}
+
+.hero h1 {
+  margin-bottom: 20px;
+  font-size: clamp(2.5rem, 1.2rem + 4.6vw, 4.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--sun);
+}
+
+.hero .lead {
+  max-width: 34ch;
+  margin: 0 0 28px;
+  font-size: clamp(1.15rem, 1rem + 0.5vw, 1.4rem);
+  line-height: 1.45;
+}
+
+.hero-copy {
+  padding-bottom: var(--sm);
+}
+
+.phone {
+  width: min(300px, 78%);
+  margin: 0 auto -140px;
+  border: 10px solid var(--dark);
+  border-bottom: 0;
+  border-radius: 44px 44px 0 0;
+  background: var(--dark);
+}
+
+.phone img {
+  width: 100%;
+  height: auto;
+  border-radius: 34px 34px 0 0;
+}
+
+@media (min-width: 840px) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 40px;
+    align-items: end;
+    padding-top: 36px;
+  }
+
+  .hero-copy {
+    padding-bottom: 64px;
+  }
+
+  .phone {
+    margin-bottom: -90px;
+  }
+}
+
+/* The review, step by step. The first two steps happen outside the app,
+   on the page's own ground; the last two share one surface, the app,
+   because the second approval is what lets the video in. */
+.wire-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  row-gap: var(--lg);
+}
+
+.wire-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  grid-column: 1;
+  margin: 0;
+  padding-inline: 22px;
+}
+
+.wire-steps li:nth-child(1) { grid-row: 1; }
+.wire-steps li:nth-child(2) { grid-row: 2; }
+
+.wire-steps li:nth-child(3) {
+  grid-row: 3;
+  margin-top: var(--lg);
+  padding-top: 26px;
+}
+
+.wire-steps li:nth-child(4) {
+  grid-row: 4;
+  padding-bottom: 26px;
+}
+
+/* The surface is a grid item of its own under steps three and four, so the
+   list keeps only its four items and their order. */
+.wire-steps::before {
+  content: "";
+  grid-row: 3 / 5;
+  grid-column: 1;
+  margin-top: var(--lg);
+  background: var(--paper);
+  border: 1.5px solid var(--paper-edge);
+  border-radius: 28px;
+}
+
+.wire-steps strong {
+  display: block;
+  font-size: 1.1875rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.wire-steps p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.home .wire-steps .moment {
+  margin-top: var(--xs);
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 1.875rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* A drawn wire that sags a little between its posts; the birds stand on
+   it by their feet. */
+.wire {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 2px;
+  width: 136px;
+  height: 48px;
+}
+
+.wire svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.wire path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.wire.empty {
+  color: var(--muted);
+}
+
+.wire.empty path {
+  stroke-dasharray: 6 7;
+}
+
+/* The perched figure tinted to the text's colour: the drawing is the
+   mask, the colour follows light and dark. */
+.bird {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  background: currentColor;
+  -webkit-mask: url("/brand/telinha-segura-mark-perched-mono.svg") center / contain no-repeat;
+  mask: url("/brand/telinha-segura-mark-perched-mono.svg") center / contain no-repeat;
+}
+
+/* Away from the middle the wire rides higher, and so do the feet. The
+   drawing is the wire's first child, so a pair of birds is children two
+   and three, a row of three is two to four. */
+.bird:nth-child(2):nth-last-child(2),
+.bird:nth-child(3):nth-last-child(1) {
+  top: -1px;
+}
+
+.bird:nth-child(2):nth-last-child(3),
+.bird:nth-child(4):nth-last-child(1) {
+  top: -3px;
+}
+
+/* On a phone the wire stands above its step's words; the empty one keeps
+   only the room its line needs. */
+@media (max-width: 519.98px) {
+  .wire-steps li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sm);
+  }
+
+  .wire.empty {
+    height: 16px;
+  }
+
+  .wire.empty svg {
+    top: auto;
+    height: 48px;
+    bottom: 0;
+  }
+}
+
+/* A screen with an end, on the night ground. */
+.night {
+  background: var(--night);
+}
+
+.shot {
+  width: min(300px, 78%);
+  margin: 0 auto;
+  border: 10px solid var(--ink);
+  border-radius: 44px;
+  background: var(--ink);
+}
+
+.shot img {
+  width: 100%;
+  height: auto;
+  border-radius: 34px;
+}
+
+/* The words lead on a phone; from the wide layout the screen sits first. */
+@media (min-width: 840px) {
+  .shot {
+    order: -1;
+  }
+}
+
+/* The rest of the deal: three facts. */
+.fact-cards {
+  display: grid;
+  gap: 18px;
+  margin-top: 36px;
+}
+
+.fact {
+  padding: var(--xl);
+  background: var(--paper);
+  border-radius: 28px;
+  scroll-margin-top: var(--xl);
+}
+
+.fact p {
+  margin: 0 0 var(--sm);
+  font-size: 1rem;
+}
+
+@media (min-width: 840px) {
+  .fact-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.code {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 800;
+}
+
+.gh {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+/* The closing band: one row of the brand pattern above a short line. */
+.closing {
+  background: var(--ink);
+  text-align: center;
+}
+
+.pattern-row {
+  height: 96px;
+  /* Whole tiles only: each repeat is stretched or shrunk, keeping its
+     shapes round, until a whole number of tiles fills the row. The tile
+     opens with a narrower margin than it closes with; the small shift
+     evens the two edges of the row. */
+  background: url("/brand/telinha-segura-pattern-row.svg") 9px center / 364px auto;
+  background-repeat: round no-repeat;
+}
+
+.closing .inner {
+  padding: 56px var(--xl) 72px;
+}
+
+.closing h2 {
+  max-width: none;
+  margin-bottom: 26px;
+}
+
+.closing .offer {
+  justify-items: center;
+}
+
+.closing .stores {
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------ read pages */
+
+.column {
+  max-width: calc(var(--measure) + 2 * var(--xl));
+  margin: 0 auto;
+  padding: var(--xxxl) var(--xl) 64px;
+}
+
+.column .lead {
+  margin: 0 0 var(--lg);
+  font-size: 1.25rem;
+  line-height: 1.5;
+  font-weight: 450;
+}
+
+.read section {
+  margin-top: var(--xxxl);
+  scroll-margin-top: var(--xl);
+}
+
 .column p,
 .column li,
 .column dd {
@@ -480,29 +714,26 @@ dl {
   line-height: 1.6;
 }
 
-ul,
-ol {
+.column ul,
+.column ol {
   padding-left: 1.25em;
 }
 
-li + li {
+.column li + li {
   margin-top: var(--sm);
 }
 
-.read ul:not(.steps),
-.note ul {
+.read ul:not(.steps) {
   list-style: none;
   padding-left: 0;
 }
 
-.read ul:not(.steps) > li,
-.note ul > li {
+.read ul:not(.steps) > li {
   position: relative;
   padding-left: 20px;
 }
 
-.read ul:not(.steps) > li::before,
-.note ul > li::before {
+.read ul:not(.steps) > li::before {
   content: "";
   position: absolute;
   left: 2px;
@@ -515,55 +746,6 @@ li + li {
 li::marker {
   color: var(--muted);
 }
-
-strong {
-  font-weight: 620;
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.signature {
-  margin-top: var(--xxxl);
-  padding-top: var(--xxl);
-  border-top: 1px solid var(--hairline);
-}
-
-.signature .sign {
-  font-weight: 560;
-  font-size: 1.125rem;
-}
-
-.signature .offer {
-  margin-top: var(--xl);
-}
-
-@media (min-width: 840px) {
-  .column {
-    padding-top: var(--xxxl);
-  }
-
-  h1 {
-    font-size: 2.75rem;
-    line-height: 1.07;
-  }
-
-  .note h1 {
-    font-size: 3rem;
-  }
-
-  .signature .offer {
-    justify-items: start;
-    text-align: left;
-  }
-
-  .signature .stores {
-    justify-content: flex-start;
-  }
-}
-
-/* ------------------------------------------------------------ read pages */
 
 .column .version {
   margin: 0 0 var(--xs);
@@ -650,6 +832,10 @@ strong {
   counter-reset: step;
 }
 
+.column .steps {
+  padding-left: 0;
+}
+
 .steps li {
   counter-increment: step;
   display: grid;
@@ -658,6 +844,10 @@ strong {
   padding: var(--md) 0;
   border-top: 1px solid var(--hairline);
   margin: 0;
+}
+
+.column .steps li + li {
+  margin-top: 0;
 }
 
 .steps li:last-child {
@@ -683,91 +873,168 @@ strong {
   overflow-wrap: normal;
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ 404 */
+
+.lost {
+  display: grid;
+  place-items: center;
+  min-height: 480px;
+  padding: 64px var(--xl);
+  background: var(--ink);
+  text-align: center;
+}
+
+.lost img {
+  width: 150px;
+  height: auto;
+  margin: 0 auto var(--sm);
+}
+
+.lost h1 {
+  margin: 0 0 var(--md);
+}
+
+.lost p {
+  margin: 0 0 26px;
+  font-size: 1.125rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--md);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 28px;
+  border-radius: 22px;
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.button--sun {
+  background: var(--sun);
+  color: var(--dark);
+}
+
+.button--sun:hover {
+  background: #ffd25e;
+}
+
+.button--line {
+  color: var(--cream);
+  box-shadow: inset 0 0 0 2px var(--cream);
+}
+
+.button--line:hover {
+  box-shadow: inset 0 0 0 3px var(--cream);
+}
+
 /* --------------------------------------------------------------- footer */
 
 .site-footer {
-  border-top: 1px solid var(--hairline);
-  margin-top: var(--xxl);
+  background: var(--dark);
+  font-size: 1rem;
 }
 
 .site-footer .inner {
-  max-width: calc(var(--page) + 2 * var(--xl));
-  margin: 0 auto;
-  padding: var(--xxl) var(--xl) var(--xxxl);
   display: grid;
-  gap: var(--xl);
+  gap: var(--xxl);
+  padding-top: 56px;
+  padding-bottom: var(--xxl);
 }
 
-.site-footer .endorsed {
-  height: 56px;
+.lockup {
+  display: inline-block;
+  border-radius: 8px;
+}
+
+.lockup img {
+  height: 64px;
   width: auto;
 }
 
-.site-footer .endorsed--dark {
-  display: none;
+/* The lockup carries its own clear space (20 of its 132 units on the left,
+   26 above); pulling it back lines the mark up with the text below. */
+.lockup {
+  margin: calc(-64px * 26 / 132) 0 0 calc(-64px * 20 / 132);
 }
 
-@media (prefers-color-scheme: dark) {
-  .site-footer .endorsed--light {
-    display: none;
-  }
-
-  .site-footer .endorsed--dark {
-    display: block;
-  }
+.tagline {
+  max-width: 26ch;
+  margin: 14px 0 0;
+  color: var(--muted-on-dark);
 }
 
-.site-footer ul {
+.footer-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--xl) var(--xxl);
+}
+
+.footer-nav h2 {
+  margin: 0 0 var(--xs);
+  color: var(--sky);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.footer-nav ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: var(--xl);
 }
 
-.site-footer li {
+.footer-nav li {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   margin: 0;
 }
 
-.site-footer li a {
+.footer-nav a {
   display: inline-flex;
   align-items: center;
-  min-height: 48px;
+  gap: 10px;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.footer-nav a:hover,
+.footer-nav a[aria-current="page"] {
+  text-decoration: underline;
 }
 
 .legal {
   margin: 0;
-  color: var(--muted);
+  padding-top: 20px;
+  border-top: 1px solid rgb(251 246 236 / 0.2);
+  color: var(--muted-on-dark);
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
 @media (min-width: 840px) {
   .site-footer .inner {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 3fr);
     column-gap: var(--xxxl);
-    align-items: start;
-  }
-
-  .site-footer ul {
-    justify-content: flex-end;
   }
 
   .legal {
     grid-column: 1 / -1;
+    margin-top: var(--sm);
   }
-}
-
-/* ----------------------------------------------------------------- 404 */
-
-.lost .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--md);
-  margin-top: var(--xl);
-}
-
-.nowrap {
-  white-space: nowrap;
 }

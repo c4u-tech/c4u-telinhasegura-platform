@@ -61,8 +61,18 @@ type Page struct {
 	FooterHrefs []string
 	FooterText  string
 	IDs         []string
+	// Images are every <img>, in order.
+	Images []Image
 	// InlineScripts counts <script> elements with a body and no src.
 	InlineScripts, StyleElements, StyleAttrs int
+}
+
+// Image is what a page says about one picture: where it comes from, its
+// text alternative (HasAlt tells an empty alt from a missing one) and the
+// size it reserves before it loads.
+type Image struct {
+	Src, Alt, Width, Height string
+	HasAlt                  bool
 }
 
 // LoadPage reads the page nginx serves for an URL path: "/" is index.html,
@@ -152,6 +162,10 @@ func LoadPage(urlPath string) (*Page, error) {
 					p.Loads = append(p.Loads, a["href"])
 				}
 			case "img", "source":
+				if n.Data == "img" {
+					_, hasAlt := a["alt"]
+					p.Images = append(p.Images, Image{Src: a["src"], Alt: a["alt"], Width: a["width"], Height: a["height"], HasAlt: hasAlt})
+				}
 				if a["src"] != "" {
 					p.Loads = append(p.Loads, a["src"])
 				}
