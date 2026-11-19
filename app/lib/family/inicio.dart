@@ -29,9 +29,10 @@ const _suggestions = 'Sugestões de vídeos';
 const _suggestionsLine = 'Sugerir e acompanhar';
 
 /// The home once the family is ready: one card per child, each ending in
-/// handing the device to that child, then the suggestions' door. While the family has no child, or no PIN, one calm row names
-/// the next step and opens the first run there. Each child's day is read
-/// on its own, so one slow or failed read holds up no other row.
+/// handing the device to that child, then the suggestions' door. While
+/// the family has no child, or no PIN, one calm row names the next step
+/// and opens the first run there. Each child's day is read on its own, so
+/// one slow or failed read holds up no other row.
 class Inicio extends StatefulWidget {
   const Inicio({super.key, required this.family, this.columns = 1});
 
