@@ -387,22 +387,18 @@ class _Geometry {
 
 /// The highlight with the mascot standing on its top edge, crest raised,
 /// its body over the picture's middle, in the colours of the ground
-/// behind it.
+/// behind it. While the home is [loading] it watches instead, its gaze
+/// sweeping, and does not blink: the gaze is what moves then.
 class _Highlight extends StatelessWidget {
   const _Highlight({
     required this.geometry,
     required this.child,
-    this.look,
-    this.blinks = true,
+    this.loading = false,
   });
 
   final _Geometry geometry;
   final Widget child;
-  final TeviLook? look;
-
-  /// Whether the mascot blinks as the home arrives: not while it is
-  /// still loading, when its gaze is what moves.
-  final bool blinks;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -425,8 +421,9 @@ class _Highlight extends StatelessWidget {
             child: MascotUnderNote(
               child: FacingTevi(
                 size: size,
-                look: look ?? TeviLook.crestUp,
-                blinks: blinks,
+                look: loading ? TeviLook.watching : TeviLook.crestUp,
+                blinks: !loading,
+                searching: loading,
               ),
             ),
           ),
@@ -976,8 +973,7 @@ class MosaicLoading extends StatelessWidget {
               note: note,
               lead: _Highlight(
                 geometry: g,
-                look: TeviLook.watching,
-                blinks: false,
+                loading: true,
                 child: quiet(g.highlight, FieldSizes.heroCorner),
               ),
               pictures: [

@@ -447,7 +447,7 @@ class TeviGround extends InheritedWidget {
 /// A new [look] on a mascot already shown eases in over [Motion.change],
 /// or [Motion.fallAsleep] when it goes to sleep, once and never again on
 /// its own; under reduced motion it is a cut. With [blinks] it blinks
-/// once as its screen arrives.
+/// once as its screen arrives; while [searching] its gaze sweeps.
 class Tevi extends StatefulWidget {
   const Tevi({
     super.key,
@@ -459,6 +459,7 @@ class Tevi extends StatefulWidget {
     this.semanticLabel,
     this.eases = true,
     this.blinks = false,
+    this.searching = false,
   });
 
   final double size;
@@ -482,6 +483,13 @@ class Tevi extends StatefulWidget {
   /// motion, has no blink.
   final bool blinks;
 
+  /// Whether its gaze sweeps slowly back over its shoulder and ahead
+  /// again, once every [Motion.gaze]: what is loading, shown as someone
+  /// looking for it. The one motion a mascot makes on its own, so it is
+  /// kept for a screen that only waits, and runs only while shown; under
+  /// reduced motion the mascot looks ahead, still.
+  final bool searching;
+
   /// How long the passage to [look] takes: a sleepy eye closes slowly.
   static Duration lengthTo(TeviLook look) =>
       look.sleepMarks ? Motion.fallAsleep : Motion.change;
@@ -499,6 +507,13 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 1),
     TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 1),
   ]).chain(CurveTween(curve: Motion.sway)).animate(_blink);
+
+  /// The gaze sweeping: back in the first half, ahead in the second.
+  late final _search = AnimationController(vsync: this, duration: Motion.gaze);
+  late final Animation<double> _back = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 1),
+  ]).chain(CurveTween(curve: Motion.sway)).animate(_search);
 
   /// Whether the arrival was already seen, blink or not.
   bool _arrived = false;
@@ -518,25 +533,35 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     final look = _change.isAnimating
         ? TeviLook.lerp(_from, widget.look, _eased.value)
         : widget.look;
-    if (!_blink.isAnimating) return look;
-    final shut = _shut.value;
+    if (!_blink.isAnimating && !_search.isAnimating) return look;
+    final shut = _blink.isAnimating ? _shut.value : 0.0;
+    final back = _search.isAnimating ? _back.value : 0.0;
     return TeviLook(
       lid: look.lid + (1 - look.lid) * shut,
       sag: look.sag,
-      gaze: look.gaze,
+      gaze: look.gaze + (1 - look.gaze) * back,
       crest: look.crest,
       sleepMarks: look.sleepMarks,
     );
   }
 
+  bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  void _searchOrNot() {
+    if (!widget.searching || _still) {
+      _search.reset();
+    } else if (!_search.isAnimating) {
+      _search.repeat();
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _searchOrNot();
     if (_arrived) return;
     _arrived = true;
-    if (!widget.blinks ||
-        widget.look.lid > 0 ||
-        (MediaQuery.maybeDisableAnimationsOf(context) ?? false)) {
+    if (!widget.blinks || widget.look.lid > 0 || _still) {
       return;
     }
     _awaitArrival(ModalRoute.of(context));
@@ -568,11 +593,9 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(Tevi old) {
     super.didUpdateWidget(old);
+    if (widget.searching != old.searching) _searchOrNot();
     if (widget.look == old.look) return;
-    final still =
-        !widget.eases ||
-        (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
-    if (still) {
+    if (!widget.eases || _still) {
       _change.stop();
       return;
     }
@@ -592,13 +615,14 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     _eased.dispose();
     _change.dispose();
     _blink.dispose();
+    _search.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final figure = AnimatedBuilder(
-      animation: Listenable.merge([_change, _blink]),
+      animation: Listenable.merge([_change, _blink, _search]),
       builder: (context, _) => CustomPaint(
         size: Size.square(widget.size),
         painter: TeviPainter(
@@ -627,6 +651,7 @@ class FacingTevi extends StatelessWidget {
     this.night,
     this.markColor = BrandColors.ink,
     this.blinks = true,
+    this.searching = false,
   });
 
   final double size;
@@ -634,6 +659,9 @@ class FacingTevi extends StatelessWidget {
   final bool? night;
   final Color markColor;
   final bool blinks;
+
+  /// As [Tevi.searching].
+  final bool searching;
 
   @override
   Widget build(BuildContext context) => Transform.flip(
@@ -644,6 +672,7 @@ class FacingTevi extends StatelessWidget {
       night: night ?? TeviGround.nightAt(context),
       markColor: markColor,
       blinks: blinks,
+      searching: searching,
     ),
   );
 }
