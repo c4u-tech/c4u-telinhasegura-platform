@@ -51,6 +51,9 @@ func TestEveryShippedCopyEqualsItsMaster(t *testing.T) {
 		"site/public/brand/telinha-segura-wordmark-reversed.svg":        "brand/svg/telinha-segura-wordmark-reversed.svg",
 		"site/public/brand/telinha-segura-lockup-endorsed-color.svg":    "brand/svg/telinha-segura-lockup-endorsed-color.svg",
 		"site/public/brand/telinha-segura-lockup-endorsed-reversed.svg": "brand/svg/telinha-segura-lockup-endorsed-reversed.svg",
+		"site/public/brand/telinha-segura-mark-looking-back-color.svg":  "brand/svg/telinha-segura-mark-looking-back-color.svg",
+		"site/public/brand/telinha-segura-mark-perched-mono.svg":        "brand/svg/telinha-segura-mark-perched-mono.svg",
+		"site/public/brand/telinha-segura-pattern-row.svg":              "brand/svg/telinha-segura-pattern-row.svg",
 	} {
 		if _, ok := m[copyPath]; !ok {
 			t.Errorf("%s is not in the manifest: the generator does not write it", copyPath)

@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -289,5 +290,52 @@ func TestLaunchMarksAreTheBodyAlone(t *testing.T) {
 		if reach > 96*4 {
 			t.Errorf("%s body reaches %.1f px from the centre, past the 384 px circle", file, reach)
 		}
+	}
+}
+
+// The perched figure is the whole mascot, tail and legs included, in one
+// colour, so a page can tint it to its ground.
+func TestPerchedFigureIsOneColour(t *testing.T) {
+	svg := read(t, "brand/svg/telinha-segura-mark-perched-mono.svg")
+	fills := regexp.MustCompile(`fill="(#[0-9A-F]{6})"`).FindAllStringSubmatch(svg, -1)
+	if len(fills) == 0 {
+		t.Fatal("the perched figure has no fill")
+	}
+	for _, f := range fills {
+		if f[1] != "#0F2A30" {
+			t.Errorf("the perched figure is painted %s, want only #0F2A30", f[1])
+		}
+	}
+	for _, part := range []string{"A2.4 2.4", "fill-rule=\"evenodd\""} { // the legs' rounded ends; the cut-out eye
+		if !strings.Contains(svg, part) {
+			t.Errorf("the perched figure lacks %q", part)
+		}
+	}
+}
+
+// The mascot looking back has the full figure with its pupil and highlight
+// turned to the tail.
+func TestLookingBackFigure(t *testing.T) {
+	svg := read(t, "brand/svg/telinha-segura-mark-looking-back-color.svg")
+	for _, want := range []string{`cx="71" cy="52" r="5"`, `cx="73" cy="50" r="1.7"`, `cx="74" cy="52" r="10.5"`} {
+		if !strings.Contains(svg, want) {
+			t.Errorf("mark-looking-back-color.svg lacks %q", want)
+		}
+	}
+}
+
+// The pattern row repeats the identity's shapes in the brand's colours only.
+func TestPatternRowUsesTheBrandColours(t *testing.T) {
+	svg := read(t, "brand/svg/telinha-segura-pattern-row.svg")
+	brand := map[string]bool{"#FFC42E": true, "#FF5A36": true, "#0F2A30": true, "#FBF6EC": true, "#A9DDE8": true}
+	seen := map[string]bool{}
+	for _, f := range regexp.MustCompile(`fill="(#[0-9A-F]{6})"`).FindAllStringSubmatch(svg, -1) {
+		if !brand[f[1]] {
+			t.Errorf("the pattern row uses %s, outside the brand", f[1])
+		}
+		seen[f[1]] = true
+	}
+	if len(seen) != len(brand) {
+		t.Errorf("the pattern row uses %d of the %d colours", len(seen), len(brand))
 	}
 }
