@@ -392,4 +392,15 @@ abstract final class Motion {
   /// would have eased then simply changes.
   static Duration of(BuildContext context, Duration length) =>
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : length;
+
+  /// Whether a loop (a loader's breath or gaze) runs below [context]:
+  /// never under reduced motion, where a loader stays still.
+  static bool loopsIn(BuildContext context) =>
+      loops && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+
+  /// Off, every loop stays still, as under reduced motion. A widget test
+  /// settles only once nothing moves, and a loop never stops on its own,
+  /// so the tests turn loops off and back on where they watch one.
+  @visibleForTesting
+  static bool loops = true;
 }

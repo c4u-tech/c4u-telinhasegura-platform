@@ -548,7 +548,7 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
   void _searchOrNot() {
-    if (!widget.searching || _still) {
+    if (!widget.searching || !Motion.loopsIn(context)) {
       _search.reset();
     } else if (!_search.isAnimating) {
       _search.repeat();

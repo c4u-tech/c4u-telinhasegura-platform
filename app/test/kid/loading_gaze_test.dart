@@ -29,6 +29,7 @@ Future<List<double>> oneSweep(WidgetTester tester) async => [
 void main() {
   testWidgets('while the home loads, the mascot\'s gaze sweeps back and '
       'ahead once every 1.8 s', (tester) async {
+    runLoops();
     await pumpLoading(tester);
     final first = await oneSweep(tester);
     expect(first.reduce((a, b) => a > b ? a : b), greaterThan(.9));
@@ -40,6 +41,7 @@ void main() {
   });
 
   testWidgets('the sweep stops once the loading screen leaves', (tester) async {
+    runLoops();
     await pumpLoading(tester);
     await tester.pump(Motion.gaze ~/ 3);
     expect(tester.binding.transientCallbackCount, greaterThan(0));
@@ -51,6 +53,7 @@ void main() {
   testWidgets('under reduced motion the mascot looks ahead, still', (
     tester,
   ) async {
+    runLoops();
     await pumpLoading(tester, still: true);
     expect(await oneSweep(tester), everyElement(0));
     expect(tester.binding.transientCallbackCount, 0);

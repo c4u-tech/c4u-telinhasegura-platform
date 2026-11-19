@@ -333,15 +333,50 @@ List<Widget> familyPending(FamilyModel model) => switch (model.state) {
 };
 
 /// Two doors' worth of quiet bars while the family loads: the page keeps
-/// its shape instead of spinning.
-class FamilyPlaceholder extends StatelessWidget {
+/// its shape instead of spinning. The bars breathe, slowly, so a wait is
+/// seen to be one; under reduced motion they stay still.
+class FamilyPlaceholder extends StatefulWidget {
   const FamilyPlaceholder({super.key, this.label = 'Carregando sua família'});
 
   /// What assistive technology hears while the bars show.
   final String label;
 
   @override
+  State<FamilyPlaceholder> createState() => _FamilyPlaceholderState();
+}
+
+class _FamilyPlaceholderState extends State<FamilyPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final _breath = AnimationController(
+    vsync: this,
+    duration: Motion.breath,
+  );
+
+  /// Out to the faintest at half the breath, and back.
+  late final Animation<double> _opacity = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 1, end: .45), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: .45, end: 1), weight: 1),
+  ]).chain(CurveTween(curve: Motion.sway)).animate(_breath);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!Motion.loopsIn(context)) {
+      _breath.reset();
+    } else if (!_breath.isAnimating) {
+      _breath.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _breath.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final label = widget.label;
     final fill = context.palette.outline.withValues(alpha: .24);
     Widget bar(double width, double height) => Container(
       width: width,
@@ -354,25 +389,28 @@ class FamilyPlaceholder extends StatelessWidget {
     return Semantics(
       label: label,
       child: ExcludeSemantics(
-        child: Doors(
-          key: const Key('family-placeholder'),
-          children: [
-            for (final width in [96.0, 136.0])
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 72),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Space.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      bar(width, 18),
-                      const SizedBox(height: Space.sm),
-                      bar(176, 10),
-                    ],
+        child: FadeTransition(
+          opacity: _opacity,
+          child: Doors(
+            key: const Key('family-placeholder'),
+            children: [
+              for (final width in [96.0, 136.0])
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 72),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Space.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        bar(width, 18),
+                        const SizedBox(height: Space.sm),
+                        bar(176, 10),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

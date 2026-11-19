@@ -101,3 +101,10 @@ List<(String, double?)> brandAssets(WidgetTester tester, Finder within) => [
   ))
     ((s.bytesLoader as SvgAssetLoader).assetName, s.height),
 ];
+
+/// Lets the loaders' loops run for the rest of this test: they are still
+/// in every other test, so its screens can settle.
+void runLoops() {
+  Motion.loops = true;
+  addTearDown(() => Motion.loops = false);
+}
