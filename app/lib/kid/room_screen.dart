@@ -17,11 +17,11 @@ import 'kid_layout.dart';
 import 'pack_row.dart';
 import 'player_keys.dart';
 import 'player_screen.dart';
+import 'press_sink.dart';
 import 'room_transition.dart';
 import 'shelves.dart';
 import 'tap_guard.dart';
 import 'theme_glyph.dart';
-import 'press_sink.dart';
 
 /// What the home hands the page it opens: the day it read, and where the
 /// door that opened it stood. A page reached any other way (a reload, a
