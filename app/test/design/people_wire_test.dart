@@ -72,7 +72,12 @@ void main() {
       expect(find.text('+7'), findsOneWidget);
       final wire = tester.getRect(find.byType(PeopleWire));
       final more = tester.getRect(find.text('+7'));
-      expect(more.left, greaterThan(wire.left + painterOf(tester).birdsWidth));
+      expect(
+        more.left,
+        greaterThan(
+          wire.left + PeopleWirePainter.inset + painterOf(tester).birdsWidth,
+        ),
+      );
     });
 
     testWidgets('exactly five has no remainder', (tester) async {
@@ -95,16 +100,53 @@ void main() {
       });
     }
 
-    test('each bird sits on the wire, its body\'s foot in the line', () {
+    test('each bird stands on the wire by its feet, its body above it', () {
       const painter = PeopleWirePainter(birds: 5, color: Color(0xFF000000));
       for (var i = 0; i < 5; i++) {
-        final x = painter.footAt(i);
+        final wire = PeopleWirePainter.wireAt(painter.footAt(i), 320);
+        expect(painter.feetAt(i, 320), closeTo(wire, .01), reason: 'bird $i');
         expect(
-          (painter.bodyBottom(i, 320) - PeopleWirePainter.wireAt(x, 320)).abs(),
-          lessThanOrEqualTo(PeopleWirePainter.stroke / 2),
+          painter.bodyBottom(i, 320),
+          lessThan(wire - PeopleWirePainter.stroke / 2),
           reason: 'bird $i',
         );
       }
+    });
+
+    test('the birds keep clear of one another, tail to beak', () {
+      const one = PeopleWirePainter(birds: 1, color: Color(0xFF000000));
+      expect(
+        one.inkStart(1) - (one.inkStart(0) + one.birdsWidth),
+        greaterThanOrEqualTo(PeopleWirePainter.stroke),
+      );
+    });
+
+    test('the row starts in from the wire\'s end, so the wire shows on '
+        'both sides of it', () {
+      expect(PeopleWirePainter.inset, closeTo(12, 1));
+      const painter = PeopleWirePainter(birds: 1, color: Color(0xFF000000));
+      expect(painter.inkStart(0), closeTo(PeopleWirePainter.inset, .01));
+    });
+
+    testWidgets('right to left, birds and "+N" start from the right', (
+      tester,
+    ) async {
+      await pumpOn(
+        tester,
+        const Directionality(
+          textDirection: TextDirection.rtl,
+          child: PeopleWire(people: 12),
+        ),
+      );
+
+      final painter = painterOf(tester);
+      expect(painter.textDirection, TextDirection.rtl);
+      final wire = tester.getRect(find.byType(PeopleWire));
+      final more = tester.getRect(find.text('+7'));
+      expect(
+        more.right,
+        lessThan(wire.right - PeopleWirePainter.inset - painter.birdsWidth),
+      );
     });
 
     testWidgets('the birds stay smaller than the mascot at its smallest', (
