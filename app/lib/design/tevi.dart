@@ -45,13 +45,18 @@ class TeviLook {
   static const asleep = TeviLook(lid: 1, sag: 1, sleepMarks: true);
 
   /// The look [t] of the way from [a] to [b]. The marks, which do not
-  /// fade, switch halfway.
+  /// fade, show only at an end that has them: over a half-shut eye they
+  /// would say asleep too early, or still asleep once it wakes.
   static TeviLook lerp(TeviLook a, TeviLook b, double t) => TeviLook(
     lid: lerpDouble(a.lid, b.lid, t)!,
     sag: lerpDouble(a.sag, b.sag, t)!,
     gaze: lerpDouble(a.gaze, b.gaze, t)!,
     crest: lerpDouble(a.crest, b.crest, t)!,
-    sleepMarks: t < .5 ? a.sleepMarks : b.sleepMarks,
+    sleepMarks: switch (t) {
+      <= 0 => a.sleepMarks,
+      >= 1 => b.sleepMarks,
+      _ => a.sleepMarks && b.sleepMarks,
+    },
   );
 
   @override

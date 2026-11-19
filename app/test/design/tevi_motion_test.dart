@@ -86,6 +86,48 @@ void main() {
       expect(tester.binding.transientCallbackCount, 0);
     });
 
+    test('the marks of sleep show only while the eye is fully shut', () {
+      for (final t in [0.01, .5, .99]) {
+        expect(
+          TeviLook.lerp(TeviLook.watching, TeviLook.asleep, t).sleepMarks,
+          isFalse,
+          reason: 'not yet asleep at $t',
+        );
+        expect(
+          TeviLook.lerp(TeviLook.asleep, TeviLook.watching, t).sleepMarks,
+          isFalse,
+          reason: 'already waking at $t',
+        );
+      }
+      expect(
+        TeviLook.lerp(TeviLook.watching, TeviLook.asleep, 1).sleepMarks,
+        isTrue,
+      );
+      expect(
+        TeviLook.lerp(TeviLook.asleep, TeviLook.watching, 0).sleepMarks,
+        isTrue,
+      );
+      expect(
+        TeviLook.lerp(TeviLook.asleep, TeviLook.asleep, .5).sleepMarks,
+        isTrue,
+      );
+    });
+
+    testWidgets('the marks of sleep appear as the eyelid lands, not before', (
+      tester,
+    ) async {
+      final look = ValueNotifier(TeviLook.watching);
+      addTearDown(look.dispose);
+      await pumpMascot(tester, look);
+
+      look.value = TeviLook.asleep;
+      await tester.pump();
+      await tester.pump(Motion.fallAsleep - const Duration(milliseconds: 20));
+      expect(drawn(tester).sleepMarks, isFalse);
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(drawn(tester).sleepMarks, isTrue);
+    });
+
     testWidgets('a change during a change starts from the look drawn then', (
       tester,
     ) async {
