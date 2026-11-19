@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import 'press_sink.dart';
 
 /// The frame of every child screen, "dentro da telinha":
 /// the ink field is the whole ground, edge to edge, in either
@@ -236,13 +237,16 @@ class KidBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        minimumSize: const Size.square(KidSizes.target),
-        padding: const EdgeInsets.symmetric(horizontal: Space.md),
+    child: PressSink(
+      enabled: onPressed != null,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size.square(KidSizes.target),
+          padding: const EdgeInsets.symmetric(horizontal: Space.md),
+        ),
+        child: const Text('Voltar'),
       ),
-      child: const Text('Voltar'),
     ),
   );
 }

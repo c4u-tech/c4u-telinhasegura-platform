@@ -14,6 +14,7 @@ import 'pack_row.dart';
 import 'room_transition.dart';
 import 'shelves.dart';
 import 'theme_glyph.dart';
+import 'press_sink.dart';
 
 /// What the child home shows of a catalogue, chosen on the device from the
 /// catalogue as delivered: the day's highlight (the first pacotinho, else
@@ -675,74 +676,77 @@ class _ThemeBlockState extends State<ThemeBlock> {
       label: themeName(widget.shelf.theme),
       onTap: widget.onTap,
       child: ExcludeSemantics(
-        child: SizedBox.fromSize(
-          size: size,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(
-              shape: shape.copyWith(side: ring ?? BorderSide.none),
-            ),
-            child: Material(
-              color: w.ground,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                children: [
-                  // What the door shows above its ground, pictured
-                  // as the page grows out of it.
-                  Positioned.fill(
-                    child: DoorFace(
-                      child: Stack(
-                        children: [
-                          PositionedDirectional(
-                            start: pad,
-                            top: pad,
-                            child: ThemeGlyph(
-                              widget.shelf.theme,
-                              size: glyph,
-                              color: w.figure,
-                              ground: w.ground,
-                            ),
-                          ),
-                          if (videos.length > 1)
+        child: PressSink(
+          enabled: widget.onTap != null,
+          child: SizedBox.fromSize(
+            size: size,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(
+                shape: shape.copyWith(side: ring ?? BorderSide.none),
+              ),
+              child: Material(
+                color: w.ground,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  children: [
+                    // What the door shows above its ground, pictured
+                    // as the page grows out of it.
+                    Positioned.fill(
+                      child: DoorFace(
+                        child: Stack(
+                          children: [
                             PositionedDirectional(
-                              end: Space.md + ThemeBlock.peek,
-                              top: front.top - ThemeBlock.peek,
-                              width: cover.width - 2 * ThemeBlock.peek,
+                              start: pad,
+                              top: pad,
+                              child: ThemeGlyph(
+                                widget.shelf.theme,
+                                size: glyph,
+                                color: w.figure,
+                                ground: w.ground,
+                              ),
+                            ),
+                            if (videos.length > 1)
+                              PositionedDirectional(
+                                end: Space.md + ThemeBlock.peek,
+                                top: front.top - ThemeBlock.peek,
+                                width: cover.width - 2 * ThemeBlock.peek,
+                                height: cover.height,
+                                child: BlockCover(
+                                  videoId: videos[1].id,
+                                  thumbnail: widget.thumbnail,
+                                  color: w.figure,
+                                ),
+                              ),
+                            PositionedDirectional(
+                              end: Space.md,
+                              top: front.top,
+                              width: cover.width,
                               height: cover.height,
                               child: BlockCover(
-                                videoId: videos[1].id,
+                                videoId: videos.first.id,
                                 thumbnail: widget.thumbnail,
                                 color: w.figure,
                               ),
                             ),
-                          PositionedDirectional(
-                            end: Space.md,
-                            top: front.top,
-                            width: cover.width,
-                            height: cover.height,
-                            child: BlockCover(
-                              videoId: videos.first.id,
-                              thumbnail: widget.thumbnail,
-                              color: w.figure,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: InkWell(
-                      onTap: widget.onTap,
-                      canRequestFocus: true,
-                      onFocusChange: (f) => setState(() => _focused = f),
-                      focusColor: Colors.transparent,
-                      hoverColor: w.figure.withValues(alpha: .08),
-                      highlightColor: w.figure.withValues(alpha: .12),
-                      splashColor: w.figure.withValues(alpha: .12),
+                    Positioned.fill(
+                      child: InkWell(
+                        onTap: widget.onTap,
+                        canRequestFocus: true,
+                        onFocusChange: (f) => setState(() => _focused = f),
+                        focusColor: Colors.transparent,
+                        hoverColor: w.figure.withValues(alpha: .08),
+                        highlightColor: w.figure.withValues(alpha: .12),
+                        splashColor: w.figure.withValues(alpha: .12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -813,69 +817,72 @@ class _PacksDoorState extends State<PacksDoor> {
       label: PackGlyph.label,
       onTap: widget.onTap,
       child: ExcludeSemantics(
-        child: SizedBox.fromSize(
-          size: size,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(
-              shape: shape.copyWith(side: ring ?? BorderSide.none),
-            ),
-            child: Material(
-              color: p.input,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                children: [
-                  // What the door shows above its ground, pictured
-                  // as the page grows out of it.
-                  Positioned.fill(
-                    child: DoorFace(
-                      child: Stack(
-                        children: [
-                          PositionedDirectional(
-                            start: pad,
-                            top: (size.height - glyph) / 2,
-                            child: PackGlyph(size: glyph, color: figure),
-                          ),
-                          if (covers.length > 1)
+        child: PressSink(
+          enabled: widget.onTap != null,
+          child: SizedBox.fromSize(
+            size: size,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(
+                shape: shape.copyWith(side: ring ?? BorderSide.none),
+              ),
+              child: Material(
+                color: p.input,
+                shape: shape,
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  children: [
+                    // What the door shows above its ground, pictured
+                    // as the page grows out of it.
+                    Positioned.fill(
+                      child: DoorFace(
+                        child: Stack(
+                          children: [
                             PositionedDirectional(
-                              end: Space.md + ThemeBlock.peek,
-                              bottom: Space.md + ThemeBlock.peek,
-                              width: cover.width - 2 * ThemeBlock.peek,
-                              height: cover.height,
-                              child: BlockCover(
-                                videoId: covers[1],
-                                thumbnail: thumbnail!,
-                                color: figure,
-                              ),
+                              start: pad,
+                              top: (size.height - glyph) / 2,
+                              child: PackGlyph(size: glyph, color: figure),
                             ),
-                          if (covers.isNotEmpty)
-                            PositionedDirectional(
-                              end: Space.md,
-                              bottom: Space.md,
-                              width: cover.width,
-                              height: cover.height,
-                              child: BlockCover(
-                                videoId: covers.first,
-                                thumbnail: thumbnail!,
-                                color: figure,
+                            if (covers.length > 1)
+                              PositionedDirectional(
+                                end: Space.md + ThemeBlock.peek,
+                                bottom: Space.md + ThemeBlock.peek,
+                                width: cover.width - 2 * ThemeBlock.peek,
+                                height: cover.height,
+                                child: BlockCover(
+                                  videoId: covers[1],
+                                  thumbnail: thumbnail!,
+                                  color: figure,
+                                ),
                               ),
-                            ),
-                        ],
+                            if (covers.isNotEmpty)
+                              PositionedDirectional(
+                                end: Space.md,
+                                bottom: Space.md,
+                                width: cover.width,
+                                height: cover.height,
+                                child: BlockCover(
+                                  videoId: covers.first,
+                                  thumbnail: thumbnail!,
+                                  color: figure,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: InkWell(
-                      onTap: widget.onTap,
-                      onFocusChange: (f) => setState(() => _focused = f),
-                      focusColor: Colors.transparent,
-                      hoverColor: figure.withValues(alpha: .08),
-                      highlightColor: figure.withValues(alpha: .12),
-                      splashColor: figure.withValues(alpha: .12),
+                    Positioned.fill(
+                      child: InkWell(
+                        onTap: widget.onTap,
+                        onFocusChange: (f) => setState(() => _focused = f),
+                        focusColor: Colors.transparent,
+                        hoverColor: figure.withValues(alpha: .08),
+                        highlightColor: figure.withValues(alpha: .12),
+                        splashColor: figure.withValues(alpha: .12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

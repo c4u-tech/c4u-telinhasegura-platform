@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import 'press_sink.dart';
 
 /// The player's glyphs: the universal back, play and pause shapes, cut at
 /// the shape ratio's corner.
@@ -48,28 +49,30 @@ class _PlayerKeyState extends State<PlayerKey> {
       label: widget.label,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: SizedBox.square(
-          dimension: widget.size,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
-            child: Material(
-              color: fill,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: widget.onPressed,
-                onFocusChange: (f) => setState(() => _focused = f),
-                focusColor: Colors.transparent,
-                hoverColor: glyph.withValues(alpha: .08),
-                highlightColor: glyph.withValues(alpha: .12),
-                splashColor: glyph.withValues(alpha: .12),
-                child: CustomPaint(
-                  // The glyph keeps its share of the key as the key grows.
-                  painter: PlayerGlyphPainter(
-                    widget.glyph,
-                    glyph,
-                    side: 28 * widget.size / KidSizes.target,
+        child: PressSink(
+          child: SizedBox.square(
+            dimension: widget.size,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
+              child: Material(
+                color: fill,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onPressed,
+                  onFocusChange: (f) => setState(() => _focused = f),
+                  focusColor: Colors.transparent,
+                  hoverColor: glyph.withValues(alpha: .08),
+                  highlightColor: glyph.withValues(alpha: .12),
+                  splashColor: glyph.withValues(alpha: .12),
+                  child: CustomPaint(
+                    // The glyph keeps its share of the key as the key grows.
+                    painter: PlayerGlyphPainter(
+                      widget.glyph,
+                      glyph,
+                      side: 28 * widget.size / KidSizes.target,
+                    ),
                   ),
                 ),
               ),

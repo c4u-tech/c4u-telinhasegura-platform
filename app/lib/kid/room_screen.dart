@@ -21,6 +21,7 @@ import 'room_transition.dart';
 import 'shelves.dart';
 import 'tap_guard.dart';
 import 'theme_glyph.dart';
+import 'press_sink.dart';
 
 /// What the home hands the page it opens: the day it read, and where the
 /// door that opened it stood. A page reached any other way (a reload, a
@@ -463,24 +464,26 @@ class _RoomBackState extends State<RoomBack> {
       label: PlayerScreen.back,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: SizedBox.square(
-          dimension: KidSizes.target,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
-            child: Material(
-              color: w.figure,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: widget.onPressed,
-                onFocusChange: (f) => setState(() => _focused = f),
-                focusColor: Colors.transparent,
-                hoverColor: w.ground.withValues(alpha: .08),
-                highlightColor: w.ground.withValues(alpha: .16),
-                splashColor: w.ground.withValues(alpha: .16),
-                child: CustomPaint(
-                  painter: PlayerGlyphPainter(PlayerGlyph.back, w.ground),
+        child: PressSink(
+          child: SizedBox.square(
+            dimension: KidSizes.target,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
+              child: Material(
+                color: w.figure,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onPressed,
+                  onFocusChange: (f) => setState(() => _focused = f),
+                  focusColor: Colors.transparent,
+                  hoverColor: w.ground.withValues(alpha: .08),
+                  highlightColor: w.ground.withValues(alpha: .16),
+                  splashColor: w.ground.withValues(alpha: .16),
+                  child: CustomPaint(
+                    painter: PlayerGlyphPainter(PlayerGlyph.back, w.ground),
+                  ),
                 ),
               ),
             ),

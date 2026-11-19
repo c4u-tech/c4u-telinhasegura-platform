@@ -16,6 +16,7 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'kid_layout.dart';
 import 'paused_profile.dart';
+import 'press_sink.dart';
 
 /// `/crianca/quem`: the linked device's profile picker, on ink, behind the
 /// PIN the exit gate checked. The mascot stands looking back from the top
@@ -135,14 +136,17 @@ class _ProfilePickerScreenState extends State<ProfilePickerScreen> {
                       runSpacing: _gap,
                       children: [
                         for (final child in profiles)
-                          ChildChoice(
-                            nickname: child.nickname,
-                            avatar: child.avatar,
-                            avatarSize: ProfilePickerScreen.avatar,
-                            selected: child.id == current,
-                            onTap: _switch.blocked || !child.consentCurrent
-                                ? null
-                                : () => _choose(child),
+                          PressSink(
+                            enabled: !_switch.blocked && child.consentCurrent,
+                            child: ChildChoice(
+                              nickname: child.nickname,
+                              avatar: child.avatar,
+                              avatarSize: ProfilePickerScreen.avatar,
+                              selected: child.id == current,
+                              onTap: _switch.blocked || !child.consentCurrent
+                                  ? null
+                                  : () => _choose(child),
+                            ),
                           ),
                       ],
                     ),
