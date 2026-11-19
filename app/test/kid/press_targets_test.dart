@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
@@ -11,6 +12,7 @@ import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid_mode/hand_over_screen.dart';
 
 import '../auth/fakes.dart' show json;
+import '../design/pump.dart';
 import 'kid_mosaic_test.dart' show mosaic, sixThemes;
 import 'packs_page_test.dart' show packsPage, sixThemesWithPacks;
 import 'player_screen_test.dart' show watching;
@@ -87,5 +89,12 @@ void main() {
       ),
     );
     expectEachSinks(find.byType(KidBack));
+  });
+
+  testWidgets('when the videos did not come: the key that tries again', (
+    tester,
+  ) async {
+    await pumpOn(tester, ShelvesFailed(onRetry: () {}), ground: Ground.kid);
+    expectEachSinks(find.widgetWithText(FilledButton, ShelvesFailed.retry));
   });
 }

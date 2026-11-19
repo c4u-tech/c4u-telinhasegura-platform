@@ -407,17 +407,19 @@ class ShelvesFailed extends StatelessWidget {
       Center(
         child: SizedBox(
           width: ShelfPicture.screen.width * scale,
-          child: FilledButton(
-            onPressed: onRetry,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(KidSizes.target),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  KidSizes.target * Radii.screenRatio,
+          child: PressSink(
+            child: FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(KidSizes.target),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    KidSizes.target * Radii.screenRatio,
+                  ),
                 ),
               ),
+              child: const Text(retry),
             ),
-            child: const Text(retry),
           ),
         ),
       ),
