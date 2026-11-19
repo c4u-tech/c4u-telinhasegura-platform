@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/auth/api_client.dart';
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/access/email_sign_in_screen.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
+import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/splash.dart';
 
 import '../access/harness.dart';
@@ -195,6 +197,61 @@ void main() {
     expect(tester.getSemantics(find.bySemanticsLabel('Carregando')).id, read);
     await finish(tester);
     semantics.dispose();
+  });
+
+  testWidgets('the first screen beneath the ground takes no focus and '
+      'raises no keyboard; once the ground lifts its own focus takes', (
+    tester,
+  ) async {
+    final h = Harness(kind: ClientKind.mobile);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(h.app(initial: Routes.emailSignIn));
+    await tester.pump();
+
+    var now = await at(tester, 0, 600);
+    expect(h.services.appMode.mode, isNotNull);
+    final field = find.descendant(
+      of: find.byType(EmailSignInScreen),
+      matching: find.byType(EditableText),
+    );
+    expect(field, findsWidgets, reason: 'beneath');
+    final node = tester.widget<EditableText>(field.first).focusNode;
+    expect(node.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    now = await at(tester, now, 1000);
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.byType(Splash), findsOneWidget, reason: 'lifting');
+    expect(node.hasFocus, isTrue, reason: 'the screen\'s own autofocus');
+    expect(tester.testTextInput.isVisible, isTrue);
+    await finish(tester);
+  });
+
+  testWidgets('Tab and Enter reach nothing on the first screen while the '
+      'ground covers it', (tester) async {
+    final h = guardian();
+    await start(tester, h);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(FamilyHomeScreen), findsOneWidget, reason: 'beneath');
+    final where = h.location(tester);
+
+    for (var i = 0; i < 6; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<FamilyHomeScreen>(),
+        isNull,
+      );
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(h.location(tester), where);
+    await finish(tester);
   });
 
   testWidgets('a mode that takes longer keeps the assembled mascot '

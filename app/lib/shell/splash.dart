@@ -169,8 +169,38 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
       } else {
         _stage = _Stage.lifting;
         _lift.forward();
+        // Once the screen can take focus again, the frame after this one.
+        WidgetsBinding.instance.addPostFrameCallback((_) => _autofocus());
       }
     }
+  }
+
+  /// Gives the first screen the focus it asked for as it was built. It was
+  /// built under the ground, where nothing takes focus, so a field that
+  /// asked for it then was turned down; it asks again now, as it would
+  /// have, through its scope.
+  void _autofocus() {
+    if (!mounted) return;
+    void visit(Element element) {
+      final widget = element.widget;
+      FocusNode? asked;
+      if (widget is EditableText && widget.autofocus) {
+        asked = widget.focusNode;
+      } else if (widget is Focus && widget.autofocus) {
+        asked = widget.focusNode;
+        element.visitChildren(
+          (child) => asked ??= Focus.maybeOf(
+            child,
+            scopeOk: true,
+            createDependency: false,
+          ),
+        );
+      }
+      if (asked case final node?) FocusScope.of(element).autofocus(node);
+      element.visitChildren(visit);
+    }
+
+    _screen.currentContext?.visitChildElements(visit);
   }
 
   @override
@@ -200,12 +230,16 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
     };
     final hidden = _stage == _Stage.assembling || _stage == _Stage.waiting;
     // The first screen lies beneath the ground from the moment the mode is
-    // known, so it is ready when the ground lifts. Its key keeps it, state
-    // and all, when the ground goes and it stands alone, with nothing
-    // painted over it.
+    // known, so it is ready when the ground lifts: its reads already under
+    // way, but nothing in it read out, focused or typed into until then.
+    // Its key keeps it, state and all, when the ground goes and it stands
+    // alone, with nothing painted over it.
     final screen = KeyedSubtree(
       key: _screen,
-      child: ExcludeSemantics(excluding: hidden, child: widget.child),
+      child: ExcludeFocus(
+        excluding: hidden,
+        child: ExcludeSemantics(excluding: hidden, child: widget.child),
+      ),
     );
     if (cover == null) return screen;
     final kept = KeyedSubtree(key: _cover, child: cover);
