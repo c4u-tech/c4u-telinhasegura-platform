@@ -312,14 +312,16 @@ save_png('app-icon/android-monochrome.png', png(monochrome, 432, 432))
 # ground; the splash paints ink behind it in both themes. It stands exactly
 # where the whole figure would (the full figure's drawing centred, its box
 # spanning frac), so the app's opening can draw the rest of the mascot over
-# it without the body moving. 192 dp at 4x, and inside Android 12's 640 px
-# circle.
+# it without the body moving. Both are drawn at 4x and give the figure the
+# same 192 dp box: the launch image is 192 dp itself (iOS and Android below
+# 12), and Android 12's icon is 288 dp, masked to a 192 dp circle the body
+# stays well inside.
 def splash(size, frac):
     s = size * frac / FIG; x0, y0, x1, y1 = FIG_BBOX
     t = f'translate({n(size / 2 - s * (x0 + x1) / 2)} {n(size / 2 - s * (y0 + y1) / 2)}) scale({n(s)})'
     return png(svg(0, 0, size, size, f'<g transform="{t}"><path fill="{C["sun"]}" d="{BODY}"/></g>'), size, size)
-save_png('app-icon/splash-mark.png', splash(768, 0.8))
-save_png('app-icon/splash-android12.png', splash(960, 0.5))
+save_png('app-icon/splash-mark.png', splash(768, 1))
+save_png('app-icon/splash-android12.png', splash(1152, 192 / 288))
 # Web icons from 180 px up are the app icon; the mini favicon stays at 16-48.
 save_png('favicon/apple-touch-icon.png', png(app_icon, 180, 180).convert('RGB'))
 save_png('favicon/icon-192.png', png(app_icon, 192, 192))

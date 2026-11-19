@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -108,13 +107,11 @@ class Opening extends StatefulWidget {
   final Widget child;
 
   /// The side of the mascot's box on the launch screen, so the body the
-  /// opening starts from lands on the one it showed. Android 12 and later
-  /// draw the launch image at 288 dp, its box half of it; iOS and the web
-  /// at 192, its box four fifths.
-  static double markSide(TargetPlatform platform) => switch (platform) {
-    TargetPlatform.android when !kIsWeb => 144,
-    _ => 153.6,
-  };
+  /// opening starts from lands on the one it showed. Every launch screen
+  /// gives it the same box: iOS, Android below 12 and the web show a
+  /// 192 dp image that is the box; Android 12 and later a 288 dp icon,
+  /// the box two thirds of it, inside the 192 dp circle shown.
+  static const markSide = 192.0;
 
   @override
   State<Opening> createState() => _OpeningState();
@@ -219,9 +216,9 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
             ? openingAt(_clock.value * Motion.opening.inMilliseconds)
             : (TeviAssembly.whole, TeviLook.watching);
         return _Placed(
-          side: Opening.markSide(defaultTargetPlatform),
+          side: Opening.markSide,
           child: Tevi(
-            size: Opening.markSide(defaultTargetPlatform),
+            size: Opening.markSide,
             assembly: assembly,
             look: look,
             eases: false,

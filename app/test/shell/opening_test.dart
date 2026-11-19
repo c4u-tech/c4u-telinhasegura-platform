@@ -103,12 +103,11 @@ void main() {
   });
 
   testWidgets('the body stands where the launch screen left it: its '
-      'drawing centred, 144 across on Android and 153.6 on iOS', (
-    tester,
-  ) async {
+      'drawing centred, 192 across on Android and iOS alike', (tester) async {
+    expect(Opening.markSide, 192);
     for (final (platform, side) in [
-      (TargetPlatform.android, 144.0),
-      (TargetPlatform.iOS, 153.6),
+      (TargetPlatform.android, 192.0),
+      (TargetPlatform.iOS, 192.0),
     ]) {
       debugDefaultTargetPlatformOverride = platform;
       final h = guardian(delay: const Duration(seconds: 2));

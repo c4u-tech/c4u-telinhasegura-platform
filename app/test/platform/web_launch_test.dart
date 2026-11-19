@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
@@ -38,7 +37,8 @@ void main() {
   });
 
   test('the body stands where the app\'s opening draws it on the web', () {
-    final side = Opening.markSide(TargetPlatform.iOS);
+    const box = Opening.markSide;
+    final side = box == box.roundToDouble() ? '${box.round()}' : '$box';
     final c = TeviPainter.drawingCentre;
     expect(page, contains('width: ${side}px; height: ${side}px;'));
     expect(
