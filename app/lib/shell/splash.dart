@@ -126,6 +126,10 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   _Stage _stage = _Stage.assembling;
   final _screen = GlobalKey();
 
+  /// The ground keeps its element, and "Carregando" its node, when the
+  /// first screen comes in beneath it, so nothing is read out twice.
+  final _cover = GlobalKey();
+
   bool get _still => !Motion.opensIn(context);
 
   @override
@@ -203,9 +207,10 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
       key: _screen,
       child: ExcludeSemantics(excluding: hidden, child: widget.child),
     );
-    if (!widget.ready) return cover!;
     if (cover == null) return screen;
-    return Stack(fit: StackFit.expand, children: [screen, cover]);
+    final kept = KeyedSubtree(key: _cover, child: cover);
+    if (!widget.ready) return kept;
+    return Stack(fit: StackFit.expand, children: [screen, kept]);
   }
 
   Widget _ground() => Splash(
@@ -230,20 +235,37 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   );
 }
 
-/// The opening at [ms] from its start: the look wipes across (260-520),
-/// the eye opens and the legs drop (460-660), the beak and the tail come
-/// out (580-800), and the eye blinks once (840-1000).
+/// When each part of the opening plays, in ms from its start. The parts
+/// overlap, so the figure builds in one movement rather than in steps;
+/// the blink closes it, over the mascot's own blink.
+abstract final class _Beats {
+  static const look = (260.0, 520.0);
+  static const eye = (460.0, 660.0);
+  static const legs = (500.0, 660.0);
+  static const ends = (580.0, 800.0);
+  static final blink = (
+    (Motion.opening - Motion.blink).inMilliseconds.toDouble(),
+    Motion.opening.inMilliseconds.toDouble(),
+  );
+}
+
+/// The opening at [ms] from its start: the look wipes across, the eye
+/// opens and the legs drop, the beak and the tail come out, and the eye
+/// blinks once ([_Beats]).
 @visibleForTesting
 (TeviAssembly, TeviLook) openingAt(double ms) {
-  double part(double from, double to, Curve curve) =>
-      curve.transform(((ms - from) / (to - from)).clamp(0.0, 1.0));
-  final blink = part(840, 1000, Curves.linear);
+  double part((double, double) beat, Curve curve) {
+    final (from, to) = beat;
+    return curve.transform(((ms - from) / (to - from)).clamp(0.0, 1.0));
+  }
+
+  final blink = part(_Beats.blink, Curves.linear);
   return (
     TeviAssembly(
-      look: part(260, 520, Motion.wipe),
-      eye: part(460, 660, Motion.pop),
-      legs: part(500, 660, Motion.settle),
-      ends: part(580, 800, Motion.spring),
+      look: part(_Beats.look, Motion.wipe),
+      eye: part(_Beats.eye, Motion.pop),
+      legs: part(_Beats.legs, Motion.settle),
+      ends: part(_Beats.ends, Motion.spring),
     ),
     TeviLook(
       lid: Motion.sway.transform(blink < .5 ? blink * 2 : (1 - blink) * 2),

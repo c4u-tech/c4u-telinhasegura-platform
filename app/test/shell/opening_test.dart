@@ -166,6 +166,37 @@ void main() {
     await finish(tester);
   });
 
+  test('the closing blink takes the scale\'s blink and ends the opening', () {
+    final end = Motion.opening.inMilliseconds.toDouble();
+    final blink = Motion.blink.inMilliseconds;
+    expect(openingAt(end - blink - 1).$2.lid, 0);
+    expect(openingAt(end - blink / 2).$2.lid, closeTo(1, 1e-9));
+    expect(openingAt(end).$2.lid, 0);
+  });
+
+  testWidgets('a mode known during the assembly keeps the ground, and '
+      '"Carregando", as they were: nothing is read twice', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final h = guardian(delay: const Duration(milliseconds: 200));
+    await start(tester, h);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(h.services.appMode.mode, isNull);
+    final cover = tester.element(find.byType(Splash));
+    final read = tester.getSemantics(find.bySemanticsLabel('Carregando')).id;
+
+    var now = 100;
+    while (h.services.appMode.mode == null) {
+      now = await at(tester, now, now + 50);
+    }
+    await tester.pump();
+    expect(now, lessThan(900), reason: 'known during the assembly');
+    expect(find.byType(FamilyHomeScreen), findsOneWidget, reason: 'beneath');
+    expect(tester.element(find.byType(Splash)), same(cover));
+    expect(tester.getSemantics(find.bySemanticsLabel('Carregando')).id, read);
+    await finish(tester);
+    semantics.dispose();
+  });
+
   testWidgets('a mode that takes longer keeps the assembled mascot '
       'searching until it is known', (tester) async {
     final h = guardian(delay: const Duration(milliseconds: 1500));
