@@ -108,3 +108,11 @@ void runLoops() {
   Motion.loops = true;
   addTearDown(() => Motion.loops = false);
 }
+
+/// Lets the app's opening play for the rest of this test: everywhere
+/// else the app starts as under reduced motion, its first screen cut in
+/// as soon as the mode is known.
+void playOpening() {
+  Motion.opens = true;
+  addTearDown(() => Motion.opens = false);
+}

@@ -388,6 +388,15 @@ abstract final class Motion {
   /// What goes and comes back: a loop, a blink, an eyelid reopening.
   static const sway = Curves.easeInOut;
 
+  /// The opening's look wiping across the body: quick, then easing in.
+  static const wipe = Cubic(.2, .7, .2, 1);
+
+  /// The opening's eye popping open, a little past its size and back.
+  static const pop = Cubic(.3, 1.5, .5, 1);
+
+  /// The opening's beak and tail springing out of the body.
+  static const spring = Cubic(.3, 1.4, .5, 1);
+
   /// [length], or none where the platform asks for reduced motion: what
   /// would have eased then simply changes.
   static Duration of(BuildContext context, Duration length) =>
@@ -403,4 +412,16 @@ abstract final class Motion {
   /// so the tests turn loops off and back on where they watch one.
   @visibleForTesting
   static bool loops = true;
+
+  /// Whether the app's opening plays below [context]: never under
+  /// reduced motion, where the mascot stands whole and still.
+  static bool opensIn(BuildContext context) =>
+      opens && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+
+  /// Off, the app's opening is cut, as under reduced motion: the whole
+  /// mascot stands on its ground until the mode is known, and the first
+  /// screen shows at once. A test that starts the app then finds that
+  /// screen as soon as the mode settles, as it always has.
+  @visibleForTesting
+  static bool opens = true;
 }

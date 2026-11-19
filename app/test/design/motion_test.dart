@@ -32,6 +32,9 @@ void main() {
     expect(Motion.travel, Easing.standard);
     expect(Motion.shut, Curves.easeOut);
     expect(Motion.sway, Curves.easeInOut);
+    expect(Motion.wipe, const Cubic(.2, .7, .2, 1));
+    expect(Motion.pop, const Cubic(.3, 1.5, .5, 1));
+    expect(Motion.spring, const Cubic(.3, 1.4, .5, 1));
   });
 
   test('every animation takes its length from the scale', () {

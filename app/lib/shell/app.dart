@@ -122,9 +122,12 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
             widget.services.appMode,
             _restoreFailed,
           ]),
-          builder: (context, _) => widget.services.appMode.mode == null
-              ? Splash(onRetry: _restoreFailed.value ? _restoreMode : null)
-              : child!,
+          builder: (context, _) => Opening(
+            ready: widget.services.appMode.mode != null,
+            failed: _restoreFailed.value,
+            onRetry: _restoreMode,
+            child: child!,
+          ),
         ),
       ),
     ),
