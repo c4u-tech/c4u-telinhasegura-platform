@@ -305,14 +305,21 @@ class _KidHomeScreenState extends State<KidHomeScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // The picture below answers the note with its own mascot,
+              // so the note brings none: one mascot on the screen.
               if (notice != null) ...[
-                KidErrorNote(notice, asleep: restsNote(notice)),
+                KidErrorNote(notice, asleep: restsNote(notice), mascot: false),
                 const SizedBox(height: Space.xl),
               ],
               if (failed)
                 ShelvesFailed(onRetry: () => unawaited(_load()), scale: scale)
               else
-                Center(child: EmptyShelf(scale: scale)),
+                Center(
+                  child: EmptyShelf(
+                    scale: scale,
+                    alerted: notice != null && !restsNote(notice),
+                  ),
+                ),
             ],
           ),
         ),
