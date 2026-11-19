@@ -11,10 +11,14 @@ import 'empty_shelf.dart';
 /// line for the adult nearby. No way out but the exit behind the parents'
 /// PIN.
 class PausedProfile extends StatelessWidget {
-  const PausedProfile({super.key, this.scale = 1});
+  const PausedProfile({super.key, this.scale = 1, this.pictureKey});
 
   /// Grows the drawing with the child home's avatar on wide screens.
   final double scale;
+
+  /// The picture's key: the home that shows one resting screen after
+  /// another keeps the one mascot, so it falls asleep only once.
+  final Key? pictureKey;
 
   static const line =
       'Este perfil está pausado. Peça a um adulto para abrir o app e '
@@ -28,7 +32,13 @@ class PausedProfile extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShelfPicture(look: TeviLook.asleep, perch: Perch.wire, scale: scale),
+        ShelfPicture(
+          key: pictureKey,
+          look: TeviLook.asleep,
+          perch: Perch.wire,
+          scale: scale,
+          fallsAsleep: true,
+        ),
         const SizedBox(height: Space.lg),
         Semantics(
           liveRegion: true,

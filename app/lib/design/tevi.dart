@@ -757,6 +757,7 @@ class Tevi extends StatefulWidget {
     this.searching = false,
     this.assembly = TeviAssembly.whole,
     this.arrivesFrom,
+    this.fallsAsleep = false,
   });
 
   final double size;
@@ -797,6 +798,14 @@ class Tevi extends StatefulWidget {
   /// once.
   final TeviLook? arrivesFrom;
 
+  /// Whether it arrives awake and falls asleep into [look] once its
+  /// screen has arrived: a resting screen's own arrival, in place of the
+  /// blink. It watches for [Motion.change] first, so the child sees it
+  /// awake, then its eye closes over [Motion.fallAsleep]; it never
+  /// replays while it stays. Where motion is still (reduced motion, or
+  /// loops switched off) it is asleep from the first frame.
+  final bool fallsAsleep;
+
   /// How long the passage to [look] takes: a sleepy eye closes slowly.
   static Duration lengthTo(TeviLook look) =>
       look.sleepMarks ? Motion.fallAsleep : Motion.change;
@@ -832,6 +841,12 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   /// The page this mascot arrives with, while it is still coming in.
   Animation<double>? _coming;
 
+  /// Whether it still watches, before falling asleep on arrival.
+  bool _awake = false;
+
+  /// What to do once the page has arrived.
+  VoidCallback? _then;
+
   /// Where the passage under way started.
   late TeviLook _from = widget.look;
 
@@ -843,6 +858,8 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   TeviLook get _look {
     final look = _change.isAnimating
         ? TeviLook.lerp(_from, widget.look, _eased.value)
+        : _awake
+        ? TeviLook.watching
         : widget.look;
     if (!_blink.isAnimating && !_search.isAnimating && !_ahead.isAnimating) {
       return look;
@@ -889,6 +906,11 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     super.didChangeDependencies();
     _held = TeviHandoffScope.holdsAt(context);
     _searchOrNot();
+    // Awake from its first frame, until its screen is there to watch it
+    // fall asleep; a screen whose motion is stilled meanwhile cuts to it.
+    final falls = widget.fallsAsleep && Motion.loopsIn(context);
+    if (!_arrived && falls) _awake = true;
+    if (_awake && !falls) _awake = false;
     // Its arrival waits for the opening to let it go: until then it is
     // under the opening's ground, or unseen beneath the mascot landing on
     // it.
@@ -897,25 +919,54 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     if (widget.arrivesFrom case final from? when widget.eases && !_still) {
       _ease(from);
     }
+    if (_awake) {
+      _awaitArrival(ModalRoute.of(context), _fallAsleep);
+      return;
+    }
     if (!widget.blinks || widget.look.lid > 0 || _still) {
       return;
     }
-    _awaitArrival(ModalRoute.of(context));
+    _awaitArrival(ModalRoute.of(context), _blinkOnce);
   }
 
-  /// Blinks once [route] has arrived. A page still growing in would hide
-  /// most of a blink, so it waits for it; a page being laid out unseen,
-  /// before its first shown frame, is not there yet either.
-  void _awaitArrival(ModalRoute<Object?>? route) {
+  void _blinkOnce() {
+    if (widget.look.lid == 0) _blink.forward();
+  }
+
+  /// From watching into [Tevi.look], after a beat of [Motion.change].
+  void _fallAsleep() {
+    if (!_awake) return;
+    _awake = false;
+    final length = Tevi.lengthTo(widget.look);
+    final total = Motion.change + length;
+    _from = TeviLook.watching;
+    _eased.curve = Interval(
+      Motion.change.inMicroseconds / total.inMicroseconds,
+      1,
+      curve: widget.look.sleepMarks ? Motion.sway : Motion.settle,
+    );
+    _change
+      ..duration = total
+      ..forward(from: 0);
+  }
+
+  /// Does [then] once [route] has arrived. A page still growing in would
+  /// hide most of an arrival's gesture, so it waits for it; a page being
+  /// laid out unseen, before its first shown frame, is not there yet
+  /// either.
+  void _awaitArrival(ModalRoute<Object?>? route, VoidCallback then) {
     if (!mounted) return;
     if (route == null) {
-      _blink.forward();
+      then();
     } else if (route.offstage) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _awaitArrival(route));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _awaitArrival(route, then),
+      );
     } else if (route.animation case final page? when !page.isCompleted) {
+      _then = then;
       _coming = page..addStatusListener(_pageMoved);
     } else {
-      _blink.forward();
+      then();
     }
   }
 
@@ -923,7 +974,15 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     if (status.isAnimating) return;
     _coming?.removeStatusListener(_pageMoved);
     _coming = null;
-    if (status.isCompleted && widget.look.lid == 0) _blink.forward();
+    final then = _then;
+    _then = null;
+    // A page that went back instead never arrived; a resting mascot is
+    // then simply asleep.
+    if (status.isCompleted) {
+      then?.call();
+    } else if (_awake) {
+      setState(() => _awake = false);
+    }
   }
 
   @override
@@ -931,6 +990,8 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     super.didUpdateWidget(old);
     if (widget.searching != old.searching) _searchOrNot();
     if (widget.look == old.look) return;
+    final awake = _awake;
+    _awake = false;
     if (!widget.eases || _still) {
       _change.stop();
       return;
@@ -939,6 +1000,8 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     _ease(
       _change.isAnimating
           ? TeviLook.lerp(_from, old.look, _eased.value)
+          : awake
+          ? TeviLook.watching
           : old.look,
     );
   }
@@ -1001,11 +1064,15 @@ class FacingTevi extends StatelessWidget {
     this.blinks = true,
     this.searching = false,
     this.arrivesFrom,
+    this.fallsAsleep = false,
   });
 
   final double size;
   final TeviLook look;
   final bool? night;
+
+  /// As [Tevi.fallsAsleep].
+  final bool fallsAsleep;
   final Color markColor;
   final bool blinks;
 
@@ -1026,6 +1093,7 @@ class FacingTevi extends StatelessWidget {
       blinks: blinks,
       searching: searching,
       arrivesFrom: arrivesFrom,
+      fallsAsleep: fallsAsleep,
     ),
   );
 }

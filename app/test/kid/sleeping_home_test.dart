@@ -14,9 +14,13 @@ import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/player_screen.dart';
 import 'package:telinha_segura/kid/shelves.dart';
+import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/kid/sleeping_telinha.dart';
+import 'package:telinha_segura/screentime/kid_time.dart';
 
 import '../access/harness.dart';
+import '../design/pump.dart';
+import '../design/tevi_motion_test.dart' show drawn;
 import '../parental/parental_api_test.dart' show profileJson;
 import 'kid_home_screen_test.dart' show actionable, avatar, nightGround;
 import 'kid_mosaic_test.dart' show pixel, twoShelves;
@@ -440,5 +444,151 @@ void main() {
     expect(find.byType(SleepingTelinha), findsOneWidget);
     expect(find.byType(EmptyShelf), findsNothing);
     expect(find.byType(KidErrorNote), findsNothing);
+  });
+
+  group('the resting home\'s mascot falls asleep as it arrives', () {
+    const ms = Duration(milliseconds: 1);
+
+    testWidgets('awake at first, it does not blink; after a beat its eye '
+        'closes over the sleep\'s length, then the marks show and it stays '
+        'still', (tester) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.timeUp),
+        ground: Ground.kid,
+      );
+      expect(drawn(tester), TeviLook.watching, reason: 'awake on arrival');
+
+      await tester.pump(ms * 80);
+      expect(drawn(tester), TeviLook.watching, reason: 'no blink');
+      await tester.pump(ms * 140);
+      expect(drawn(tester), TeviLook.watching, reason: 'still the beat');
+
+      await tester.pump(ms * 300);
+      final midway = drawn(tester);
+      expect(midway.lid, inExclusiveRange(0, 1), reason: 'closing');
+      expect(midway.sleepMarks, isFalse);
+
+      await tester.pump(ms * 300);
+      expect(drawn(tester), TeviLook.asleep);
+      await tester.pump(ms * 16);
+      expect(drawn(tester), TeviLook.asleep);
+      expect(tester.hasRunningAnimations, isFalse, reason: 'then still');
+    });
+
+    testWidgets('the marks never show before the eyelid is down', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.outsideWindow),
+        ground: Ground.kid,
+      );
+      for (var t = 0; t < 900; t += 20) {
+        final look = drawn(tester);
+        if (look.lid < 1) expect(look.sleepMarks, isFalse, reason: '$t ms');
+        await tester.pump(ms * 20);
+      }
+      expect(drawn(tester), TeviLook.asleep);
+    });
+
+    testWidgets('a paused profile\'s mascot falls asleep the same way', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(tester, const PausedProfile(), ground: Ground.kid);
+      expect(drawn(tester), TeviLook.watching);
+      await tester.pumpAndSettle();
+      expect(drawn(tester), TeviLook.asleep);
+    });
+
+    testWidgets('it plays once: a rebuild, another reason to rest or the '
+        'paused profile in its place does not wake it again', (tester) async {
+      runLoops();
+      final key = GlobalKey();
+      final reason = ValueNotifier<KidTimeState?>(KidTimeState.timeUp);
+      addTearDown(reason.dispose);
+      await pumpOn(
+        tester,
+        ValueListenableBuilder(
+          valueListenable: reason,
+          builder: (context, state, _) => state == null
+              ? PausedProfile(pictureKey: key)
+              : SleepingTelinha(state: state, pictureKey: key),
+        ),
+        ground: Ground.kid,
+      );
+      await tester.pumpAndSettle();
+      expect(drawn(tester), TeviLook.asleep);
+
+      for (final next in [
+        KidTimeState.timeUp,
+        KidTimeState.outsideWindow,
+        null,
+        KidTimeState.timeUp,
+      ]) {
+        reason.value = next;
+        // A notifier set to its own value does not rebuild: mark it.
+        if (next == KidTimeState.timeUp) {
+          tester.element(find.byType(ShelfPicture)).markNeedsBuild();
+        }
+        await tester.pump();
+        expect(drawn(tester), TeviLook.asleep, reason: '$next');
+        expect(tester.hasRunningAnimations, isFalse, reason: '$next');
+      }
+    });
+
+    testWidgets('on the home it ends asleep, and the catalogue read again '
+        'each minute never replays it', (tester) async {
+      runLoops();
+      final h = sleepy();
+      await h.pump(tester, initial: '/crianca');
+      expect(drawn(tester), TeviLook.asleep);
+
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      expect(catalogReads(h), 2);
+      expect(drawn(tester), TeviLook.asleep);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('under reduced motion it is asleep from the first frame', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.timeUp),
+        ground: Ground.kid,
+        disableAnimations: true,
+      );
+      expect(drawn(tester), TeviLook.asleep);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('with motion still, as in tests, asleep at once too', (
+      tester,
+    ) async {
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.timeUp),
+        ground: Ground.kid,
+      );
+      expect(drawn(tester), TeviLook.asleep);
+    });
+
+    testWidgets('the floating note\'s small mascot is asleep at once', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const KidErrorNote('Agora não.', asleep: true, beside: true),
+        ground: Ground.kid,
+      );
+      expect(drawn(tester), TeviLook.asleep);
+    });
   });
 }
