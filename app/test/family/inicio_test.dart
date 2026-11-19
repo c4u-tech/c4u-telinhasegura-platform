@@ -582,6 +582,29 @@ void main() {
     semantics.dispose();
   });
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('at the end of the scroll the suggestions door stands whole '
+        'above the bar, 360 × 640 at ${(scale * 100).round()} % text', (
+      tester,
+    ) async {
+      await inicio(tester, size: const Size(360, 640), textScale: scale);
+
+      await tester.fling(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        4000,
+      );
+      await tester.pumpAndSettle();
+      final door = tester.getRect(
+        find.widgetWithText(DoorRow, 'Sugestões de vídeos'),
+      );
+      final bar = tester.getRect(find.byKey(ShellBar.surfaceKey));
+      expect(door.top, greaterThanOrEqualTo(0));
+      expect(door.bottom, lessThanOrEqualTo(bar.top));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('"Sugestões de vídeos" opens the suggestions, above the form '
       'that goes back to them', (tester) async {
     final h = await inicio(tester);
