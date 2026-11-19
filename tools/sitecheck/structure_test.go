@@ -112,23 +112,17 @@ func TestImagesCarryTheirSizeAndAlternative(t *testing.T) {
 	}
 }
 
-// The mascot the site used before is gone from the pictures and their
-// descriptions: the drawing over the header, the old sun in the stylesheet
-// and the link preview's card, and the name anywhere else. The terms of use
-// still name the old character once, as a trademark; that is legal text,
-// changed only with the terms, so that one sentence is the only exception.
+// The mascot the site used before is gone from the pictures, their
+// descriptions and the text: the drawing over the header, the old sun in the
+// stylesheet and the link preview's card, and the name anywhere.
 func TestTheOldMascotIsGone(t *testing.T) {
 	old := regexp.MustCompile(`(?i)class="head"|#f2b23a|espiadinha`)
-	const trademark = "a Espiadinha (o personagem da marca)"
 	files, _ := filepath.Glob(filepath.Join(Root(), "site", "public", "*.html"))
 	files = append(files, filepath.Join(Root(), "site", "public", "site.css"), filepath.Join(Root(), "site", "og", "card.html"))
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
-		}
-		if filepath.Base(f) == "termos.html" {
-			b = []byte(strings.Replace(string(b), trademark, "", 1))
 		}
 		if m := old.Find(b); m != nil {
 			t.Errorf("%s still carries %q", filepath.Base(f), m)
