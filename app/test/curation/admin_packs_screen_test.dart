@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/design/people_wire.dart';
 import 'package:telinha_segura/access/reauth_prompt.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/admin_pack_screen.dart';
@@ -226,14 +227,24 @@ void main() {
 
       expect(find.text('Hora do banho'), findsOneWidget);
       expect(find.text(nb('Publicado · Montado por Pedagogo(a)')), findsOne);
-      // The world's one provenance grammar (DESIGN provenance-line).
+      // Who saw it before: the wire of people, then the count and the
+      // roles beneath, never "Revisado por" twice.
+      expect(find.byType(PeopleWire), findsOneWidget);
+      expect(tester.widget<PeopleWire>(find.byType(PeopleWire)).people, 2);
+      expect(find.text('Visto antes por 2\u00A0pessoas'), findsOneWidget);
       expect(
-        find.textContaining(
-          'Revisado por 1\u00A0mãe ou pai e 1\u00A0psicólogo(a)',
-        ),
+        find.textContaining('1\u00A0mãe ou pai e 1\u00A0psicólogo(a)'),
         findsOneWidget,
       );
+      expect(find.textContaining('Revisado por'), findsNothing);
       expect(find.textContaining('última revisão'), findsOneWidget);
+      final wire = tester.getRect(find.byType(PeopleWire));
+      expect(
+        wire.bottom,
+        lessThan(
+          tester.getTopLeft(find.text('Visto antes por 2\u00A0pessoas')).dy + 1,
+        ),
+      );
       expect(find.text('1. Galinha Pintadinha'), findsOneWidget);
       expect(find.text('3. Pato Pateta'), findsOneWidget);
       expect(find.byType(DoorRow), findsNothing, reason: 'read, not doors');

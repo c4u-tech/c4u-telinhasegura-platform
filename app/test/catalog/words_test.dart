@@ -194,6 +194,49 @@ void main() {
     });
   });
 
+  group('the people who saw it before', () {
+    test('one approval is one person, in the singular', () {
+      final p = provenance({DisplayRole.maePai: 1});
+      expect(CatalogWords.people(p), 1);
+      expect(plain(CatalogWords.seenBy(p)!), 'Visto antes por 1 pessoa');
+    });
+
+    test('the count is the sum of the approvals of every role', () {
+      final p = provenance({
+        DisplayRole.pedagogo: 1,
+        DisplayRole.maePai: 2,
+        DisplayRole.pediatra: 0,
+      });
+      expect(CatalogWords.people(p), 3);
+      expect(plain(CatalogWords.seenBy(p)!), 'Visto antes por 3 pessoas');
+    });
+
+    test('the count never parts from its noun', () {
+      final p = provenance({DisplayRole.maePai: 12});
+      expect(CatalogWords.seenBy(p), endsWith('12\u00A0pessoas'));
+    });
+
+    test('beneath it, the roles and the last review, without '
+        '"Revisado por"', () {
+      expect(
+        plain(
+          CatalogWords.seenByWhom(
+            provenance({DisplayRole.pedagogo: 1, DisplayRole.maePai: 2}),
+            now,
+          )!,
+        ),
+        '2 mães ou pais e 1 pedagogo(a) · última revisão há 3 dias',
+      );
+    });
+
+    test('with no approval counted, neither line', () {
+      final p = provenance({DisplayRole.maePai: 0});
+      expect(CatalogWords.people(p), 0);
+      expect(CatalogWords.seenBy(p), isNull);
+      expect(CatalogWords.seenByWhom(p, now), isNull);
+    });
+  });
+
   group('a child\'s band in words', () {
     test('the empty catalogue', () {
       expect(

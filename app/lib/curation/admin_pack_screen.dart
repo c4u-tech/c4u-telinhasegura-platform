@@ -8,7 +8,7 @@ import '../access/copy.dart';
 import '../access/reauth_write.dart';
 import '../access/widgets.dart';
 import '../auth/api_error.dart';
-import '../catalog/words.dart' show CatalogWords;
+import '../catalog/provenance_view.dart';
 import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
@@ -121,8 +121,9 @@ class _RemovePackActionState extends State<RemovePackAction> {
 
 /// `/pacotinhos/:id` for an admin who is not a curator: the pacotinho's
 /// title; where it stands and who composed it, by displayed role; when
-/// published, the provenance line ("Revisado por 2 mães ou pais e 1
-/// psicólogo(a) · última revisão ontem"); its videos in order, read;
+/// published, who saw it before ("Visto antes por 2 pessoas", on the
+/// wire of people, then "1 mãe ou pai e 1 psicólogo(a) · última revisão
+/// ontem"); its videos in order, read;
 /// and, while it is not removed, [RemovePackAction].
 class AdminPackScreen extends StatefulWidget {
   const AdminPackScreen({super.key, required this.id});
@@ -202,10 +203,7 @@ class _AdminPackScreenState extends State<AdminPackScreen> {
       ),
       if (provenance != null) ...[
         const SizedBox(height: Space.md),
-        Text(
-          CatalogWords.provenance(provenance, clock.now()),
-          style: text.bodyLarge,
-        ),
+        ProvenanceView(provenance, now: clock.now()),
       ],
       ..._heading('Vídeos'),
       Doors(

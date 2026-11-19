@@ -20,6 +20,7 @@ import '../family/family_model.dart';
 import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
+import 'provenance_view.dart';
 import 'words.dart';
 
 /// In the window's place when the player could not play the video:
@@ -236,7 +237,7 @@ class _FamilyVideoScreenState extends State<FamilyVideoScreen>
       ],
       if (v.provenance case final p?) ...[
         const SizedBox(height: Space.lg),
-        Text(CatalogWords.provenance(p, clock.now()), style: text.bodyLarge),
+        ProvenanceView(p, now: clock.now()),
       ],
       const SizedBox(height: Space.xl),
       playerWindow(failed: familyPlayerFailed),
