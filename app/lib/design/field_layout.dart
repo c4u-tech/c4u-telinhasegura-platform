@@ -577,18 +577,12 @@ class _PerchedTeviState extends State<PerchedTevi>
   /// to be read, then opens more gently.
   late final _lid = TweenSequence<double>([
     TweenSequenceItem(
-      tween: Tween(
-        begin: 0.0,
-        end: 1.0,
-      ).chain(CurveTween(curve: Curves.easeOut)),
+      tween: Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Motion.shut)),
       weight: 20,
     ),
     TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
     TweenSequenceItem(
-      tween: Tween(
-        begin: 1.0,
-        end: 0.0,
-      ).chain(CurveTween(curve: Curves.easeInOut)),
+      tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Motion.sway)),
       weight: 40,
     ),
   ]).animate(_wink);

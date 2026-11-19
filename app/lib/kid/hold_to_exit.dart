@@ -17,7 +17,7 @@ class HoldToExit extends StatefulWidget {
   const HoldToExit({super.key, required this.onExit, this.color});
 
   static const label = 'Sair do modo criança';
-  static const hold = Duration(seconds: 2);
+  static const hold = Motion.hold;
 
   final VoidCallback onExit;
 

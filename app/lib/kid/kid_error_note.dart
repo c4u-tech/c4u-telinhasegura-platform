@@ -220,7 +220,7 @@ class MascotUnderNote extends StatelessWidget {
 
   final Widget child;
 
-  static const fade = Duration(milliseconds: 150);
+  static const fade = Motion.quick;
 
   @override
   Widget build(BuildContext context) {

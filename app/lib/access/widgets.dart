@@ -228,8 +228,8 @@ class StateModule extends StatelessWidget {
     final p = context.palette;
     final h = height;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+      duration: Motion.change,
+      curve: Motion.settle,
       width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(

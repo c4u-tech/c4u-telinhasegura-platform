@@ -44,7 +44,8 @@ class RoomTransition extends AnimatedWidget {
     required this.child,
   }) : super(listenable: animation);
 
-  static const duration = Duration(milliseconds: 300);
+  static const duration = Motion.room;
+  static const curve = Motion.travel;
 
   /// The door the page opened from, if it opened from one.
   final DoorPlace? from;
@@ -68,7 +69,7 @@ class RoomTransition extends AnimatedWidget {
     }
     final screen = MediaQuery.sizeOf(context);
     final v = animation.value;
-    final t = Easing.standard.transform(v);
+    final t = curve.transform(v);
     final face = from.face;
     return Stack(
       fit: StackFit.expand,

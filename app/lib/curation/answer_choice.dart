@@ -106,8 +106,8 @@ class _AnswerKey extends StatelessWidget {
       onTap: onTap,
       radius: Radii.control,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+        duration: Motion.change,
+        curve: Motion.settle,
         constraints: const BoxConstraints(minHeight: 56),
         padding: const EdgeInsets.symmetric(
           horizontal: Space.sm,
