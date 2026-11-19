@@ -637,9 +637,11 @@ class _PerchedTeviState extends State<PerchedTevi>
         context.palette.brightness == Brightness.dark;
     final figure = AnimatedBuilder(
       animation: _lid,
+      // The wink moves the look itself, frame by frame.
       builder: (context, _) => Tevi(
         size: size,
         night: night,
+        eases: false,
         look: _shut != null
             ? TeviLook.winking
             : TeviLook.lerp(TeviLook.watching, TeviLook.winking, _lid.value),

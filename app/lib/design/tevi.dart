@@ -443,7 +443,11 @@ class TeviGround extends InheritedWidget {
 /// The mascot at [size] by [size]. It is decoration unless given a
 /// [semanticLabel]: most places name the app or the moment in words
 /// beside it.
-class Tevi extends StatelessWidget {
+///
+/// A new [look] on a mascot already shown eases in over [Motion.change],
+/// or [Motion.fallAsleep] when it goes to sleep, once and never again on
+/// its own; under reduced motion it is a cut.
+class Tevi extends StatefulWidget {
   const Tevi({
     super.key,
     required this.size,
@@ -452,6 +456,7 @@ class Tevi extends StatelessWidget {
     this.night = false,
     this.markColor = BrandColors.ink,
     this.semanticLabel,
+    this.eases = true,
   });
 
   final double size;
@@ -465,18 +470,76 @@ class Tevi extends StatelessWidget {
   final Color markColor;
   final String? semanticLabel;
 
+  /// Whether a new [look] eases in. A caller that moves the look itself,
+  /// frame by frame, draws each one as given.
+  final bool eases;
+
+  /// How long the passage to [look] takes: a sleepy eye closes slowly.
+  static Duration lengthTo(TeviLook look) =>
+      look.sleepMarks ? Motion.fallAsleep : Motion.change;
+
+  @override
+  State<Tevi> createState() => _TeviState();
+}
+
+class _TeviState extends State<Tevi> with SingleTickerProviderStateMixin {
+  late final _change = AnimationController(vsync: this);
+
+  /// Where the passage under way started.
+  late TeviLook _from = widget.look;
+
+  late final CurvedAnimation _eased = CurvedAnimation(
+    parent: _change,
+    curve: Motion.settle,
+  );
+
+  TeviLook get _look => _change.isAnimating
+      ? TeviLook.lerp(_from, widget.look, _eased.value)
+      : widget.look;
+
+  @override
+  void didUpdateWidget(Tevi old) {
+    super.didUpdateWidget(old);
+    if (widget.look == old.look) return;
+    final still =
+        !widget.eases ||
+        (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+    if (still) {
+      _change.stop();
+      return;
+    }
+    // From the look drawn now, so a change during a change never jumps.
+    _from = _change.isAnimating
+        ? TeviLook.lerp(_from, old.look, _eased.value)
+        : old.look;
+    _eased.curve = widget.look.sleepMarks ? Motion.sway : Motion.settle;
+    _change
+      ..duration = Tevi.lengthTo(widget.look)
+      ..forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _eased.dispose();
+    _change.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final figure = CustomPaint(
-      size: Size.square(size),
-      painter: TeviPainter(
-        look: look,
-        tier: tier,
-        night: night,
-        markColor: markColor,
+    final figure = AnimatedBuilder(
+      animation: _change,
+      builder: (context, _) => CustomPaint(
+        size: Size.square(widget.size),
+        painter: TeviPainter(
+          look: _look,
+          tier: widget.tier,
+          night: widget.night,
+          markColor: widget.markColor,
+        ),
       ),
     );
-    final label = semanticLabel;
+    final label = widget.semanticLabel;
     if (label == null) return ExcludeSemantics(child: figure);
     return Semantics(image: true, label: label, child: figure);
   }
