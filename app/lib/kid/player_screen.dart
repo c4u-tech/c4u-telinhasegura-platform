@@ -62,9 +62,6 @@ class PlayerScreen extends StatefulWidget {
   /// How long the error note stays before the shelves come back.
   static const errorPause = Duration(seconds: 4);
 
-  /// The widest the player grows.
-  static const maxWidth = PlayerStage.maxWidth;
-
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
@@ -211,7 +208,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     unawaited(_close());
     final returns = AppScope.of(context).kidReturn;
     returns.value ??= (note: null, refetch: true);
-    context.go(Routes.kidHome);
+    backFromPlayer(context);
   }
 
   /// Lets the player go at once; nothing it says afterwards counts.
@@ -268,6 +265,10 @@ class _PlayerScreenState extends State<PlayerScreen>
       active: full,
       child: KidLayout(
         exit: HoldToExit(onExit: () => context.go(Routes.kidExit)),
+        // Watching is a dark room; turned sideways, the video alone keeps
+        // the child's ground around it, as it always has.
+        ground: full ? null : BrandColors.dark,
+        mark: false,
         fullWidth: true,
         scrolls: false,
         strip: !full,
@@ -306,6 +307,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       ? PlayerScreen.pauseLabel
                       : PlayerScreen.playLabel,
                   filled: true,
+                  size: PlayerStage.toggleSize,
                   onPressed: _toggle,
                 ),
         ),
@@ -347,3 +349,15 @@ bool refetchAfter(String? note) =>
     note == null ||
     note == PlayerScreen.videoGone ||
     note == PausedProfile.line;
+
+/// Back where a player was opened from: the home, or a page over it. A
+/// player beneath another screen (the PIN gate a link out opened) goes
+/// to the home instead, since a pop would take that screen away and
+/// leave the player standing.
+void backFromPlayer(BuildContext context) {
+  if (ModalRoute.of(context)?.isCurrent == true && context.canPop()) {
+    context.pop();
+  } else {
+    context.go(Routes.kidHome);
+  }
+}

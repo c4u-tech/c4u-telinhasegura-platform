@@ -54,40 +54,23 @@ enum Perch {
 /// The picture every child state shows in the shelf's place: the mascot
 /// in [look], perched at the start side of a screen or a wire, as it
 /// stands on the guardian's field. Its legs land a little into the line,
-/// and every look, the raised crest too, stays inside the picture. On
-/// the child's ink ground the figure keeps its day colours (a darker
-/// stage asks for [night]), and the marks of sleep are drawn in sky so
-/// they show.
+/// and every look, the raised crest too, stays inside the picture. The
+/// figure takes its colours from the ground it stands on (the night's
+/// on the darkest), where a wire is drawn in ink, a thin line in the
+/// dark; the marks of sleep are drawn in sky so they show.
 class ShelfPicture extends StatelessWidget {
   const ShelfPicture({
     super.key,
     required this.look,
     this.perch = Perch.screen,
     this.scale = 1,
-    this.screenChild,
-    this.across = false,
-    this.night = false,
   });
 
   final TeviLook look;
   final Perch perch;
 
-  /// The wire runs across the whole screen, edge to edge, rather than
-  /// only across the picture: the day's end takes the screen, a note
-  /// keeps to its own place. The mascot stands where it would on the
-  /// short wire.
-  final bool across;
-
-  /// The figure's night colours, for a stage darker than the child's
-  /// ink ground, where its dark parts would vanish.
-  final bool night;
-
   /// The whole picture's scale: [size] at 1.
   final double scale;
-
-  /// Fills the screen, cut to its corners, instead of leaving it hollow
-  /// (the next video's cover).
-  final Widget? screenChild;
 
   static const size = Size(192, 165);
 
@@ -131,47 +114,21 @@ class ShelfPicture extends StatelessWidget {
     };
     final top =
         (stand + TeviPainter.perchOverlap) * s - side * TeviPainter.perchY;
-    final child = screenChild;
-    final frame = Rect.fromLTRB(
-      screen.left * s,
-      screen.top * s,
-      screen.right * s,
-      screen.bottom * s,
-    );
+    final night = TeviGround.nightAt(context);
+    final line = night && perch == Perch.wire
+        ? BrandColors.ink
+        : context.palette.onField;
     return ExcludeSemantics(
       child: SizedBox.fromSize(
         size: size * s,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            if (perch == Perch.wire && across)
-              Positioned.fill(
-                child: ScreenWire(
-                  feet: start + side * _feet,
-                  centre: wireAt((start + side * _feet) / s) * s,
-                  stroke: stroke * s,
-                  color: context.palette.onField,
-                ),
-              )
-            else if (child != null)
-              Positioned.fromRect(
-                rect: frame,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(
-                    screen.height * Radii.screenRatio * s,
-                  ),
-                  child: child,
-                ),
-              )
-            else
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _PerchPainter(
-                    perch: perch,
-                    color: context.palette.onField,
-                  ),
-                ),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _PerchPainter(perch: perch, color: line),
               ),
+            ),
             // The figure paints after what it stands on, so its legs show
             // over the line. It faces the content: mirrored right to left.
             PositionedDirectional(
@@ -179,14 +136,11 @@ class ShelfPicture extends StatelessWidget {
               top: top,
               width: side,
               height: side,
-              child: Transform.flip(
-                flipX: Directionality.of(context) == TextDirection.rtl,
-                child: Tevi(
-                  size: side,
-                  look: look,
-                  night: night,
-                  markColor: BrandColors.sky,
-                ),
+              child: FacingTevi(
+                size: side,
+                look: look,
+                night: night,
+                markColor: BrandColors.sky,
               ),
             ),
           ],
@@ -250,117 +204,4 @@ class _PerchPainter extends CustomPainter {
   @override
   bool shouldRepaint(_PerchPainter old) =>
       old.perch != perch || old.color != color;
-}
-
-/// A wire across the whole screen, edge to edge, sagging gently at the
-/// screen's middle and passing through [centre] (the wire's centreline,
-/// down from this box's top) at [feet] (across from its start), where
-/// the mascot stands. It is laid out in its picture's box and paints
-/// past it, measuring where that box lies on the screen.
-class ScreenWire extends LeafRenderObjectWidget {
-  const ScreenWire({
-    super.key,
-    required this.feet,
-    required this.centre,
-    required this.stroke,
-    required this.color,
-  });
-
-  final double feet;
-  final double centre;
-  final double stroke;
-  final Color color;
-
-  /// How far the middle sags, for every unit of the wire's length: the
-  /// picture's own short wire's.
-  static final sag = ShelfPicture._wireSag / ShelfPicture.screen.width;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) => _RenderScreenWire(
-    this,
-    MediaQuery.sizeOf(context).width,
-    Directionality.of(context),
-  );
-
-  @override
-  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
-      (renderObject as _RenderScreenWire)
-        ..wire = this
-        ..screen = MediaQuery.sizeOf(context).width
-        ..direction = Directionality.of(context);
-}
-
-class _RenderScreenWire extends RenderBox {
-  _RenderScreenWire(this._wire, this._screen, this._direction);
-
-  ScreenWire _wire;
-  set wire(ScreenWire v) {
-    if (v.feet == _wire.feet &&
-        v.centre == _wire.centre &&
-        v.stroke == _wire.stroke &&
-        v.color == _wire.color) {
-      return;
-    }
-    _wire = v;
-    markNeedsPaint();
-  }
-
-  /// The screen's width.
-  double _screen;
-  set screen(double v) {
-    if (v == _screen) return;
-    _screen = v;
-    markNeedsPaint();
-  }
-
-  TextDirection _direction;
-  set direction(TextDirection v) {
-    if (v == _direction) return;
-    _direction = v;
-    markNeedsPaint();
-  }
-
-  @override
-  bool get sizedByParent => true;
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) => constraints.biggest;
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    // Where this box starts on the screen: the wire runs from the
-    // screen's left edge to its right, whatever the box's place.
-    final left = -localToGlobal(Offset.zero).dx;
-    final width = _screen;
-    final wire = _wire;
-    final feet = _direction == TextDirection.rtl
-        ? size.width - wire.feet
-        : wire.feet;
-    // The centreline is a parabola over the screen's width, lowest at
-    // its middle, lifted so it passes under the mascot's feet.
-    final sag = width * ScreenWire.sag;
-    double drop(double x) {
-      final t = (x - left) / width;
-      return 4 * sag * t * (1 - t);
-    }
-
-    final ends = wire.centre - drop(feet);
-    // The quadratic's control point lies twice as far below the ends as
-    // the centreline's lowest point.
-    final control = ends + 2 * sag;
-    context.canvas.drawPath(
-      Path()
-        ..moveTo(offset.dx + left, offset.dy + ends)
-        ..quadraticBezierTo(
-          offset.dx + left + width / 2,
-          offset.dy + control,
-          offset.dx + left + width,
-          offset.dy + ends,
-        ),
-      Paint()
-        ..color = wire.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = wire.stroke,
-    );
-  }
 }

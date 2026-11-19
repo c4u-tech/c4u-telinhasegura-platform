@@ -14,12 +14,16 @@ import '../design/tokens.dart';
 /// technology cannot hold, so it gets a long-press action that exits at
 /// once.
 class HoldToExit extends StatefulWidget {
-  const HoldToExit({super.key, required this.onExit});
+  const HoldToExit({super.key, required this.onExit, this.color});
 
   static const label = 'Sair do modo criança';
   static const hold = Duration(seconds: 2);
 
   final VoidCallback onExit;
+
+  /// On a theme's world, its figure: the glyph, the ring and its fill,
+  /// which the kid ground's tones would not show on a light ground.
+  final Color? color;
 
   @override
   State<HoldToExit> createState() => _HoldToExitState();
@@ -77,6 +81,7 @@ class _HoldToExitState extends State<HoldToExit>
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final color = widget.color;
     return Semantics(
       container: true,
       button: true,
@@ -101,14 +106,14 @@ class _HoldToExitState extends State<HoldToExit>
                 builder: (context, _) => CustomPaint(
                   painter: ExitRingPainter(
                     progress: _ring.value,
-                    track: p.outline,
-                    fill: p.meter,
-                    focus: _focused ? p.muted : null,
+                    track: color?.withValues(alpha: .4) ?? p.outline,
+                    fill: color ?? p.meter,
+                    focus: _focused ? color ?? p.muted : null,
                   ),
                   child: Center(
                     child: CustomPaint(
                       size: const Size.square(32),
-                      painter: ExitGlyphPainter(color: p.outline),
+                      painter: ExitGlyphPainter(color: color ?? p.outline),
                     ),
                   ),
                 ),

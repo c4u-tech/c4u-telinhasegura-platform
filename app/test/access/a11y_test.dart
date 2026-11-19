@@ -22,7 +22,9 @@ import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/pack_player_screen.dart';
 import 'package:telinha_segura/kid/pack_row.dart';
 import 'package:telinha_segura/kid/player_keys.dart';
+import 'package:telinha_segura/kid/mosaic.dart' show PacksDoor, ThemeBlock;
 import 'package:telinha_segura/kid/player_screen.dart';
+import 'package:telinha_segura/kid/room_screen.dart' show RoomBack;
 import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid_mode/kid_mode_screen.dart';
 import 'package:telinha_segura/shell/services.dart';
@@ -47,9 +49,10 @@ import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show deviceJson, profileJson;
 import '../kid_mode/devices_screen_test.dart' show device;
 import '../kid/fake_player.dart';
-import '../kid/kid_shelves_test.dart' show pixel, twoShelves;
+import '../kid/kid_mosaic_test.dart' show pixel, twoShelves;
 import '../kid/more_time_door_test.dart' show holdExit;
 import '../kid/pack_player_test.dart' show packKid;
+import '../kid/packs_page_test.dart' show threePacks;
 import '../kid/sleeping_home_test.dart' show day, shelvesOn;
 import '../kid_mode/link_code_screen_test.dart' show liveCode;
 import '../catalog/fixtures.dart' as catalog;
@@ -1181,6 +1184,20 @@ final handOverScreens =
         },
       ),
       'player': (kidWithShelves, '/crianca/assistir/v1', true, null),
+      // A theme's page, opened from its block on the home.
+      'theme page': (
+        kidWithShelves,
+        '/crianca',
+        true,
+        (tester) => tapOn(tester, find.byType(ThemeBlock).first),
+      ),
+      // Every pacotinho, behind their door on the home.
+      'pacotinhos page': (
+        () => packKid(catalog: () => threePacks),
+        '/crianca',
+        true,
+        (tester) => tapOn(tester, find.byType(PacksDoor)),
+      ),
       // Pacotinhos: the row, the pacotinho's player, its
       // breath and its goodbye.
       'child home, pacotinhos': (packKid, '/crianca', true, null),
@@ -2954,6 +2971,7 @@ void main() {
               w is ChildChoice ||
               w is SelectableRow ||
               w is HoldToExit ||
+              w is RoomBack ||
               w is VideoTile ||
               w is PackTile ||
               w is PlayerKey ||

@@ -146,6 +146,78 @@ class Palette {
   );
 }
 
+/// A theme's colours on the child side: the [ground] its block and its
+/// page are filled with, and the [figure] drawn on it (the theme's glyph,
+/// the keys of its page).
+@immutable
+class ColourWorld {
+  const ColourWorld({
+    required this.ground,
+    required this.figure,
+    this.ringsDisc = false,
+  });
+
+  final Color ground;
+  final Color figure;
+
+  /// The ground is light enough that the sun play disc would sink into
+  /// it, so the disc carries a [ColourWorlds.discRing] there.
+  final bool ringsDisc;
+}
+
+/// The six themes' worlds, each a brand colour or a lighter tone of one,
+/// with the figure that reads on it. Contrast pairs are asserted in
+/// tokens_test.dart.
+abstract final class ColourWorlds {
+  /// Ink lifted toward sky: a ground of its own, still dark enough for
+  /// cream.
+  static const lightInk = Color(0xFF2F7482);
+
+  /// Sun lifted toward cream: a second warm ground beside sun.
+  static const lightSun = Color(0xFFFFE08A);
+
+  static const bichos = ColourWorld(
+    ground: BrandColors.sun,
+    figure: BrandColors.dark,
+    ringsDisc: true,
+  );
+  static const musica = ColourWorld(
+    ground: BrandColors.sky,
+    figure: BrandColors.dark,
+    ringsDisc: true,
+  );
+  static const historias = ColourWorld(
+    ground: BrandColors.cream,
+    figure: BrandColors.ink,
+    ringsDisc: true,
+  );
+  static const aprender = ColourWorld(
+    ground: BrandColors.dark,
+    figure: BrandColors.sun,
+  );
+  static const natureza = ColourWorld(
+    ground: lightInk,
+    figure: BrandColors.cream,
+  );
+  static const brincar = ColourWorld(
+    ground: lightSun,
+    figure: BrandColors.dark,
+    ringsDisc: true,
+  );
+
+  static const all = [bichos, musica, historias, aprender, natureza, brincar];
+
+  /// The home's own ground, for a page that opens from the home and is no
+  /// theme's (every pacotinho of the day).
+  static const home = ColourWorld(
+    ground: BrandColors.ink,
+    figure: BrandColors.cream,
+  );
+
+  /// The ring around the play disc on a light ground.
+  static const discRing = BrandColors.dark;
+}
+
 /// One spacing rhythm: 4-point steps.
 abstract final class Space {
   static const xs = 4.0;
@@ -250,13 +322,10 @@ abstract final class WordmarkSizes {
 }
 
 /// The kid dialect's sizes: small hands get 64 dp targets (the PIN keys
-/// too), and a child finds themself by a 96 dp+ avatar; the child home's
-/// grows to [avatarWide] on wide screens.
+/// too), and a child finds themself by a 96 dp+ avatar.
 abstract final class KidSizes {
   static const target = 64.0;
   static const avatar = 96.0;
-  static const avatarLarge = 128.0;
-  static const avatarWide = 192.0;
 }
 
 abstract final class Typefaces {

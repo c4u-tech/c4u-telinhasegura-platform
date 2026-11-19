@@ -406,6 +406,40 @@ class TeviPainter extends CustomPainter {
       old.markColor != markColor;
 }
 
+/// The ground behind every mascot drawn below it, so each picks its
+/// colours by what it stands on rather than by the theme: the darkest
+/// grounds take the night colours, every other the day's.
+class TeviGround extends InheritedWidget {
+  const TeviGround({super.key, required this.color, required super.child});
+
+  final Color color;
+
+  /// Below this contrast with [ground] the figure's dark parts would sink
+  /// into it, crown and mask lost.
+  static const _seen = 1.5;
+
+  /// Whether a mascot on [ground] wears its night colours.
+  static bool nightOn(Color ground) {
+    final a = BrandColors.dark.computeLuminance() + .05;
+    final b = ground.computeLuminance() + .05;
+    return (a > b ? a / b : b / a) < _seen;
+  }
+
+  /// Whether the ground below [context] asks for the night colours; null
+  /// where no ground is set (the guardian's screens).
+  static bool? maybeNightAt(BuildContext context) =>
+      switch (context.dependOnInheritedWidgetOfExactType<TeviGround>()) {
+        final ground? => nightOn(ground.color),
+        null => null,
+      };
+
+  /// [maybeNightAt], day colours where no ground is set.
+  static bool nightAt(BuildContext context) => maybeNightAt(context) ?? false;
+
+  @override
+  bool updateShouldNotify(TeviGround old) => old.color != color;
+}
+
 /// The mascot at [size] by [size]. It is decoration unless given a
 /// [semanticLabel]: most places name the app or the moment in words
 /// beside it.
@@ -446,4 +480,33 @@ class Tevi extends StatelessWidget {
     if (label == null) return ExcludeSemantics(child: figure);
     return Semantics(image: true, label: label, child: figure);
   }
+}
+
+/// The mascot standing in a child's screen: it faces the content, so it
+/// is mirrored right to left, and takes its colours from the ground below
+/// it unless told [night].
+class FacingTevi extends StatelessWidget {
+  const FacingTevi({
+    super.key,
+    required this.size,
+    this.look = TeviLook.watching,
+    this.night,
+    this.markColor = BrandColors.ink,
+  });
+
+  final double size;
+  final TeviLook look;
+  final bool? night;
+  final Color markColor;
+
+  @override
+  Widget build(BuildContext context) => Transform.flip(
+    flipX: Directionality.of(context) == TextDirection.rtl,
+    child: Tevi(
+      size: size,
+      look: look,
+      night: night ?? TeviGround.nightAt(context),
+      markColor: markColor,
+    ),
+  );
 }
