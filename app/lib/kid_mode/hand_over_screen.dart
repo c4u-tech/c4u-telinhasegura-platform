@@ -181,7 +181,7 @@ class ChildChoice extends StatelessWidget {
               SizedBox.square(
                 dimension: ringFor(avatarSize),
                 child: AnimatedContainer(
-                  duration: Motion.change,
+                  duration: Motion.of(context, Motion.change),
                   curve: Motion.settle,
                   padding: const EdgeInsets.all(2),
                   decoration: ShapeDecoration(

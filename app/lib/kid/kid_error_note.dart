@@ -229,7 +229,7 @@ class MascotUnderNote extends StatelessWidget {
         false;
     return AnimatedOpacity(
       opacity: showing ? 0 : 1,
-      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : fade,
+      duration: Motion.of(context, fade),
       child: child,
     );
   }

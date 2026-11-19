@@ -387,4 +387,9 @@ abstract final class Motion {
 
   /// What goes and comes back: a loop, a blink, an eyelid reopening.
   static const sway = Curves.easeInOut;
+
+  /// [length], or none where the platform asks for reduced motion: what
+  /// would have eased then simply changes.
+  static Duration of(BuildContext context, Duration length) =>
+      MediaQuery.disableAnimationsOf(context) ? Duration.zero : length;
 }
