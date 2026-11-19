@@ -174,9 +174,16 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(wire, findsOneWidget);
       expect(plainText(seenByLine), findsOneWidget);
+      final row = tester.getRect(wire);
+      expect(row.left, greaterThanOrEqualTo(0));
+      expect(row.right, lessThanOrEqualTo(size.width));
       await tester.ensureVisible(report);
       await tester.pumpAndSettle();
-      expect(tester.getRect(report).bottom, lessThanOrEqualTo(size.height));
+      // Whole on the screen, and nothing laid over it: a tap reaches it.
+      final quiet = tester.getRect(report);
+      expect(quiet.top, greaterThanOrEqualTo(0));
+      expect(quiet.bottom, lessThanOrEqualTo(size.height));
+      expect(report.hitTestable(), findsOneWidget);
     });
   }
 
