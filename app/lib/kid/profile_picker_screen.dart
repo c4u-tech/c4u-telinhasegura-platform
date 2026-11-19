@@ -202,11 +202,15 @@ class _ProfilePickerScreenState extends State<ProfilePickerScreen> {
                   child: Transform.translate(
                     offset: Offset((.5 - TeviPainter.body.center.dx) * size, 0),
                     child: Builder(
-                      builder: (context) => Tevi(
-                        size: size,
+                      builder: (context) => TeviLanding(
                         look: TeviLook.lookingBack,
                         night: TeviGround.nightAt(context),
-                        blinks: true,
+                        child: Tevi(
+                          size: size,
+                          look: TeviLook.lookingBack,
+                          night: TeviGround.nightAt(context),
+                          blinks: true,
+                        ),
                       ),
                     ),
                   ),

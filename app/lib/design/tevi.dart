@@ -565,6 +565,176 @@ class TeviGround extends InheritedWidget {
   bool updateShouldNotify(TeviGround old) => old.color != color;
 }
 
+/// The hand-over from the app's opening to its first screen: the opening's
+/// mascot travels onto the screen's own, which waits unseen until it has
+/// landed. While [holding], every mascot below a [TeviHandoffScope] holds
+/// back what it would play as its screen arrives (a blink, a look easing
+/// in, a gaze sweeping), and a [TeviLanding] is not painted; [release]
+/// lets them all go at once, as the travelling one lands.
+class TeviHandoff extends ChangeNotifier {
+  /// It holds from the start unless made with false.
+  TeviHandoff([this._holding = true]);
+
+  bool _holding;
+  bool get holding => _holding;
+
+  final _landings = <_TeviLandingState>[];
+
+  void release() {
+    if (!_holding) return;
+    _holding = false;
+    notifyListeners();
+  }
+
+  /// The first screen's mascot as it stands in [ancestor] now: the first
+  /// laid out on the page in front, or null where it has none.
+  TeviSpot? spotIn(RenderBox ancestor) {
+    for (final landing in _landings) {
+      if (landing._spotIn(ancestor) case final spot?) return spot;
+    }
+    return null;
+  }
+}
+
+/// Where a mascot the opening lands on stands, and how it looks, so the
+/// travelling one arrives as it: the same box, look, colours and facing.
+@immutable
+class TeviSpot {
+  const TeviSpot({
+    required this.box,
+    required this.look,
+    required this.night,
+    required this.flipped,
+    this.field,
+  });
+
+  /// The mascot's square box.
+  final Rect box;
+  final TeviLook look;
+  final bool night;
+
+  /// Whether it is drawn mirrored, facing the start side.
+  final bool flipped;
+
+  /// The ink field it stands on, if any.
+  final RRect? field;
+
+  @override
+  String toString() => 'TeviSpot($box, $look, night: $night, field: $field)';
+}
+
+/// Below it, the mascots wait for [handoff] to let them go.
+class TeviHandoffScope extends InheritedNotifier<TeviHandoff> {
+  const TeviHandoffScope({
+    super.key,
+    required TeviHandoff handoff,
+    required super.child,
+  }) : super(notifier: handoff);
+
+  static TeviHandoff? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TeviHandoffScope>()?.notifier;
+
+  /// Whether the mascots below [context] are still held back.
+  static bool holdsAt(BuildContext context) =>
+      maybeOf(context)?.holding ?? false;
+}
+
+/// A screen's own mascot that the app's opening may land on: [child] is
+/// its square box, drawn with [look] and [night], mirrored if [flipped].
+/// It stands on the ink field [field] holds, with corners of
+/// [fieldCorner], if it stands on one. Where no opening is under way it
+/// is simply [child].
+class TeviLanding extends StatefulWidget {
+  const TeviLanding({
+    super.key,
+    required this.look,
+    required this.night,
+    this.flipped = false,
+    this.field,
+    this.fieldCorner = 0,
+    required this.child,
+  });
+
+  final TeviLook look;
+  final bool night;
+  final bool flipped;
+  final GlobalKey? field;
+  final double fieldCorner;
+  final Widget child;
+
+  @override
+  State<TeviLanding> createState() => _TeviLandingState();
+}
+
+class _TeviLandingState extends State<TeviLanding> {
+  TeviHandoff? _handoff;
+  ModalRoute<Object?>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    final handoff = TeviHandoffScope.maybeOf(context);
+    if (handoff == _handoff) return;
+    _handoff?._landings.remove(this);
+    _handoff = handoff?.._landings.add(this);
+  }
+
+  // Out of the tree, even for a frame, it is nowhere to land.
+  @override
+  void deactivate() {
+    _handoff?._landings.remove(this);
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _handoff?._landings.add(this);
+  }
+
+  @override
+  void dispose() {
+    _handoff?._landings.remove(this);
+    super.dispose();
+  }
+
+  TeviSpot? _spotIn(RenderBox ancestor) {
+    if (!mounted || !(_route?.isCurrent ?? true)) return null;
+    final box = _rectIn(context, ancestor);
+    if (box == null) return null;
+    final field = switch (widget.field?.currentContext) {
+      final field? => _rectIn(field, ancestor),
+      null => null,
+    };
+    return TeviSpot(
+      box: box,
+      look: widget.look,
+      night: widget.night,
+      flipped: widget.flipped,
+      field: field == null
+          ? null
+          : RRect.fromRectAndRadius(field, Radius.circular(widget.fieldCorner)),
+    );
+  }
+
+  static Rect? _rectIn(BuildContext context, RenderBox ancestor) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    return MatrixUtils.transformRect(
+      box.getTransformTo(ancestor),
+      Offset.zero & box.size,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+    // Unseen until the opening's mascot lands on it and goes.
+    opacity: TeviHandoffScope.holdsAt(context) ? 0 : 1,
+    child: widget.child,
+  );
+}
+
 /// The mascot at [size] by [size]. It is decoration unless given a
 /// [semanticLabel]: most places name the app or the moment in words
 /// beside it.
@@ -694,9 +864,12 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
 
   bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
+  /// Whether the opening still holds this mascot back, unseen.
+  bool _held = false;
+
   void _searchOrNot() {
     final loops = Motion.loopsIn(context);
-    if (widget.searching && loops) {
+    if (widget.searching && loops && !_held) {
       _ahead.reset();
       if (!_search.isAnimating) _search.repeat();
       return;
@@ -714,8 +887,12 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _held = TeviHandoffScope.holdsAt(context);
     _searchOrNot();
-    if (_arrived) return;
+    // Its arrival waits for the opening to let it go: until then it is
+    // under the opening's ground, or unseen beneath the mascot landing on
+    // it.
+    if (_arrived || _held) return;
     _arrived = true;
     if (widget.arrivesFrom case final from? when widget.eases && !_still) {
       _ease(from);

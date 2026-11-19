@@ -405,6 +405,7 @@ class _Highlight extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = geometry.tevi;
     final stand = geometry.stand;
+    final look = loading ? TeviLook.watching : TeviLook.crestUp;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -420,11 +421,16 @@ class _Highlight extends StatelessWidget {
           height: size,
           child: IgnorePointer(
             child: MascotUnderNote(
-              child: FacingTevi(
-                size: size,
-                look: loading ? TeviLook.watching : TeviLook.crestUp,
-                blinks: !loading,
-                searching: loading,
+              child: TeviLanding(
+                look: look,
+                night: TeviGround.nightAt(context),
+                flipped: Directionality.of(context) == TextDirection.rtl,
+                child: FacingTevi(
+                  size: size,
+                  look: look,
+                  blinks: !loading,
+                  searching: loading,
+                ),
               ),
             ),
           ),

@@ -15,6 +15,9 @@ import '../access/harness.dart';
 import '../design/pump.dart';
 import '../family/fixtures.dart';
 
+Finder get mascotFinder =>
+    find.descendant(of: find.byType(Splash), matching: find.byType(Tevi)).first;
+
 /// The opening's mascot, as drawn now.
 Tevi mascot(WidgetTester tester) => tester.widget<Tevi>(
   find.descendant(of: find.byType(Splash), matching: find.byType(Tevi)),
@@ -146,8 +149,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.byType(Splash), findsOneWidget, reason: 'lifting');
-    expect(tester.getRect(find.byType(Splash)).top, lessThan(-400));
+    expect(find.byType(Splash), findsOneWidget, reason: 'giving way');
+    final ground = tester.getRect(
+      find.descendant(of: find.byType(Splash), matching: find.byType(ClipPath)),
+    );
+    expect(ground, Offset.zero & const Size(390, 844), reason: 'its box');
+    final mascot = tester.getRect(mascotFinder);
+    expect(mascot.width, lessThan(Opening.markSide), reason: 'on its way');
 
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 16));

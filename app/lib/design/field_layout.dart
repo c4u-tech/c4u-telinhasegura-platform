@@ -512,6 +512,7 @@ class _Field extends StatelessWidget {
     return PerchedTevi(
       size: tevi,
       wink: wink,
+      corner: corner,
       child: expand
           // The field fills the panel; at large text sizes its content
           // scrolls inside it rather than overflowing.
@@ -546,6 +547,7 @@ class PerchedTevi extends StatefulWidget {
     required this.size,
     required this.child,
     this.wink = false,
+    this.corner = 0,
   });
 
   /// How long the wink takes: the eye closes, holds and opens again.
@@ -561,6 +563,10 @@ class PerchedTevi extends StatefulWidget {
   final double size;
   final bool wink;
   final Widget child;
+
+  /// The field's corner radius: the app's opening, landing its mascot on
+  /// this one, closes its ground onto the field's shape.
+  final double corner;
 
   @override
   State<PerchedTevi> createState() => _PerchedTeviState();
@@ -588,6 +594,9 @@ class _PerchedTeviState extends State<PerchedTevi>
   ]).animate(_wink);
 
   bool _played = false;
+
+  /// The field it stands on, for the app's opening to close onto.
+  final _field = GlobalKey();
 
   /// Under reduced motion the wink is shown, not played: the eye stays
   /// shut until this ends.
@@ -653,7 +662,7 @@ class _PerchedTeviState extends State<PerchedTevi>
       children: [
         Padding(
           padding: EdgeInsets.only(top: PerchedTevi.standOf(size)),
-          child: widget.child,
+          child: KeyedSubtree(key: _field, child: widget.child),
         ),
         // The figure's box is square and drawn facing the end side; its
         // legs end at [TeviPainter.perchY] of its height.
@@ -662,10 +671,17 @@ class _PerchedTeviState extends State<PerchedTevi>
           start: TeviPainter.perchInset - size * TeviPainter.body.left,
           width: size,
           height: size,
-          child: IgnorePointer(
-            child: Transform.flip(
-              flipX: Directionality.of(context) == TextDirection.rtl,
-              child: figure,
+          child: TeviLanding(
+            look: TeviLook.watching,
+            night: night,
+            flipped: Directionality.of(context) == TextDirection.rtl,
+            field: _field,
+            fieldCorner: widget.corner,
+            child: IgnorePointer(
+              child: Transform.flip(
+                flipX: Directionality.of(context) == TextDirection.rtl,
+                child: figure,
+              ),
             ),
           ),
         ),

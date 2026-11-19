@@ -470,4 +470,20 @@ void main() {
       expect(h.location(tester), '/crianca/quem');
     });
   });
+
+  testWidgets('the picker\'s mascot is one the app\'s opening can land on', (
+    tester,
+  ) async {
+    await linkedExit(tester);
+    await toPicker(tester);
+    final mascot = find.descendant(
+      of: find.byType(ProfilePickerScreen),
+      matching: find.byType(Tevi),
+    );
+    final landing = tester.widget<TeviLanding>(
+      find.ancestor(of: mascot, matching: find.byType(TeviLanding)),
+    );
+    expect(landing.look, tester.widget<Tevi>(mascot).look);
+    expect(landing.night, tester.widget<Tevi>(mascot).night);
+  });
 }

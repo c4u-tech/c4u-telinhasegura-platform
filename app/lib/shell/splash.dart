@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../access/copy.dart';
 import '../access/widgets.dart';
+import '../design/band_transition.dart';
 import '../design/theme.dart';
 import '../design/tevi.dart';
 import '../design/tokens.dart';
@@ -12,14 +13,15 @@ import '../design/tokens.dart';
 /// or press. Only a failed read of the mode says so and offers
 /// "Tentar de novo", which calls [onRetry].
 ///
-/// At the app's start it is the opening instead: the ink ground of the
-/// launch screen with [mascot] standing on it.
+/// At the app's start it is the opening instead: [mascot], the ink ground
+/// of the launch screen with the mascot standing on it.
 class Splash extends StatelessWidget {
   const Splash({super.key, this.onRetry, this.mascot});
 
   final VoidCallback? onRetry;
 
-  /// The opening's mascot, already placed on the screen.
+  /// The opening's scene: the launch screen's ink ground and the mascot
+  /// placed on it, which it draws itself, so it can lift the ground away.
   final Widget? mascot;
 
   @override
@@ -31,7 +33,7 @@ class Splash extends StatelessWidget {
           label: 'Carregando',
           child: AnnotatedRegion<SystemUiOverlayStyle>(
             value: SystemUiOverlayStyle.light,
-            child: ColoredBox(color: BrandColors.ink, child: mascot),
+            child: mascot,
           ),
         );
       }
@@ -83,8 +85,12 @@ enum _Stage {
 
 /// The app from its start: the launch screen's ground and the mascot's
 /// body, which assembles over [Motion.opening]; then, once the mode is
-/// known ([ready]), the ground lifts away from [child], the first screen,
-/// over [Motion.band]. A mode known early waits for the assembly; a mode
+/// known ([ready]), the ground gives way to [child], the first screen,
+/// over [Motion.band]. Where that screen has a mascot of its own (a
+/// [TeviLanding]), the opening's travels onto it, in one movement, and the
+/// ground closes onto the ink field it stands on, if any; elsewhere the
+/// ground lifts away with the mascot. A mode known early waits for the
+/// assembly; a mode
 /// that takes longer leaves the mascot searching until it is known; a
 /// failed read ([failed]) shows the note and its retry, [onRetry].
 ///
@@ -130,6 +136,10 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   /// first screen comes in beneath it, so nothing is read out twice.
   final _cover = GlobalKey();
 
+  /// Holds the first screen's mascots back, unseen, until the opening's
+  /// lands on them; the opening is then over.
+  final _handoff = TeviHandoff();
+
   bool get _still => !Motion.opensIn(context);
 
   @override
@@ -153,19 +163,28 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   void _moved(AnimationStatus status) {
     if (!status.isCompleted) return;
     setState(() {
-      _stage = _stage == _Stage.lifting ? _Stage.done : _Stage.waiting;
-      _advance();
+      if (_stage == _Stage.lifting) {
+        _end();
+      } else {
+        _stage = _Stage.waiting;
+        _advance();
+      }
     });
+  }
+
+  void _end() {
+    _stage = _Stage.done;
+    _handoff.release();
   }
 
   /// Moves on from waiting once the mode is known or its read failed.
   void _advance() {
     if (_stage != _Stage.waiting) return;
     if (widget.failed) {
-      _stage = _Stage.done;
+      _end();
     } else if (widget.ready) {
       if (_still) {
-        _stage = _Stage.done;
+        _end();
       } else {
         _stage = _Stage.lifting;
         _lift.forward();
@@ -207,6 +226,7 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   void dispose() {
     _clock.dispose();
     _lift.dispose();
+    _handoff.dispose();
     super.dispose();
   }
 
@@ -215,18 +235,17 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
     final cover = switch (_stage) {
       _Stage.done when widget.ready => null,
       _Stage.done => Splash(onRetry: widget.failed ? widget.onRetry : null),
-      _Stage.lifting => ExcludeSemantics(
-        child: SlideTransition(
-          position: _lift.drive(
-            Tween(
-              begin: Offset.zero,
-              end: const Offset(0, -1),
-            ).chain(CurveTween(curve: Motion.settle)),
+      // Lifting, the first screen is read; the ground is on its way.
+      _ => ExcludeSemantics(
+        excluding: _stage == _Stage.lifting,
+        child: Splash(
+          mascot: AnimatedBuilder(
+            animation: Listenable.merge([_clock, _lift]),
+            builder: (context, _) =>
+                LayoutBuilder(builder: (context, box) => _scene(box.biggest)),
           ),
-          child: _ground(),
         ),
       ),
-      _ => _ground(),
     };
     final hidden = _stage == _Stage.assembling || _stage == _Stage.waiting;
     // The first screen lies beneath the ground from the moment the mode is
@@ -236,9 +255,12 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
     // alone, with nothing painted over it.
     final screen = KeyedSubtree(
       key: _screen,
-      child: ExcludeFocus(
-        excluding: hidden,
-        child: ExcludeSemantics(excluding: hidden, child: widget.child),
+      child: TeviHandoffScope(
+        handoff: _handoff,
+        child: ExcludeFocus(
+          excluding: hidden,
+          child: ExcludeSemantics(excluding: hidden, child: widget.child),
+        ),
       ),
     );
     if (cover == null) return screen;
@@ -247,26 +269,89 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
     return Stack(fit: StackFit.expand, children: [screen, kept]);
   }
 
-  Widget _ground() => Splash(
-    mascot: AnimatedBuilder(
-      animation: _clock,
-      builder: (context, _) {
-        final (assembly, look) = _stage == _Stage.assembling
-            ? openingAt(_clock.value * Motion.opening.inMilliseconds)
-            : (TeviAssembly.whole, TeviLook.watching);
-        return _Placed(
-          side: Opening.markSide,
-          child: Tevi(
-            size: Opening.markSide,
-            assembly: assembly,
-            look: look,
-            eases: false,
-            searching: _stage == _Stage.waiting && !widget.ready,
+  /// The first screen's own mascot, where it stands now, if it has one.
+  TeviSpot? _spot() {
+    final opening = context.findRenderObject();
+    if (opening is! RenderBox || !opening.hasSize) return null;
+    return _handoff.spotIn(opening);
+  }
+
+  /// The ground and the mascot on a screen of [size]: assembling, waiting
+  /// or giving way to the first screen.
+  Widget _scene(Size size) {
+    final start =
+        (size.center(Offset.zero) -
+            TeviPainter.drawingCentre * Opening.markSide) &
+        const Size.square(Opening.markSide);
+    final (assembly, look) = _stage == _Stage.assembling
+        ? openingAt(_clock.value * Motion.opening.inMilliseconds)
+        : (TeviAssembly.whole, TeviLook.watching);
+    final lifting = _stage == _Stage.lifting;
+    final v = lifting ? _lift.value : 0.0;
+    final t = Motion.settle.transform(v);
+    final spot = lifting ? _spot() : null;
+    final screen = RRect.fromRectAndRadius(Offset.zero & size, Radius.zero);
+    final field = spot?.field;
+    // With nowhere to land, the mascot rides the ground away.
+    final slide = spot == null ? t * size.height : 0.0;
+    final box = spot == null
+        ? start.shift(Offset(0, -slide))
+        : Rect.lerp(start, spot.box, t)!;
+    final shown = spot == null ? look : TeviLook.lerp(look, spot.look, t);
+    // Its colours turn to the landing's on the way, if they differ.
+    final night = spot != null && spot.night ? t : 0.0;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Opacity(
+            // Closed onto the field, it fades into it, uncovering what
+            // the field holds rather than cutting to it.
+            opacity: field == null ? 1 : 1 - _intoField.transform(v),
+            child: ClipPath(
+              clipper: BandClipper(
+                field == null ? screen : RRect.lerp(screen, field, t)!,
+              ),
+              child: Transform.translate(
+                offset: Offset(0, -slide),
+                child: const ColoredBox(color: BrandColors.ink),
+              ),
+            ),
           ),
-        );
-      },
-    ),
-  );
+        ),
+        Positioned.fromRect(
+          rect: box,
+          child: Transform.flip(
+            flipX: spot?.flipped ?? false,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Tevi(
+                  size: box.width,
+                  assembly: assembly,
+                  look: shown,
+                  eases: false,
+                  searching: _stage == _Stage.waiting && !widget.ready,
+                ),
+                if (night > 0)
+                  Opacity(
+                    opacity: night,
+                    child: Tevi(
+                      size: box.width,
+                      look: shown,
+                      night: true,
+                      eases: false,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// When, over the hand-off, the ground closed onto a field fades into it.
+  static const _intoField = Interval(.6, 1);
 }
 
 /// When each part of the opening plays, in ms from its start. The parts
@@ -305,35 +390,4 @@ abstract final class _Beats {
       lid: Motion.sway.transform(blink < .5 ? blink * 2 : (1 - blink) * 2),
     ),
   );
-}
-
-/// [child], a mascot's box [side] across, placed so the middle of the
-/// figure's drawing sits at the middle of the screen, as the launch
-/// screen centres its image.
-class _Placed extends StatelessWidget {
-  const _Placed({required this.side, required this.child});
-
-  final double side;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) =>
-      CustomSingleChildLayout(delegate: _CentreDrawing(side), child: child);
-}
-
-class _CentreDrawing extends SingleChildLayoutDelegate {
-  const _CentreDrawing(this.side);
-
-  final double side;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      BoxConstraints.tight(Size.square(side));
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) =>
-      size.center(Offset.zero) - TeviPainter.drawingCentre * side;
-
-  @override
-  bool shouldRelayout(_CentreDrawing old) => old.side != side;
 }
