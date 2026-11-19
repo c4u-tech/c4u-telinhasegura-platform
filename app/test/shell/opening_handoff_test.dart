@@ -211,6 +211,40 @@ void main() {
     expect(ground.top, closeTo(-lifted, 1), reason: 'they go together');
   });
 
+  testWidgets('to a mascot standing on no field, the mascot travels while '
+      'the ground lifts away', (tester) async {
+    await pumpOpening(
+      tester,
+      Stack(
+        children: [
+          Positioned.fromRect(
+            rect: box,
+            child: TeviLanding(
+              look: TeviLook.watching,
+              night: false,
+              child: Tevi(key: landingKey, size: box.width),
+            ),
+          ),
+        ],
+      ),
+    );
+    await toLift(tester);
+    await tester.pump(const Duration(milliseconds: 200));
+    final ground = tester.getRect(
+      find
+          .descendant(
+            of: find.byType(Splash),
+            matching: find.byType(ColoredBox),
+          )
+          .first,
+    );
+    expect(ground.top, lessThan(-screen.height / 2), reason: 'lifting');
+    expect(
+      tester.getRect(traveller.first).width,
+      inExclusiveRange(box.width, Opening.markSide),
+    );
+  });
+
   testWidgets('to a mascot in the night colours, the travelling one turns '
       'to them on the way', (tester) async {
     await pumpOpening(tester, perched(night: true));

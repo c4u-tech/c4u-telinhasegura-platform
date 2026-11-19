@@ -292,8 +292,9 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
     final spot = lifting ? _spot() : null;
     final screen = RRect.fromRectAndRadius(Offset.zero & size, Radius.zero);
     final field = spot?.field;
-    // With nowhere to land, the mascot rides the ground away.
-    final slide = spot == null ? t * size.height : 0.0;
+    // With no field to close onto, the ground lifts away; with nowhere to
+    // land either, the mascot rides it.
+    final slide = field == null ? t * size.height : 0.0;
     final box = spot == null
         ? start.shift(Offset(0, -slide))
         : Rect.lerp(start, spot.box, t)!;
