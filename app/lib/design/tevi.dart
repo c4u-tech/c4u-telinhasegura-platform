@@ -72,6 +72,51 @@ class TeviLook {
       'sleepMarks: $sleepMarks)';
 }
 
+/// How far each part of the mascot has come out of its body, 0 not yet
+/// to 1 in place: the app's opening builds the figure from the body
+/// alone, as the launch screen shows it. A value past 1 overshoots, for a
+/// part that springs into place.
+@immutable
+class TeviAssembly {
+  const TeviAssembly({
+    this.look = 1,
+    this.eye = 1,
+    this.legs = 1,
+    this.ends = 1,
+  });
+
+  /// The head's crown, eyebrow and mask, wiping across from the tail's
+  /// side.
+  final double look;
+
+  /// The eye, growing from its centre.
+  final double eye;
+
+  /// The legs, dropping from under the body.
+  final double legs;
+
+  /// The beak and the tail, sliding out from behind the body.
+  final double ends;
+
+  static const whole = TeviAssembly();
+  static const body = TeviAssembly(look: 0, eye: 0, legs: 0, ends: 0);
+
+  @override
+  bool operator ==(Object other) =>
+      other is TeviAssembly &&
+      other.look == look &&
+      other.eye == eye &&
+      other.legs == legs &&
+      other.ends == ends;
+
+  @override
+  int get hashCode => Object.hash(look, eye, legs, ends);
+
+  @override
+  String toString() =>
+      'TeviAssembly(look: $look, eye: $eye, legs: $legs, ends: $ends)';
+}
+
 /// The mascot, facing right, drawn in its square
 /// 132-unit box (the figure's 120 units with 6 of air on each side)
 /// scaled to the canvas width.
@@ -88,11 +133,15 @@ class TeviPainter extends CustomPainter {
     this.tier = TeviTier.full,
     this.night = false,
     this.markColor = BrandColors.ink,
+    this.assembly = TeviAssembly.whole,
   });
 
   final TeviLook look;
   final TeviTier tier;
   final bool night;
+
+  /// How much of the figure is out of its body.
+  final TeviAssembly assembly;
 
   /// The two "Z" marks of sleep.
   final Color markColor;
@@ -119,6 +168,17 @@ class TeviPainter extends CustomPainter {
   /// of the box's height from its top: a picture that must hold every
   /// look keeps this line inside it.
   static const top = (7.88 + _air) / _box;
+
+  /// The middle of the whole figure's drawing, tail to beak and crown to
+  /// feet, as fractions of the box: where a launch screen centres it.
+  static const drawingCentre = Offset(
+    ((3.70 + 115.03) / 2 + _air) / _box,
+    ((20 + 103.4) / 2 + _air) / _box,
+  );
+
+  /// How far the beak and the tail sit behind the body before they come
+  /// out: far enough to hide them whole.
+  static const _tuckedEnds = 18.0;
 
   /// The body's rounded rectangle, as fractions of the box.
   static const body = Rect.fromLTRB(
@@ -264,26 +324,76 @@ class TeviPainter extends CustomPainter {
       if (crest < 1) canvas.restore();
     }
 
-    if (full) canvas.drawPath(_tail, fill(dark));
-    canvas.drawPath(_beak, fill(BrandColors.beak));
+    final parts = assembly;
+    // Behind the body, the tail and the beak slide out of it.
+    if (parts.ends > 0) {
+      final tucked = (1 - parts.ends) * _tuckedEnds;
+      if (full) {
+        _moved(canvas, Offset(tucked, 0), () {
+          canvas.drawPath(_tail, fill(dark));
+        });
+      }
+      _moved(canvas, Offset(-tucked, 0), () {
+        canvas.drawPath(_beak, fill(BrandColors.beak));
+      });
+    }
     canvas.save();
     canvas.clipRRect(_body);
-    canvas.drawPath(_sun, fill(BrandColors.sun));
-    canvas.drawRect(const Rect.fromLTRB(14, 20, 98, 38), fill(dark));
-    canvas.drawRect(
-      const Rect.fromLTRB(14, 38, 98, 44.5),
-      fill(BrandColors.cream),
-    );
-    canvas.drawPath(_mask, fill(dark));
+    final wiping = parts.look < 1;
+    if (wiping) {
+      // The body still bare, as the launch screen shows it, with the look
+      // wiping over it from the tail's side.
+      canvas.drawRect(
+        const Rect.fromLTRB(14, 20, 98, 90),
+        fill(BrandColors.sun),
+      );
+    }
+    if (parts.look > 0) {
+      if (wiping) {
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, 14 + 84 * parts.look, _box));
+      }
+      canvas.drawPath(_sun, fill(BrandColors.sun));
+      canvas.drawRect(const Rect.fromLTRB(14, 20, 98, 38), fill(dark));
+      canvas.drawRect(
+        const Rect.fromLTRB(14, 38, 98, 44.5),
+        fill(BrandColors.cream),
+      );
+      canvas.drawPath(_mask, fill(dark));
+      if (wiping) canvas.restore();
+    }
     canvas.restore();
 
-    if (full) {
-      for (final leg in _legs) {
-        canvas.drawRRect(leg, fill(dark));
+    if (full && parts.legs > 0) {
+      void legs() {
+        for (final leg in _legs) {
+          canvas.drawRRect(leg, fill(dark));
+        }
+      }
+
+      if (parts.legs < 1) {
+        // Hanging from where they leave the body.
+        canvas.save();
+        canvas.translate(0, _legs.first.top);
+        canvas.scale(1, parts.legs);
+        canvas.translate(0, -_legs.first.top);
+        legs();
+        canvas.restore();
+      } else {
+        legs();
       }
     }
 
-    _eye(canvas, dark, full, crest);
+    if (parts.eye > 0) {
+      if (parts.eye != 1) {
+        canvas.save();
+        canvas.translate(74, 52);
+        canvas.scale(parts.eye);
+        canvas.translate(-74, -52);
+      }
+      _eye(canvas, dark, full, crest);
+      if (parts.eye != 1) canvas.restore();
+    }
 
     if (look.sleepMarks) {
       for (final z in _marks) {
@@ -347,6 +457,15 @@ class TeviPainter extends CustomPainter {
     }
   }
 
+  /// Draws with [draw] moved by [by], or in place when it is zero.
+  static void _moved(Canvas canvas, Offset by, VoidCallback draw) {
+    if (by == Offset.zero) return draw();
+    canvas.save();
+    canvas.translate(by.dx, by.dy);
+    draw();
+    canvas.restore();
+  }
+
   /// What the eyelid leaves open: the band [half] above and below the
   /// lid's line, run flat past the eye on both sides.
   static Path _opening(double ends, double bend, double half) => Path()
@@ -403,7 +522,8 @@ class TeviPainter extends CustomPainter {
       old.look != look ||
       old.tier != tier ||
       old.night != night ||
-      old.markColor != markColor;
+      old.markColor != markColor ||
+      old.assembly != assembly;
 }
 
 /// The ground behind every mascot drawn below it, so each picks its
@@ -460,11 +580,16 @@ class Tevi extends StatefulWidget {
     this.eases = true,
     this.blinks = false,
     this.searching = false,
+    this.assembly = TeviAssembly.whole,
   });
 
   final double size;
   final TeviTier tier;
   final TeviLook look;
+
+  /// How much of the figure is out of its body: whole but for the
+  /// opening, which brings the parts out frame by frame.
+  final TeviAssembly assembly;
 
   /// The night colours, for the darkest ground.
   final bool night;
@@ -630,6 +755,7 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
           tier: widget.tier,
           night: widget.night,
           markColor: widget.markColor,
+          assembly: widget.assembly,
         ),
       ),
     );
