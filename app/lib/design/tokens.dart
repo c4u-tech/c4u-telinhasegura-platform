@@ -119,13 +119,15 @@ class Palette {
     onIndicator: BrandColors.dark,
     focus: Color(0xFFA6BFC2),
     error: Color(0xFFEFA97E),
-    errorGround: Color(0xFF2B2E28),
+    // A petrol a step lighter than the ground: the note stands out from
+    // it and stays in the brand's family.
+    errorGround: Color(0xFF143B43),
   );
 
   /// The kid dialect: the child is inside the ink field, so ink
   /// is the ground in both themes and cream the figure. Errors keep
-  /// ember, on dark (tinted from ink) rather than the olive of the night
-  /// palette; ember reads as text only on that ground.
+  /// ember, on dark (tinted from ink); ember reads as text only on a
+  /// ground that deep.
   static const kid = Palette(
     brightness: Brightness.dark,
     ground: BrandColors.ink,

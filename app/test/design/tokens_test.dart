@@ -163,6 +163,15 @@ void main() {
     }
   });
 
+  test('the dark palette\'s error note sits on a deep petrol ground, '
+      'ember on it at AA', () {
+    expect(_hex(Palette.dark.errorGround), '#143B43');
+    expect(
+      contrast(Palette.dark.error, Palette.dark.errorGround),
+      greaterThanOrEqualTo(4.5),
+    );
+  });
+
   group('kid palette', () {
     const kid = Palette.kid;
 

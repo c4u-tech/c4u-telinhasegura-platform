@@ -6,12 +6,15 @@ import '../design/tokens.dart';
 
 /// Where the player will go, empty for now: the mascot watching from the
 /// top of an empty screen, and one short line the child need not read to
-/// do anything.
+/// do anything. While [alerted] (a warning shows above it) the mascot
+/// raises its crest, and lowers it again once the warning has gone.
 class EmptyShelf extends StatelessWidget {
-  const EmptyShelf({super.key, this.scale = 1});
+  const EmptyShelf({super.key, this.scale = 1, this.alerted = false});
 
   /// Grows the drawing with the child home's avatar on wide screens.
   final double scale;
+
+  final bool alerted;
 
   static const line = 'Logo tem vídeo aqui';
 
@@ -24,7 +27,10 @@ class EmptyShelf extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShelfPicture(look: TeviLook.watching, scale: scale),
+        ShelfPicture(
+          look: alerted ? TeviLook.crestUp : TeviLook.watching,
+          scale: scale,
+        ),
         const SizedBox(height: Space.lg),
         Text(
           line,

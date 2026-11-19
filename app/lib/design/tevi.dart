@@ -293,6 +293,37 @@ class TeviPainter extends CustomPainter {
       Path()..addPolygon([for (final p in _z) at + p * scale], true),
   ];
 
+  /// The figure in one colour, in its own 120 units (no air around it):
+  /// tail, body, beak and legs as one shape, with the eyebrow band and
+  /// the eye cut out so the ground shows through, and the pupil inside
+  /// that hole. The beak runs straight out of the body. Small and filled
+  /// in one colour it still reads as a bird, for where a bird stands for
+  /// someone, without being the mascot in its colours.
+  static final oneColour = () {
+    Path cut(Path a, Path b, PathOperation op) => Path.combine(op, a, b);
+    var shape = Path()..addRRect(_body);
+    for (final part in [
+      _tail,
+      _beak,
+      for (final leg in _legs) Path()..addRRect(leg),
+    ]) {
+      shape = cut(shape, part, PathOperation.union);
+    }
+    shape = cut(
+      shape,
+      Path()..addRect(const Rect.fromLTRB(0, 38, 120, 44.5)),
+      PathOperation.difference,
+    );
+    shape = cut(
+      shape,
+      Path()
+        ..addOval(Rect.fromCircle(center: const Offset(74, 52), radius: 10.5)),
+      PathOperation.difference,
+    );
+    return shape
+      ..addOval(Rect.fromCircle(center: const Offset(77, 52), radius: 5));
+  }();
+
   /// The width of the closed eyelid's line.
   static const _lidWidth = 4.6;
 

@@ -9,9 +9,11 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/shell/guardian_shell.dart';
 
 import '../access/a11y_test.dart' show invitationsFor;
 import '../access/harness.dart';
@@ -62,13 +64,16 @@ void main() {
       }
     });
 
-    testWidgets('with a family, the home is Início, holding no door', (
-      tester,
-    ) async {
+    testWidgets('with a family, the home is Início, holding no door of the '
+        'family\'s: its one door is the suggestions', (tester) async {
       await home(tester, roles: ['admin', 'curator']);
 
       expect(find.byType(Inicio), findsOneWidget);
-      expect(find.byType(DoorRow), findsNothing);
+      expect(find.byType(DoorRow), findsOneWidget);
+      expect(
+        find.widgetWithText(DoorRow, 'Sugestões de vídeos'),
+        findsOneWidget,
+      );
       expect(find.text('Sair da conta'), findsNothing);
     });
   });
@@ -332,6 +337,52 @@ void main() {
   });
 
   group('Sair da conta', () {
+    for (final (name, size, scale) in [
+      ('360 × 640', const Size(360, 640), 1.0),
+      ('360 × 640 at 200 % text', const Size(360, 640), 2.0),
+    ]) {
+      testWidgets('at the end of the scroll it stands whole on the screen, '
+          '$name', (tester) async {
+        final h = Harness(signedIn: true)..family = null;
+        await h.pump(tester, initial: '/', size: size, textScale: scale);
+
+        await tester.fling(
+          find.byType(Scrollable).first,
+          const Offset(0, -4000),
+          4000,
+        );
+        await tester.pumpAndSettle();
+        final out = tester.getRect(
+          find.widgetWithText(QuietAction, 'Sair da conta'),
+        );
+        expect(out.top, greaterThanOrEqualTo(0));
+        expect(out.bottom, lessThanOrEqualTo(size.height - Space.xl));
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('with the family ready, Conta\'s "Sair da conta" stands '
+          'whole above the bar at the end of the scroll, $name', (
+        tester,
+      ) async {
+        final h = Harness(signedIn: true)..family = ownerFamily;
+        await h.pump(tester, initial: '/conta', size: size, textScale: scale);
+
+        await tester.fling(
+          find.byType(Scrollable).first,
+          const Offset(0, -4000),
+          4000,
+        );
+        await tester.pumpAndSettle();
+        final out = tester.getRect(
+          find.widgetWithText(QuietAction, 'Sair da conta'),
+        );
+        final bar = tester.getRect(find.byKey(ShellBar.surfaceKey));
+        expect(out.top, greaterThanOrEqualTo(0));
+        expect(out.bottom, lessThanOrEqualTo(bar.top));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     // The "Sua conta" door names the account; the foot is
     // only the way out.
     final withDoor = <String, Harness Function()>{

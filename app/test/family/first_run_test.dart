@@ -486,12 +486,17 @@ void main() {
       bool pinSet = false,
     }) => firstRun(tester, minors: minors, pinSet: pinSet, initial: '/');
 
+    // Every door but the suggestions', which Início always holds.
+    final resumeDoors = find.byWidgetPredicate(
+      (w) => w is DoorRow && w.title != 'Sugestões de vídeos',
+    );
+
     testWidgets('with no child it names registering one and opens the path '
         'there', (tester) async {
       final h = await inicio(tester, []);
 
       expect(find.text('Nenhuma criança cadastrada ainda.'), findsNothing);
-      expect(find.byType(DoorRow), findsOneWidget);
+      expect(resumeDoors, findsOneWidget);
       await tapOn(tester, find.text('Continuar: cadastrar uma criança'));
 
       expect(h.location(tester), '/comecar');
@@ -519,7 +524,7 @@ void main() {
       await inicio(tester, [lia], pinSet: true);
 
       expect(find.textContaining('Continuar:'), findsNothing);
-      expect(find.byType(DoorRow), findsNothing);
+      expect(resumeDoors, findsNothing);
       expect(find.byType(ChildRow), findsOneWidget);
     });
 

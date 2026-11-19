@@ -25,9 +25,13 @@ class KidErrorNote extends StatelessWidget {
     this.picture = 96,
     this.asleep = false,
     this.beside = false,
+    this.mascot = true,
   });
 
   final String message;
+
+  /// Whether the note brings its own mascot.
+  final bool mascot;
 
   /// The mascot asleep and the line calm: "not now".
   final bool asleep;
@@ -66,6 +70,9 @@ class KidErrorNote extends StatelessWidget {
         ),
       ),
     );
+    if (!mascot) {
+      return Semantics(liveRegion: true, container: true, child: line);
+    }
     return Semantics(
       liveRegion: true,
       container: true,
