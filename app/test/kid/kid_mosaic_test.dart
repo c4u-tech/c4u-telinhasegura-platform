@@ -596,6 +596,52 @@ void main() {
     ]);
   });
 
+  testWidgets('a block opened while sunk under the finger opens from where '
+      'it stands at rest, not from its pressed picture', (tester) async {
+    final opened = <Rect>[];
+    final catalog = KidCatalog.fromJson(
+      jsonDecode(jsonEncode(sixThemes)) as Map<String, dynamic>,
+    );
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(Brightness.dark, Palette.kid),
+        home: KidLayout(
+          fullWidth: true,
+          scrolls: false,
+          rise: KidMosaic.rise,
+          child: KidMosaic(
+            catalog: catalog,
+            band: AgeBand.from5To8,
+            thumbnail: (_) async => pixel,
+            onPlay: (_) {},
+            onOpenPack: (_) {},
+            onOpenTheme: (_, from) => opened.addAll([from.rect, from.now]),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final door = blockOf(VideoTheme.natureza);
+    final resting = tester.getRect(door);
+    final drawn = find.descendant(of: door, matching: find.byType(Material));
+    final restingPicture = tester.getRect(drawn.first);
+
+    final press = await tester.startGesture(tester.getCenter(door));
+    await tester.pump();
+    await tester.pump(Motion.press);
+    expect(
+      tester.getRect(drawn.first).width,
+      lessThan(restingPicture.width),
+      reason: 'sunk',
+    );
+    await press.up();
+    expect(opened, [resting, resting]);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('a block and the pacotinhos\' door are read as enabled only '
       'while a tap on them does something', (tester) async {
     final semantics = tester.ensureSemantics();
