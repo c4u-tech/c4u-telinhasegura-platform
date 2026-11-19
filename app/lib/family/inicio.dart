@@ -25,9 +25,11 @@ String greeting(DateTime now) => switch (now.hour) {
   _ => 'Boa noite',
 };
 
-/// The home once the family is ready: one row per child on the child
-/// band, each ending in handing the device to that child, then the
-/// suggestions. While the family has no child, or no PIN, one calm row names
+const _suggestions = 'Sugestões de vídeos';
+const _suggestionsLine = 'Sugerir e acompanhar';
+
+/// The home once the family is ready: one card per child, each ending in
+/// handing the device to that child, then the suggestions' door. While the family has no child, or no PIN, one calm row names
 /// the next step and opens the first run there. Each child's day is read
 /// on its own, so one slow or failed read holds up no other row.
 class Inicio extends StatefulWidget {
@@ -181,11 +183,22 @@ class _InicioState extends State<Inicio> {
               ],
             ),
           const SizedBox(height: Space.xxl),
-          QuietAction(
-            label: 'Sugestões de vídeos',
-            // The suggestions, not the form: the form goes back to them,
-            // and they keep the guardian's own suggestions in reach.
-            onPressed: () => context.go(Routes.suggestions),
+          Doors(
+            children: [
+              DoorRow(
+                title: _suggestions,
+                semanticsLabel: '$_suggestions, $_suggestionsLine',
+                // The suggestions, not the form: the form goes back to
+                // them, and they keep the guardian's own suggestions in
+                // reach.
+                onTap: () => context.go(Routes.suggestions),
+                child: Text(
+                  _suggestionsLine,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: context.palette.muted),
+                ),
+              ),
+            ],
           ),
         ],
       );
@@ -193,37 +206,29 @@ class _InicioState extends State<Inicio> {
   );
 }
 
-/// The family's children grouped on one low-alpha ink band with a
-/// card's corners, the rows divided by reed hairlines, no shadow. Beside the rail it
-/// sets them in [columns].
+/// The family's children, each in a card of its own: low-alpha ink with
+/// a card's corners, no shadow, a little ground between them so each
+/// reads as one child. Beside the rail it sets them in [columns].
 class ChildBand extends StatelessWidget {
   const ChildBand({super.key, required this.children, this.columns = 1});
-
-  static const bandKey = Key('child-band');
 
   final List<Widget> children;
   final int columns;
 
-  /// The band's ink, low enough that cream text and the filled actions on
+  /// The cards' ink, low enough that cream text and the filled actions on
   /// it keep their contrast; the dark ground takes more of it to show.
   static Color tint(Palette p) =>
       p.field.withValues(alpha: p.brightness == Brightness.light ? .08 : .32);
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-    final hairline = Divider(
-      height: 1,
-      thickness: 1,
-      color: p.outline.withValues(alpha: .5),
-    );
     final lines = <Widget>[];
     for (var i = 0; i < children.length; i += columns) {
-      if (i > 0) lines.add(hairline);
+      if (i > 0) lines.add(const SizedBox(height: Space.md));
       lines.add(
         columns == 1
-            ? children[i]
-            // Side by side, the rows share their height, so each pair's
+            ? ChildCard(child: children[i])
+            // Side by side, the cards share their height, so each pair's
             // hand-over buttons stand on one line.
             : IntrinsicHeight(
                 child: Row(
@@ -233,7 +238,7 @@ class ChildBand extends StatelessWidget {
                       if (c > 0) const SizedBox(width: Space.xl),
                       Expanded(
                         child: i + c < children.length
-                            ? children[i + c]
+                            ? ChildCard(child: children[i + c])
                             : const SizedBox.shrink(),
                       ),
                     ],
@@ -242,21 +247,30 @@ class ChildBand extends StatelessWidget {
               ),
       );
     }
-    return DecoratedBox(
-      key: bandKey,
-      decoration: BoxDecoration(
-        color: tint(p),
-        borderRadius: BorderRadius.circular(Radii.card),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: lines,
-        ),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: lines,
     );
   }
+}
+
+/// One child's card on the home.
+class ChildCard extends StatelessWidget {
+  const ChildCard({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: ChildBand.tint(context.palette),
+      borderRadius: BorderRadius.circular(Radii.card),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+      child: child,
+    ),
+  );
 }
 
 /// One child on the home: the 56 dp avatar, the nickname, today's time

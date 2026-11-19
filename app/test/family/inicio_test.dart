@@ -11,6 +11,7 @@ import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
 import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/reconsent_screen.dart';
+import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/screentime/screentime_api.dart';
@@ -160,27 +161,52 @@ void main() {
       expect(find.text('Entregar para Criança 9'), findsOneWidget);
     });
 
-    testWidgets('the rows stand on a low-alpha ink band with a card\'s '
-        'corners, divided by reed hairlines, with no shadow', (tester) async {
+    testWidgets('each child stands in a card of its own: low-alpha ink, a '
+        'card\'s corners, no shadow and no hairline, in the family\'s order', (
+      tester,
+    ) async {
       await inicio(tester);
 
-      final band = tester.widget<DecoratedBox>(find.byKey(ChildBand.bandKey));
-      final box = band.decoration as BoxDecoration;
-      expect(box.color, ChildBand.tint(Palette.light));
-      expect(box.color!.a, lessThan(.2));
-      expect(box.borderRadius, BorderRadius.circular(Radii.card));
-      expect(box.boxShadow, isNull);
+      final cards = find.byType(ChildCard);
+      expect(cards, findsNWidgets(3));
+      final names = <String>[];
+      for (var i = 0; i < 3; i++) {
+        final card = cards.at(i);
+        final rows = find.descendant(of: card, matching: find.byType(ChildRow));
+        expect(rows, findsOneWidget);
+        names.add(tester.widget<ChildRow>(rows).minor.nickname);
+        final box =
+            tester
+                    .widget<DecoratedBox>(
+                      find
+                          .descendant(
+                            of: card,
+                            matching: find.byType(DecoratedBox),
+                          )
+                          .first,
+                    )
+                    .decoration
+                as BoxDecoration;
+        expect(box.color, ChildBand.tint(Palette.light));
+        expect(box.color!.a, lessThan(.2));
+        expect(box.borderRadius, BorderRadius.circular(Radii.card));
+        expect(box.boxShadow, isNull);
+      }
+      expect(names, ['Lia', 'Téo', 'Nina']);
       expect(find.byType(Card), findsNothing);
-      final hairlines = tester.widgetList<Divider>(
+      expect(
         find.descendant(
-          of: find.byKey(ChildBand.bandKey),
+          of: find.byType(ChildBand),
           matching: find.byType(Divider),
         ),
+        findsNothing,
       );
-      expect(hairlines, hasLength(2));
-      for (final h in hairlines) {
-        expect(h.color, Palette.light.outline.withValues(alpha: .5));
-      }
+      // Apart, so each reads as its own.
+      expect(
+        tester.getTopLeft(cards.at(1)).dy -
+            tester.getBottomLeft(cards.at(0)).dy,
+        greaterThanOrEqualTo(Space.md),
+      );
     });
 
     testWidgets('on a wide window the rows stand in two columns beside the '
@@ -263,9 +289,16 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('Entregar para Lia'), findsOneWidget);
-        final band = tester.widget<DecoratedBox>(find.byKey(ChildBand.bandKey));
+        final card = tester.widget<DecoratedBox>(
+          find
+              .descendant(
+                of: find.byType(ChildCard).first,
+                matching: find.byType(DecoratedBox),
+              )
+              .first,
+        );
         expect(
-          (band.decoration as BoxDecoration).color,
+          (card.decoration as BoxDecoration).color,
           ChildBand.tint(
             brightness == Brightness.light ? Palette.light : Palette.dark,
           ),
@@ -524,6 +557,28 @@ void main() {
     await inicio(tester);
 
     expect(find.bySemanticsLabel(RegExp(r'^Abrir a página de Téo')), findsOne);
+    semantics.dispose();
+  });
+
+  testWidgets('"Sugestões de vídeos" is a door with "Sugerir e acompanhar" '
+      'beneath, read as one', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await inicio(tester);
+
+    final door = find.widgetWithText(DoorRow, 'Sugestões de vídeos');
+    expect(door, findsOneWidget);
+    expect(
+      find.descendant(of: door, matching: find.text('Sugerir e acompanhar')),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Sugestões de vídeos, Sugerir e acompanhar'),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(door).dy,
+      greaterThan(tester.getBottomLeft(find.byType(ChildCard).last).dy),
+    );
     semantics.dispose();
   });
 
