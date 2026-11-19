@@ -581,6 +581,7 @@ class Tevi extends StatefulWidget {
     this.blinks = false,
     this.searching = false,
     this.assembly = TeviAssembly.whole,
+    this.arrivesFrom,
   });
 
   final double size;
@@ -614,6 +615,12 @@ class Tevi extends StatefulWidget {
   /// kept for a screen that only waits, and runs only while shown; under
   /// reduced motion the mascot looks ahead, still.
   final bool searching;
+
+  /// The look it shows first, easing from it into [look] once it is
+  /// shown: a mascot that answers something just as it appears, as the
+  /// crest rising on a warning. Under reduced motion it shows [look] at
+  /// once.
+  final TeviLook? arrivesFrom;
 
   /// How long the passage to [look] takes: a sleepy eye closes slowly.
   static Duration lengthTo(TeviLook look) =>
@@ -686,6 +693,9 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
     _searchOrNot();
     if (_arrived) return;
     _arrived = true;
+    if (widget.arrivesFrom case final from? when widget.eases && !_still) {
+      _ease(from);
+    }
     if (!widget.blinks || widget.look.lid > 0 || _still) {
       return;
     }
@@ -725,9 +735,16 @@ class _TeviState extends State<Tevi> with TickerProviderStateMixin {
       return;
     }
     // From the look drawn now, so a change during a change never jumps.
-    _from = _change.isAnimating
-        ? TeviLook.lerp(_from, old.look, _eased.value)
-        : old.look;
+    _ease(
+      _change.isAnimating
+          ? TeviLook.lerp(_from, old.look, _eased.value)
+          : old.look,
+    );
+  }
+
+  /// Eases from [from] into the look asked for now.
+  void _ease(TeviLook from) {
+    _from = from;
     _eased.curve = widget.look.sleepMarks ? Motion.sway : Motion.settle;
     _change
       ..duration = Tevi.lengthTo(widget.look)
@@ -778,6 +795,7 @@ class FacingTevi extends StatelessWidget {
     this.markColor = BrandColors.ink,
     this.blinks = true,
     this.searching = false,
+    this.arrivesFrom,
   });
 
   final double size;
@@ -785,6 +803,9 @@ class FacingTevi extends StatelessWidget {
   final bool? night;
   final Color markColor;
   final bool blinks;
+
+  /// As [Tevi.arrivesFrom].
+  final TeviLook? arrivesFrom;
 
   /// As [Tevi.searching].
   final bool searching;
@@ -799,6 +820,7 @@ class FacingTevi extends StatelessWidget {
       markColor: markColor,
       blinks: blinks,
       searching: searching,
+      arrivesFrom: arrivesFrom,
     ),
   );
 }

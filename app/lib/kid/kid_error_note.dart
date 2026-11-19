@@ -43,6 +43,8 @@ class KidErrorNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    // A warning is an answer: the crest rises as the note appears.
+    final from = asleep ? null : TeviLook.watching;
     const corner = Radius.circular(48 * Radii.screenRatio);
     final line = DecoratedBox(
       decoration: BoxDecoration(
@@ -77,6 +79,7 @@ class KidErrorNote extends StatelessWidget {
               look: asleep ? TeviLook.asleep : TeviLook.crestUp,
               markColor: BrandColors.sky,
               blinks: false,
+              arrivesFrom: from,
             )
           else
             ShelfPicture(
@@ -84,6 +87,7 @@ class KidErrorNote extends StatelessWidget {
               perch: asleep ? Perch.wire : Perch.screen,
               scale: picture / ShelfPicture.size.height,
               blinks: false,
+              arrivesFrom: from,
             ),
           beside
               ? const SizedBox(width: Space.sm)
