@@ -23,8 +23,8 @@ import 'video_heading.dart';
 import 'words.dart';
 
 const publishLead =
-    'Publicar põe o vídeo nas prateleiras com o tema e a idade que você '
-    'escolher. O motivo fica registrado.';
+    'Publicar põe o vídeo no app com o tema e a idade que você escolher. '
+    'O motivo fica registrado.';
 const publishHint = 'Escolha um tema e uma idade e escreva o motivo.';
 const publishReasonInvalid = 'Escreva um motivo de 3 a 200 caracteres.';
 
