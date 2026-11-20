@@ -41,7 +41,7 @@ class PlayerScreen extends StatefulWidget {
   static const playLabel = 'Continuar';
 
   /// The server took the video off this child's shelves.
-  static const videoGone = 'Esse vídeo saiu da prateleira.';
+  static const videoGone = 'Esse vídeo não está mais aqui.';
 
   /// The player could not play it.
   static const videoFailed = 'Esse vídeo não abriu. Escolha outro.';

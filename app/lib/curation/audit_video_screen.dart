@@ -134,7 +134,7 @@ class _AuditVideoScreenState extends State<AuditVideoScreen> with AdultWindow {
       title: hold ? 'Tirar este vídeo do app?' : 'Discordar desta aprovação?',
       body: [
         if (hold)
-          '“${v.title}” sai das prateleiras e fica retido para a moderação.'
+          '“${v.title}” sai do app e fica retido para a moderação.'
         else
           '“${v.title}” continua no app. Sua discordância fica registrada.',
       ],

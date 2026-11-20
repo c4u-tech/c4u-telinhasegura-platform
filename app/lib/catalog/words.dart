@@ -27,7 +27,7 @@ const videoGone = 'Esse vídeo saiu do catálogo.';
 /// The section of today's pacotinhos on a child's catalogue, and the line
 /// that closes it.
 const packsHeading = 'Pacotinhos de hoje';
-const packsDaily = 'Mudam a cada dia, como as prateleiras.';
+const packsDaily = 'Mudam a cada dia, como os vídeos de cada tema.';
 
 /// Back on the child's catalogue when a pacotinho is not among today's.
 const packGone = 'Esse pacotinho não está mais entre os de hoje.';
@@ -188,8 +188,8 @@ abstract final class CatalogWords {
 
   /// The catalogue's line under its title.
   static String lead(String nickname) =>
-      'Tudo o que $nickname pode assistir. A cada dia, as prateleiras '
-      'mostram uma parte.';
+      'Tudo o que $nickname pode assistir. A cada dia, a telinha '
+      'mostra uma parte.';
 
   /// The video's primary, hidden or not.
   static String hide(String nickname) => 'Esconder para $nickname';
