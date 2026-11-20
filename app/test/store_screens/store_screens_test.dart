@@ -50,6 +50,17 @@ class Frame {
 
 final outDir = Directory('build/store_screens/raw');
 
+/// The theme every frame is captured in, one for the whole set so the
+/// listing reads as one app: dark by default, light with
+/// `make store-screens STORE_THEME=light`.
+const storeTheme = String.fromEnvironment('STORE_THEME', defaultValue: 'dark');
+
+Brightness get storeBrightness => switch (storeTheme) {
+  'dark' => Brightness.dark,
+  'light' => Brightness.light,
+  _ => throw StateError('STORE_THEME must be dark or light, not $storeTheme'),
+};
+
 /// Three fictional children: Lia (fox, 5 to 8), Téo (owl, up to 4) and
 /// Bia (cat, 9 to 12).
 final demoFamily = familyWith([
@@ -161,6 +172,10 @@ Future<void> capture(WidgetTester tester, Profile p, Frame f) async {
     final file = File('${outDir.path}/${p.name}/${f.number}.png')
       ..createSync(recursive: true);
     file.writeAsBytesSync(bytes!.buffer.asUint8List());
+    // The theme beside the capture, so the composer can refuse a set that
+    // mixes themes.
+    File('${outDir.path}/${p.name}/${f.number}.theme')
+        .writeAsStringSync('${storeBrightness.name}\n');
   });
 }
 
@@ -277,6 +292,8 @@ void main() {
     for (final f in frames) {
       testWidgets('store frame ${f.number} on ${p.name}', (tester) async {
         debugDefaultTargetPlatformOverride = p.platform;
+        tester.platformDispatcher.platformBrightnessTestValue = storeBrightness;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
         try {
           // A fixed afternoon, so the home greets the same way on every run.
           await withClock(Clock.fixed(DateTime(2026, 11, 10, 15)), () async {
