@@ -22,7 +22,8 @@ It writes, under root:
   splash marks; flutter_launcher_icons and flutter_native_splash read these
   PNGs (see app/*.yaml);
 - brand/favicon: the mini mascot favicon (16, 32, 48 px) and the web icons;
-- the copies listed in COPIES, byte for byte;
+- the copies listed in COPIES, byte for byte (among them the Google Play
+  listing icon, the 512 px app icon);
 - brand/manifest.sha256: the hash of every file above. tools/brandcheck
   fails when a committed file no longer matches it, so a copy edited by
   hand, or a master changed without running this script, is caught.
@@ -428,6 +429,8 @@ COPIES = {
   'app/web/icons/Icon-192.png': 'brand/favicon/icon-192.png',
   'app/web/icons/Icon-512.png': 'brand/favicon/icon-512.png',
   'app/web/icons/Icon-maskable-512.png': 'brand/favicon/icon-maskable-512.png',
+  # Google Play's listing icon: the app icon at 512 x 512.
+  'app/fastlane/metadata/android/pt-BR/images/icon.png': 'brand/favicon/icon-512.png',
   'site/public/favicon.svg': 'brand/favicon/favicon.svg',
   'site/public/favicon.ico': 'brand/favicon/favicon.ico',
   'site/public/apple-touch-icon.png': 'brand/favicon/apple-touch-icon.png',

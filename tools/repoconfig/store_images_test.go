@@ -199,3 +199,25 @@ func TestPlayIconIsThePlaySize(t *testing.T) {
 		t.Errorf("icon is %dx%d, want 512x512", cfg.Width, cfg.Height)
 	}
 }
+
+// The feature graphic shows the mascot the app shows: the generated brand
+// drawing, the brand's sun, and nothing of the mascot the listing showed
+// before (its name, the head and fingers drawn inline over an empty
+// screen, or the older, duller sun).
+func TestFeatureGraphicShowsTheCurrentMascot(t *testing.T) {
+	src := read(t, "app/store_screens/feature.html")
+	old := regexp.MustCompile(`(?i)espiadinha|#f2b23a|A14 14 0 1 1|A2\.15 2\.15|viewBox="2 4 60 57"`)
+	if m := old.FindString(src); m != "" {
+		t.Errorf("feature.html still carries the previous mascot: %q", m)
+	}
+	if !strings.Contains(strings.ToLower(src), "#ffc42e") {
+		t.Error("feature.html does not set the brand's sun, #FFC42E")
+	}
+	mark := regexp.MustCompile(`src="\.\./\.\./site/public/brand/telinha-segura-mark-[a-z-]+\.svg"`)
+	if !mark.MatchString(src) {
+		t.Error("feature.html does not draw the mascot from a generated brand file")
+	}
+	if !strings.Contains(src, "Vídeos escolhidos") || !strings.Contains(src, "algoritmo") {
+		t.Error("feature.html lost its headline")
+	}
+}

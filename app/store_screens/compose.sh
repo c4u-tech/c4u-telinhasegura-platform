@@ -47,34 +47,39 @@ focus() {
     END {if (!found) print "0,0,1"}' "$here/focus.tsv"
 }
 
-# Fails unless the bottom row of the image has a pixel lighter than the
-# ground: the screen card (or its cream rim) must run off the bottom edge,
-# and a blank page, which the templates leave when the brand font or the
+# bleeds <png> <rows>: fails unless the rows looked at hold a pixel lighter
+# than the ground. With "bottom" only the bottom row counts: a frame's screen
+# card (or its cream rim) must run off the bottom edge. With "all" any row
+# does: the feature graphic sets its pattern row above the edge. A blank
+# page, which the templates leave when the brand font, a drawing or the
 # capture fails, has none.
 bleeds() {
   sips -s format bmp "$1" --out "$tmp/check.bmp" >/dev/null
-  python3 - "$tmp/check.bmp" <<'PY'
+  python3 - "$tmp/check.bmp" "$2" <<'PY'
 import struct, sys
 data = open(sys.argv[1], "rb").read()
+rows = sys.argv[2]
 offset, = struct.unpack_from("<I", data, 10)
 width, height = struct.unpack_from("<ii", data, 18)
 bpp, = struct.unpack_from("<H", data, 28)
 step = bpp // 8
 stride = (width * step + 3) & ~3
 # Rows are stored bottom-up unless the height is negative.
-row = offset if height > 0 else offset + (abs(height) - 1) * stride
+bottom = offset if height > 0 else offset + (abs(height) - 1) * stride
+starts = [bottom] if rows == "bottom" else [offset + y * stride for y in range(abs(height))]
 ground = 0x1E + 0x5B + 0x66
-for x in range(width):
-    b, g, r = data[row + x * step: row + x * step + 3]
-    if r + g + b > ground + 60:
-        sys.exit(0)
+for row in starts:
+    for x in range(width):
+        b, g, r = data[row + x * step: row + x * step + 3]
+        if r + g + b > ground + 60:
+            sys.exit(0)
 sys.exit(1)
 PY
 }
 
-# render <page file> <query> <width> <height> <dest jpg>
+# render <page file> <query> <width> <height> <dest jpg> <rows to check>
 render() {
-  local page="$1" query="$2" w="$3" h="$4" dest="$5" png="$tmp/shot.png"
+  local page="$1" query="$2" w="$3" h="$4" dest="$5" rows="$6" png="$tmp/shot.png"
   local url="file://$(urlencode "$PWD/$page")${query:+?$query}"
   mkdir -p "$(dirname "$dest")"
   # A fresh throwaway profile per render keeps it apart from any Chrome
@@ -91,7 +96,7 @@ render() {
       --force-device-scale-factor=1 --user-data-dir="$tmp/profile" \
       --virtual-time-budget=5000 --allow-file-access-from-files \
       --window-size="$w,$h" --screenshot="$png" "$url" >/dev/null 2>&1 || true
-    [ -s "$png" ] && bleeds "$png" && break
+    [ -s "$png" ] && bleeds "$png" "$rows" && break
     if [ "$attempt" -eq 3 ]; then
       echo "compose: $dest is blank, or its screen does not reach the bottom edge" >&2
       exit 1
@@ -110,12 +115,12 @@ while IFS=$'\t' read -r nn caption; do
     dest="${pattern/NN/$nn}"
     query="w=$w&h=$h&caption=$(urlencode "$caption")&crop=$(focus "$nn" "$profile")"
     query+="&shot=$(urlencode "file://$PWD/$src")"
-    render "$here/frame.html" "$query" "$w" "$h" "$out/$dest"
+    render "$here/frame.html" "$query" "$w" "$h" "$out/$dest" bottom
     written+=("$dest $w $h")
   done
 done <"$here/captions.tsv"
 
-render "$here/feature.html" "" 1024 500 "$out/$play/featureGraphic.jpg"
+render "$here/feature.html" "" 1024 500 "$out/$play/featureGraphic.jpg" all
 written+=("$play/featureGraphic.jpg 1024 500")
 
 # Each store rejects an image a pixel off its size, so check every output.

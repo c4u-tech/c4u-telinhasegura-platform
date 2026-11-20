@@ -45,6 +45,7 @@ func TestEveryShippedCopyEqualsItsMaster(t *testing.T) {
 		"app/web/icons/Icon-192.png":                                    "brand/favicon/icon-192.png",
 		"app/web/icons/Icon-512.png":                                    "brand/favicon/icon-512.png",
 		"app/web/icons/Icon-maskable-512.png":                           "brand/favicon/icon-maskable-512.png",
+		"app/fastlane/metadata/android/pt-BR/images/icon.png":           "brand/favicon/icon-512.png",
 		"site/public/favicon.svg":                                       "brand/favicon/favicon.svg",
 		"site/public/favicon.ico":                                       "brand/favicon/favicon.ico",
 		"site/public/apple-touch-icon.png":                              "brand/favicon/apple-touch-icon.png",
