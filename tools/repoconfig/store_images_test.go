@@ -1,6 +1,7 @@
 package repoconfig
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"image/jpeg"
 	"image/png"
@@ -132,6 +133,62 @@ func TestStoreScreenshotSetsMatch(t *testing.T) {
 		if caps[n] == "" {
 			t.Errorf("frame %s has no caption in app/store_screens/captions.tsv", n)
 		}
+	}
+}
+
+// The listing reads as one app only if every screenshot shows the same
+// theme. The composer records, beside the images, the theme each one was
+// captured in and the SHA-256 of the file it wrote, so an image replaced
+// by hand, or one left from another run, has no honest record here.
+func TestStoreScreenshotsAreOneTheme(t *testing.T) {
+	const record = "app/store_screens/themes.tsv"
+	recorded := map[string][2]string{}
+	themes := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimRight(read(t, record), "\n"), "\n") {
+		f := strings.Split(line, "\t")
+		if len(f) != 3 {
+			t.Fatalf("%s: want image, theme and SHA-256 in %q", record, line)
+		}
+		recorded[f[0]] = [2]string{f[1], f[2]}
+		themes[f[1]] = true
+	}
+	if len(themes) != 1 {
+		t.Errorf("%s: the screenshots mix themes %v", record, themes)
+	}
+	for theme := range themes {
+		if theme != "dark" && theme != "light" {
+			t.Errorf("%s: unknown theme %q", record, theme)
+		}
+	}
+	seen := 0
+	for _, s := range imageSets {
+		re := regexp.MustCompile(s.pattern)
+		entries, err := os.ReadDir(filepath.Join(Root(), s.dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if !re.MatchString(e.Name()) {
+				continue
+			}
+			rel := s.dir + "/" + e.Name()
+			r, ok := recorded[rel]
+			if !ok {
+				t.Errorf("%s has no theme in %s; compose it with make store-screens", rel, record)
+				continue
+			}
+			seen++
+			data, err := os.ReadFile(filepath.Join(Root(), rel))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if sum := fmt.Sprintf("%x", sha256.Sum256(data)); sum != r[1] {
+				t.Errorf("%s is not the image the composer recorded; compose it with make store-screens", rel)
+			}
+		}
+	}
+	if seen != len(recorded) {
+		t.Errorf("%s records %d images, %d are committed", record, len(recorded), seen)
 	}
 }
 

@@ -24,16 +24,17 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 out="$tmp/out"
 
-# profile, store width, store height, output path with NN in place of the frame.
+# profile, bezel, store width, store height, output path with NN in place of
+# the frame.
 # Play takes only 9:16 screenshots, so its tablet sets are 9:16 as well: the
 # 7-inch set is 1080x1920 and the 10-inch set 1440x2560, both composed from
 # the same tablet capture.
 profiles=(
-  "android_phone 1080 1920 $play/phoneScreenshots/NN.jpg"
-  "android_tablet10 1080 1920 $play/sevenInchScreenshots/NN.jpg"
-  "android_tablet10 1440 2560 $play/tenInchScreenshots/NN.jpg"
-  "iphone61 1179 2556 $ios/NN_iphone61.jpg"
-  "ipad13 2064 2752 $ios/NN_ipad13.jpg"
+  "android_phone phone 1080 1920 $play/phoneScreenshots/NN.jpg"
+  "android_tablet10 tablet 1080 1920 $play/sevenInchScreenshots/NN.jpg"
+  "android_tablet10 tablet 1440 2560 $play/tenInchScreenshots/NN.jpg"
+  "iphone61 phone 1179 2556 $ios/NN_iphone61.jpg"
+  "ipad13 tablet 2064 2752 $ios/NN_ipad13.jpg"
 )
 
 # Percent-encodes a path or a value for a file URL or a query string.
@@ -47,12 +48,14 @@ focus() {
     END {if (!found) print "0,0,1"}' "$here/focus.tsv"
 }
 
-# bleeds <png> <rows>: fails unless the rows looked at hold a pixel lighter
-# than the ground. With "bottom" only the bottom row counts: a frame's screen
-# card (or its cream rim) must run off the bottom edge. With "all" any row
-# does: the feature graphic sets its pattern row above the edge. A blank
-# page, which the templates leave when the brand font, a drawing or the
-# capture fails, has none.
+# bleeds <png> <rows>: checks a render is whole. With "bottom" (a frame) the
+# bottom row must hold the ground at both ends and something set apart from
+# it between: the device, its dark bezel and the screen in it, runs off
+# the bottom edge between two margins of ground. With "all" (the feature
+# graphic, whose pattern row sits above the edge) any row must hold a pixel
+# set apart from the ground. A blank page, which the templates leave when
+# the brand font, a drawing or the capture fails, fails both; so does a
+# viewport that headless Chrome now and then paints a few pixels short.
 bleeds() {
   sips -s format bmp "$1" --out "$tmp/check.bmp" >/dev/null
   python3 - "$tmp/check.bmp" "$2" <<'PY'
@@ -64,15 +67,28 @@ width, height = struct.unpack_from("<ii", data, 18)
 bpp, = struct.unpack_from("<H", data, 28)
 step = bpp // 8
 stride = (width * step + 3) & ~3
+ground = (0x1E, 0x5B, 0x66)
+
+
+def pixel(row, x):
+    b, g, r = data[row + x * step: row + x * step + 3]
+    return r, g, b
+
+
+def apart(p):
+    return sum(abs(a - b) for a, b in zip(p, ground)) > 60
+
+
 # Rows are stored bottom-up unless the height is negative.
-bottom = offset if height > 0 else offset + (abs(height) - 1) * stride
-starts = [bottom] if rows == "bottom" else [offset + y * stride for y in range(abs(height))]
-ground = 0x1E + 0x5B + 0x66
-for row in starts:
-    for x in range(width):
-        b, g, r = data[row + x * step: row + x * step + 3]
-        if r + g + b > ground + 60:
-            sys.exit(0)
+if rows == "bottom":
+    row = offset if height > 0 else offset + (abs(height) - 1) * stride
+    ends = [pixel(row, 1), pixel(row, width - 2)]
+    inside = any(apart(pixel(row, x)) for x in range(width))
+    sys.exit(0 if inside and not any(apart(p) for p in ends) else 1)
+for y in range(abs(height)):
+    row = offset + y * stride
+    if any(apart(pixel(row, x)) for x in range(width)):
+        sys.exit(0)
 sys.exit(1)
 PY
 }
@@ -105,18 +121,39 @@ render() {
   sips -s format jpeg -s formatOptions 92 "$png" --out "$dest" >/dev/null
 }
 
+# Every caption, one per line: each frame starts its screen below the
+# tallest, so the frames of one size line up.
+captions="$(cut -f2 "$here/captions.tsv")"
+
+# The capture writes the theme it used beside each screen. The set must be
+# one theme, recorded in themes.tsv with each image's SHA-256 for the check
+# that guards the committed images.
+theme=""
+themes="$tmp/themes.tsv"
+: >"$themes"
+
 written=()
 while IFS=$'\t' read -r nn caption; do
   [ -n "$nn" ] || continue
   for p in "${profiles[@]}"; do
-    read -r profile w h pattern <<<"$p"
+    read -r profile device w h pattern <<<"$p"
     src="$raw/$profile/$nn.png"
     [ -f "$src" ] || { echo "compose: missing raw capture $src" >&2; exit 1; }
+    [ -f "$raw/$profile/$nn.theme" ] || { echo "compose: no theme beside $src" >&2; exit 1; }
+    shot_theme="$(tr -d '[:space:]' <"$raw/$profile/$nn.theme")"
+    theme="${theme:-$shot_theme}"
+    if [ "$shot_theme" != "$theme" ]; then
+      echo "compose: $src is in the $shot_theme theme, the set in $theme" >&2
+      exit 1
+    fi
     dest="${pattern/NN/$nn}"
-    query="w=$w&h=$h&caption=$(urlencode "$caption")&crop=$(focus "$nn" "$profile")"
+    query="w=$w&h=$h&device=$device&caption=$(urlencode "$caption")"
+    query+="&captions=$(urlencode "$captions")&crop=$(focus "$nn" "$profile")"
     query+="&shot=$(urlencode "file://$PWD/$src")"
     render "$here/frame.html" "$query" "$w" "$h" "$out/$dest" bottom
     written+=("$dest $w $h")
+    sum="$(shasum -a 256 "$out/$dest" | cut -d' ' -f1)"
+    printf '%s\t%s\t%s\n' "$dest" "$theme" "$sum" >>"$themes"
   done
 done <"$here/captions.tsv"
 
@@ -147,4 +184,5 @@ for entry in "${written[@]}"; do
   read -r file _ <<<"$entry"
   mv "$out/$file" "$file"
 done
+sort "$themes" >"$here/themes.tsv"
 echo "compose: wrote ${#written[@]} images"
