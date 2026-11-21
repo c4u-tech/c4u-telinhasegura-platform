@@ -79,6 +79,10 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 				return ErrChecklistBand
 			}
 		}
+		// Either way the round is over, and the drafts of it with it.
+		if err := closeDrafts(ctx, tx, videoID); err != nil {
+			return err
+		}
 		if d.Decision == Reject {
 			_, err = tx.Exec(ctx, `UPDATE videos SET state = 'removed', updated_at = $2 WHERE id = $1::uuid`, videoID, now)
 			return err

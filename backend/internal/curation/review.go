@@ -125,22 +125,15 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 	var state State
 	var event audit.Event
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		var st string
-		var round int
-		var due *time.Time
-		var seconds int
-		err := tx.QueryRow(ctx, `SELECT state, round, review_due_at, duration_seconds FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
-			Scan(&st, &round, &due, &seconds)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
+		v, err := lockVideo(ctx, tx, videoID)
 		if err != nil {
 			return err
 		}
+		round := v.round
 		// The review is judged once the length is known: it decides which
 		// questions the video was asked, and whether the youngest band can
 		// take it.
-		length := time.Duration(seconds) * time.Second
+		length := time.Duration(v.seconds) * time.Second
 		e, err := prepare(in, length > s.d.LongFrom, length > s.d.FamilyYoungestMaxDuration)
 		if err != nil {
 			return err
@@ -148,40 +141,17 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		rv = Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,
 			ChecklistVersion: ChecklistVersion, Answers: e.answers, FailedItems: e.failed, ComputedBand: e.computed,
 			BandReason: e.bandReason, ReviewedAt: now}
-		state = State(st)
-		var own, reviewed bool
-		if err := tx.QueryRow(ctx, `SELECT
-			EXISTS (SELECT 1 FROM video_suggestions WHERE video_id = $1::uuid AND account_id = $2::uuid),
-			EXISTS (SELECT 1 FROM video_reviews WHERE video_id = $1::uuid AND round = $3 AND curator_id = $2::uuid)`,
-			videoID, curatorID, round).Scan(&own, &reviewed); err != nil {
-			return err
-		}
-		revisitDue := state == Approved && due != nil && !due.After(now)
-		switch {
-		case own:
-			return ErrOwnSuggestion
-		case state != Pending && !revisitDue:
-			return ErrNotReviewable
-		case reviewed:
-			return ErrAlreadyReviewed
-		}
-		// FOR SHARE: a removal waits for this review, and no review lands
-		// for a curator removed meanwhile.
-		var role string
-		err = tx.QueryRow(ctx, `SELECT display_role FROM platform_roles WHERE account_id = $1::uuid AND role = 'curator' FOR SHARE`,
-			curatorID).Scan(&role)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotCurator
-		}
+		state = v.state
+		role, err := reviewerMay(ctx, tx, curatorID, videoID, v, now)
 		if err != nil {
 			return err
 		}
-		rv.DisplayRole = DisplayRole(role)
+		rv.DisplayRole = role
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
 			min_age_band, reason, reviewed_at, checklist_version, checklist, computed_band, band_reason) VALUES ($1::uuid, $2,
 			$3::uuid, $4, $5, nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb,
 			nullif($12::text, ''), nullif($13::text, ''))`,
-			videoID, round, curatorID, role, string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
+			videoID, round, curatorID, string(role), string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
 			ChecklistVersion, string(e.checklist), string(e.computed), e.bandReason); err != nil {
 			return err
 		}
@@ -215,6 +185,61 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 	return rv, state, nil
 }
 
+// lockedVideo is what a review, or a draft of one, reads of the video
+// under its row lock.
+type lockedVideo struct {
+	state          State
+	round, seconds int
+	due            *time.Time
+}
+
+// lockVideo takes the video row lock. Everything that writes a review or
+// a draft of one takes it first, so they run one at a time per video and
+// never deadlock.
+func lockVideo(ctx context.Context, tx pgx.Tx, videoID string) (lockedVideo, error) {
+	var v lockedVideo
+	var st string
+	err := tx.QueryRow(ctx, `SELECT state, round, review_due_at, duration_seconds FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
+		Scan(&st, &v.round, &v.due, &v.seconds)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return v, ErrNotFound
+	}
+	v.state = State(st)
+	return v, err
+}
+
+// reviewerMay checks that curatorID may review the locked video now: not
+// their own suggestion, a video awaiting a review, not reviewed by them
+// this round, and the curator role still held. It returns the role's
+// displayed role.
+func reviewerMay(ctx context.Context, tx pgx.Tx, curatorID, videoID string, v lockedVideo, now time.Time) (DisplayRole, error) {
+	var own, reviewed bool
+	if err := tx.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM video_suggestions WHERE video_id = $1::uuid AND account_id = $2::uuid),
+		EXISTS (SELECT 1 FROM video_reviews WHERE video_id = $1::uuid AND round = $3 AND curator_id = $2::uuid)`,
+		videoID, curatorID, v.round).Scan(&own, &reviewed); err != nil {
+		return "", err
+	}
+	revisitDue := v.state == Approved && v.due != nil && !v.due.After(now)
+	switch {
+	case own:
+		return "", ErrOwnSuggestion
+	case v.state != Pending && !revisitDue:
+		return "", ErrNotReviewable
+	case reviewed:
+		return "", ErrAlreadyReviewed
+	}
+	// FOR SHARE: a removal waits for this review, and no review lands
+	// for a curator removed meanwhile.
+	var role string
+	err := tx.QueryRow(ctx, `SELECT display_role FROM platform_roles WHERE account_id = $1::uuid AND role = 'curator' FOR SHARE`,
+		curatorID).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotCurator
+	}
+	return DisplayRole(role), err
+}
+
 type approval struct {
 	theme string
 	band  family.AgeBand
@@ -227,7 +252,7 @@ type approval struct {
 // holds the video at once, and a held video takes no review. Publishing
 // moves the round on, so the next round is the revisit.
 // It returns whether the video was published and whether its reports
-// then held it.
+// then held it. The closed round's drafts go with it.
 func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID string, round int, now time.Time) (bool, bool, error) {
 	reached, err := s.approvalsReached(ctx, tx, videoLedger, videoID, round)
 	if err != nil || !reached {
@@ -260,6 +285,9 @@ func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID stri
 	if _, err = tx.Exec(ctx, `UPDATE videos SET state = 'approved', round = round + 1, theme = $2, min_age_band = $3,
 		published_round = round, last_reviewed_at = $4, review_due_at = $5, updated_at = $4 WHERE id = $1::uuid`,
 		videoID, theme, string(band), now, now.Add(s.d.RevisitAfter)); err != nil {
+		return false, false, err
+	}
+	if err := closeDrafts(ctx, tx, videoID); err != nil {
 		return false, false, err
 	}
 	// Reports made while the video waited were stored but not acted on:
