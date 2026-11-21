@@ -275,6 +275,9 @@ class _YouTubePlayback implements KidPlayback {
   Future<void> pause() => _controller.pauseVideo();
 
   @override
+  Future<void> cue() => _controller.cueVideoById(videoId: youtubeId);
+
+  @override
   Future<void> close() async {
     _closing = true;
     await _values.cancel();

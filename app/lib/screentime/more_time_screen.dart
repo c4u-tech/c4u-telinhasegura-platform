@@ -24,7 +24,7 @@ const _amounts = [15, 30, 60];
 
 /// `/familia/tempo/:id/mais`: 15, 30 or 60 more minutes today for one
 /// child, none chosen on arrival, then the done state naming the child
-/// and the minutes (screen-time screens).
+/// and the minutes.
 class MoreTimeScreen extends StatefulWidget {
   const MoreTimeScreen({super.key, required this.id});
 

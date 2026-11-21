@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import '../access/harness.dart';
@@ -8,15 +12,47 @@ import '../staff/accounts_api_test.dart' show sheetJson;
 import 'curation_api_test.dart' show pendingJson;
 
 /// [line] as the curation screens print it: a non-breaking space before
-/// each dot and inside each duration, so neither breaks at 200 % text.
+/// each dot, inside each duration and inside each age band, so none
+/// breaks at 200 % text.
 String nb(String line) => line
     .replaceAll(' · ', '\u00A0· ')
     .replaceAllMapped(RegExp(r'(\d+) (h|min)\b'), (m) => '${m[1]}\u00A0${m[2]}')
-    .replaceAllMapped(RegExp(r'(\u00A0h) (\d)'), (m) => '${m[1]}\u00A0${m[2]}');
+    .replaceAllMapped(RegExp(r'(\u00A0h) (\d)'), (m) => '${m[1]}\u00A0${m[2]}')
+    .replaceAllMapped(
+      RegExp(r'(\d+) a (\d+) anos'),
+      (m) => '${m[1]}\u00A0a\u00A0${m[2]}\u00A0anos',
+    );
 
 /// [line] as a row's short meta line prints it: [nb], with each dot
 /// glued to the word after it too.
 String nbt(String line) => nb(line).replaceAll('\u00A0· ', '\u00A0·\u00A0');
+
+/// Expects the text [text] shows to wrap onto more than one line, and
+/// only at an ordinary space: never inside a word, a band or a length.
+void expectBreaksOnlyAtSpaces(WidgetTester tester, Finder text) {
+  final paragraph = tester.renderObject<RenderParagraph>(
+    find.descendant(of: text, matching: find.byType(RichText)).first,
+  );
+  final words = paragraph.text.toPlainText();
+  // The line each character is set on, by the top of its box.
+  double? top(int i) => paragraph
+      .getBoxesForSelection(TextSelection(baseOffset: i, extentOffset: i + 1))
+      .firstOrNull
+      ?.top;
+  var lines = 1;
+  for (var i = 0; i + 1 < words.length; i++) {
+    final (a, b) = (top(i), top(i + 1));
+    if (a == null || b == null || a == b) continue;
+    lines++;
+    expect(
+      words[i] == ' ' || words[i + 1] == ' ',
+      isTrue,
+      reason:
+          '"$words" breaks inside a word after "${words.substring(0, i + 1)}"',
+    );
+  }
+  expect(lines, greaterThan(1), reason: 'it wraps');
+}
 
 /// One of the guardian's suggestions as the wire carries it, suggested
 /// [daysAgo] calendar days before the test's clock.
@@ -115,10 +151,31 @@ http.Response detailOf(
   List<Map<String, Object?>> reviews = const [],
 }) => json(200, {'video': video, 'reviews': reviews, 'provenance': null});
 
+/// A curator's unfinished review as the draft routes carry it under
+/// `draft`: begun at 10:00 on the test's day, with
+/// [answers] to the fixture's list, and played to its end when [ended].
+Map<String, Object?> draftJson({
+  Map<String, String> answers = const {},
+  String? theme,
+  String? band,
+  String? note,
+  bool ended = false,
+}) => {
+  'checklist_version': answers.isEmpty ? '' : checklistJson['version'],
+  'answers': answers,
+  'theme': theme,
+  'min_age_band': band,
+  'note': note,
+  'began_at': '2026-11-20T10:00:00Z',
+  'played_to_end_at': ended ? '2026-11-20T10:05:00Z' : null,
+};
+
 /// The curator's routes: [queue] answers each queue read (an empty page
 /// by default), [video] the review's read of one video (the queued
 /// "Baby Shark" by default), [review] each review sent (a held video by
-/// default).
+/// default); and the review's draft: [draft] its read (none by default),
+/// [saveDraft] each save (what was sent, kept as a draft, by default),
+/// [ended] the player's end (a draft played to its end by default).
 FutureOr<http.Response> Function(http.Request) curatorApi({
   FutureOr<http.Response> Function(http.Request)? queue,
   FutureOr<http.Response> Function(String id)? video,
@@ -126,9 +183,37 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
   FutureOr<http.Response> Function()? checklist,
   FutureOr<http.Response> Function()? declaration,
   FutureOr<http.Response> Function(http.Request)? accept,
+  FutureOr<http.Response> Function()? draft,
+  FutureOr<http.Response> Function(http.Request)? saveDraft,
+  FutureOr<http.Response> Function()? ended,
 }) => (req) {
   final path = req.url.path;
   const videos = '/v1/curation/videos/';
+  if (path.startsWith(videos) && path.endsWith('/draft')) {
+    if (req.method == 'GET') return draft?.call() ?? json(200, {'draft': null});
+    if (req.method == 'PUT') {
+      if (saveDraft != null) return saveDraft(req);
+      final sent = jsonDecode(req.body) as Map<String, dynamic>;
+      return json(200, {
+        'draft': draftJson(
+          answers: {
+            for (final e
+                in ((sent['answers'] ?? const {}) as Map<String, dynamic>)
+                    .entries)
+              e.key: e.value as String,
+          },
+          theme: sent['theme'] as String?,
+          band: sent['min_age_band'] as String?,
+          note: sent['note'] as String?,
+        ),
+      });
+    }
+  }
+  if (req.method == 'POST' &&
+      path.startsWith(videos) &&
+      path.endsWith('/draft/ended')) {
+    return ended?.call() ?? json(200, {'draft': draftJson(ended: true)});
+  }
   if (req.method == 'GET' && path == '/v1/curation/checklist') {
     return checklist?.call() ?? json(200, checklistJson);
   }
@@ -205,6 +290,12 @@ const checklistJson = <String, Object?>{
       'title': 'Ritmo e canal',
       'items': [
         {'id': 'c22', 'text': 'Tem ritmo agitado?', 'rule': 'band'},
+        {
+          'id': 'c35',
+          'text': 'Tem namoro entre os personagens?',
+          'rule': 'band',
+          'min_band': '9-12',
+        },
         {'id': 'c23', 'text': 'Falta começo, meio ou fim?', 'rule': 'refuses'},
         {
           'id': 'c24',
@@ -287,7 +378,10 @@ const auditJson = <String, Object?>{
 };
 
 /// One held video as the wire carries it: [video] with its [rejections],
-/// [reason] and reports by reason with their [notes].
+/// [reason], reports by reason with their [notes], and the band the
+/// round's answers allow from, [computedBand], with the answers behind it,
+/// [bandAnswers], and whether it played to its end for the reader,
+/// [playedToEnd].
 Map<String, Object?> heldOf(
   Map<String, Object?> video, {
   List<Map<String, Object?>> rejections = const [],
@@ -296,6 +390,9 @@ Map<String, Object?> heldOf(
   List<String> notes = const [],
   List<Map<String, Object?>> doubts = const [],
   Map<String, Object?>? audit,
+  String? computedBand,
+  List<Map<String, Object?>>? bandAnswers,
+  bool? playedToEnd,
 }) => {
   'video': {...video, 'state': 'held'},
   'rejections': rejections,
@@ -303,6 +400,9 @@ Map<String, Object?> heldOf(
   'audit': ?audit,
   'held_reason': ?reason,
   'reports': {'by_reason': reports, 'notes': notes},
+  'computed_band': ?computedBand,
+  'band_answers': ?bandAnswers,
+  'played_to_end': ?playedToEnd,
 };
 
 /// The held videos' list.

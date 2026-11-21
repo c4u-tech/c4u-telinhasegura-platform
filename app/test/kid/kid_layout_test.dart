@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telinha_segura/design/espiadinha.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/kid_layout.dart';
@@ -34,13 +34,8 @@ Future<void> pumpKid(
   );
 }
 
-Finder get mark => find.byWidgetPredicate(
-  (w) => w is CustomPaint && w.painter is SimplifiedMarkPainter,
-);
-
-bool darkOval(Symbol method, List<dynamic> args) =>
-    method == #drawOval &&
-    (args[1] as Paint).color.toARGB32() == BrandColors.dark.toARGB32();
+Finder get mark =>
+    find.descendant(of: find.byType(KidLayout), matching: find.byType(Tevi));
 
 void main() {
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
@@ -77,46 +72,40 @@ void main() {
     expect(palette, Palette.kid);
   });
 
-  testWidgets('the simplified mark only, small, at the top edge; no '
+  testWidgets('the simplified mascot only, small, at the top edge; no '
       'wordmark', (tester) async {
     await pumpKid(tester, const KidLayout(child: SizedBox()));
     final rect = tester.getRect(mark);
-    expect(rect.height, inInclusiveRange(20, 47));
+    expect(rect.size, const Size.square(KidLayout.markSize));
+    expect(KidLayout.markSize, 24);
     expect(rect.top, greaterThanOrEqualTo(_safe.top));
     expect(rect.top, lessThan(_safe.top + KidSizes.target));
-    // At the strip's start, quiet (fullscreen design).
-    expect(rect.left, _safe.left + Space.xl);
+    // At the strip's start, quiet.
+    expect(rect.left, _safe.left + KidLayout.edge(360));
     expect(find.byType(SvgPicture), findsNothing);
     expect(find.byType(Text), findsNothing);
   });
 
-  testWidgets('sun only in the head, alone on ink with dark eyes', (
-    tester,
-  ) async {
-    await pumpKid(tester, const KidLayout(child: SizedBox()));
-    expect(
-      mark,
-      paints
-        ..rrect(color: BrandColors.cream)
-        ..path(color: BrandColors.sun, style: PaintingStyle.fill)
-        ..something(darkOval)
-        ..something(darkOval),
-    );
-    // No outline on ink: nothing is stroked.
-    expect(
-      mark,
-      isNot(
-        paints..something(
-          (_, args) => args.whereType<Paint>().any(
-            (p) => p.style == PaintingStyle.stroke,
-          ),
-        ),
-      ),
-    );
-  });
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('the mark is the mascot simplified, watching, in its day '
+        'colours on ink in the ${mode.name} theme, read as the app\'s '
+        'name', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpKid(tester, const KidLayout(child: SizedBox()), mode: mode);
+      final tevi = tester.widget<Tevi>(mark);
+      expect(
+        (tevi.tier, tevi.look, tevi.night),
+        (TeviTier.simplified, TeviLook.watching, false),
+      );
+      expect(tevi.semanticLabel, 'Telinha Segura');
+      expect(find.bySemanticsLabel('Telinha Segura'), findsOneWidget);
+      semantics.dispose();
+    });
+  }
 
-  testWidgets('the exit slot sits in the top corner, 16 dp in from the '
-      'safe area, level with the mark (fix round, item 4)', (tester) async {
+  testWidgets('the exit slot sits in the top corner, 16 dp below the safe '
+      'area\'s top and the screen\'s edge from its end, level with the '
+      'mark', (tester) async {
     await pumpKid(
       tester,
       const KidLayout(
@@ -126,9 +115,129 @@ void main() {
     );
     final exit = tester.getRect(find.byKey(const Key('exit')));
     expect(exit.top, _safe.top + Space.lg);
-    expect(exit.right, 360 - Space.lg);
+    expect(exit.right, 360 - KidLayout.edge(360));
     expect(exit.center.dy, tester.getCenter(mark).dy);
     expect(exit.overlaps(tester.getRect(mark)), isFalse);
+  });
+
+  testWidgets('a lead takes the mark\'s place at the strip\'s start, level '
+      'with the exit, and the mark is gone', (tester) async {
+    await pumpKid(
+      tester,
+      const KidLayout(
+        lead: SizedBox.square(key: Key('lead'), dimension: 48),
+        exit: SizedBox.square(key: Key('exit'), dimension: 64),
+        child: SizedBox(),
+      ),
+    );
+    expect(mark, findsNothing);
+    final lead = tester.getRect(find.byKey(const Key('lead')));
+    final exit = tester.getRect(find.byKey(const Key('exit')));
+    expect(lead.left, _safe.left + KidLayout.edge(360));
+    expect(lead.center.dy, exit.center.dy);
+  });
+
+  for (final (width, edge) in [
+    (360.0, 20.0),
+    (390.0, 20.0),
+    (700.0, 50.0),
+    (839.0, 119.5),
+    (840.0, 48.0),
+    (1280.0, 48.0),
+  ]) {
+    testWidgets('at ${width.toInt()} px the strip keeps the content\'s edge: '
+        'the lead $edge dp from the start, the exit as far from the end', (
+      tester,
+    ) async {
+      expect(KidLayout.edge(width), edge);
+      await pumpKid(
+        tester,
+        const KidLayout(
+          lead: SizedBox.square(key: Key('lead'), dimension: 48),
+          exit: SizedBox.square(key: Key('exit'), dimension: 64),
+          child: SizedBox(),
+        ),
+        size: Size(width, 800),
+      );
+      expect(tester.getRect(find.byKey(const Key('lead'))).left, edge);
+      expect(tester.getRect(find.byKey(const Key('exit'))).right, width - edge);
+    });
+  }
+
+  testWidgets('where the mascot stands whole on the screen, the strip\'s '
+      'start is left empty: no small mark beside it', (tester) async {
+    await pumpKid(
+      tester,
+      const KidLayout(
+        mark: false,
+        exit: SizedBox.square(key: Key('exit'), dimension: 64),
+        child: SizedBox(),
+      ),
+    );
+    expect(mark, findsNothing);
+    expect(find.byKey(const Key('exit')), findsOneWidget);
+  });
+
+  for (final (ground, night) in [
+    (null, false),
+    (BrandColors.dark, true),
+    (BrandColors.sun, false),
+  ]) {
+    testWidgets('the screen\'s ground ($ground) reaches every mascot on it, '
+        'which takes its night colours only on the night\'s dark', (
+      tester,
+    ) async {
+      late BuildContext inside;
+      await pumpKid(
+        tester,
+        KidLayout(
+          ground: ground,
+          child: Builder(
+            builder: (context) {
+              inside = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      expect(TeviGround.nightAt(inside), night);
+      expect(tester.widget<Tevi>(mark).night, night);
+    });
+  }
+
+  testWidgets('content that rises reaches up into the strip, behind the '
+      'lead and the exit, which still take their taps', (tester) async {
+    var exitTaps = 0;
+    var contentTaps = 0;
+    await pumpKid(
+      tester,
+      KidLayout(
+        fullWidth: true,
+        scrolls: false,
+        rise: 40,
+        lead: const SizedBox.square(dimension: 48),
+        exit: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => exitTaps++,
+          child: const SizedBox.square(key: Key('exit'), dimension: 64),
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => contentTaps++,
+          child: const SizedBox.expand(key: Key('content')),
+        ),
+      ),
+    );
+    final strip = KidSizes.target + 2 * KidLayout.exitInset;
+    final content = tester.getRect(find.byKey(const Key('content')));
+    expect(content.top, _safe.top + strip - 40);
+    expect(content.bottom, 640 - _safe.bottom);
+
+    await tester.tap(find.byKey(const Key('exit')));
+    expect((exitTaps, contentTaps), (1, 0));
+    // Between the lead and the exit the strip lets the content take it.
+    await tester.tapAt(Offset(180, content.top + 4));
+    expect((exitTaps, contentTaps), (1, 1));
   });
 
   for (final size in [const Size(360, 640), const Size(1280, 800)]) {

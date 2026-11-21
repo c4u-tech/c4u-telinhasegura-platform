@@ -42,15 +42,29 @@ void main() {
       expect(playback.closed, isTrue);
     });
 
-    test('playing, pausing and ending are YouTube\'s own business', () async {
-      for (final event in const [
-        PlayerPlaying(),
-        PlayerPaused(),
-        PlayerEnded(),
-      ]) {
+    test(
+      'the end is reported even when cueing the video again fails',
+      () async {
+        playback.cueFails = true;
+
+        expect(await follow(const PlayerEnded()), AdultPlayerOutcome.ended);
+        expect(playback.calls, ['cue']);
+      },
+    );
+
+    test('playing and pausing are YouTube\'s own business', () async {
+      for (final event in const [PlayerPlaying(), PlayerPaused()]) {
         expect(await follow(event), AdultPlayerOutcome.playing);
       }
       expect(playback.calls, isEmpty);
+    });
+
+    test('the end is reported, the player kept, the same video cued again '
+        'so YouTube\'s end screen of other videos does not stay', () async {
+      expect(await follow(const PlayerEnded()), AdultPlayerOutcome.ended);
+
+      expect(playback.closed, isFalse);
+      expect(playback.calls, ['cue']);
     });
   });
 

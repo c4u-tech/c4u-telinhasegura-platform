@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/design/people_wire.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/access/reauth_prompt.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/admin_pack_screen.dart';
@@ -20,6 +22,8 @@ Future<Harness> adminPacks(
   FutureOr<http.Response> Function(String id)? pack,
   FutureOr<http.Response> Function(http.Request)? remove,
   String initial = '/pacotinhos',
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   final packs = packApi(list: list, pack: pack, write: remove);
   final h =
@@ -30,7 +34,7 @@ Future<Harness> adminPacks(
         )
         ..family = ownerFamily
         ..roles = ['admin'];
-  await h.pump(tester, initial: initial);
+  await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
 }
 
@@ -200,9 +204,13 @@ void main() {
       WidgetTester tester, {
       Map<String, Object?>? pack,
       FutureOr<http.Response> Function(http.Request)? remove,
+      Size size = const Size(390, 844),
+      double textScale = 1,
     }) => adminPacks(
       tester,
       initial: '/pacotinhos/p1',
+      size: size,
+      textScale: textScale,
       pack: (_) => json(
         200,
         pack ??
@@ -226,19 +234,88 @@ void main() {
 
       expect(find.text('Hora do banho'), findsOneWidget);
       expect(find.text(nb('Publicado · Montado por Pedagogo(a)')), findsOne);
-      // The world's one provenance grammar (DESIGN provenance-line).
+      // Who saw it before: the wire of people, then the count and the
+      // roles beneath, never "Revisado por" twice.
+      expect(find.byType(PeopleWire), findsOneWidget);
+      expect(tester.widget<PeopleWire>(find.byType(PeopleWire)).people, 2);
+      expect(find.text('Visto antes por 2\u00A0pessoas'), findsOneWidget);
       expect(
-        find.textContaining(
-          'Revisado por 1\u00A0mãe ou pai e 1\u00A0psicólogo(a)',
-        ),
+        find.textContaining('1\u00A0mãe ou pai e 1\u00A0psicólogo(a)'),
         findsOneWidget,
       );
+      expect(find.textContaining('Revisado por'), findsNothing);
       expect(find.textContaining('última revisão'), findsOneWidget);
+      final wire = tester.getRect(find.byType(PeopleWire));
+      expect(
+        wire.bottom,
+        lessThan(
+          tester.getTopLeft(find.text('Visto antes por 2\u00A0pessoas')).dy + 1,
+        ),
+      );
       expect(find.text('1. Galinha Pintadinha'), findsOneWidget);
       expect(find.text('3. Pato Pateta'), findsOneWidget);
       expect(find.byType(DoorRow), findsNothing, reason: 'read, not doors');
       expect(removeForGood, findsOneWidget);
     });
+
+    for (final (name, size, scale, dark) in [
+      ('dark', const Size(390, 844), 1.0, true),
+      ('200 % text at 360 × 640', const Size(360, 640), 2.0, false),
+    ]) {
+      testWidgets('the wire of twelve people holds $name', (tester) async {
+        if (dark) {
+          tester.platformDispatcher.platformBrightnessTestValue =
+              Brightness.dark;
+          addTearDown(
+            tester.platformDispatcher.clearPlatformBrightnessTestValue,
+          );
+        }
+        await onePack(
+          tester,
+          size: size,
+          textScale: scale,
+          pack: packOf(
+            'p1',
+            'Hora do banho',
+            state: 'approved',
+            composer: 'pedagogo',
+            provenance: {
+              'approvals': {'mae-pai': 9, 'psicologo': 3},
+              'last_reviewed_at': '2026-10-05T12:00:00Z',
+            },
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        final wire = find.byType(PeopleWire);
+        await tester.ensureVisible(wire);
+        await tester.pumpAndSettle();
+        final painter =
+            tester
+                    .widget<CustomPaint>(
+                      find.descendant(
+                        of: wire,
+                        matching: find.byType(CustomPaint),
+                      ),
+                    )
+                    .painter!
+                as PeopleWirePainter;
+        expect(painter.birds, 5);
+        expect(painter.color, dark ? Palette.dark.text : Palette.light.text);
+        final more = tester.getRect(find.text('+7'));
+        final row = tester.getRect(wire);
+        expect(more.left, greaterThan(row.left + painter.birdsWidth));
+        expect(more.right, lessThanOrEqualTo(row.right));
+        expect(more.bottom, lessThanOrEqualTo(row.bottom));
+        expect(
+          row.bottom,
+          lessThan(
+            tester.getTopLeft(find.text('Visto antes por 12\u00A0pessoas')).dy +
+                1,
+          ),
+        );
+      });
+    }
 
     testWidgets('a removed pacotinho offers no removal', (tester) async {
       await onePack(

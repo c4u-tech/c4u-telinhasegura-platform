@@ -141,7 +141,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
               ? () => setState(() => _consenting = true)
               : null,
         ),
-        SubmitHint(profileHint, visible: !_complete),
+        SubmitHint(profileHint, visible: !_complete, reserve: true),
         ...widget.foot,
       ],
     );
@@ -176,7 +176,7 @@ class _NewChildScreenState extends State<NewChildScreen> {
           busy: _write.busy,
           onPressed: _agreed && !_write.blocked ? _create : null,
         ),
-        SubmitHint(declarationHint, visible: !_agreed),
+        SubmitHint(declarationHint, visible: !_agreed, reserve: true),
         ...widget.foot,
       ],
     );

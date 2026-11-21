@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/shell/guardian_shell.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/check_email_screen.dart';
@@ -245,12 +246,12 @@ void main() {
     expect(find.byTooltip('Voltar'), findsNothing);
   });
 
-  testWidgets('without a family, the band\'s back control returns home', (
-    tester,
-  ) async {
+  testWidgets('without a family, Conta is a destination like any: no back '
+      'control, Início one tap away', (tester) async {
     await accountScreen(tester, family: null);
 
-    await tester.tap(find.byTooltip('Voltar'));
+    expect(find.byTooltip('Voltar'), findsNothing);
+    await tester.tap(find.widgetWithText(DestinationTile, 'Início'));
     await tester.pumpAndSettle();
 
     expect(find.byType(FamilyHomeScreen), findsOneWidget);

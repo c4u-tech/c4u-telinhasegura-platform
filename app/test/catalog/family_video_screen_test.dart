@@ -6,11 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/catalog/family_video_screen.dart';
 import 'package:telinha_segura/catalog/words.dart';
+import 'package:telinha_segura/design/people_wire.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
 
 import '../access/harness.dart';
 import '../curation/fixtures.dart' show nb;
+import '../design/pump.dart' show semanticsStrings;
 import '../curation/appoint_screen_test.dart' show tapOn;
 import '../curation/review_screen_test.dart' show expectFailedWindow;
 import '../kid/fake_player.dart';
@@ -58,12 +60,16 @@ Finder plainText(String words) => find.byWidgetPredicate(
   (w) => w is Text && w.data?.replaceAll('\u00A0', ' ') == words,
 );
 
-const provenanceLine =
-    'Revisado por 2 mães ou pais e 1 pedagogo(a) · última revisão há 3 dias';
+const seenByLine = 'Visto antes por 3 pessoas';
+const seenByWhomLine =
+    '2 mães ou pais e 1 pedagogo(a) · última revisão há 3 dias';
+
+Finder get wire => find.byType(PeopleWire);
 
 void main() {
-  testWidgets('reads in order: the heading, the provenance, the player, '
-      'the hide primary, then the quiet report', (tester) async {
+  testWidgets('reads in order: the heading, the wire of people, who saw '
+      'it before and who they were, the player, the hide primary, then the '
+      'quiet report', (tester) async {
     await video(tester);
 
     expect(find.text('Vídeo'), findsOneWidget);
@@ -71,7 +77,9 @@ void main() {
       find.text('Vídeo'),
       find.text('O sapo que pulava alto'),
       find.text(nb('Ciência Pequena · 6 min')),
-      plainText(provenanceLine),
+      wire,
+      plainText(seenByLine),
+      plainText(seenByWhomLine),
       window,
       hide,
       report,
@@ -83,6 +91,101 @@ void main() {
     expect(tops, [...tops]..sort());
     expect(tester.widget<QuietAction>(report).destructive, isTrue);
   });
+
+  testWidgets('one bird per person who approved it', (tester) async {
+    await video(tester);
+
+    expect(tester.widget<PeopleWire>(wire).people, 3);
+    expect(find.textContaining('Revisado por'), findsNothing);
+  });
+
+  testWidgets('the screen reader hears who saw it before and who they '
+      'were, in that order, and nothing of the wire', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await video(tester);
+
+    final heard = [
+      for (final s in semanticsStrings(tester)) s.replaceAll('\u00A0', ' '),
+    ];
+    final lead = heard.indexOf(seenByLine);
+    expect(lead, isNot(-1));
+    expect(heard.indexOf(seenByWhomLine), lead + 1);
+    expect(heard.where((s) => s.startsWith('+')), isEmpty);
+    semantics.dispose();
+  });
+
+  testWidgets('who saw it before reads a step below the video\'s title', (
+    tester,
+  ) async {
+    await video(tester);
+
+    final title = tester
+        .widget<Text>(find.text('O sapo que pulava alto'))
+        .style!;
+    final lead = tester.widget<Text>(plainText(seenByLine)).style!;
+    expect(lead.fontSize, lessThan(title.fontSize!));
+    expect(lead.fontWeight!.value, lessThanOrEqualTo(title.fontWeight!.value));
+  });
+
+  testWidgets('with no approval counted, today\'s line and no wire', (
+    tester,
+  ) async {
+    await video(
+      tester,
+      catalog: (_, _) =>
+          page([familyItem('v1', 'O sapo que pulava alto', approvals: {})]),
+    );
+
+    expect(plainText('Última revisão há 3 dias'), findsOneWidget);
+    expect(wire, findsNothing);
+    expect(find.textContaining('Visto antes'), findsNothing);
+  });
+
+  testWidgets('twelve people: five birds and "+7"', (tester) async {
+    await video(
+      tester,
+      catalog: (_, _) => page([
+        familyItem(
+          'v1',
+          'O sapo que pulava alto',
+          approvals: {'mae-pai': 9, 'pedagogo': 3},
+        ),
+      ]),
+    );
+
+    expect(plainText('Visto antes por 12 pessoas'), findsOneWidget);
+    expect(find.text('+7'), findsOneWidget);
+  });
+
+  for (final (name, size, scale, dark) in [
+    ('dark', const Size(390, 844), 1.0, true),
+    ('wide', const Size(1280, 800), 1.0, false),
+    ('200 % text at 360 × 640', const Size(360, 640), 2.0, false),
+  ]) {
+    testWidgets('the provenance holds $name, the report reachable', (
+      tester,
+    ) async {
+      if (dark) {
+        tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      }
+      await video(tester, size: size, textScale: scale);
+
+      expect(tester.takeException(), isNull);
+      expect(wire, findsOneWidget);
+      expect(plainText(seenByLine), findsOneWidget);
+      final row = tester.getRect(wire);
+      expect(row.left, greaterThanOrEqualTo(0));
+      expect(row.right, lessThanOrEqualTo(size.width));
+      await tester.ensureVisible(report);
+      await tester.pumpAndSettle();
+      // Whole on the screen, and nothing laid over it: a tap reaches it.
+      final quiet = tester.getRect(report);
+      expect(quiet.top, greaterThanOrEqualTo(0));
+      expect(quiet.bottom, lessThanOrEqualTo(size.height));
+      expect(report.hitTestable(), findsOneWidget);
+    });
+  }
 
   testWidgets('without provenance the sentence is left out', (tester) async {
     await video(
@@ -289,7 +392,9 @@ void main() {
         find.text('A grande viagem do sapo'),
         find.text(nb('Cinema Pequeno · 1 h 30 min')),
         find.text(familyTogether),
-        plainText(provenanceLine),
+        wire,
+        plainText(seenByLine),
+        plainText(seenByWhomLine),
         window,
         watch,
         quietHide,

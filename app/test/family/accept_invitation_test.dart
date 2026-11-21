@@ -120,7 +120,7 @@ void main() {
       expect(join, findsOneWidget);
     });
 
-    testWidgets('a just-linked account routed here does not rise later on '
+    testWidgets('a just-linked account routed here does not wink later on '
         'the home', (tester) async {
       final h = Harness(signedIn: true, api: (_) => json(200, preview))
         ..family = null;
@@ -130,7 +130,7 @@ void main() {
       expect(h.services.justLinked, isFalse);
       GoRouter.of(tester.element(find.byType(AcceptInvitationScreen))).go('/');
       await tester.pumpAndSettle();
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, false);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, false);
     });
 
     testWidgets('placeholder rows while it looks, not a spinner', (
@@ -202,7 +202,7 @@ void main() {
 
   group('accept', () {
     testWidgets('Entrar na família accepts, then the family home greets '
-        'with the rise', (tester) async {
+        'with the wink', (tester) async {
       final h = await opening(tester);
 
       await tapOn(tester, join);
@@ -210,7 +210,7 @@ void main() {
       expect(h.actionsPastHome, [lookupCall, acceptCall]);
       expect(h.location(tester), '/');
       expect(find.byType(Inicio), findsOneWidget);
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
       final state = h.services.familyModel.state as FamilyReady;
       expect(state.family.role, FamilyRole.guardian);
     });

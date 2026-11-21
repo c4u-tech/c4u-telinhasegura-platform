@@ -16,9 +16,8 @@ func TestApprovalAuditOverHTTP(t *testing.T) {
 	c1 := a.curator(admin, "c1@example.com", "mae-pai")
 	c2 := a.curator(admin, "c2@example.com", "pedagogo")
 	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
-	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
-	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...)
-	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+	a.approve(c1, v.ID, approval("bichos", "5-8"))
+	if r := a.approve(c2, v.ID, approval("bichos", "5-8")); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
 		t.Fatalf("publish: %d %s", r.Code, r.Body)
 	}
 
@@ -40,7 +39,7 @@ func TestApprovalAuditOverHTTP(t *testing.T) {
 	}
 	var roles []string
 	for _, x := range sample.Videos[0].Approvals {
-		if x.Decision != "approve" || len(x.Answers) != 23 {
+		if x.Decision != "approve" || len(x.Answers) != 31 {
 			t.Errorf("approval %+v", x)
 		}
 		roles = append(roles, x.DisplayRole)
@@ -104,9 +103,8 @@ func TestNoOneJudgesTheirOwnRoundOverHTTP(t *testing.T) {
 	}
 	c2 := a.curator(admin, "c2@example.com", "pedagogo")
 	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
-	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
-	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(both)...)
-	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+	a.approve(both, v.ID, approval("bichos", "5-8"))
+	if r := a.approve(c2, v.ID, approval("bichos", "5-8")); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
 		t.Fatalf("publish: %d %s", r.Code, r.Body)
 	}
 	if r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(both)...); r.Code != http.StatusOK || strings.TrimSpace(r.Body.String()) != `{"videos":[]}` {
@@ -122,6 +120,7 @@ func TestNoOneJudgesTheirOwnRoundOverHTTP(t *testing.T) {
 		approvalWith("bichos", "5-8", map[string]string{"c13": "doubt"}), bearer(both)...); !strings.Contains(r.Body.String(), `"video_state":"held"`) {
 		t.Fatalf("doubt: %d %s", r.Code, r.Body)
 	}
+	a.moderatorEnded(both, doubted.ID)
 	publish := map[string]any{"decision": "approve", "theme": "musica", "min_age_band": "5-8", "reason": "Sem risco no vídeo."}
 	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+doubted.ID+"/decide", publish, bearer(both)...); r.Code != http.StatusConflict || r.problemCode() != "own_review" {
 		t.Fatalf("own decision: %d %q", r.Code, r.problemCode())

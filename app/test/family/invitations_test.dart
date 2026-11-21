@@ -198,7 +198,18 @@ void main() {
 
       await typeEmail(tester, 'dani@example.com');
       expect(sendOf(tester), isNotNull);
-      expect(find.text(typeAnEmail), findsNothing);
+      // Hidden, its place kept.
+      expect(
+        tester
+            .widget<SubmitHint>(
+              find.ancestor(
+                of: find.text(typeAnEmail),
+                matching: find.byType(SubmitHint),
+              ),
+            )
+            .visible,
+        isFalse,
+      );
     });
 
     testWidgets('sends the trimmed address, confirms it, and lists the '

@@ -33,7 +33,7 @@ List<File> scannedSources() => [
   ...Directory('lib/account').listSync().whereType<File>(),
   // The curation screens.
   ...Directory('lib/curation').listSync().whereType<File>(),
-  // The staff screens (account directory screens).
+  // The staff screens: the account directory.
   ...Directory('lib/staff').listSync().whereType<File>(),
 ];
 
@@ -69,12 +69,12 @@ void main() {
     );
   });
 
-  test('the youngest band refused names the pace or the length, for a '
-      'curator and a moderator alike', () {
+  test('a band younger than the answers allow asks for the indicated one '
+      'or older, for a curator and a moderator alike', () {
     expect(
       Copy.forError(err('checklist_band')),
-      'Esse vídeo não serve para 2 a 4 anos, pelo ritmo ou pela duração. '
-      'Escolha outra idade.',
+      'Com as respostas que você deu, esse vídeo é para uma idade maior. '
+      'Escolha a idade indicada ou uma maior.',
     );
   });
 

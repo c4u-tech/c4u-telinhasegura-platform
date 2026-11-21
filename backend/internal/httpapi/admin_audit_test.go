@@ -112,7 +112,8 @@ func TestMetricsOverHTTP(t *testing.T) {
 		t.Fatalf("metrics: %d %s", r.Code, r.Body)
 	}
 	for _, key := range []string{`"accounts":null`, `"families":null`, `"minors":null`, `"active_devices":null`,
-		`"published_videos":null`, `"published_packs":null`, `"reports_7d":null`, `"suppressed_below":5`} {
+		`"published_videos":null`, `"published_packs":null`, `"reports_7d":null`, `"approval_median_seconds_30d":null`,
+		`"doubt_percent_30d":null`, `"older_band_percent_30d":null`, `"split_band_percent_30d":null`, `"suppressed_below":5`} {
 		if !strings.Contains(r.Body.String(), key) {
 			t.Errorf("missing %s in %s", key, r.Body)
 		}

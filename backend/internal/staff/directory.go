@@ -55,6 +55,19 @@ type ContentCounter interface {
 	CountPublishedVideos(ctx context.Context) (int, error)
 	CountPublishedPacks(ctx context.Context) (int, error)
 	CountReportsSince(ctx context.Context, since time.Time) (int, error)
+	ReviewMeasuresSince(ctx context.Context, since time.Time) (ReviewMeasures, error)
+}
+
+// ReviewMeasures are the raw cases behind the review measures of a window;
+// the metrics decide from each one's own count whether it may be shown.
+type ReviewMeasures struct {
+	TimedApprovals        int // approvals with began_at: the median's cases
+	ApprovalMedianSeconds int
+	Reviews, Doubts       int
+	ComputedApprovals     int // approvals with computed_band
+	OlderStated           int // of those, stated band older than computed
+	PairedVideos          int // video rounds with two or more such approvals
+	SplitVideos           int // of those, computed bands that differ
 }
 
 // AuditReader reads the staff actions (audit.Store implements it).

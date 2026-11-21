@@ -34,6 +34,15 @@ GoRouter router(WidgetTester tester) =>
     GoRouter.of(tester.element(find.byType(Scaffold).first));
 
 void main() {
+  test('the harness waits out the child\'s touch guard only where a child '
+      'screen stands, so no other screen\'s timers move', () {
+    expect(Harness.waitsForGuard('/crianca'), isTrue);
+    expect(Harness.waitsForGuard('/crianca/tema/bichos'), isTrue);
+    expect(Harness.waitsForGuard('/'), isFalse);
+    expect(Harness.waitsForGuard('/familia'), isFalse);
+    expect(Harness.waitsForGuard('/entrar'), isFalse);
+  });
+
   testWidgets('only a neutral splash shows while the status is unknown', (
     tester,
   ) async {

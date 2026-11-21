@@ -9,7 +9,7 @@ void main() {
     bool web = false,
   }) => playerFullscreen(size: size, platform: platform, web: web);
 
-  group('when the player goes fullscreen (fullscreen design)', () {
+  group('when the player goes fullscreen', () {
     test('a phone turned sideways, on Android and iOS', () {
       expect(decide(const Size(844, 390)), isTrue);
       expect(decide(const Size(640, 360)), isTrue);

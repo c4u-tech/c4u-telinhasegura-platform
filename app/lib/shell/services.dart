@@ -10,6 +10,7 @@ import '../auth/provider_authenticator.dart';
 import '../auth/provider_sign_in.dart';
 import '../curation/curation_api.dart';
 import '../curation/family_catalog_api.dart';
+import '../curation/unheard_ends.dart';
 import '../family/family_api.dart';
 import '../family/family_model.dart';
 import '../family/family_session_api.dart';
@@ -66,7 +67,7 @@ class AppServices {
        familySessions = FamilySessionApi(client) {
     familyModel = FamilyModel(auth: auth, api: family, status: client.status);
     // Any call refused for a suspension re-reads the session; the router
-    // then takes the person home (suspension screens).
+    // then takes the person home.
     client.onSuspended = () => unawaited(familyModel.accountSuspended());
     // A new session, or none, was never elevated.
     client.status.addListener(elevation.forget);
@@ -87,6 +88,17 @@ class AppServices {
   final ChildApi child;
   final PrivacyApi privacy;
   final CurationApi curation;
+
+  /// The videos whose end the server has not heard from this session: in
+  /// a curator's review, and on a moderator's held screen.
+  late final unheardEnds = UnheardEnds(
+    session: client.status,
+    send: curation.draftEnded,
+  );
+  late final moderatorEnds = UnheardEnds(
+    session: client.status,
+    send: staff.moderatorEnded,
+  );
 
   /// The team and moderation routes, for an admin or a
   /// moderator.
@@ -180,7 +192,7 @@ class AppServices {
   Future<bool> Function()? unkeptCodes;
 
   /// Set by a successful link and read once by the home screen, which
-  /// greets the linked account with "o sol sobe".
+  /// greets the linked account with the mascot's wink.
   bool justLinked = false;
 
   /// A calm line for the entry screen, which takes it once: why the app

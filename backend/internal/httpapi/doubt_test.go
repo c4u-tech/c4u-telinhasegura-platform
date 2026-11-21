@@ -24,6 +24,15 @@ func (a *api) doubtedBy(admin mobileTokens, youtubeID string) string {
 	return v.ID
 }
 
+// moderatorEnded reports that the held video played to its end for the
+// moderator, as publishing a doubt needs; it must succeed.
+func (a *api) moderatorEnded(mod mobileTokens, id string) {
+	a.t.Helper()
+	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+id+"/ended", nil, bearer(mod)...); r.Code != http.StatusNoContent {
+		a.t.Fatalf("ended: %d %s", r.Code, r.Body)
+	}
+}
+
 func TestDecideDoubtOverHTTP(t *testing.T) {
 	a := newAPI(t)
 	admin := a.admin("ana@example.com")
@@ -42,6 +51,13 @@ func TestDecideDoubtOverHTTP(t *testing.T) {
 	if r := a.do(http.MethodPost, decide(v), map[string]any{"decision": "approve", "min_age_band": "5-8", "reason": "Motivo válido."}, bearer(mod)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
 		t.Fatalf("no theme: %d %q", r.Code, r.problemCode())
 	}
+	if r := a.do(http.MethodPost, decide(v), publish, bearer(mod)...); r.Code != http.StatusConflict || r.problemCode() != "not_watched" {
+		t.Fatalf("publish unwatched: %d %q", r.Code, r.problemCode())
+	}
+	if _, ok := a.audit.LastAction(audit.VideoDoubtDecided); ok {
+		t.Fatal("a refused decision was recorded")
+	}
+	a.moderatorEnded(mod, v)
 	if r := a.do(http.MethodPost, decide(v), publish, bearer(mod)...); r.Code != http.StatusNoContent {
 		t.Fatalf("publish: %d %s", r.Code, r.Body)
 	}
@@ -67,6 +83,7 @@ func TestDecideDoubtOverHTTP(t *testing.T) {
 	}
 
 	// A stolen moderator session cannot publish unnoticed.
+	a.moderatorEnded(mod, stale)
 	a.now = a.now.Add(6 * time.Minute)
 	late := a.refresh(mod)
 	if r := a.do(http.MethodPost, decide(stale), publish, bearer(late)...); r.Code != http.StatusForbidden || r.problemCode() != "reauth_required" {
@@ -80,8 +97,60 @@ func TestDecideDoubtKeepsALongVideoFromTheYoungestBandOverHTTP(t *testing.T) {
 	mod := a.moderator(admin, "mia@example.com")
 	v := a.doubtedBy(admin, ytID)
 	a.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, v, int((61 * time.Minute).Seconds()))
+	a.moderatorEnded(mod, v)
 	young := map[string]any{"decision": "approve", "theme": "musica", "min_age_band": "ate-4", "reason": "Sem risco no vídeo."}
 	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+v+"/decide", young, bearer(mod)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "checklist_band" {
 		t.Fatalf("2 to 4: %d %q", r.Code, r.problemCode())
+	}
+}
+
+func TestModeratorEndedOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	mod := a.moderator(admin, "mia@example.com")
+	v := a.doubtedBy(admin, ytID)
+	ended := func(id string) string { return "/v1/moderation/videos/" + id + "/ended" }
+	a.moderatorEnded(mod, v)
+	a.moderatorEnded(admin, v)
+	if n := a.count(`SELECT count(*) FROM moderator_views WHERE video_id = $1::uuid`, v); n != 2 {
+		t.Fatalf("%d viewings, want the moderator's and the admin's", n)
+	}
+	pending := a.suggest(a.familyOwner("gui@example.com"), "ccccccccccc")
+	if r := a.do(http.MethodPost, ended(pending.ID), nil, bearer(mod)...); r.Code != http.StatusConflict || r.problemCode() != "state_conflict" {
+		t.Fatalf("a pending video: %d %q", r.Code, r.problemCode())
+	}
+	if r := a.do(http.MethodPost, ended("00000000-0000-0000-0000-000000000000"), nil, bearer(mod)...); r.Code != http.StatusNotFound {
+		t.Fatalf("an unknown video: %d", r.Code)
+	}
+}
+
+// Each held video says whether it played to its end for the caller, so
+// the moderator's screen keeps it across a reload; another moderator's
+// viewing is not theirs.
+func TestHeldListServesWhetherTheVideoPlayedToItsEndForTheCaller(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	mia := a.moderator(admin, "mia@example.com")
+	bia := a.moderator(admin, "bia@example.com")
+	v := a.doubtedBy(admin, ytID)
+	played := func(mod mobileTokens) bool {
+		t.Helper()
+		var held struct {
+			Videos []struct {
+				PlayedToEnd *bool `json:"played_to_end"`
+			} `json:"videos"`
+		}
+		getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+		if len(held.Videos) != 1 || held.Videos[0].PlayedToEnd == nil {
+			t.Fatalf("held %+v", held)
+		}
+		return *held.Videos[0].PlayedToEnd
+	}
+	if played(mia) {
+		t.Fatal("played to its end before any viewing")
+	}
+	a.moderatorEnded(mia, v)
+	if !played(mia) || played(bia) {
+		t.Fatal("the viewing did not count for its moderator alone")
 	}
 }

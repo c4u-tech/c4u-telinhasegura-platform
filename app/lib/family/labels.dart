@@ -3,10 +3,12 @@ import 'family.dart';
 /// PT-BR words for the family model, in the same voice as the access copy
 /// (lib/access/copy.dart).
 extension AgeBandLabel on AgeBand {
+  /// Its spaces do not break: a band never parts at a line's end, in a
+  /// sentence, a button or a summary line.
   String get label => switch (this) {
-    AgeBand.upTo4 => '2 a 4 anos',
-    AgeBand.from5To8 => '5 a 8 anos',
-    AgeBand.from9To12 => '9 a 12 anos',
+    AgeBand.upTo4 => '2\u00A0a\u00A04\u00A0anos',
+    AgeBand.from5To8 => '5\u00A0a\u00A08\u00A0anos',
+    AgeBand.from9To12 => '9\u00A0a\u00A012\u00A0anos',
     AgeBand.unknown => 'Faixa não informada',
   };
 }

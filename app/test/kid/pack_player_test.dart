@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/access/widgets.dart' show StateModule;
+import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
@@ -17,7 +21,8 @@ import 'package:telinha_segura/kid/sleeping_telinha.dart';
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
-import 'kid_shelves_test.dart' show pixel, twoShelves, video;
+import 'player_screen_test.dart' show expectNightStage;
+import 'kid_mosaic_test.dart' show pixel, twoShelves, video;
 
 /// The day's shelves plus one pacotinho of three videos, its cover the
 /// second.
@@ -112,7 +117,7 @@ void main() {
     expect(current(h).youtubeId, 'yt-v1');
     expect(find.byKey(FakePlayback.viewKey), findsOneWidget);
     expect(progress(1, 3), findsOneWidget);
-    // No YouTube logo in the player (fullscreen design).
+    // No YouTube logo in the player.
     expect(find.byType(SvgPicture), findsNothing);
   });
 
@@ -210,7 +215,7 @@ void main() {
   });
 
   testWidgets('a video\'s end lets the player go and shows the breath: the '
-      'next cover, the Espiadinha, the modules and "Continuar"', (
+      'next cover, the mascot winking on it, the modules and "Continuar"', (
     tester,
   ) async {
     final h = await inPack(tester);
@@ -220,6 +225,42 @@ void main() {
     expect(first.closed, isTrue);
     expect(find.byKey(FakePlayback.viewKey), findsNothing);
     expect(find.byType(PackBreath), findsOneWidget);
+    // The next cover in a rounded frame, the mascot watching from its top
+    // edge in its night colours, all inside the window's place.
+    final window = tester.getRect(find.byType(PackBreath));
+    final frame = find.descendant(
+      of: find.byType(PackBreath),
+      matching: find.byType(ClipRRect),
+    );
+    expect(
+      find.descendant(of: frame, matching: find.byType(Image)),
+      findsOneWidget,
+    );
+    final cover = tester.getRect(frame);
+    expect(cover.width / cover.height, closeTo(16 / 9, .01));
+    expect(
+      tester.widget<ClipRRect>(frame).borderRadius,
+      BorderRadius.circular(cover.height * PackBreath.corner),
+    );
+    final figure = find.descendant(
+      of: find.byType(PackBreath),
+      matching: find.byType(Tevi),
+    );
+    final tevi = tester.widget<Tevi>(figure);
+    expect((tevi.look, tevi.night), (TeviLook.watching, true));
+    final at = tester.getRect(figure);
+    expect(
+      at.top + at.height * TeviPainter.perchY,
+      closeTo(cover.top + TeviPainter.perchOverlap, 1e-6),
+      reason: 'the legs land on the frame\'s top edge',
+    );
+    expect(at.center.dx, greaterThan(cover.center.dx));
+    for (final r in [cover, at]) {
+      expect(
+        window.contains(r.topLeft) && window.contains(r.bottomRight),
+        isTrue,
+      );
+    }
     expect(progress(1, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsOneWidget);
     // No seconds, said or drawn.
@@ -423,7 +464,25 @@ void main() {
 
     expect(last.closed, isTrue);
     expect(find.byType(PackGoodbye), findsOneWidget);
+    // The mascot winks goodbye in its night colours, the word beneath it,
+    // both in the window's place.
+    final window = tester.getRect(find.byType(PackGoodbye));
+    final figure = find.descendant(
+      of: find.byType(PackGoodbye),
+      matching: find.byType(Tevi),
+    );
+    final tevi = tester.widget<Tevi>(figure);
+    expect((tevi.look, tevi.night), (TeviLook.winking, true));
     expect(find.text(PackGoodbye.word), findsOneWidget);
+    final word = tester.getRect(find.text(PackGoodbye.word));
+    final at = tester.getRect(figure);
+    expect(word.top, greaterThan(at.top + at.height * TeviPainter.perchY - 1));
+    for (final r in [at, word]) {
+      expect(
+        window.contains(r.topLeft) && window.contains(r.bottomRight),
+        isTrue,
+      );
+    }
     expect(progress(3, 3), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.back), findsOneWidget);
     expect(find.bySemanticsLabel(PlayerScreen.playLabel), findsNothing);
@@ -449,7 +508,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(h.location(tester), '/crianca');
-    expect(find.byType(ShelvesLoading), findsNothing);
+    expect(find.byType(MosaicLoading), findsNothing);
     expect(
       h.actions.where((a) => a == 'GET /v1/child/catalog').length,
       reads + 1,
@@ -507,6 +566,71 @@ void main() {
     expect(plays(h), ['v1', 'v1']);
   });
 
+  for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+    testWidgets('at ${size.width.toInt()} × ${size.height.toInt()} every '
+        'window state stands in the dark room, the modules in sky', (
+      tester,
+    ) async {
+      final h = await inPack(tester, size: size);
+      expectNightStage(tester, find.byKey(FakePlayback.viewKey));
+      final modules = tester.widgetList<StateModule>(find.byType(StateModule));
+      expect(modules.map((m) => (m.filled, m.color)), [
+        (true, BrandColors.sky),
+        (false, BrandColors.sky),
+        (false, BrandColors.sky),
+      ]);
+
+      await end(tester, h);
+      expectNightStage(tester, find.byType(PackBreath), inWindow: true);
+      await tester.tap(find.byType(PackBreath));
+      await tester.pumpAndSettle();
+      await end(tester, h);
+      await tester.tap(find.byType(PackBreath));
+      await tester.pumpAndSettle();
+      await end(tester, h);
+      expectNightStage(tester, find.byType(PackGoodbye), inWindow: true);
+      await tester.pumpAndSettle(const Duration(seconds: 4));
+    });
+  }
+
+  testWidgets('a pacotinho of five holds its modules in the rail beside the '
+      'window', (tester) async {
+    await inPack(
+      tester,
+      size: const Size(1280, 800),
+      harness: packKid(
+        catalog: () => {
+          ...twoShelves,
+          'packs': [
+            {
+              'id': 'k1',
+              'title': 'Cinco',
+              'cover_video_id': 'v1',
+              'videos': [for (var i = 1; i <= 5; i++) video('v$i')],
+            },
+          ],
+        },
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final modules = tester.getRect(find.byType(PackModules));
+    expect(
+      modules.left,
+      greaterThan(tester.getRect(find.byKey(FakePlayback.viewKey)).right),
+    );
+  });
+
+  testWidgets('upright, the modules stand under the window at the start, '
+      'level with back', (tester) async {
+    await inPack(tester);
+    final modules = tester.getRect(find.byType(PackModules));
+    final back = tester.getRect(find.bySemanticsLabel(PlayerScreen.back));
+    final window = tester.getRect(find.byKey(FakePlayback.viewKey));
+    expect(modules.left, back.left);
+    expect(modules.top, greaterThan(window.bottom));
+    expect(modules.bottom, lessThan(back.top));
+  });
+
   testWidgets('the pacotinho player keeps the frame\'s exit', (tester) async {
     await inPack(tester);
     expect(find.byType(HoldToExit), findsOneWidget);
@@ -515,14 +639,7 @@ void main() {
   testWidgets('outside a pacotinho, nothing plays next', (tester) async {
     final h = packKid();
     await h.pump(tester, initial: '/crianca');
-    await tester.tap(
-      find
-          .descendant(
-            of: find.byType(Shelf).first,
-            matching: find.byType(VideoTile),
-          )
-          .first,
-    );
+    await tester.tap(find.byType(OneTapPicture).first);
     await tester.pumpAndSettle();
     current(h).emit(const PlayerEnded());
     await tester.pumpAndSettle();

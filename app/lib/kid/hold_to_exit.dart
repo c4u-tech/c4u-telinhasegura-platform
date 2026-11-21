@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import 'press_sink.dart';
 
 /// The child side's only control: an icon in a top
 /// corner that exits only after a continuous 2-second press, its ring
@@ -14,12 +15,16 @@ import '../design/tokens.dart';
 /// technology cannot hold, so it gets a long-press action that exits at
 /// once.
 class HoldToExit extends StatefulWidget {
-  const HoldToExit({super.key, required this.onExit});
+  const HoldToExit({super.key, required this.onExit, this.color});
 
   static const label = 'Sair do modo criança';
-  static const hold = Duration(seconds: 2);
+  static const hold = Motion.hold;
 
   final VoidCallback onExit;
+
+  /// On a theme's world, its figure: the glyph, the ring and its fill,
+  /// which the kid ground's tones would not show on a light ground.
+  final Color? color;
 
   @override
   State<HoldToExit> createState() => _HoldToExitState();
@@ -77,6 +82,7 @@ class _HoldToExitState extends State<HoldToExit>
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final color = widget.color;
     return Semantics(
       container: true,
       button: true,
@@ -89,26 +95,28 @@ class _HoldToExitState extends State<HoldToExit>
             if (!on) _release();
             setState(() => _focused = on);
           },
-          child: Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerDown: (_) => _press(),
-            onPointerUp: (_) => _release(),
-            onPointerCancel: (_) => _release(),
-            child: SizedBox.square(
-              dimension: KidSizes.target,
-              child: AnimatedBuilder(
-                animation: _ring,
-                builder: (context, _) => CustomPaint(
-                  painter: ExitRingPainter(
-                    progress: _ring.value,
-                    track: p.outline,
-                    fill: p.action,
-                    focus: _focused ? p.muted : null,
-                  ),
-                  child: Center(
-                    child: CustomPaint(
-                      size: const Size.square(32),
-                      painter: ExitGlyphPainter(color: p.outline),
+          child: PressSink(
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) => _press(),
+              onPointerUp: (_) => _release(),
+              onPointerCancel: (_) => _release(),
+              child: SizedBox.square(
+                dimension: KidSizes.target,
+                child: AnimatedBuilder(
+                  animation: _ring,
+                  builder: (context, _) => CustomPaint(
+                    painter: ExitRingPainter(
+                      progress: _ring.value,
+                      track: color?.withValues(alpha: .4) ?? p.outline,
+                      fill: color ?? p.meter,
+                      focus: _focused ? color ?? p.muted : null,
+                    ),
+                    child: Center(
+                      child: CustomPaint(
+                        size: const Size.square(32),
+                        painter: ExitGlyphPainter(color: color ?? p.outline),
+                      ),
                     ),
                   ),
                 ),
@@ -175,9 +183,9 @@ class ExitRingPainter extends CustomPainter {
       old.focus != focus;
 }
 
-/// The exit glyph, from the Espiadinha's vocabulary: the mark's screen
-/// (58 × 33, corner at 10/33 of its height) with an arrow leaving it
-/// through its side. No lock, shield or door.
+/// The exit glyph, from the avatars' vocabulary: a screen (close to
+/// 16:9, cornered at the shape ratio of its height) with an arrow leaving
+/// it through its side. No lock, shield or door.
 class ExitGlyphPainter extends CustomPainter {
   ExitGlyphPainter({required this.color});
 
@@ -193,7 +201,7 @@ class ExitGlyphPainter extends CustomPainter {
       ..strokeWidth = 2.25
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    const w = 20.0, h = w * 33 / 58;
+    const w = 20.0, h = w / Proportions.screen;
     const top = 16 - h / 2;
     // The screen, open where the arrow leaves it.
     canvas.save();

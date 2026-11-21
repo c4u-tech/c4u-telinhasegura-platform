@@ -103,7 +103,7 @@ Future<void> tapQuiet(WidgetTester tester, String label) => tapOn(
 }
 
 String title(WidgetTester tester) =>
-    tester.widget<FieldLayout>(find.byType(FieldLayout).last).title;
+    tester.widget<FieldLayout>(find.byType(FieldLayout).last).title!;
 
 Future<void> registerLia(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField), 'Lia');
@@ -138,7 +138,7 @@ Future<void> pumpUntil(WidgetTester tester, bool Function() done) async {
 
 void main() {
   group('after "Começar minha família"', () {
-    testWidgets('the sun rises on the home, then the path opens at its '
+    testWidgets('the mascot winks on the home, then the path opens at its '
         'first step', (tester) async {
       final h = Harness(
         signedIn: true,
@@ -157,9 +157,9 @@ void main() {
       await tester.pump();
 
       expect(h.location(tester), '/');
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
 
-      await tester.pump(FamilyHomeScreen.riseThenPath);
+      await tester.pump(FamilyHomeScreen.winkThenPath);
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/comecar');
@@ -486,12 +486,17 @@ void main() {
       bool pinSet = false,
     }) => firstRun(tester, minors: minors, pinSet: pinSet, initial: '/');
 
+    // Every door but the suggestions', which Início always holds.
+    final resumeDoors = find.byWidgetPredicate(
+      (w) => w is DoorRow && w.title != 'Sugestões de vídeos',
+    );
+
     testWidgets('with no child it names registering one and opens the path '
         'there', (tester) async {
       final h = await inicio(tester, []);
 
       expect(find.text('Nenhuma criança cadastrada ainda.'), findsNothing);
-      expect(find.byType(DoorRow), findsOneWidget);
+      expect(resumeDoors, findsOneWidget);
       await tapOn(tester, find.text('Continuar: cadastrar uma criança'));
 
       expect(h.location(tester), '/comecar');
@@ -519,7 +524,7 @@ void main() {
       await inicio(tester, [lia], pinSet: true);
 
       expect(find.textContaining('Continuar:'), findsNothing);
-      expect(find.byType(DoorRow), findsNothing);
+      expect(resumeDoors, findsNothing);
       expect(find.byType(ChildRow), findsOneWidget);
     });
 

@@ -9,9 +9,11 @@ import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/shell/guardian_shell.dart';
 
 import '../access/a11y_test.dart' show invitationsFor;
 import '../access/harness.dart';
@@ -62,13 +64,16 @@ void main() {
       }
     });
 
-    testWidgets('with a family, the home is Início, holding no door', (
-      tester,
-    ) async {
+    testWidgets('with a family, the home is Início, holding no door of the '
+        'family\'s: its one door is the suggestions', (tester) async {
       await home(tester, roles: ['admin', 'curator']);
 
       expect(find.byType(Inicio), findsOneWidget);
-      expect(find.byType(DoorRow), findsNothing);
+      expect(find.byType(DoorRow), findsOneWidget);
+      expect(
+        find.widgetWithText(DoorRow, 'Sugestões de vídeos'),
+        findsOneWidget,
+      );
       expect(find.text('Sair da conta'), findsNothing);
     });
   });
@@ -76,8 +81,8 @@ void main() {
   group('the Sua conta door', () {
     Finder accountDoor() => find.widgetWithText(DoorRow, 'Sua conta');
 
+    // With no family the navigation holds the account.
     final states = <String, (Map<String, Object?>?, bool)>{
-      'no family': (null, false),
       'the email unverified': (null, true),
     };
 
@@ -115,8 +120,15 @@ void main() {
       expect(accountDoor(), findsNothing);
     });
 
+    testWidgets('with no family it is gone: Conta holds the account', (
+      tester,
+    ) async {
+      await home(tester, family: null);
+
+      expect(accountDoor(), findsNothing);
+    });
+
     for (final (state, unverified, action) in [
-      ('no family', false, 'Tenho um convite'),
       ('the email unverified', true, 'Reenviar e-\u2060mail'),
     ]) {
       testWidgets('with $state, it sits below the state\'s choice and above '
@@ -142,11 +154,9 @@ void main() {
 
       expect(find.text('Começar minha família'), findsOneWidget);
       expect(find.text('Tenho um convite'), findsOneWidget);
-      // Only the account's own door.
-      expect(
-        tester.widgetList<DoorRow>(find.byType(DoorRow)).map((d) => d.title),
-        ['Sua conta'],
-      );
+      // No door: the navigation holds the account and Equipe.
+      expect(find.byType(DoorRow), findsNothing);
+      expect(find.byType(ShellBar), findsOneWidget);
     });
 
     testWidgets('shows the bounded set, hollow, read by its words only', (
@@ -177,7 +187,7 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('Começar minha família creates it and the sun rises', (
+    testWidgets('Começar minha família creates it and the mascot winks', (
       tester,
     ) async {
       final h = await home(
@@ -185,18 +195,18 @@ void main() {
         family: null,
         api: (_) => json(201, ownerFamily),
       );
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, false);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, false);
 
       await tester.tap(find.text('Começar minha família'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Then Início reads the new family's child's day, the sun rising,
+      // Then Início reads the new family's child's day, the mascot winking,
       // before the first run opens.
       expect(h.actions.first, 'POST /v1/family');
       expect(h.actions.where((a) => a.startsWith('POST')), ['POST /v1/family']);
       expect(find.byType(Inicio), findsOneWidget);
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
 
       await tester.pumpAndSettle();
       expect(h.location(tester), '/comecar');
@@ -332,10 +342,57 @@ void main() {
   });
 
   group('Sair da conta', () {
+    for (final (name, size, scale) in [
+      ('360 × 640', const Size(360, 640), 1.0),
+      ('360 × 640 at 200 % text', const Size(360, 640), 2.0),
+    ]) {
+      testWidgets('at the end of the scroll it stands whole on the screen, '
+          '$name', (tester) async {
+        final h = Harness(signedIn: true)
+          ..family = null
+          ..unverified = true;
+        await h.pump(tester, initial: '/', size: size, textScale: scale);
+
+        await tester.fling(
+          find.byType(Scrollable).first,
+          const Offset(0, -4000),
+          4000,
+        );
+        await tester.pumpAndSettle();
+        final out = tester.getRect(
+          find.widgetWithText(QuietAction, 'Sair da conta'),
+        );
+        expect(out.top, greaterThanOrEqualTo(0));
+        expect(out.bottom, lessThanOrEqualTo(size.height - Space.xl));
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('with the family ready, Conta\'s "Sair da conta" stands '
+          'whole above the bar at the end of the scroll, $name', (
+        tester,
+      ) async {
+        final h = Harness(signedIn: true)..family = ownerFamily;
+        await h.pump(tester, initial: '/conta', size: size, textScale: scale);
+
+        await tester.fling(
+          find.byType(Scrollable).first,
+          const Offset(0, -4000),
+          4000,
+        );
+        await tester.pumpAndSettle();
+        final out = tester.getRect(
+          find.widgetWithText(QuietAction, 'Sair da conta'),
+        );
+        final bar = tester.getRect(find.byKey(ShellBar.surfaceKey));
+        expect(out.top, greaterThanOrEqualTo(0));
+        expect(out.bottom, lessThanOrEqualTo(bar.top));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     // The "Sua conta" door names the account; the foot is
     // only the way out.
     final withDoor = <String, Harness Function()>{
-      'no family': () => Harness(signedIn: true)..family = null,
       'the email unverified': () => Harness(signedIn: true)
         ..family = null
         ..unverified = true,
@@ -360,31 +417,28 @@ void main() {
       });
     }
 
-    testWidgets('while the family loads, with no door yet, the foot still '
-        'names the account', (tester) async {
+    testWidgets('while the family loads, the home is Início\'s greeting '
+        'over the placeholder, with no foot: Conta holds the account', (
+      tester,
+    ) async {
       final answer = Completer<http.Response>();
-      final semantics = tester.ensureSemantics();
       final h = Harness(signedIn: true)..familyRead = () => answer.future;
       await h.pump(tester, initial: '/');
 
-      expect(find.widgetWithText(DoorRow, 'Sua conta'), findsNothing);
-      // Shown with the address's break marks, read plain (Plain Address
-      // Rule).
       expect(
-        find.text('Você entrou como ${addressBreaks('ana@example.com')}'),
-        findsOneWidget,
+        tester.widget<FieldLayout>(find.byType(FieldLayout)).title,
+        greeting(DateTime.now()),
       );
-      expect(
-        find.bySemanticsLabel('Você entrou como ana@example.com'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('family-placeholder')), findsOneWidget);
+      expect(find.textContaining('Você entrou como'), findsNothing);
+      expect(find.text('Sair da conta'), findsNothing);
+      expect(find.widgetWithText(DestinationTile, 'Conta'), findsOneWidget);
       answer.complete(json(200, ownerFamily));
       await tester.pumpAndSettle();
-      semantics.dispose();
     });
 
     testWidgets('signs out and lands on /entrar', (tester) async {
-      final h = await home(tester, family: null);
+      final h = await home(tester, family: null, unverified: true);
 
       await tester.ensureVisible(find.text('Sair da conta'));
       await tester.tap(find.text('Sair da conta'));
@@ -400,6 +454,7 @@ void main() {
       await home(
         tester,
         family: null,
+        unverified: true,
         api: (_) => throw http.ClientException('down'),
       );
 
@@ -410,7 +465,7 @@ void main() {
       expect(find.byType(EntryScreen), findsOneWidget);
     });
 
-    for (final state in ['no family', 'unverified', 'failed']) {
+    for (final state in ['unverified', 'failed']) {
       testWidgets('stays at the foot when $state', (tester) async {
         final h = Harness(signedIn: true)..unverified = state == 'unverified';
         if (state == 'failed') {
@@ -430,8 +485,6 @@ void main() {
   });
 
   group('the Equipe door', () {
-    const line = 'O que espera revisão e as ferramentas';
-
     List<String> titles(WidgetTester tester) => tester
         .widgetList<DoorRow>(find.byType(DoorRow))
         .map((d) => d.title)
@@ -458,41 +511,16 @@ void main() {
           'Prefere começar a sua?',
         ),
       ]) {
-        testWidgets('with $roles and $what, the home shows one "Equipe" '
-            'door below the first use and before Sua conta', (tester) async {
+        testWidgets('with $roles and $what, the navigation holds Equipe: no '
+            'door of it on the home', (tester) async {
           await home(tester, family: null, roles: roles, api: answer);
 
-          expect(titles(tester), ['Equipe', 'Sua conta']);
-          expect(find.widgetWithText(DoorRow, 'Sugerir vídeo'), findsNothing);
-          expect(
-            tester.getTopLeft(find.text(firstUse)).dy,
-            lessThan(
-              tester.getTopLeft(find.widgetWithText(DoorRow, 'Equipe')).dy,
-            ),
-          );
+          expect(find.text(firstUse), findsOneWidget);
+          expect(titles(tester), isEmpty);
+          expect(find.widgetWithText(DestinationTile, 'Equipe'), findsOne);
         });
       }
     }
-
-    testWidgets('"Equipe" says what waits there and opens /equipe, with no '
-        'family', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final h = await home(tester, family: null, roles: ['moderator']);
-      final door = find.widgetWithText(DoorRow, 'Equipe');
-
-      expect(
-        find.descendant(of: door, matching: find.text(line)),
-        findsOneWidget,
-      );
-      expect(find.bySemanticsLabel('Equipe, $line'), findsOne);
-      await tester.ensureVisible(door);
-      await tester.pumpAndSettle();
-      await tester.tap(door);
-      await tester.pumpAndSettle();
-
-      expect(h.location(tester), '/equipe');
-      semantics.dispose();
-    });
 
     testWidgets('without a platform role there is no Equipe door', (
       tester,

@@ -97,7 +97,7 @@ ThemeData buildTheme(Brightness brightness, [Palette? palette]) {
   return ThemeData(
     useMaterial3: true,
     // 56 dp controls on every platform: compact web density would break
-    // the 10/33 corner ratio the radii are cut for.
+    // the corner ratio the radii are cut for.
     visualDensity: VisualDensity.standard,
     brightness: brightness,
     fontFamily: Typefaces.family,

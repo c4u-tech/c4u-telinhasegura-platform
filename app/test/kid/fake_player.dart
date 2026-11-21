@@ -46,7 +46,7 @@ class FakePlayback implements KidPlayback {
   /// player answers 0, as a stopped YouTube embed does.
   int at = 0;
 
-  /// What the screen asked, in order: `play`, `pause`, `close`.
+  /// What the screen asked, in order: `play`, `pause`, `cue`, `close`.
   final calls = <String>[];
   final _events = StreamController<PlayerEvent>.broadcast();
 
@@ -75,6 +75,15 @@ class FakePlayback implements KidPlayback {
 
   @override
   Future<void> pause() async => calls.add('pause');
+
+  /// Whether [cue] fails, as it does once the embed's web view is gone.
+  bool cueFails = false;
+
+  @override
+  Future<void> cue() async {
+    calls.add('cue');
+    if (cueFails) throw StateError('the embed is gone');
+  }
 
   @override
   Future<void> close() async {

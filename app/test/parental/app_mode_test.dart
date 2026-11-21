@@ -72,9 +72,10 @@ setUpModel(
   String? device,
   String? marked,
   KidModeMark? markOverride,
+  MemoryDeviceCredentialStore? devicesOverride,
 }) {
   final t = build(ClientKind.mobile, answer);
-  final devices = MemoryDeviceCredentialStore(device);
+  final devices = devicesOverride ?? MemoryDeviceCredentialStore(device);
   final mark = markOverride ?? MemoryKidModeMark({?marked});
   final model = AppModeModel(
     auth: t.api,
@@ -175,7 +176,74 @@ void main() {
     await signIn(m.client);
     await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
     expect(m.model.mode, isNull);
+    expect(m.model.childMayHold, isFalse);
   });
+
+  test('a failed session read on a device handed to a child says a child '
+      'may hold it', () async {
+    final m = setUpModel((_) => problem(500, 'internal'), marked: 'a1');
+    await signIn(m.client);
+    await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
+    expect(m.model.mode, isNull);
+    expect(m.model.childMayHold, isTrue);
+  });
+
+  test('a failed session read with an unreadable mark fails closed: a child '
+      'may hold the device', () async {
+    final m = setUpModel(
+      (_) => problem(500, 'internal'),
+      markOverride: ThrowingMark(),
+    );
+    await signIn(m.client);
+    await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
+    expect(m.model.childMayHold, isTrue);
+  });
+
+  test('an unreadable device credential fails closed: a child may hold the '
+      'device', () async {
+    final m = setUpModel(
+      server(),
+      devicesOverride: MemoryDeviceCredentialStore('dev')..unreadable = true,
+    );
+    await expectLater(m.model.restore(), throwsA(isA<StateError>()));
+    expect(m.model.mode, isNull);
+    expect(m.model.childMayHold, isTrue);
+  });
+
+  test('a child may hold the device until a read succeeds: a new try keeps '
+      'it while it runs', () async {
+    var fail = true;
+    final m = setUpModel(
+      (req) => fail ? problem(500, 'internal') : server()(req),
+      marked: 'a1',
+    );
+    await signIn(m.client);
+    await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
+    expect(m.model.childMayHold, isTrue);
+
+    final retry = m.model.restore();
+    expect(m.model.childMayHold, isTrue, reason: 'while the try runs');
+    await expectLater(retry, throwsA(isA<ApiError>()));
+    expect(m.model.childMayHold, isTrue);
+
+    fail = false;
+    await m.model.restore();
+    expect(m.model.mode, const PinRequired());
+    expect(m.model.childMayHold, isFalse);
+  });
+
+  test(
+    'a start that failed before the mode was read applies the same rule',
+    () async {
+      final m = setUpModel(server(), marked: 'a1');
+      await m.model.startFailed();
+      expect(m.model.childMayHold, isTrue);
+
+      final free = setUpModel(server());
+      await free.model.startFailed();
+      expect(free.model.childMayHold, isFalse);
+    },
+  );
 
   test('hand-over and unlock move between the modes', () async {
     final m = setUpModel(server());

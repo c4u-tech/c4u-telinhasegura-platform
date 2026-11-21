@@ -224,6 +224,10 @@ class Metrics {
     this.publishedVideos,
     this.publishedPacks,
     this.reports7d,
+    this.approvalMedianSeconds30d,
+    this.doubtPercent30d,
+    this.olderBandPercent30d,
+    this.splitBandPercent30d,
     required this.suppressedBelow,
   });
 
@@ -235,6 +239,10 @@ class Metrics {
     publishedVideos: j['published_videos'] as int?,
     publishedPacks: j['published_packs'] as int?,
     reports7d: j['reports_7d'] as int?,
+    approvalMedianSeconds30d: j['approval_median_seconds_30d'] as int?,
+    doubtPercent30d: j['doubt_percent_30d'] as int?,
+    olderBandPercent30d: j['older_band_percent_30d'] as int?,
+    splitBandPercent30d: j['split_band_percent_30d'] as int?,
     suppressedBelow: j['suppressed_below'] as int,
   );
 
@@ -245,5 +253,20 @@ class Metrics {
   final int? publishedVideos;
   final int? publishedPacks;
   final int? reports7d;
+
+  /// The review measures over the last 30 days, each null when it rests on
+  /// too few cases, or when the server does not send it.
+  /// How long an approval took, from the review's start to its sending.
+  final int? approvalMedianSeconds30d;
+
+  /// The share of reviews that went to the team.
+  final int? doubtPercent30d;
+
+  /// The share of approvals that chose a band older than the answers'.
+  final int? olderBandPercent30d;
+
+  /// The share of videos whose approvals' answers computed different
+  /// bands.
+  final int? splitBandPercent30d;
   final int suppressedBelow;
 }

@@ -64,6 +64,10 @@ abstract interface class KidPlayback {
 
   Future<void> pause();
 
+  /// Loads the same video again at its start, waiting, its own poster in
+  /// the window: what YouTube shows after the end (other videos) goes.
+  Future<void> cue();
+
   /// Stops the video and lets the embed go; nothing plays after it.
   Future<void> close();
 }

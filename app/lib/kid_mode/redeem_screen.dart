@@ -267,7 +267,11 @@ class _RedeemScreenState extends State<RedeemScreen> {
             busy: _submission.busy && !_signedIn,
             onPressed: _ready && idle && !_signedIn ? _redeem : null,
           ),
-          SubmitHint('Digite o código e o nome do aparelho.', visible: !_ready),
+          SubmitHint(
+            'Digite o código e o nome do aparelho.',
+            visible: !_ready,
+            reserve: true,
+          ),
         ],
       );
     },

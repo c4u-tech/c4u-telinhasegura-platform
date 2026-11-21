@@ -18,6 +18,7 @@ import '../family/widgets.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'pack_rows.dart';
+import 'provenance_view.dart';
 import 'words.dart';
 
 /// `/familia/videos/:crianca/pacotinho/:pacotinho`: one of the child's
@@ -143,7 +144,7 @@ class _PackScreenState extends State<PackScreen> {
       const SizedBox(height: Space.xs),
       Text(CatalogWords.packCount(p, nickname), style: muted),
       const SizedBox(height: Space.lg),
-      Text(CatalogWords.packProvenance(p, clock.now()), style: text.bodyLarge),
+      ProvenanceView.pack(p, now: clock.now()),
       const SizedBox(height: Space.xl),
       Semantics(
         header: true,

@@ -1,4 +1,5 @@
 import '../auth/auth_api.dart' show PlatformRole;
+import '../curation/curation.dart' show VideoTheme;
 import '../curation/shared_link.dart';
 
 /// The app's routes.
@@ -71,6 +72,12 @@ abstract final class Routes {
 
   /// A pacotinho's player: `/crianca/pacotinho/:id`.
   static const kidPack = '/crianca/pacotinho';
+
+  /// A theme's page, opened from its block: `/crianca/tema/:tema`.
+  static const kidTheme = '/crianca/tema';
+
+  /// Every pacotinho of the day, opened from the home.
+  static const kidPacks = '/crianca/pacotinhos';
   static const redeem = '/vincular-aparelho';
 
   /// The curation screens: suggestions for
@@ -372,6 +379,14 @@ abstract final class Routes {
       path.length > kidPack.length + 1 &&
       !path.substring(kidPack.length + 1).contains('/');
 
+  static String theme(VideoTheme theme) => '$kidTheme/${theme.wire}';
+
+  /// A theme's page: one segment under [kidTheme].
+  static bool isTheme(String path) =>
+      path.startsWith('$kidTheme/') &&
+      path.length > kidTheme.length + 1 &&
+      !path.substring(kidTheme.length + 1).contains('/');
+
   static const signedOutOnly = {
     entry,
     emailSignIn,
@@ -451,15 +466,18 @@ abstract final class Routes {
 
   /// Where a child's mode may stay; anything else lands on [kidHome].
   /// Only a linked device picks a profile. Both play a
-  /// video and a pacotinho.
-  static const sharedKidOnly = {kidHome, kidExit};
-  static const linkedDeviceOnly = {kidHome, kidExit, profilePicker};
+  /// video and a pacotinho, and open what the home opens.
+  static const sharedKidOnly = {kidHome, kidExit, kidPacks};
+  static const linkedDeviceOnly = {kidHome, kidExit, profilePicker, kidPacks};
 
   static bool sharedKidMay(String path) =>
-      sharedKidOnly.contains(path) || isWatch(path) || isPack(path);
+      sharedKidOnly.contains(path) || _fromHome(path);
 
   static bool linkedDeviceMay(String path) =>
-      linkedDeviceOnly.contains(path) || isWatch(path) || isPack(path);
+      linkedDeviceOnly.contains(path) || _fromHome(path);
+
+  static bool _fromHome(String path) =>
+      isWatch(path) || isPack(path) || isTheme(path);
 
   /// The child side and the PIN gate, which a guardian never sees.
   static bool isKidSide(String path) =>
@@ -468,7 +486,7 @@ abstract final class Routes {
   /// Hidden from guardians; the server still answers `not_owner`.
   static const ownerOnly = {invitations, deleteFamily};
 
-  /// Where a suspended account may go (suspension screens): its
+  /// Where a suspended account may go: its
   /// home, its data and its erasure, and, for the family's owner, the two
   /// steps the erasure asks of them. Anything else goes home.
   static const suspendedMay = {home, accountData, accountDelete};

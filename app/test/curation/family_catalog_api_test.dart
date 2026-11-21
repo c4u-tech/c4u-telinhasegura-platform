@@ -104,7 +104,7 @@ void main() {
     final v = page.videos.single;
     expect(v.id, 'v1');
     expect(v.channelTitle, 'Canal Baby Shark');
-    // The Guardian Window plays it (family catalogue screens).
+    // The Guardian Window plays it.
     expect(v.youtubeId, 'XqZsoesa55w');
     expect(v.duration, const Duration(minutes: 5));
     expect(v.theme, VideoTheme.bichos);

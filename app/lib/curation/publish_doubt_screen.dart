@@ -11,11 +11,13 @@ import '../design/field_layout.dart';
 import '../design/tokens.dart';
 import '../family/family.dart';
 import '../family/profile_fields.dart' show AgeBandChoice, SelectableRow;
+import '../family/confirm.dart' show staffReasonMax;
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
-import 'approve_screen.dart' show fastPaceLine, tooLongForYoungestLine;
+import 'approve_screen.dart' show tooLongForYoungestLine;
+import 'band_answer_row.dart';
 import 'curation.dart';
 import 'held_video_screen.dart' show doubtsHeading, heldGone;
 import 'role_gate.dart';
@@ -23,10 +25,23 @@ import 'video_heading.dart';
 import 'words.dart';
 
 const publishLead =
-    'Publicar põe o vídeo nas prateleiras com o tema e a idade que você '
-    'escolher. O motivo fica registrado.';
+    'Publicar põe o vídeo no app com o tema e a idade que você escolher. '
+    'O motivo fica registrado.';
 const publishHint = 'Escolha um tema e uma idade e escreva o motivo.';
 const publishReasonInvalid = 'Escreva um motivo de 3 a 200 caracteres.';
+
+/// The band the round's answers give, stated over the answers behind it.
+String roundBandStatement(AgeBand from) =>
+    'Pelas respostas da rodada, este vídeo serve a partir de ${from.label}';
+
+/// Who gave an answer, by displayed role: "Mãe ou pai respondeu".
+String answeredBy(DisplayRole role) => '${role.label} respondeu';
+
+/// `not_watched` here: the player is on the held video's screen, a step
+/// back.
+const publishNotWatched =
+    'O vídeo ainda não tocou até o fim. Volte, assista inteiro e publique '
+    'de novo.';
 
 /// Back on the list after "Publicar".
 String publishedFromDoubt(String title) =>
@@ -34,11 +49,13 @@ String publishedFromDoubt(String title) =>
 
 /// `/moderacao/retidos/:id/publicar`: a moderator or an admin settles a
 /// curator's doubt by publishing: one theme of six, a band of three and a
-/// reason of 3 to 200 characters, through [ReauthWrite]. A video no
-/// longer held by a doubt goes back to the list. "2 a 4 anos" is not
-/// offered for a video longer than the youngest band allows, nor for one a
-/// doubt found fast-paced; the server holds the rule for every review of
-/// the round, so its refusal takes the band away too.
+/// reason of 3 to 200 characters, through [ReauthWrite]. Above the theme
+/// and band, the band the round's answers give, stated, with each answer
+/// behind it and who gave it by displayed role, never to be changed here.
+/// A video no longer held by a doubt goes back to the list. The bands younger than
+/// the round's answers allow are not offered, nor "2 a 4 anos" for a video
+/// longer than the youngest band allows; the server holds the rule, so a
+/// band it refuses goes away with every younger one.
 class PublishDoubtScreen extends StatefulWidget {
   const PublishDoubtScreen({super.key, required this.id, this.held});
 
@@ -61,8 +78,8 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
   AgeBand? _band;
   String? _fieldError;
 
-  /// The server refused "2 a 4 anos" for this video.
-  bool _youngestRefused = false;
+  /// The band the server last refused for this video, if any.
+  AgeBand? _refused;
 
   @override
   void initState() {
@@ -128,18 +145,33 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
         .map((d) => d.minAgeBand)
         .where((b) => b != null && b != AgeBand.unknown)
         .firstOrNull;
-    if (_upTo4Barred(held) && _band == AgeBand.upTo4) _band = null;
+    if (_barred(held).contains(_band)) _band = null;
   }
 
   static bool _tooLong(HeldVideo held) =>
       held.video.duration > defaultYoungestMax;
 
-  static bool _fast(HeldVideo held) => held.doubts.any(
-    (d) => d.answers?[fastPaceItem] == ChecklistAnswer.appears,
-  );
+  /// The youngest band the round's answers allow, as the server computed
+  /// it; null when it does not say.
+  static AgeBand? _computed(HeldVideo held) => switch (held.computedBand) {
+    final b? when b != AgeBand.unknown => b,
+    _ => null,
+  };
 
-  bool _upTo4Barred(HeldVideo held) =>
-      _youngestRefused || _tooLong(held) || _fast(held);
+  /// The bands not offered: those younger than the round's answers allow,
+  /// "2 a 4 anos" for a video too long for it, and the band the server
+  /// refused with every younger one.
+  Set<AgeBand> _barred(HeldVideo held) {
+    final from = _computed(held);
+    return {
+      for (final b in AgeBand.values)
+        if (b != AgeBand.unknown &&
+            (from != null && b.index < from.index ||
+                b == AgeBand.upTo4 && _tooLong(held) ||
+                _refused != null && b.index <= _refused!.index))
+          b,
+    };
+  }
 
   bool _handle(ApiError e) {
     if (takeLostRole(context, e)) return true;
@@ -149,9 +181,18 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
     }
     if (e.code == 'checklist_band') {
       setState(() {
-        _youngestRefused = true;
-        if (_band == AgeBand.upTo4) _band = null;
+        _refused = _band;
+        _band = null;
       });
+      return false;
+    }
+    // The server heard no end in this round: the end seen on the held
+    // screen is forgotten, so it says so and "Publicar" waits there again.
+    if (e.code == 'not_watched') {
+      if (_held case final held?) {
+        AppScope.of(context).moderatorEnds
+            .forget(held.video.id, held.video.round);
+      }
       return false;
     }
     if (e.code != 'reason_required') return false;
@@ -159,16 +200,25 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
     return true;
   }
 
+  /// An end report the held screen failed to send is sent once more
+  /// first, since the server refuses a publication it never heard the end
+  /// of.
   Future<void> _publish(Video v, VideoTheme theme, AgeBand band) async {
-    final api = AppScope.of(context).staff;
+    final scope = AppScope.of(context);
+    final api = scope.staff;
+    final ends = scope.moderatorEnds;
     final ok = await _write.write(
-      () => api.decideDoubt(
-        v.id,
-        publish: true,
-        theme: theme,
-        minAgeBand: band,
-        reason: _reason.text.trim(),
-      ),
+      () async {
+        await ends.resend(v.id, v.round);
+        await api.decideDoubt(
+          v.id,
+          publish: true,
+          theme: theme,
+          minAgeBand: band,
+          reason: _reason.text.trim(),
+        );
+      },
+      overrides: const {'not_watched': publishNotWatched},
       handle: _handle,
     );
     if (ok && mounted) {
@@ -221,6 +271,26 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
             child: Text(CurationWords.review(d), style: text.bodyLarge),
           ),
       ],
+      if (_computed(held) case final from?) ...[
+        const SizedBox(height: Space.xl),
+        Semantics(
+          header: true,
+          child: Text(roundBandStatement(from), style: text.headlineSmall),
+        ),
+        const SizedBox(height: Space.xs),
+        for (final b in held.bandAnswers)
+          BandAnswerRow(
+            question: b.text,
+            word: b.answer.word,
+            changeable: false,
+            by: answeredBy(b.displayRole),
+          ),
+      ],
+      // The length, not an answer, bars the youngest band.
+      if (_tooLong(held) && held.bandAnswers.isEmpty) ...[
+        const SizedBox(height: Space.sm),
+        Text(tooLongForYoungestLine, style: text.bodyLarge),
+      ],
       const SizedBox(height: Space.xl),
       Text('Tema', style: text.titleMedium),
       const SizedBox(height: Space.md),
@@ -228,7 +298,10 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
         if (t != VideoTheme.unknown) ...[
           if (i > 0) const SizedBox(height: Space.sm),
           SelectableRow(
-            label: t.label,
+            // Read with its meaning, as it is shown.
+            label: '${t.label}, ${t.definition}',
+            text: t.label,
+            detail: t.definition,
             selected: t == theme,
             onTap: idle ? () => setState(() => _theme = t) : null,
           ),
@@ -238,27 +311,15 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: band,
-        disabled: _upTo4Barred(held) ? const {AgeBand.upTo4} : const {},
+        disabled: _barred(held),
         onChanged: idle ? (b) => setState(() => _band = b) : null,
       ),
-      if (_fast(held)) ...[
-        const SizedBox(height: Space.sm),
-        Text(fastPaceLine, style: text.bodyMedium),
-      ],
-      if (_tooLong(held)) ...[
-        const SizedBox(height: Space.sm),
-        Text(tooLongForYoungestLine, style: text.bodyMedium),
-      ],
       const SizedBox(height: Space.xl),
-      TextField(
+      ReasonField(
         controller: _reason,
-        maxLength: 200,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(
-          labelText: 'Motivo',
-          errorText: _fieldError,
-          errorMaxLines: 3,
-        ),
+        label: 'Motivo',
+        maxLength: staffReasonMax,
+        errorText: _fieldError,
       ),
       const SizedBox(height: Space.xl),
       if (_write.message case final message?) ...[

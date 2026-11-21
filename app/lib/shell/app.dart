@@ -7,9 +7,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../design/theme.dart';
+import '../parental/app_mode.dart';
 import 'router.dart';
 import 'services.dart';
 import 'splash.dart';
+import 'start_failed.dart';
+import 'system_bars.dart';
 
 class TelinhaSeguraApp extends StatefulWidget {
   const TelinhaSeguraApp({
@@ -32,8 +35,14 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
     initialLocation: widget.initialLocation,
   );
 
-  /// The mode's start-up read failed: the splash offers a retry.
-  final _restoreFailed = ValueNotifier(false);
+  /// Whether a child holds the device, as last known: an unknown mode
+  /// between two known ones keeps it.
+  bool _childHolds = false;
+
+  /// The mode's start-up read: how many tries failed, and whether one
+  /// is under way. Once one failed, its screen offers to try again and
+  /// stands, busy while a try runs, until the mode is known.
+  final _restoring = ValueNotifier((failures: 0, trying: true));
 
   /// A link the platform pushed while the splash stood in for the router.
   /// iOS delivers the link that launched the app this way, right after the
@@ -70,18 +79,30 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
     });
   }
 
-  /// The session first, then the mode it decides.
-  Future<void> _restore() async {
-    await widget.services.client.restoreStatus();
-    await _restoreMode();
-  }
+  /// The session's status has been read: a retry reads only the mode.
+  bool _statusKnown = false;
 
-  Future<void> _restoreMode() async {
-    _restoreFailed.value = false;
+  /// The session first, then the mode it decides; a retry does the same,
+  /// from where the last try failed. Either failing lands on the failed
+  /// start, so the opening never waits on a read that will not come.
+  Future<void> _restore() async {
+    final failures = _restoring.value.failures;
+    _restoring.value = (failures: failures, trying: true);
+    final appMode = widget.services.appMode;
     try {
-      await widget.services.appMode.restore();
+      if (!_statusKnown) {
+        try {
+          await widget.services.client.restoreStatus();
+        } on Object {
+          await appMode.startFailed();
+          rethrow;
+        }
+        _statusKnown = true;
+      }
+      await appMode.restore();
+      if (mounted) _restoring.value = (failures: 0, trying: false);
     } on Object {
-      if (mounted) _restoreFailed.value = true;
+      if (mounted) _restoring.value = (failures: failures + 1, trying: false);
     }
   }
 
@@ -90,7 +111,7 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
     WidgetsBinding.instance.removeObserver(this);
     widget.services.appMode.removeListener(_releaseHeldLink);
     _router.dispose();
-    _restoreFailed.dispose();
+    _restoring.dispose();
     super.dispose();
   }
 
@@ -110,21 +131,40 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
       // the session restore comes first, so this also
       // covers an unknown status.
       //
-      // Status bar icons contrast with the guardian ground of the active
-      // theme; kid screens set their own (KidLayout), and leaving them
-      // must not keep it.
+      // The system bars are clear and their icons contrast with the
+      // guardian ground of the active theme; kid screens set their own
+      // (KidLayout), and leaving them must not keep it. While a child
+      // holds the device the bars are hidden.
       builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: Theme.of(context).brightness == Brightness.dark
-            ? SystemUiOverlayStyle.light
-            : SystemUiOverlayStyle.dark,
+        value: barsOver(Theme.of(context).brightness),
         child: ListenableBuilder(
-          listenable: Listenable.merge([
-            widget.services.appMode,
-            _restoreFailed,
-          ]),
-          builder: (context, _) => widget.services.appMode.mode == null
-              ? Splash(onRetry: _restoreFailed.value ? _restoreMode : null)
-              : child!,
+          listenable: Listenable.merge([widget.services.appMode, _restoring]),
+          builder: (context, _) {
+            final appMode = widget.services.appMode;
+            final mode = appMode.mode;
+            final restore = _restoring.value;
+            final failed = mode == null && restore.failures > 0;
+            if (mode != null) {
+              _childHolds = mode is SharedKid || mode is LinkedDevice;
+            } else if (failed) {
+              _childHolds = appMode.childMayHold;
+            }
+            return ModeBars(
+              hidden: _childHolds,
+              child: Opening(
+                ready: mode != null,
+                failure: failed
+                    ? StartFailed(
+                        onRetry: _restore,
+                        busy: restore.trying,
+                        child: appMode.childMayHold,
+                        attempt: restore.failures,
+                      )
+                    : null,
+                child: child!,
+              ),
+            );
+          },
         ),
       ),
     ),

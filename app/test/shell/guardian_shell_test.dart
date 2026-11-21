@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:telinha_segura/design/band_transition.dart';
 import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
@@ -213,37 +214,57 @@ void main() {
       }
     });
 
-    testWidgets('the selected destination is cut as a screen module in the '
-        'action colour, never a pill', (tester) async {
-      await shellAt(tester, '/');
+    for (final (place, size) in [('bar', phone), ('rail', wide)]) {
+      for (final brightness in Brightness.values) {
+        testWidgets('on the $place, ${brightness.name}, the selected '
+            'destination is marked in sun with a dark glyph, a block wide '
+            'enough to read behind its icon, never a pill', (tester) async {
+          tester.platformDispatcher.platformBrightnessTestValue = brightness;
+          addTearDown(
+            tester.platformDispatcher.clearPlatformBrightnessTestValue,
+          );
+          await shellAt(tester, '/', size: size);
+          final p = brightness == Brightness.light
+              ? Palette.light
+              : Palette.dark;
+          final rail = place == 'rail';
 
-      final module = tester.widget<Container>(
-        find.descendant(
-          of: find.widgetWithText(DestinationTile, 'Início'),
-          matching: find.byKey(DestinationTile.indicatorKey),
-        ),
-      );
-      final box = module.decoration! as BoxDecoration;
-      final size = tester.getSize(
-        find.descendant(
-          of: find.widgetWithText(DestinationTile, 'Início'),
-          matching: find.byKey(DestinationTile.indicatorKey),
-        ),
-      );
-      expect(box.color, Palette.light.action);
-      expect(size, const Size(ShellSizes.indicatorWidth, ShellSizes.indicator));
-      expect(
-        box.borderRadius,
-        BorderRadius.circular(ShellSizes.indicator * Radii.screenRatio),
-      );
-      final idle = tester.widget<Container>(
-        find.descendant(
-          of: find.widgetWithText(DestinationTile, 'Conta'),
-          matching: find.byKey(DestinationTile.indicatorKey),
-        ),
-      );
-      expect((idle.decoration! as BoxDecoration).color, isNull);
-    });
+          Finder indicatorOf(String label) => find.descendant(
+            of: find.widgetWithText(DestinationTile, label),
+            matching: find.byKey(DestinationTile.indicatorKey),
+          );
+          Color? glyphOf(String label) => tester
+              .widget<Icon>(
+                find.descendant(
+                  of: indicatorOf(label),
+                  matching: find.byType(Icon),
+                ),
+              )
+              .color;
+
+          final box =
+              tester.widget<Container>(indicatorOf('Início')).decoration!
+                  as BoxDecoration;
+          expect(box.color, p.indicator);
+          expect(glyphOf('Início'), p.onIndicator);
+          expect(ShellSizes.indicatorWidth, 56);
+          expect(
+            tester.getSize(indicatorOf('Início')),
+            const Size(ShellSizes.indicatorWidth, ShellSizes.indicator),
+          );
+          expect(
+            box.borderRadius,
+            BorderRadius.circular(ShellSizes.indicator * Radii.screenRatio),
+          );
+          // The others keep their quiet look.
+          final idle =
+              tester.widget<Container>(indicatorOf('Conta')).decoration!
+                  as BoxDecoration;
+          expect(idle.color, isNull);
+          expect(glyphOf('Conta'), rail ? p.onField : p.muted);
+        });
+      }
+    }
 
     testWidgets('the bar sits on the ground under a reed hairline', (
       tester,
@@ -284,32 +305,104 @@ void main() {
       });
     }
 
-    testWidgets('the rail centres the reversed wordmark under the head, '
-        'at least 22 tall, with the destinations at the start below', (
-      tester,
-    ) async {
+    testWidgets('the rail starts the wordmark under the mascot, at least '
+        '22 tall, on the destinations\' start edge below it', (tester) async {
       await shellAt(tester, '/', size: wide);
 
       final rail = find.byType(InkRail);
       expect(brandAssets(tester, rail).map((a) => a.$1), [
-        'assets/brand/telinha-segura-wordmark-reversed.svg',
+        'assets/brand/telinha-segura-wordmark-color-on-dark.svg',
       ]);
       final wordmark = find.descendant(
         of: rail,
         matching: find.byType(SvgPicture),
       );
-      final head = find.descendant(
-        of: rail,
-        matching: find.byType(PeekingHead),
-      );
       expect(tester.getSize(wordmark).height, greaterThanOrEqualTo(22));
+      final plate = tester.getRect(wordmark);
+      final indicator = tester.getRect(
+        find.byKey(DestinationTile.indicatorKey).first,
+      );
       expect(
-        tester.getCenter(wordmark).dx,
-        moreOrLessEquals(tester.getCenter(head).dx, epsilon: 2),
+        plate.left,
+        moreOrLessEquals(indicator.left, epsilon: .01),
+        reason: 'the destinations\' start edge',
+      );
+      final box = tester.getRect(find.byType(Tevi));
+      expect(
+        plate.left,
+        moreOrLessEquals(
+          box.left + TeviPainter.body.left * box.width,
+          epsilon: .01,
+        ),
+        reason: 'under the mascot\'s body',
       );
       final first = tester.getRect(find.byType(DestinationTile).first);
-      expect(first.top, greaterThan(tester.getRect(wordmark).bottom));
-      expect(first.left, lessThan(tester.getRect(wordmark).left));
+      expect(first.top, greaterThan(plate.bottom));
+    });
+
+    for (final (width, brightness) in [
+      (wide.width, Brightness.light),
+      (wide.width, Brightness.dark),
+      (840.0, Brightness.light),
+      (1280.0, Brightness.dark),
+    ]) {
+      testWidgets('at $width, ${brightness.name}, the mascot stands whole on '
+          'the rail\'s top edge at its start, watching', (tester) async {
+        tester.platformDispatcher.platformBrightnessTestValue = brightness;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+        await shellAt(tester, '/', size: Size(width, 800));
+
+        final tevi = find.descendant(
+          of: find.byType(InkRail),
+          matching: find.byType(Tevi),
+        );
+        final figure = tester.widget<Tevi>(tevi);
+        expect(figure.look, TeviLook.watching);
+        expect(figure.size, ShellSizes.railTevi);
+        expect(figure.night, brightness == Brightness.dark);
+        final box = tester.getRect(tevi);
+        final field = tester.getRect(find.byKey(InkRail.fieldKey));
+        expect(
+          box.top + TeviPainter.perchY * box.width - field.top,
+          moreOrLessEquals(TeviPainter.perchOverlap, epsilon: .01),
+        );
+        expect(
+          box.left + TeviPainter.body.left * box.width,
+          moreOrLessEquals(field.left + Space.xl, epsilon: .01),
+        );
+        expect(box.top + TeviPainter.body.top * box.width, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a confirmation beside the rail makes its mascot wink', (
+      tester,
+    ) async {
+      final winks = ValueNotifier(0);
+      addTearDown(winks.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(Brightness.light),
+          home: Scaffold(
+            body: InkRail(
+              destinations: const [Destination.inicio, Destination.conta],
+              selected: Destination.inicio,
+              onOpen: (_) {},
+              winks: winks,
+            ),
+          ),
+        ),
+      );
+      TeviLook look() => tester.widget<Tevi>(find.byType(Tevi)).look;
+      expect(look(), TeviLook.watching);
+
+      winks.value++;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(look(), TeviLook.winking);
+
+      await tester.pumpAndSettle();
+      expect(look(), TeviLook.watching);
     });
 
     testWidgets('the rail is the ink field, cut at the mark radius, with no '
@@ -319,7 +412,7 @@ void main() {
       final field = tester.widget<DecoratedBox>(find.byKey(InkRail.fieldKey));
       final box = field.decoration as BoxDecoration;
       expect(box.color, Palette.light.field);
-      expect(box.borderRadius, BorderRadius.circular(10 * ShellSizes.railUnit));
+      expect(box.borderRadius, BorderRadius.circular(ShellSizes.railCorner));
       expect(box.boxShadow, isNull);
       expect(
         tester.getRect(find.byKey(InkRail.fieldKey)),
@@ -450,7 +543,6 @@ void main() {
 
   group('outside the shell', () {
     final states = <String, void Function(Harness)>{
-      'no family': (h) => h.family = null,
       'the email unverified': (h) => h
         ..family = null
         ..unverified = true,
@@ -471,15 +563,13 @@ void main() {
       }
     }
 
-    testWidgets('with no family, /conta keeps its back to the home', (
-      tester,
-    ) async {
-      final h = await shellAt(tester, '/conta', setUp: (h) => h.family = null);
+    testWidgets('with no family, /conta stands in the navigation, with no '
+        'back control', (tester) async {
+      await shellAt(tester, '/conta', setUp: (h) => h.family = null);
 
-      expect(find.byType(ShellBar), findsNothing);
-      await tester.tap(find.byTooltip('Voltar'));
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/');
+      expect(find.byType(ShellBar), findsOneWidget);
+      expect(selected(tester), Destination.conta);
+      expect(find.byTooltip('Voltar'), findsNothing);
     });
 
     testWidgets('terms pending show the terms screen without the shell', (

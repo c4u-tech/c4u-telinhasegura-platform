@@ -12,18 +12,24 @@ import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family.dart';
-import '../family/profile_fields.dart' show AgeBandChoice, SelectableRow;
+import '../family/profile_fields.dart' show SelectableRow;
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../legal/legal_links.dart' show kCurationUrl;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'adult_window.dart';
 import 'answer_choice.dart';
+import 'band_answer_row.dart';
 import 'approval_draft.dart';
 import 'curation.dart';
+import 'curation_api.dart';
+import 'draft_writer.dart';
+import 'end_line.dart';
 import 'queue_screen.dart' show leaveForQueue;
-import 'video_heading.dart';
+import 'unheard_ends.dart';
 import 'words.dart';
+
+export 'end_line.dart' show notPlayedToEnd, playedToEnd;
 
 /// "Antes de começar": what the app checked when the video was suggested.
 const checkedByApp =
@@ -34,23 +40,46 @@ const checkedByApp =
 /// when the video can be approved.
 const startQuestions = 'Começar as perguntas';
 const nextStep = 'Próxima etapa';
-const chooseTopic = 'Escolher tema e idade';
+const chooseTopic = 'Ver a idade e escolher o tema';
 
 /// The primary of a page that leads to the review: the theme and band, the
 /// last step when the answers do not approve, and a page changed from the
 /// review.
 const seeSummary = 'Ver resumo';
 
-/// The flow's title on every page, whatever the answers lead to.
-const flowTitle = 'Revisar vídeo';
-
-/// A step's shortcut, and the line that parts it from the questions.
+/// The shortcut at the foot of a step: with nothing answered, then once
+/// some questions are, with the line that says how many it answers.
 const noneHappens = 'Nada disso acontece no vídeo';
-const orOneByOne = 'ou responda uma a uma';
+const restHappens = 'O resto não acontece no vídeo';
+String restLine(int n) => n == 1
+    ? 'Marca Não na pergunta ainda sem resposta.'
+    : 'Marca Não nas $n perguntas ainda sem resposta.';
 
 /// Under a page's primary until it can go on.
 const stepHint = 'Responda todas as perguntas desta etapa.';
-const approveHint = 'Escolha um tema e uma idade acima.';
+
+/// The band page's hints, by what is missing: a theme, then, for an older
+/// band, the band and why.
+const themeHint = 'Escolha um tema acima.';
+const olderBandHint = 'Escolha a idade acima.';
+const olderReasonHint = 'Escreva por que é para mais velhos.';
+
+/// The band page's ways on: confirming the band the answers give, or
+/// saying the video is for older children, with why.
+String confirmBandLabel(AgeBand band) => 'Confirmar ${band.label}';
+const olderLabel = 'É para mais velhos';
+const olderReasonLabel = 'Por que é para mais velhos';
+const continueLabel = 'Continuar';
+
+/// Back from the older bands to confirming the answers' band.
+String stayWithLabel(AgeBand band) => 'Ficar com ${band.label}';
+
+/// The band page's statement of the band the answers give.
+String bandStatement(AgeBand from) =>
+    'Pelas respostas, este vídeo serve a partir de ${from.label}';
+
+/// Under "Aprovar" until the video has played to its end here.
+const watchHint = 'Para aprovar, deixe o vídeo tocar até o fim.';
 
 /// The review: its title, a step with nothing marked, the action back to
 /// a step, and the line of the theme and band.
@@ -64,12 +93,10 @@ const approveLabel = 'Aprovar';
 const refuseLabel = 'Recusar';
 const teamLabel = 'Enviar para a equipe';
 
-/// Under the bands when the pace rules out the youngest.
-const fastPaceLine = 'Ritmo agitado não serve para 2 a 4 anos.';
-
-/// Under the bands when the video's length rules out the youngest.
+/// When the video's length, not an answer, rules out the youngest band.
 const tooLongForYoungestLine =
-    'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.';
+    'Vídeos com mais de 60 minutos não vão para a faixa de '
+    '2\u00A0a\u00A04\u00A0anos.';
 
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';
@@ -105,21 +132,35 @@ const curationRule = 'Todo vídeo precisa ser Livre.';
 /// The link to the criteria of each band, on the site.
 const curationCriteriaLink = 'Veja os critérios de cada idade';
 
+/// What the band's arrow says it does: leave the questions for the video's
+/// screen, the answers kept, from any page.
+const leaveForVideo = 'Voltar para o vídeo';
+
 /// "Etapa 2 de 5".
 String stepLabel(int step, int of) => 'Etapa $step de $of';
 
 /// `/curadoria/:id/aprovar`: the checklist the server holds, one page at
 /// a time. "Antes de começar" (the list's first group, under what the app
 /// already checked), then one step per remaining group, each going on only
-/// once every question is answered; then the theme and band, only when
-/// the answers approve; then "Confira antes de enviar", whose final button
+/// once every question is answered; then the band page, only when the
+/// answers approve: the band the answers give stated, with the answers that
+/// moved it, and the theme to choose; the curator confirms that band or
+/// says the video is for older children, choosing an older band and saying
+/// why. Then "Confira antes de enviar", whose final button
 /// says what happens: "Aprovar", "Recusar" (the refusal, with the
 /// questions ticked) or "Enviar para a equipe" (an approval the server
 /// holds as a doubt). A tie to the channel ends on the first page. Back,
-/// on screen or from the system, goes one page back; leaving drops the
-/// answers. The video plays at the top of the first page and of every
-/// step, in one player for the whole flow, so going from step to step
-/// never reloads it; it goes when the flow does.
+/// from the foot or from the system, goes one page back; the band's arrow
+/// leaves for the video's screen from any page. Every change is kept
+/// by the server as the curator's draft, so leaving and coming back picks
+/// up the answers, theme, band and note where they were (the reason for an
+/// older band is asked again: the draft has no place for it). A band
+/// younger than the answers give is never offered. The video's window stays in view on
+/// every page, pinned above the questions on a phone and in a pane of its
+/// own on a large window, in one player for the whole flow, so going from
+/// page to page never reloads it; it goes when the flow does. A line under
+/// it says whether the video has played to its end, which "Aprovar" waits
+/// for; a refusal and a doubt do not.
 class ApproveScreen extends StatefulWidget {
   const ApproveScreen({super.key, required this.id, this.video});
 
@@ -135,28 +176,61 @@ class ApproveScreen extends StatefulWidget {
 class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   final _send = Submission();
   final _note = TextEditingController();
+  final _bandReason = TextEditingController();
   bool _started = false;
   Video? _video;
   Checklist? _list;
   ApprovalDraft? _draft;
+
+  /// The draft the server kept, read with the list; null with none.
+  ReviewDraft? _kept;
+
+  /// Whether the kept draft was read, with a draft or with none. Until it
+  /// is, nothing is written: a write would replace what it holds.
+  bool _keptRead = false;
+
+  /// A read of the kept draft in flight before the first write.
+  bool _rereading = false;
+  late final CurationApi _api;
+  late final UnheardEnds _ends;
+  late final _writer = DraftWriter<_Kept>(
+    (k) => _api.saveDraft(
+      widget.id,
+      version: k.version,
+      answers: k.answers,
+      theme: k.theme,
+      minAgeBand: k.band,
+      note: k.note,
+    ),
+  );
   bool _checklistFailed = false;
   bool _refused = false;
   String? _done;
 
-  /// Keeps the one player's view across pages: each page is built anew,
-  /// and a view built anew would load the video again.
-  final _window = GlobalKey();
+  /// Whether the video played to its end for this curator: told by the
+  /// player here, by the kept draft, or by an end seen on the video's
+  /// screen that the server has not heard yet. Once true it stays.
+  bool _playedToEnd = false;
+
+  /// Keeps the watched block (the one player's view and the line under
+  /// it) across pages: each page is built anew, and a view built anew
+  /// would load the video again, a line built anew be announced again.
+  final _watched = GlobalKey();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    _api = AppScope.of(context).curation;
+    _ends = AppScope.of(context).unheardEnds;
+    _note.addListener(_noteChanged);
+    _bandReason.addListener(_bandReasonChanged);
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _video = widget.video;
     if (_video case final video?) {
-      openPlayer(video.youtubeId);
+      openPlayer(video.youtubeId, onEnded: _ended);
     } else {
       scheduleMicrotask(_readVideo);
     }
@@ -175,20 +249,106 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         _video = detail.video;
         _startDraft();
       });
-      openPlayer(detail.video.youtubeId);
+      openPlayer(detail.video.youtubeId, onEnded: _ended);
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
       setState(() => _checklistFailed = true);
     }
   }
 
+  /// Tells the draft the video played to its end, which an approval
+  /// needs; a report that fails is kept for the approval to send again.
+  void _ended() {
+    if (mounted) setState(() => _playedToEnd = true);
+    if (_video case final video?) {
+      unawaited(_ends.report(widget.id, video.round));
+    }
+  }
+
+  /// Picks up an end the kept draft or this device already knows of.
+  void _knowEnd(ReviewDraft? kept) {
+    if (kept?.playedToEndAt != null ||
+        (_video != null && _ends.seen(widget.id, _video!.round))) {
+      _playedToEnd = true;
+    }
+  }
+
   /// The questions depend on the video's length, so the answers start
-  /// once both the list and the video are read.
+  /// once both the list and the video are read, from the draft the server
+  /// kept when there is one.
   void _startDraft() {
     if (_draft != null) return;
     if ((_list, _video) case (final list?, final video?)) {
-      _draft = ApprovalDraft(list, length: video.duration);
+      final d = ApprovalDraft(list, length: video.duration);
+      if (_kept case final kept?) d.restore(kept);
+      // Coming back opens where the answers stopped.
+      d.resume();
+      _knowEnd(_kept);
+      _draft = d;
+      _note.text = d.note ?? '';
+      // A reason written before the list was read again still stands.
+      d.bandReason = _bandReason.text;
     }
+  }
+
+  /// Hands the server the review as it stands; it never says when it
+  /// could not, since the next change writes it all again. While the kept
+  /// draft is unread, it is read first and picked up beneath the changes
+  /// made here; a read that fails again writes nothing.
+  void _keep(ApprovalDraft d) {
+    if (_keptRead) return _write(d);
+    if (!_rereading) unawaited(_rereadThenKeep(d));
+  }
+
+  Future<void> _rereadThenKeep(ApprovalDraft d) async {
+    _rereading = true;
+    try {
+      final kept = await _api.draft(widget.id);
+      if (!mounted || d != _draft) return;
+      _keptRead = true;
+      if (kept != null) {
+        setState(() {
+          d.restoreBeneath(kept);
+          _knowEnd(kept);
+        });
+        // Set only when it changed: setting it moves the cursor of a
+        // curator typing in it.
+        if (_note.text != (d.note ?? '')) _note.text = d.note ?? '';
+      }
+      _write(d);
+    } on Exception {
+      // Still unread: the next change tries again.
+    } finally {
+      _rereading = false;
+    }
+  }
+
+  void _write(ApprovalDraft d) {
+    final s = d.snapshot;
+    _writer.write((
+      version: d.checklist.version,
+      answers: s.answers,
+      theme: s.theme,
+      band: s.band,
+      note: s.note,
+    ));
+  }
+
+  void _noteChanged() {
+    final d = _draft;
+    if (d == null) return;
+    final note = _note.text.trim().isEmpty ? null : _note.text;
+    if (note == d.note) return;
+    d.note = note;
+    _keep(d);
+  }
+
+  /// The reason for an older band is not kept in the draft: it lets the
+  /// page go on, and is sent with the approval.
+  void _bandReasonChanged() {
+    final d = _draft;
+    if (d == null || d.bandReason == _bandReason.text) return;
+    _update(() => d.bandReason = _bandReason.text);
   }
 
   /// Tries again what failed to read: the video, the list, or both.
@@ -197,22 +357,33 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     unawaited(_readChecklist());
   }
 
-  /// The list is read on every arrival, and again when the server says it
-  /// changed; a new list starts over on its first page, unanswered. The
-  /// old answers go first, so a failed read offers to try again rather
-  /// than the outdated list.
+  /// The list and the draft are read on every arrival, and again when the
+  /// server says the list changed; a new list starts over with the answers
+  /// the server kept, those to questions left unchanged, on the first page
+  /// with an open question. The old answers go first, so a failed read offers to try
+  /// again rather than the outdated list. A draft that fails to read
+  /// counts as none, and is read again before anything is written.
   Future<void> _readChecklist() async {
     if (!mounted) return;
     setState(() {
       _list = null;
       _draft = null;
       _checklistFailed = false;
+      _keptRead = false;
     });
+    var read = false;
+    final kept = _api.draft(widget.id).then<ReviewDraft?>((d) {
+      read = true;
+      return d;
+    }, onError: (Object _) => null);
     try {
-      final list = await AppScope.of(context).curation.checklist();
+      final list = await _api.checklist();
+      final draft = await kept;
       if (!mounted) return;
       setState(() {
         _list = list;
+        _kept = draft;
+        _keptRead = read;
         _startDraft();
       });
     } on Object catch (e) {
@@ -225,6 +396,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   void dispose() {
     _send.dispose();
     _note.dispose();
+    _bandReason.dispose();
     super.dispose();
   }
 
@@ -237,6 +409,12 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       _refused = false;
       change();
     });
+  }
+
+  /// A change the server keeps in the draft.
+  void _change(ApprovalDraft d, void Function() change) {
+    _update(change);
+    _keep(d);
   }
 
   void _forward() => _update(_draft!.forward);
@@ -254,26 +432,36 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     }
   }
 
+  /// The band's arrow: out of the questions to the video's screen in one
+  /// step, wherever they stand, the draft kept as it is; from the done
+  /// state, to the queue.
+  void _leave() =>
+      context.go(_done != null ? Routes.curation : Routes.review(widget.id));
+
   void _toRefusal(ApprovalDraft d) =>
       context.go(Routes.refuse(widget.id, items: d.refusing), extra: _video);
 
   /// Sends the answers: an approval with its theme and band, or, for the
   /// team, without them and with the optional note.
+  ///
+  /// An end report that failed, here or on the video's screen, is sent
+  /// once more first, since the server refuses an approval it never heard
+  /// the end of.
   Future<void> _submit(ApprovalDraft d) async {
-    final api = AppScope.of(context).curation;
     final team = d.outcome == ApprovalOutcome.team;
     final note = _note.text.trim();
-    final ok = await _send.run(
-      () => api.approve(
+    final ok = await _send.run(() async {
+      await _ends.resend(widget.id, _video!.round);
+      await _api.approve(
         widget.id,
         theme: team ? null : d.theme,
         minAgeBand: team ? null : d.band,
         version: d.checklist.version,
         answers: d.answers,
         note: team && note.isNotEmpty ? note : null,
-      ),
-      handle: (e) => _handle(e, d),
-    );
+        bandReason: team ? null : d.reasonToSend,
+      );
+    }, handle: (e) => _handle(e, d));
     if (!ok || !mounted) return;
     // Decided: nothing is left to watch.
     unawaited(closePlayer());
@@ -288,9 +476,10 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           _refused = true;
           d
             ..theme = null
-            ..band = null
+            ..keepComputed()
             ..change(d.topicPage);
         });
+        _keep(d);
         return true;
       case 'checklist_refuses':
         _toRefusal(d);
@@ -301,9 +490,16 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
             ..band = null
             ..change(d.topicPage);
         });
+        _keep(d);
         return false;
       case 'checklist_outdated':
         unawaited(_readChecklist());
+        return false;
+      // The server heard no end in this round: the line and "Aprovar"
+      // say so again, and the end seen here is forgotten.
+      case 'not_watched':
+        setState(() => _playedToEnd = false);
+        if (_video case final video?) _ends.forget(widget.id, video.round);
         return false;
     }
     return false;
@@ -327,25 +523,23 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       builder: (context, _) => FieldLayout(
         // A new page opens at its top, not where the last one was scrolled.
         key: ValueKey<Object?>(_done ?? _draft?.page),
-        title: flowTitle,
-        onBack: _back,
-        children: [
-          if (_video case final video?) ...[
-            VideoHeading(video),
+        // The window stands for the video: no title over the questions.
+        title: null,
+        // Decided, the player is gone and nothing is left to watch.
+        watch: _done == null && _video != null ? _watch() : null,
+        onBack: _leave,
+        backLabel: _done != null ? 'Voltar para a fila' : leaveForVideo,
+        children: switch (_done) {
+          final done? => [
+            Notice(done),
             const SizedBox(height: Space.xl),
+            PrimaryButton(
+              label: 'Voltar para a fila',
+              onPressed: () => context.go(Routes.curation),
+            ),
           ],
-          ...(switch (_done) {
-            final done? => [
-              Notice(done),
-              const SizedBox(height: Space.xl),
-              PrimaryButton(
-                label: 'Voltar para a fila',
-                onPressed: () => context.go(Routes.curation),
-              ),
-            ],
-            null => _form(),
-          }),
-        ],
+          null => _form(),
+        },
       ),
     ),
   );
@@ -367,14 +561,19 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     return d.page == d.topicPage ? _topic(d) : _review(d);
   }
 
-  /// The video, at the top of the first page and of every step.
-  List<Widget> _player() => [
-    KeyedSubtree(
-      key: _window,
-      child: playerWindow(failed: flowPlayerFailed),
+  /// The video's window and, under it, whether it played to its end.
+  Widget _watch() => KeyedSubtree(
+    key: _watched,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        playerWindow(failed: flowPlayerFailed),
+        const SizedBox(height: Space.md),
+        EndLine(ended: _playedToEnd),
+      ],
     ),
-    const SizedBox(height: Space.xl),
-  ];
+  );
 
   Widget _line(String words) => Semantics(
     liveRegion: true,
@@ -389,7 +588,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         value: d.answerOf(item),
         // A tie to the channel is a fact the curator knows: no "Não sei".
         unsure: item.rule != ChecklistRule.conflict,
-        onChanged: _idle ? (a) => _update(() => d.answer(item, a)) : null,
+        onChanged: _idle ? (a) => _change(d, () => d.answer(item, a)) : null,
       ),
     ],
   ];
@@ -422,7 +621,6 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   List<Widget> _before(ApprovalDraft d, ChecklistGroup g) {
     final text = Theme.of(context).textTheme;
     return [
-      ..._player(),
       Semantics(header: true, child: Text(g.title, style: text.titleMedium)),
       const SizedBox(height: Space.md),
       Text(
@@ -454,7 +652,6 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     final step = d.page;
     final of = d.stepCount;
     return [
-      ..._player(),
       // Announced as the page changes: "Etapa 2 de 5, Linguagem e respeito".
       Semantics(
         container: true,
@@ -472,18 +669,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         ),
       ),
       const SizedBox(height: Space.xl),
-      OutlinedButton(
-        onPressed: _idle ? () => _update(() => d.noneOf(g)) : null,
-        child: const Text(noneHappens),
-      ),
-      const SizedBox(height: Space.md),
-      Text(
-        orOneByOne,
-        textAlign: TextAlign.center,
-        style: text.bodyMedium?.copyWith(color: context.palette.muted),
-      ),
-      const SizedBox(height: Space.xl),
       ..._questions(d, g),
+      ..._shortcut(d, g),
       ..._foot(
         label: d.nextIsTopic
             ? chooseTopic
@@ -496,11 +683,80 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     ];
   }
 
+  /// After a step's last question, the way to answer "Não" to the ones
+  /// still open, read only once the questions are: with none answered,
+  /// "Nada disso acontece no vídeo"; with some, "O resto…" and how many it
+  /// marks; with none open, nothing.
+  List<Widget> _shortcut(ApprovalDraft d, ChecklistGroup g) {
+    final open = d.openIn(g);
+    if (open == 0) return const [];
+    final none = open == g.items.length;
+    return [
+      const SizedBox(height: Space.xl),
+      OutlinedButton(
+        onPressed: _idle ? () => _change(d, () => d.noneOf(g)) : null,
+        // The count is read with the button, as its hint.
+        child: Semantics(
+          hint: none ? null : restLine(open),
+          child: Text(
+            none ? noneHappens : restHappens,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+      if (!none) ...[
+        const SizedBox(height: Space.sm),
+        // Read with the button already.
+        ExcludeSemantics(
+          child: Text(
+            restLine(open),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: context.palette.muted),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  /// The band page: the band the answers give, stated, with each answer
+  /// that moved it (or the length, when only the length did); the rule and
+  /// its criteria; the theme; then the ways on.
   List<Widget> _topic(ApprovalDraft d) {
     final text = Theme.of(context).textTheme;
-    final fast = d.youngestBarred;
-    final long = d.tooLongForYoungest;
+    final moved = d.bandAnswers;
     return [
+      Semantics(
+        header: true,
+        child: Text(bandStatement(d.computedBand), style: text.headlineSmall),
+      ),
+      const SizedBox(height: Space.xs),
+      for (final (item, a) in moved)
+        BandAnswerRow(
+          question: item.text,
+          word: a.word,
+          onChange: _idle
+              ? () => _update(() => d.changeFromTopic(d.pageOf(item)))
+              : null,
+        ),
+      if (moved.isEmpty && d.computedBand != d.answersBand)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.sm),
+          child: Text(tooLongForYoungestLine, style: text.bodyLarge),
+        ),
+      const SizedBox(height: Space.xs),
+      Text(curationRule, style: text.bodyMedium),
+      Semantics(
+        link: true,
+        label: curationCriteriaLink,
+        excludeSemantics: true,
+        onTap: _openCriteria,
+        child: QuietAction(
+          label: curationCriteriaLink,
+          onPressed: _openCriteria,
+        ),
+      ),
+      const SizedBox(height: Space.xl),
       Semantics(header: true, child: Text('Tema', style: text.titleMedium)),
       if (_refused) ...[
         const SizedBox(height: Space.xs),
@@ -517,44 +773,82 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         if (t != VideoTheme.unknown) ...[
           if (i > 0) const SizedBox(height: Space.sm),
           SelectableRow(
-            label: t.label,
+            // Read with its meaning, as it is shown.
+            label: '${t.label}, ${t.definition}',
+            text: t.label,
+            detail: t.definition,
             selected: t == d.theme,
-            onTap: _idle ? () => _update(() => d.theme = t) : null,
+            onTap: _idle ? () => _change(d, () => d.theme = t) : null,
           ),
         ],
+      if (d.olderOpen) ..._older(d) else ..._confirm(d),
+    ];
+  }
+
+  /// "Confirmar" the band the answers give, and, unless they give the
+  /// oldest, "É para mais velhos".
+  List<Widget> _confirm(ApprovalDraft d) => [
+    ..._foot(
+      label: confirmBandLabel(d.computedBand),
+      onPressed: d.canGoOn ? () => _change(d, d.confirmBand) : null,
+      hint: themeHint,
+      back: false,
+    ),
+    if (d.olderBands.isNotEmpty) ...[
+      const SizedBox(height: Space.sm),
+      OutlinedButton(
+        onPressed: _idle ? () => _change(d, d.askOlder) : null,
+        child: const Text(olderLabel, textAlign: TextAlign.center),
+      ),
+    ],
+    const SizedBox(height: Space.sm),
+    QuietAction(label: 'Voltar', onPressed: _back),
+  ];
+
+  /// The older bands only, why, "Continuar", and the way back to
+  /// confirming.
+  List<Widget> _older(ApprovalDraft d) {
+    final text = Theme.of(context).textTheme;
+    return [
       const SizedBox(height: Space.xl),
-      Text('A partir de', style: text.titleMedium),
-      const SizedBox(height: Space.xs),
-      Text(curationRule, style: text.bodyMedium),
       Semantics(
-        link: true,
-        label: curationCriteriaLink,
-        excludeSemantics: true,
-        onTap: _openCriteria,
-        child: QuietAction(
-          label: curationCriteriaLink,
-          onPressed: _openCriteria,
-        ),
+        header: true,
+        child: Text('A partir de', style: text.titleMedium),
       ),
       const SizedBox(height: Space.md),
-      AgeBandChoice(
-        value: d.band,
-        disabled: d.upTo4Barred ? const {AgeBand.upTo4} : const {},
-        onChanged: _idle ? (b) => _update(() => d.band = b) : null,
+      for (final (i, b) in d.olderBands.indexed) ...[
+        if (i > 0) const SizedBox(height: Space.sm),
+        SelectableRow(
+          label: b.label,
+          selected: b == d.band,
+          onTap: _idle ? () => _change(d, () => d.band = b) : null,
+        ),
+      ],
+      const SizedBox(height: Space.lg),
+      ReasonField(
+        controller: _bandReason,
+        label: olderReasonLabel,
+        enabled: _idle,
+        maxLength: ApprovalDraft.bandReasonMax,
       ),
-      if (fast) ...[
-        const SizedBox(height: Space.sm),
-        Text(fastPaceLine, style: text.bodyMedium),
-      ],
-      if (long) ...[
-        const SizedBox(height: Space.sm),
-        Text(tooLongForYoungestLine, style: text.bodyMedium),
-      ],
       ..._foot(
-        label: seeSummary,
+        label: continueLabel,
         onPressed: d.canGoOn ? _forward : null,
-        hint: approveHint,
+        hint: d.theme == null
+            ? themeHint
+            : d.band == null
+            ? olderBandHint
+            : olderReasonHint,
+        back: false,
       ),
+      const SizedBox(height: Space.sm),
+      QuietAction(
+        label: stayWithLabel(d.computedBand),
+        onPressed: _idle ? () => _change(d, d.keepComputed) : null,
+      ),
+      // Apart, so the two never read as one block at large text.
+      const SizedBox(height: Space.sm),
+      QuietAction(label: 'Voltar', onPressed: _back),
     ];
   }
 
@@ -587,6 +881,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           title: topicTitle,
           lines: [
             CurationWords.joined([?d.theme?.label, ?d.band?.label]),
+            // Why the band is older than the answers give.
+            ?d.reasonToSend,
           ],
           onChange: changeTo(d.topicPage),
         ),
@@ -616,13 +912,27 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           ApprovalOutcome.refuse => refuseLabel,
           ApprovalOutcome.team => teamLabel,
         },
-        onPressed: outcome == ApprovalOutcome.refuse
-            ? () => _toRefusal(d)
-            : () => _submit(d),
+        onPressed: switch (outcome) {
+          ApprovalOutcome.refuse => () => _toRefusal(d),
+          // The server takes no approval of a video not played to its end.
+          ApprovalOutcome.approve when !_playedToEnd => null,
+          _ => () => _submit(d),
+        },
+        hint: outcome == ApprovalOutcome.approve ? watchHint : null,
       ),
     ];
   }
 }
+
+/// What the draft keeps: the list version the answers were given to,
+/// with the rest of the review.
+typedef _Kept = ({
+  String version,
+  Map<String, ChecklistAnswer> answers,
+  VideoTheme? theme,
+  AgeBand? band,
+  String? note,
+});
 
 /// One line of the review: a step's title, what it answered other than
 /// "Não" (or, [quiet], "tudo Não"), and "mudar", which goes back to it.
@@ -645,31 +955,39 @@ class _SummaryLine extends StatelessWidget {
     final style = quiet
         ? text.bodyMedium?.copyWith(color: context.palette.muted)
         : text.bodyLarge;
+    final words = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: text.titleMedium),
+        const SizedBox(height: Space.xs),
+        for (final line in lines) Text(line, style: style),
+      ],
+    );
+    final change = QuietAction(
+      label: changeLabel,
+      // The same word on every line: say which step it changes.
+      semanticsLabel: '$changeLabel: $title',
+      inline: true,
+      onPressed: onChange,
+    );
+    // At large text a column beside the words would leave them a word or
+    // two a line: "mudar" goes under them.
+    final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+      child: large
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [words, change],
+            )
+          : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: text.titleMedium),
-                const SizedBox(height: Space.xs),
-                for (final line in lines) Text(line, style: style),
+                Expanded(child: words),
+                const SizedBox(width: Space.sm),
+                change,
               ],
             ),
-          ),
-          const SizedBox(width: Space.sm),
-          QuietAction(
-            label: changeLabel,
-            // The same word on every line: say which step it changes.
-            semanticsLabel: '$changeLabel: $title',
-            inline: true,
-            onPressed: onChange,
-          ),
-        ],
-      ),
     );
   }
 }

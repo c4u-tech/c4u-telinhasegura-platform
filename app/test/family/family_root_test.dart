@@ -86,13 +86,15 @@ void main() {
     expect(find.byType(DoorRow), findsNWidgets(4));
   });
 
-  testWidgets('with no family, /familia goes home to the first use', (
+  testWidgets('with no family, /familia offers the start of one', (
     tester,
   ) async {
     final h = await home(tester, family: null);
 
-    expect(h.location(tester), '/');
+    expect(h.location(tester), '/familia');
+    expect(find.text('Sua família'), findsOneWidget);
     expect(find.text('Começar minha família'), findsOneWidget);
+    expect(find.byType(DoorRow), findsNothing);
   });
 
   group('member', () {

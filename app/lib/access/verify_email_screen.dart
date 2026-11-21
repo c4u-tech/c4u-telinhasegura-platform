@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/api_client.dart';
+import '../design/busy_ring.dart';
 import '../design/field_layout.dart';
 import '../design/tokens.dart';
 import '../shell/routes.dart';
@@ -13,7 +14,7 @@ import 'widgets.dart';
 enum _Stage { confirming, confirmed, expired, failed }
 
 /// `/verificar-email?token=` from the mailed link: confirms once, then
-/// celebrates quietly with "o sol sobe".
+/// celebrates quietly with the mascot's wink.
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({super.key, required this.token});
 
@@ -86,11 +87,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       builder: (context, _) => switch (_stage) {
         _Stage.confirming => const FieldLayout(
           title: 'Confirmando seu e-\u2060mail',
-          children: [Center(child: CircularProgressIndicator())],
+          children: [Center(child: BusyRing())],
         ),
         _Stage.confirmed => FieldLayout(
           title: 'E-\u2060mail confirmado',
-          rise: true,
+          wink: true,
           children: [
             Notice(
               signedIn

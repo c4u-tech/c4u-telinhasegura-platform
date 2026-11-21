@@ -1,6 +1,7 @@
 package repoconfig
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"image/jpeg"
 	"image/png"
@@ -135,6 +136,62 @@ func TestStoreScreenshotSetsMatch(t *testing.T) {
 	}
 }
 
+// The listing reads as one app only if every screenshot shows the same
+// theme. The composer records, beside the images, the theme each one was
+// captured in and the SHA-256 of the file it wrote, so an image replaced
+// by hand, or one left from another run, has no honest record here.
+func TestStoreScreenshotsAreOneTheme(t *testing.T) {
+	const record = "app/store_screens/themes.tsv"
+	recorded := map[string][2]string{}
+	themes := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimRight(read(t, record), "\n"), "\n") {
+		f := strings.Split(line, "\t")
+		if len(f) != 3 {
+			t.Fatalf("%s: want image, theme and SHA-256 in %q", record, line)
+		}
+		recorded[f[0]] = [2]string{f[1], f[2]}
+		themes[f[1]] = true
+	}
+	if len(themes) != 1 {
+		t.Errorf("%s: the screenshots mix themes %v", record, themes)
+	}
+	for theme := range themes {
+		if theme != "dark" && theme != "light" {
+			t.Errorf("%s: unknown theme %q", record, theme)
+		}
+	}
+	seen := 0
+	for _, s := range imageSets {
+		re := regexp.MustCompile(s.pattern)
+		entries, err := os.ReadDir(filepath.Join(Root(), s.dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if !re.MatchString(e.Name()) {
+				continue
+			}
+			rel := s.dir + "/" + e.Name()
+			r, ok := recorded[rel]
+			if !ok {
+				t.Errorf("%s has no theme in %s; compose it with make store-screens", rel, record)
+				continue
+			}
+			seen++
+			data, err := os.ReadFile(filepath.Join(Root(), rel))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if sum := fmt.Sprintf("%x", sha256.Sum256(data)); sum != r[1] {
+				t.Errorf("%s is not the image the composer recorded; compose it with make store-screens", rel)
+			}
+		}
+	}
+	if seen != len(recorded) {
+		t.Errorf("%s records %d images, %d are committed", record, len(recorded), seen)
+	}
+}
+
 func captions(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}
@@ -197,5 +254,27 @@ func TestPlayIconIsThePlaySize(t *testing.T) {
 	}
 	if cfg.Width != 512 || cfg.Height != 512 {
 		t.Errorf("icon is %dx%d, want 512x512", cfg.Width, cfg.Height)
+	}
+}
+
+// The feature graphic shows the mascot the app shows: the generated brand
+// drawing, the brand's sun, and nothing of the mascot the listing showed
+// before (its name, the head and fingers drawn inline over an empty
+// screen, or the older, duller sun).
+func TestFeatureGraphicShowsTheCurrentMascot(t *testing.T) {
+	src := read(t, "app/store_screens/feature.html")
+	old := regexp.MustCompile(`(?i)espiadinha|#f2b23a|A14 14 0 1 1|A2\.15 2\.15|viewBox="2 4 60 57"`)
+	if m := old.FindString(src); m != "" {
+		t.Errorf("feature.html still carries the previous mascot: %q", m)
+	}
+	if !strings.Contains(strings.ToLower(src), "#ffc42e") {
+		t.Error("feature.html does not set the brand's sun, #FFC42E")
+	}
+	mark := regexp.MustCompile(`src="\.\./\.\./site/public/brand/telinha-segura-mark-[a-z-]+\.svg"`)
+	if !mark.MatchString(src) {
+		t.Error("feature.html does not draw the mascot from a generated brand file")
+	}
+	if !strings.Contains(src, "Vídeos escolhidos") || !strings.Contains(src, "algoritmo") {
+		t.Error("feature.html lost its headline")
 	}
 }

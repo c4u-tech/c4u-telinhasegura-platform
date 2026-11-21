@@ -97,7 +97,7 @@ class TimeChoice extends StatelessWidget {
     final style = Theme.of(context).textTheme.bodyLarge;
     final scaler = MediaQuery.textScalerOf(context);
     final key = (width - 2 * Space.sm) / 3 - 2 * Space.sm;
-    const module = 10 * 58 / 33;
+    const module = 10 * Proportions.screen;
     for (final m in minutes) {
       final words = TextPainter(
         text: TextSpan(text: short(m), style: style),

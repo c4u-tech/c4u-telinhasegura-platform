@@ -108,6 +108,11 @@ class StaffApi {
     body: {'reason': reason},
   );
 
+  /// Records that the held video played to its end for the caller:
+  /// publishing a doubt is refused with `not_watched` until it is.
+  Future<void> moderatorEnded(String id) =>
+      _client.send('POST', '/v1/moderation/videos/${_id(id)}/ended');
+
   /// Settles a video a curator's doubt holds: published with [theme] and
   /// [minAgeBand], or removed for good. Needs a re-authentication within
   /// 5 minutes; anything but a doubt answers `state_conflict`.

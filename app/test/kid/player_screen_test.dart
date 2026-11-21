@@ -6,19 +6,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart' show ErrorNote;
 import 'package:telinha_segura/auth/api_error.dart';
+import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
+import 'package:telinha_segura/kid/kid_layout.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/paused_profile.dart';
+import 'package:telinha_segura/kid/player_keys.dart';
 import 'package:telinha_segura/kid/player_screen.dart';
+import 'package:telinha_segura/kid/player_stage.dart';
 import 'package:telinha_segura/kid/shelves.dart';
 
 import '../access/harness.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'fake_player.dart';
-import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'kid_mosaic_test.dart' show pixel, twoShelves;
+import 'shelf_picture.dart';
 
 /// A shared kid whose API answers the catalogue, thumbnails, and a play
 /// with [play] (`yt1` by default).
@@ -68,6 +74,62 @@ Future<Harness> watching(
 FakePlayback current(Harness h) => h.player.current!;
 
 Finder get playerView => find.byKey(FakePlayback.viewKey);
+
+/// The player's dark room: Noite edge to edge and no small mark; back
+/// and play/pause outside [window]; the mascot in its night colours on a
+/// thin wire beside the keys, never over the window nor touching it.
+/// Where the mascot already stands in the window's place ([inWindow]),
+/// the wire stays empty: one mascot on the screen, and the window's place
+/// on Noite too.
+void expectNightStage(
+  WidgetTester tester,
+  Finder window, {
+  bool inWindow = false,
+}) {
+  if (inWindow) {
+    expect(find.byType(Tevi), findsOneWidget);
+    expect(
+      find.descendant(of: window, matching: find.byType(Tevi)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(PlayerPerch),
+        matching: find.byType(Tevi),
+      ),
+      findsNothing,
+    );
+    final stage = tester.widget<ColoredBox>(
+      find.descendant(of: window, matching: find.byType(ColoredBox)).first,
+    );
+    expect(stage.color, BrandColors.dark);
+  }
+  final ground = find
+      .descendant(of: find.byType(KidLayout), matching: find.byType(Scaffold))
+      .first;
+  expect(tester.widget<Scaffold>(ground).backgroundColor, BrandColors.dark);
+  expect(
+    find.byWidgetPredicate((w) => w is Tevi && w.tier == TeviTier.simplified),
+    findsNothing,
+  );
+  final perch = find.byType(PlayerPerch);
+  expect(perch, findsOneWidget);
+  if (inWindow) return;
+  final figure = find.descendant(of: perch, matching: find.byType(Tevi));
+  expect(tester.widget<Tevi>(figure).night, isTrue);
+  final w = tester.getRect(window);
+  final mascot = tester.getRect(figure);
+  // Clear of the window by a margin, so it never seems to stand on it.
+  expect(mascot.overlaps(w.inflate(Space.sm)), isFalse, reason: 'mascot');
+  expect(tester.getRect(perch).overlaps(w), isFalse, reason: 'wire');
+  for (final key in find.byType(PlayerKey).evaluate()) {
+    final rect = tester.getRect(find.byWidget(key.widget));
+    expect(rect.overlaps(w), isFalse, reason: 'key');
+    expect(rect.overlaps(mascot), isFalse, reason: 'mascot beside the keys');
+  }
+  // Nothing paints above the window: no Stack holds it.
+  expect(find.ancestor(of: window, matching: find.byType(Stack)), findsNothing);
+}
 
 List<String> plays(Harness h) =>
     h.actions.where((c) => c.startsWith('POST /v1/child/plays')).toList();
@@ -282,6 +344,9 @@ void main() {
       // The kid note: a picture and the line, never the guardian's alarm
       // icon.
       expect(find.byType(KidErrorNote), findsOneWidget);
+      // The mascot raises its crest: something did not go as planned.
+      // Large in the floating card's night.
+      expectNoteFigure(tester, find.byType(KidErrorNote), TeviLook.crestUp);
       expect(find.byType(ErrorNote), findsNothing);
       expect(find.text(PlayerScreen.videoGone), findsOneWidget);
       expect(
@@ -404,8 +469,47 @@ void main() {
     );
     expect(
       tester.getSize(find.bySemanticsLabel(PlayerScreen.playLabel)),
-      const Size.square(KidSizes.target),
+      const Size.square(PlayerStage.toggleSize),
     );
+    expect(PlayerStage.toggleSize, greaterThanOrEqualTo(88));
+  });
+
+  for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+    testWidgets('at ${size.width.toInt()} × ${size.height.toInt()} the '
+        'player stands in a dark room, the mascot on its wire beside the '
+        'keys', (tester) async {
+      await watching(tester, size: size);
+      expectNightStage(tester, playerView);
+    });
+  }
+
+  testWidgets('upright, back stands at the start and play/pause on the '
+      'window\'s centre line, the round keys in the brand\'s colours', (
+    tester,
+  ) async {
+    await watching(tester);
+    final window = tester.getRect(playerView);
+    final back = tester.getRect(find.bySemanticsLabel(PlayerScreen.back));
+    final toggle = tester.getRect(
+      find.bySemanticsLabel(PlayerScreen.playLabel),
+    );
+    expect(toggle.center.dx, closeTo(window.center.dx, .5));
+    expect(back.left, window.left + Space.xl);
+    expect(back.center.dy, closeTo(toggle.center.dy, .5));
+    final keys = tester.widgetList<PlayerKey>(find.byType(PlayerKey)).toList();
+    expect(keys.map((k) => (k.glyph, k.size, k.filled)), [
+      (PlayerGlyph.back, KidSizes.target, false),
+      (PlayerGlyph.play, PlayerStage.toggleSize, true),
+    ]);
+    // The mascot stands at the end, on the far side from back.
+    final mascot = tester.getRect(
+      find.descendant(
+        of: find.byType(PlayerPerch),
+        matching: find.byType(Tevi),
+      ),
+    );
+    expect(mascot.left, greaterThan(toggle.right));
+    expect(mascot.right, lessThanOrEqualTo(window.right));
   });
 
   testWidgets('no gesture of ours lies on the player', (tester) async {
@@ -485,7 +589,7 @@ void main() {
 
     expect(current(h).closed, isTrue);
     expect(h.location(tester), '/crianca');
-    expect(find.byType(Shelf), findsWidgets);
+    expect(find.byType(ThemeBlock), findsWidgets);
     expect(h.player.opened, hasLength(1));
     expect(plays(h), hasLength(1));
   });
@@ -559,6 +663,8 @@ void main() {
     expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
     final note = find.byType(KidErrorNote);
     expect(note, findsOneWidget);
+    // In the player's dark room the figure wears its night colours.
+    expectPerched(tester, note, TeviLook.crestUp, night: true);
     expect(find.text(PlayerScreen.videoFailed), findsOneWidget);
     // Where the player stood: the note never sat over it.
     expect(tester.getRect(note).overlaps(player), isTrue);

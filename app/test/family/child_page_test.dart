@@ -210,7 +210,7 @@ void main() {
       expect(find.widgetWithText(DisplayTitle, 'Lia'), findsOneWidget);
       // The band under the nickname, above the first section.
       expect(
-        top(tester, find.text('5 a 8 anos').first),
+        top(tester, find.text('5\u00A0a\u00A08\u00A0anos').first),
         lessThan(top(tester, header('Hoje'))),
       );
       expect(
@@ -474,7 +474,7 @@ void main() {
 
       for (final line in [
         '90 min por dia\u00A0·\u00A0das 08:00 às 19:30',
-        'Padrão da faixa 5 a 8 anos',
+        'Padrão da faixa 5\u00A0a\u00A08\u00A0anos',
       ]) {
         expect(
           find.descendant(
@@ -776,7 +776,7 @@ void main() {
       final h = await childPage(tester);
 
       final profile = find.byKey(ChildPage.profileKey);
-      for (final words in ['Lia', '5 a 8 anos', 'Editar']) {
+      for (final words in ['Lia', '5\u00A0a\u00A08\u00A0anos', 'Editar']) {
         expect(
           find.descendant(of: profile, matching: find.text(words)),
           findsOneWidget,

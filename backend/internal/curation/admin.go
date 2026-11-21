@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/staff"
 	"github.com/jackc/pgx/v5"
@@ -15,12 +16,15 @@ import (
 // HeldVideo is a held video with its held round's rejections and
 // doubts, and why it is held.
 type HeldVideo struct {
-	Video      Video
-	Rejections []Review
-	Doubts     []Review      // the held round's doubts, with their answers and notes
-	Reports    ReportSummary // since the latest reopen
-	HeldReason string        // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
-	Audit      *HeldAudit    // the audit that held the video; nil unless HeldByAudit
+	Video        Video
+	Rejections   []Review
+	Doubts       []Review       // the held round's doubts, with their answers and notes
+	Reports      ReportSummary  // since the latest reopen
+	HeldReason   string         // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
+	ComputedBand family.AgeBand // the youngest band a doubt may be published in; empty under a list the code does not know
+	BandAnswers  []BandAnswer   // the round's answers that bar a younger band; none under a list the code does not know
+	Audit        *HeldAudit     // the audit that held the video; nil unless HeldByAudit
+	PlayedToEnd  bool           // set by HeldVideosFor: the video played to its end for the reader in its current round
 }
 
 // HeldAudit is the audit of the published round that held a video, so
@@ -32,7 +36,8 @@ type HeldAudit struct {
 }
 
 // HeldVideos lists the held videos, the longest held first, each with
-// the rejections of the round that held it (videos.round).
+// the rejections and doubts of the round that held it (videos.round) and
+// the band that round's answers allow.
 func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 	rows, err := s.d.Pool.Query(ctx, `SELECT `+videoCols+`, v.held_reason FROM videos v WHERE v.state = 'held' ORDER BY v.updated_at, v.id`)
 	if err != nil {
@@ -54,6 +59,17 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 		if out[i].Doubts, err = reviewsOf(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round, Doubt); err != nil {
 			return nil, err
 		}
+		// A round stored under a list the code does not know has no band
+		// here, so the rest of the list still loads; deciding it is refused.
+		reviews, err := roundAnswers(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round)
+		switch {
+		case errors.Is(err, errUnknownList):
+		case err != nil:
+			return nil, err
+		default:
+			out[i].ComputedBand = s.bandOf(reviews, out[i].Video.DurationSeconds)
+			out[i].BandAnswers = bandAnswers(reviews)
+		}
 		if out[i].Reports, err = reportsOf(ctx, s.d.Pool, out[i].Video.ID); err != nil {
 			return nil, err
 		}
@@ -62,6 +78,29 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 				return nil, err
 			}
 		}
+	}
+	return out, nil
+}
+
+// HeldVideosFor is HeldVideos as reader sees it: each video says whether
+// it played to its end for them in its current round, so their screen
+// still knows after a reload what publishing a doubt waits on.
+func (s *Service) HeldVideosFor(ctx context.Context, reader string) ([]HeldVideo, error) {
+	out, err := s.HeldVideos(ctx)
+	if err != nil || len(out) == 0 {
+		return out, err
+	}
+	rows, err := s.d.Pool.Query(ctx, `SELECT mv.video_id::text FROM moderator_views mv
+		JOIN videos v ON v.id = mv.video_id AND v.round = mv.round WHERE mv.moderator_id = $1::uuid`, reader)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].PlayedToEnd = slices.ContainsFunc(ids, func(id string) bool { return strings.EqualFold(id, out[i].Video.ID) })
 	}
 	return out, nil
 }
@@ -140,6 +179,11 @@ func (s *Service) decide(ctx context.Context, videoID string, from []State, to S
 		}
 		if !slices.Contains(from, State(st)) {
 			return ErrStateConflict
+		}
+		// A removal or a reopen ends the round under way, so no draft or
+		// viewing of it outlives it.
+		if err := closeRound(ctx, tx, videoID); err != nil {
+			return err
 		}
 		// A reopen clears the hold and marks where report counting
 		// restarts.
