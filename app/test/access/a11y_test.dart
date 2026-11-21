@@ -15,6 +15,7 @@ import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
 import 'package:telinha_segura/family/widgets.dart';
+import 'package:telinha_segura/shell/guardian_shell.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid_mode/hand_over_screen.dart';
@@ -2674,26 +2675,36 @@ void main() {
 
         expect(tester.takeException(), isNull);
         // Início, once the family is ready, ends on "Sugestões de vídeos";
-        // every state before it on "Sair da conta".
+        // with no family, inside the navigation too, on "Tenho um convite"
+        // or, with invitations, on starting one's own; every other state
+        // before it on "Sair da conta".
         final inicio = find.byType(Inicio).evaluate().isNotEmpty;
+        final noFamily =
+            state.startsWith('no family') || state.startsWith('invited');
+        final last = inicio
+            ? find.text('Sugestões de vídeos')
+            : !noFamily
+            ? find.text('Sair da conta')
+            : state.startsWith('invited')
+            ? find.widgetWithText(QuietAction, 'Começar minha família')
+            : find.text('Tenho um convite');
         // The column's first control and its last.
         final first = find.byWidgetPredicate(
           (w) => w is DoorRow || w is FilledButton,
         );
         expect(first, findsWidgets);
-        for (final control in [
-          first.first,
-          // The Equipe door with no family.
-          if (state.contains('moderator'))
-            find.widgetWithText(DoorRow, 'Equipe'),
-          find.text(inicio ? 'Sugestões de vídeos' : 'Sair da conta'),
-        ]) {
+        for (final control in [first.first, last]) {
           await tester.ensureVisible(control);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         }
-        // Início names no account: Conta does.
-        if (state.contains('long') && !inicio) {
+        // A role holder with no family reaches Equipe by the navigation.
+        if (state.contains('moderator')) {
+          expect(find.widgetWithText(DestinationTile, 'Equipe'), findsOne);
+        }
+        // Início names no account: Conta does. An invitation names who
+        // sent it.
+        if (state.contains('long') && !inicio && !state.startsWith('no')) {
           expectWholeAddress(tester, size.width);
         }
       });
@@ -2731,6 +2742,47 @@ void main() {
         for (final control in [
           find.byType(DoorRow).first,
           find.byType(DoorRow).last,
+        ]) {
+          await tester.ensureVisible(control);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+      });
+    }
+  }
+
+  // Família before there is a family: the start of one, in the navigation.
+  for (final roles in [
+    <String>[],
+    ['curator'],
+  ]) {
+    testWidgets('/familia $roles with no family: labelled controls with '
+        '48 dp targets', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final h = Harness(signedIn: true)
+        ..family = null
+        ..roles = roles;
+      await h.pump(tester, initial: '/familia');
+
+      expect(h.location(tester), '/familia');
+      await meetsGuidelines(tester);
+      semantics.dispose();
+    });
+
+    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+      testWidgets('/familia $roles with no family at 200% text, '
+          '${size.width.toInt()} wide: no overflow, the start reachable', (
+        tester,
+      ) async {
+        final h = Harness(signedIn: true)
+          ..family = null
+          ..roles = roles;
+        await h.pump(tester, initial: '/familia', size: size, textScale: 2);
+
+        expect(tester.takeException(), isNull);
+        for (final control in [
+          find.widgetWithText(FilledButton, 'Começar minha família'),
+          find.text('Tenho um convite'),
         ]) {
           await tester.ensureVisible(control);
           await tester.pumpAndSettle();

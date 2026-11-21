@@ -14,6 +14,7 @@ import '../shell/services.dart';
 import 'avatars.dart';
 import 'family.dart';
 import 'family_model.dart';
+import 'family_start.dart';
 import 'labels.dart';
 import 'widgets.dart';
 
@@ -59,6 +60,11 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
           Doors(children: _doors(family)),
           const SizedBox(height: Space.xxl),
           _foot(family),
+        ],
+        // The same start as Início's; a family started here goes on to
+        // its first steps.
+        NoFamily() => [
+          FamilyStart(onStarted: () => context.go(Routes.firstRun)),
         ],
         _ => familyPending(_model),
       },
