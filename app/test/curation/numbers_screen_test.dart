@@ -80,7 +80,7 @@ void main() {
           'Aprovações com idade maior que a das respostas (30 dias)',
           'menos de 5 casos',
         ),
-        ('Vídeos com aprovações de idades diferentes (30 dias)', '4%'),
+        ('Vídeos cujas respostas levam a idades diferentes (30 dias)', '4%'),
       ],
     );
   });

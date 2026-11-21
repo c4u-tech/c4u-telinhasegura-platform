@@ -265,7 +265,8 @@ class Metrics {
   /// The share of approvals that chose a band older than the answers'.
   final int? olderBandPercent30d;
 
-  /// The share of videos whose approvals chose different bands.
+  /// The share of videos whose approvals' answers computed different
+  /// bands.
   final int? splitBandPercent30d;
   final int suppressedBelow;
 }

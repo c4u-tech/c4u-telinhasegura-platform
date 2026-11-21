@@ -129,7 +129,7 @@ class _NumbersScreenState extends State<NumbersScreen> with RefetchOnReturn {
               percent(m.olderBandPercent30d),
             ),
             (
-              'Vídeos com aprovações de idades diferentes (30 dias)',
+              'Vídeos cujas respostas levam a idades diferentes (30 dias)',
               percent(m.splitBandPercent30d),
             ),
           ])

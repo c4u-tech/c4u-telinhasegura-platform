@@ -238,9 +238,9 @@ enum ChecklistAnswer {
 }
 
 /// What a Sim ([ChecklistAnswer.appears]) does to a review: it refuses
-/// the video, sends it to the team, rules out the youngest band, keeps
-/// the curator from reviewing it, or ([notes]) nothing: the answer is only
-/// kept for the team.
+/// the video, sends it to the team, allows the video only from the
+/// question's own band up ([band]), keeps the curator from reviewing it,
+/// or ([notes]) nothing: the answer is only kept for the team.
 enum ChecklistRule {
   refuses('refuses'),
   doubt('doubt'),
