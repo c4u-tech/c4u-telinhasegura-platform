@@ -121,21 +121,41 @@ func TestReviewMeasuresAbsentUnderFiveCases(t *testing.T) {
 		t.Fatalf("a review just outside the window changed the median: %s", got)
 	}
 
-	// 5 reviews in the window, 1 of them a doubt: 20 percent.
+	// 4 reviews in the window, 1 of them a doubt: under five, no doubt share.
 	f.exec(`DELETE FROM video_reviews`)
-	for i := range 4 {
+	for i := range 3 {
 		approve(videos[i], 1, f.now, nil, nil)
 	}
 	f.exec(`INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, reason, reviewed_at,
 		checklist_version, checklist) VALUES ($1::uuid, 1, NULL, 'pedagogo', 'doubt', 'Não sei.', $2, '2026-11-20', '{}')`,
 		videos[4], f.now)
+	if got := measures()[1]; got != "null" {
+		t.Fatalf("one doubt in four reviews: %s", got)
+	}
+	// A fifth review: 1 doubt in 5 is 20 percent.
+	approve(videos[3], 1, f.now, nil, nil)
 	if got := measures()[1]; got != "20" {
 		t.Fatalf("one doubt in five reviews: %s, want 20", got)
 	}
 
-	// Four videos with two approvals each: under five pairs, no split share.
+	// Four approvals with a computed band, one stated older (every stated
+	// band here is 5 to 8): under five, no older-band share.
 	f.exec(`DELETE FROM video_reviews`)
 	ate4, older := "ate-4", "5-8"
+	approve(videos[0], 1, f.now, nil, &ate4)
+	for i := 1; i < 4; i++ {
+		approve(videos[i], 1, f.now, nil, &older)
+	}
+	if got := measures()[2]; got != "null" {
+		t.Fatalf("one older band in four approvals: %s", got)
+	}
+	approve(videos[4], 1, f.now, nil, &older)
+	if got := measures()[2]; got != "20" {
+		t.Fatalf("one older band in five approvals: %s, want 20", got)
+	}
+
+	// Four videos with two approvals each: under five pairs, no split share.
+	f.exec(`DELETE FROM video_reviews`)
 	for i := range 4 {
 		approve(videos[i], 1, f.now, &began, &ate4)
 		approve(videos[i], 1, f.now, &began, &older)

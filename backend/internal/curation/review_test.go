@@ -659,6 +659,9 @@ func TestADraftDoesNotOutliveItsRound(t *testing.T) {
 	if n := f.drafts(v); n != 0 {
 		t.Fatalf("the published round left %d drafts", n)
 	}
+	// A draft of the former round, ended, must not stand for the new one.
+	f.exec(`INSERT INTO review_drafts (curator_id, video_id, round, checklist_version, began_at, played_to_end_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, 1, $3, $4, $4, $4)`, c3, v, curation.ChecklistVersion, f.now)
 	f.now = f.now.Add(180 * 24 * time.Hour)
 	if _, _, err := f.svc.Review(ctx, c3, v, approve("bichos", family.Age5To8)); !errors.Is(err, curation.ErrNotWatched) {
 		t.Fatalf("an approval on the former round's end: %v", err)
