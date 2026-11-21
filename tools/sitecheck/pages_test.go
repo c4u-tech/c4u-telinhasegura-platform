@@ -439,12 +439,13 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 }
 
 // The privacy policy names what is kept about an unfinished review, and
-// about a held video a moderator watched to its end.
+// about a held video a moderator watched to its end, and when each goes.
 func TestPrivacyPolicyNamesTheUnfinishedReview(t *testing.T) {
 	p := mustPages(t)["/privacidade"]
 	for _, want := range []string{
 		"quando cada revisão começou", "revisão que você deixou pela metade", "se o vídeo já tocou até o fim",
 		"para quem modera, se cada vídeo retido já tocou até o fim, até a equipe decidir o vídeo",
+		"o registro de quem modera também é apagado quando você deixa a moderação",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/privacidade does not say %q", want)
