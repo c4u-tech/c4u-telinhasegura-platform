@@ -422,7 +422,7 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 		"assistem a ele até o fim",
 		"confirma essa faixa ou escolhe uma faixa maior, nunca uma menor",
 		"contra a lei, mesmo sem violência",
-		"de um jeito que a história para para mostrar",
+		"trata da tristeza de algum personagem",
 		"de onde vêm os bebês",
 		"outra droga",
 	} {
