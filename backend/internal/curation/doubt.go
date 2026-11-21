@@ -107,8 +107,8 @@ var errUnknownList = errors.New("curation: review stored under an unknown list")
 
 // roundBand is the youngest band a round's answers allow for a video of
 // that many seconds: the oldest any of its reviews allows. Each review is
-// read under the list it was stored with, where a band question's yes
-// allows from its own band up. Rejections store their answers as a list,
+// read under the list it was stored with, where a band question's yes or
+// "I don't know" allows from its own band up. Rejections store their answers as a list,
 // so they bar nothing. A review under a list the code does not know is an
 // error: reading it as barring nothing would let a band through that its
 // answers ruled out.

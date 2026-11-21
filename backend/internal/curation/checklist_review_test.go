@@ -546,3 +546,25 @@ func TestADoubtStoresNoComputedBand(t *testing.T) {
 		t.Fatalf("a doubt stored %q %q", computed, reason)
 	}
 }
+
+// A curator who cannot tell whether a band question's answer is yes does
+// not release the younger bands: "Não sei" bars like a yes, and the review
+// still goes to a moderator.
+func TestAnUnsureBandAnswerBarsTheBandAsAYesDoes(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	unsure := map[string]curation.Answer{"c35": curation.AnswerDoubt}
+	if _, _, err := f.svc.Review(ctx, c, v, approveWith("bichos", family.Age5To8, unsure)); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("5 to 8 over an unsure c35: %v", err)
+	}
+	f.now = f.now.Add(time.Minute)
+	r, state, err := f.svc.Review(ctx, c, v, approveWith("", "", unsure))
+	if err != nil || state != curation.Held || r.Decision != curation.Doubt {
+		t.Fatalf("doubt %+v %s %v", r, state, err)
+	}
+	held, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(held) != 1 || held[0].ComputedBand != family.Age9To12 {
+		t.Fatalf("held %+v %v", held, err)
+	}
+}

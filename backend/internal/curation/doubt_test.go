@@ -341,6 +341,34 @@ func TestDecideDoubtReadsEachReviewUnderItsOwnList(t *testing.T) {
 	if err := f.svc.DecideDoubt(ctx, m, first, young); !errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("2 to 4 under the first list: %v", err)
 	}
+	// Under a former list too, not knowing the pace bars as a fast one.
+	unsure := f.heldDoubt("unsurepace1", "2026-11-11", map[string]string{"c22": "doubt"})
+	if err := f.svc.DecideDoubt(ctx, m, unsure, young); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("2 to 4 over an unsure pace: %v", err)
+	}
+}
+
+// The moderator is held to the band an unsure band answer bars, as the
+// curator was.
+func TestDecideDoubtRefusesABandAnUnsureAnswerBars(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("d@example.com", curation.MaePai)
+	v := f.video(ytID)
+	if state := f.review(c, v, approveWith("", "", map[string]curation.Answer{"c35": curation.AnswerDoubt})); state != curation.Held {
+		t.Fatalf("doubt: %s", state)
+	}
+	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	d := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}
+	if err := f.svc.DecideDoubt(ctx, m, v, d); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("5 to 8: %v", err)
+	}
+	d.MinAgeBand = family.Age9To12
+	if err := f.svc.DecideDoubt(ctx, m, v, d); err != nil {
+		t.Fatalf("9 to 12: %v", err)
+	}
+	if got := f.detail(v).Video; got.State != curation.Approved || got.MinAgeBand != family.Age9To12 {
+		t.Fatalf("published %+v", got)
+	}
 }
 
 func TestDecideDoubtRefusesToReadAnUnknownList(t *testing.T) {

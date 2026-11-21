@@ -359,8 +359,8 @@ type entry struct {
 // and must answer them all; a short one is not, so its rejection cannot
 // cite them, and the answers to them an app built before them still sends
 // are dropped unjudged, as if never sent. A stated band may not be younger
-// than the one the answers and the length allow: a band question's yes
-// allows from its own band up. An older one may say why, and only an
+// than the one the answers and the length allow: a band question's yes or
+// "I don't know" allows from its own band up. An older one may say why, and only an
 // older one in a plain approval may.
 func prepare(in ReviewInput, long, overYoungest bool) (entry, error) {
 	if in.Decision != Approve && in.Decision != Reject {

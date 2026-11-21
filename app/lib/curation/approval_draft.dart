@@ -127,12 +127,18 @@ class ApprovalDraft {
     for (final i in _yes(ChecklistRule.refuses)) i.id,
   ];
 
-  /// The youngest band the answers allow: the oldest a Sim on a band
-  /// question allows, "2 a 4 anos" with none.
-  AgeBand get answersBand =>
-      _yes(ChecklistRule.band)
-          .map((i) => i.allowsFrom)
-          .fold(AgeBand.upTo4, _older);
+  /// The youngest band the answers allow: the oldest a Sim or a "Não sei"
+  /// on a band question allows, "2 a 4 anos" with none. A band is not
+  /// offered over what the curator could not affirm.
+  AgeBand get answersBand => checklist.items
+      .where(
+        (i) =>
+            i.rule == ChecklistRule.band &&
+            (_answers[i.id] == ChecklistAnswer.appears ||
+                _answers[i.id] == ChecklistAnswer.doubt),
+      )
+      .map((i) => i.allowsFrom)
+      .fold(AgeBand.upTo4, _older);
 
   static AgeBand _older(AgeBand a, AgeBand b) => b.index > a.index ? b : a;
 
