@@ -193,6 +193,27 @@ void main() {
     expect(long.page, 3);
   });
 
+  test('where a review resumes is one answer for every reader: the first '
+      'page with a tie to the channel, though a later group is open', () {
+    ReviewDraft kept(Map<String, ChecklistAnswer> answers) => ReviewDraft(
+      version: '2026-10-21',
+      answers: answers,
+      beganAt: DateTime.utc(2026, 11, 20, 10),
+    );
+    final tie = ApprovalDraft(list, length: short)
+      ..restore(
+        kept({'c25': ChecklistAnswer.appears, 'c03': ChecklistAnswer.ok}),
+      );
+    expect(tie.stoppedAt, group(1));
+    expect(tie.resumePage, 0);
+    tie.resume();
+    expect(tie.page, tie.resumePage);
+
+    final partway = ApprovalDraft(list, length: short)
+      ..restore(kept({'c25': ChecklistAnswer.ok, 'c03': ChecklistAnswer.ok}));
+    expect(partway.resumePage, 1);
+  });
+
   test('the outcome: a Sim that refuses wins, then a Não sei or a Sim the '
       'team decides, else an approval', () {
     final d = ApprovalDraft(list, length: short);
@@ -640,6 +661,21 @@ void main() {
       expect(d.reasonToSend, 'Fala rápida.');
       d.forward();
       expect(d.page, d.reviewPage);
+    });
+
+    test('the reason is counted in characters, as the field and the server '
+        'count it: 200 with an emoji is taken', () {
+      final d = atTopic()
+        ..theme = VideoTheme.bichos
+        ..askOlder()
+        ..band = AgeBand.from5To8;
+      final reason = '${'x' * 199}😀';
+      expect(reason.length, 201, reason: 'the emoji is two code units');
+      d.bandReason = reason;
+      expect(d.canGoOn, isTrue);
+      expect(d.reasonToSend, reason);
+      d.bandReason = '${'x' * 200}😀';
+      expect(d.canGoOn, isFalse);
     });
 
     test('"Ficar com" goes back to confirming, the older band let go', () {

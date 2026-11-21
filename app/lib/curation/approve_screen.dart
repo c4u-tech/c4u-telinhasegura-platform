@@ -52,7 +52,7 @@ const seeSummary = 'Ver resumo';
 const noneHappens = 'Nada disso acontece no vídeo';
 const restHappens = 'O resto não acontece no vídeo';
 String restLine(int n) => n == 1
-    ? 'Marca Não na 1 pergunta ainda sem resposta.'
+    ? 'Marca Não na pergunta ainda sem resposta.'
     : 'Marca Não nas $n perguntas ainda sem resposta.';
 
 /// Under a page's primary until it can go on.
@@ -78,8 +78,20 @@ String stayWithLabel(AgeBand band) => 'Ficar com ${band.label}';
 String bandStatement(AgeBand from) =>
     'Pelas respostas, este vídeo serve a partir de ${from.label}';
 
-/// The reason's counter shows from here, near its bound.
+/// A reason's counter shows from here, near its bound.
 const _reasonCountFrom = 160;
+
+/// The counter of a reason with a bound: nothing until the words near it,
+/// then "170 de 200", muted.
+InputCounterWidgetBuilder nearBoundCounter(BuildContext context) =>
+    (_, {required currentLength, required isFocused, maxLength}) =>
+        maxLength == null || currentLength < _reasonCountFrom
+        ? null
+        : Text(
+            '$currentLength de $maxLength',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: context.palette.muted),
+          );
 
 /// Under "Aprovar" until the video has played to its end here.
 const watchHint = 'Para aprovar, deixe o vídeo tocar até o fim.';
@@ -210,9 +222,10 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   /// screen that the server has not heard yet. Once true it stays.
   bool _playedToEnd = false;
 
-  /// Keeps the one player's view across pages: each page is built anew,
-  /// and a view built anew would load the video again.
-  final _window = GlobalKey();
+  /// Keeps the watched block (the one player's view and the line under
+  /// it) across pages: each page is built anew, and a view built anew
+  /// would load the video again, a line built anew be announced again.
+  final _watched = GlobalKey();
 
   @override
   void didChangeDependencies() {
@@ -262,7 +275,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   /// Picks up an end the kept draft or this device already knows of.
   void _knowEnd(ReviewDraft? kept) {
-    if (kept?.playedToEndAt != null || _ends.holds(widget.id)) {
+    if (kept?.playedToEndAt != null || _ends.seen(widget.id)) {
       _playedToEnd = true;
     }
   }
@@ -337,8 +350,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     _keep(d);
   }
 
-  /// The reason for an older band is not kept: it only lets the page go
-  /// on.
+  /// The reason for an older band is not kept in the draft: it lets the
+  /// page go on, and is sent with the approval.
   void _bandReasonChanged() {
     final d = _draft;
     if (d == null || d.bandReason == _bandReason.text) return;
@@ -543,17 +556,17 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   }
 
   /// The video's window and, under it, whether it played to its end.
-  Widget _watch() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      KeyedSubtree(
-        key: _window,
-        child: playerWindow(failed: flowPlayerFailed),
-      ),
-      const SizedBox(height: Space.md),
-      EndLine(ended: _playedToEnd),
-    ],
+  Widget _watch() => KeyedSubtree(
+    key: _watched,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        playerWindow(failed: flowPlayerFailed),
+        const SizedBox(height: Space.md),
+        EndLine(ended: _playedToEnd),
+      ],
+    ),
   );
 
   Widget _line(String words) => Semantics(
@@ -676,18 +689,25 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       const SizedBox(height: Space.xl),
       OutlinedButton(
         onPressed: _idle ? () => _change(d, () => d.noneOf(g)) : null,
-        child: Text(
-          none ? noneHappens : restHappens,
-          textAlign: TextAlign.center,
+        // The count is read with the button, as its hint.
+        child: Semantics(
+          hint: none ? null : restLine(open),
+          child: Text(
+            none ? noneHappens : restHappens,
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
       if (!none) ...[
         const SizedBox(height: Space.sm),
-        Text(
-          restLine(open),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium
-              ?.copyWith(color: context.palette.muted),
+        // Read with the button already.
+        ExcludeSemantics(
+          child: Text(
+            restLine(open),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: context.palette.muted),
+          ),
         ),
       ],
     ];
@@ -783,7 +803,6 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   /// confirming.
   List<Widget> _older(ApprovalDraft d) {
     final text = Theme.of(context).textTheme;
-    final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
     return [
       const SizedBox(height: Space.xl),
       Semantics(
@@ -799,34 +818,12 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           onTap: _idle ? () => _change(d, () => d.band = b) : null,
         ),
       ],
-      // At large text the label floats on two lines: room above for both.
-      SizedBox(height: large ? Space.xl : Space.lg),
-      TextField(
+      const SizedBox(height: Space.lg),
+      ReasonField(
         controller: _bandReason,
+        label: olderReasonLabel,
         enabled: _idle,
-        keyboardType: TextInputType.multiline,
-        textCapitalization: TextCapitalization.sentences,
-        // At large text the label takes two lines, and the field room for
-        // them.
-        minLines: large ? 2 : 1,
-        maxLines: null,
         maxLength: ApprovalDraft.bandReasonMax,
-        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-        buildCounter:
-            (_, {required currentLength, required isFocused, maxLength}) =>
-                currentLength < _reasonCountFrom
-                ? null
-                : Text(
-                    '$currentLength de ${ApprovalDraft.bandReasonMax}',
-                    style: text.bodySmall?.copyWith(
-                      color: context.palette.muted,
-                    ),
-                  ),
-        decoration: const InputDecoration(
-          // Wraps at large text rather than cut short.
-          label: Text(olderReasonLabel, maxLines: 2),
-          alignLabelWithHint: true,
-        ),
       ),
       ..._foot(
         label: continueLabel,
@@ -843,6 +840,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         label: stayWithLabel(d.computedBand),
         onPressed: _idle ? () => _change(d, d.keepComputed) : null,
       ),
+      // Apart, so the two never read as one block at large text.
+      const SizedBox(height: Space.sm),
       QuietAction(label: 'Voltar', onPressed: _back),
     ];
   }
@@ -950,29 +949,93 @@ class _SummaryLine extends StatelessWidget {
     final style = quiet
         ? text.bodyMedium?.copyWith(color: context.palette.muted)
         : text.bodyLarge;
+    final words = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: text.titleMedium),
+        const SizedBox(height: Space.xs),
+        for (final line in lines) Text(line, style: style),
+      ],
+    );
+    final change = QuietAction(
+      label: changeLabel,
+      // The same word on every line: say which step it changes.
+      semanticsLabel: '$changeLabel: $title',
+      inline: true,
+      onPressed: onChange,
+    );
+    // At large text a column beside the words would leave them a word or
+    // two a line: "mudar" goes under them.
+    final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+      child: large
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [words, change],
+            )
+          : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: text.titleMedium),
-                const SizedBox(height: Space.xs),
-                for (final line in lines) Text(line, style: style),
+                Expanded(child: words),
+                const SizedBox(width: Space.sm),
+                change,
               ],
             ),
-          ),
-          const SizedBox(width: Space.sm),
-          QuietAction(
-            label: changeLabel,
-            // The same word on every line: say which step it changes.
-            semanticsLabel: '$changeLabel: $title',
-            inline: true,
-            onPressed: onChange,
-          ),
+    );
+  }
+}
+
+/// A reason's field with a bound: it grows with its words, takes no more
+/// than [maxLength] and shows its count only near it ([nearBoundCounter]).
+/// At a text scale of 1.5 or more its label, which would float on two
+/// lines across the field's edge, stands as plain body-large text on its
+/// own line 8 px above the field, merged with it so it is read once as
+/// the field's.
+class ReasonField extends StatelessWidget {
+  const ReasonField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.maxLength,
+    this.enabled = true,
+    this.errorText,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLength;
+  final bool enabled;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final over = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
+    final field = TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: TextInputType.multiline,
+      textCapitalization: TextCapitalization.sentences,
+      minLines: 1,
+      maxLines: null,
+      maxLength: maxLength,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+      buildCounter: nearBoundCounter(context),
+      decoration: InputDecoration(
+        labelText: over ? null : label,
+        alignLabelWithHint: true,
+        errorText: errorText,
+        errorMaxLines: 3,
+      ),
+    );
+    if (!over) return field;
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyLarge),
+          const SizedBox(height: Space.sm),
+          field,
         ],
       ),
     );

@@ -125,7 +125,7 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
       final ends = scope.moderatorEnds;
       setState(() {
         _held = held;
-        _playedToEnd = _playedToEnd || ends.holds(held.video.id);
+        _playedToEnd = _playedToEnd || ends.seen(held.video.id);
       });
       // Publishing a doubt needs the video's end, so the player reports it.
       openPlayer(

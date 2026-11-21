@@ -132,11 +132,11 @@ Future<void> answer(WidgetTester tester, String question, String word) =>
     tapOn(tester, key(question, word));
 
 /// The shortcut at the foot of a step, whichever way it reads.
-Finder shortcut() => find.byWidgetPredicate(
-  (w) =>
-      w is OutlinedButton &&
-      w.child is Text &&
-      {noneHappens, restHappens}.contains((w.child! as Text).data),
+Finder shortcut() => find.ancestor(
+  of: find.byWidgetPredicate(
+    (w) => w is Text && {noneHappens, restHappens}.contains(w.data),
+  ),
+  matching: find.byType(OutlinedButton),
 );
 
 Future<void> noneOfThis(WidgetTester tester) => tapOn(tester, shortcut());
@@ -181,7 +181,9 @@ Future<void> forOlder(WidgetTester tester) =>
     tapOn(tester, find.widgetWithText(OutlinedButton, olderLabel));
 
 /// The field of why the video is for older children.
-Finder reasonField() => find.widgetWithText(TextField, olderReasonLabel);
+/// At large text its label stands over it, outside the field: the band
+/// page has no other field.
+Finder reasonField() => find.byType(TextField);
 
 /// An answer listed under the statement: the question, then its answer.
 Finder bandAnswer(String question, String word) => find.text(
@@ -562,16 +564,6 @@ void main() {
       expect(top(tester), Space.lg, reason: 'it stays as the page goes on');
     });
 
-    testWidgets('at 360 × 640 and 200 % text the window and its line still '
-        'leave half the height, and stay', (tester) async {
-      await approving(tester, size: const Size(360, 640), textScale: 2);
-
-      expect(kept(tester), PinnedPart.child);
-      await scrollContent(tester, 300);
-      expect(top(tester), Space.lg);
-      expect(tester.takeException(), isNull);
-    });
-
     testWidgets('where even the window and its line would leave less than '
         'half the height, nothing stays: they scroll with the page', (
       tester,
@@ -830,7 +822,7 @@ void main() {
       await answer(tester, dating, 'Não');
       await answer(tester, others, 'Não');
       expect(find.text(restLine(1)), findsOneWidget);
-      expect(restLine(1), 'Marca Não na 1 pergunta ainda sem resposta.');
+      expect(restLine(1), 'Marca Não na pergunta ainda sem resposta.');
 
       await noneOfThis(tester);
       expect(picked(tester, fast, 'Sim'), isTrue);
@@ -2177,6 +2169,185 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/curadoria/v1');
+    });
+  });
+
+  group('the watched block', () {
+    testWidgets('the line under the window stays one element from page to '
+        'page, so it is not announced again', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester);
+      final id = tester.getSemantics(endLine(playedToEnd)).id;
+
+      await start(tester);
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      expect(tester.getSemantics(endLine(playedToEnd)).id, id);
+      await clearSteps(tester);
+      expect(find.text('Tema'), findsOneWidget);
+      expect(tester.getSemantics(endLine(playedToEnd)).id, id);
+      semantics.dispose();
+    });
+
+    testWidgets('an end the review\'s player saw this session counts, though '
+        'the draft read does not have it yet', (tester) async {
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text(reviewDoor));
+
+      expect(endLine(playedToEnd), findsOneWidget);
+      await toReview(tester);
+      expect(primary(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('crossing between the wide and the narrow window keeps the '
+        'one player, never opening another', (tester) async {
+      final h = await approving(tester);
+      final player = h.adultPlayer.opened.last;
+      final opened = h.adultPlayer.opened.length;
+
+      for (final size in const [
+        Size(1280, 800),
+        Size(700, 800),
+        Size(390, 844),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        expect(window(), findsOneWidget, reason: '$size');
+        expect(h.adultPlayer.opened, hasLength(opened), reason: '$size');
+        expect(player.closed, isFalse, reason: '$size');
+      }
+    });
+
+    testWidgets('on a small phone the keyboard open on the bottom field '
+        'brings it into view, clear of what stays at the top', (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      await approving(tester, size: const Size(360, 640));
+      await toTopic(tester);
+      await choose(tester, 'Música');
+      await forOlder(tester);
+      await tester.ensureVisible(reasonField());
+      await tester.pumpAndSettle();
+      await tester.tap(reasonField());
+      await tester.pumpAndSettle();
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      final field = tester.getRect(reasonField());
+      expect(field.top, greaterThanOrEqualTo(0));
+      expect(field.bottom, lessThanOrEqualTo(640 - 300));
+      // Nothing that stays at the top is drawn over it.
+      final editable = tester.renderObject(reasonField());
+      for (final at in [field.topCenter, field.center]) {
+        expect(
+          tester
+              .hitTestOnBinding(at + const Offset(0, 4))
+              .path
+              .any((e) => e.target == editable),
+          isTrue,
+          reason: '$at',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the shortcut', () {
+    testWidgets('is read with how many questions it answers, and that line '
+        'is not read again on its own', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+
+      expect(tester.getSemantics(shortcut()).hint, isEmpty);
+      await answer(tester, fast, 'Sim');
+
+      expect(
+        tester.getSemantics(shortcut()),
+        isSemantics(label: restHappens, hint: restLine(3), isButton: true),
+      );
+      expect(find.bySemanticsLabel(restLine(3)), findsNothing);
+      semantics.dispose();
+    });
+  });
+
+  group('at 200 % text on a small phone', () {
+    testWidgets('the reason\'s label stands on its own line over the field, '
+        'in body-large, and is read as the field\'s', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      await toTopic(tester);
+      await forOlder(tester);
+      await tester.ensureVisible(reasonField());
+      await tester.pumpAndSettle();
+
+      final decoration = tester.widget<TextField>(reasonField()).decoration!;
+      expect(decoration.label, isNull);
+      expect(decoration.labelText, isNull);
+      final label = find.text(olderReasonLabel);
+      final context = tester.element(label);
+      expect(
+        tester.widget<Text>(label).style?.fontSize,
+        Theme.of(context).textTheme.bodyLarge?.fontSize,
+      );
+      expect(
+        tester.getTopLeft(reasonField()).dy - tester.getBottomLeft(label).dy,
+        Space.sm,
+      );
+      expect(
+        tester.getSemantics(reasonField()),
+        isSemantics(label: olderReasonLabel, isTextField: true),
+      );
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+
+    testWidgets('a summary row sets its words at full width with "mudar" '
+        'under them', (tester) async {
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      await toReview(tester);
+
+      for (final title in ['Violência e medo', topicTitle]) {
+        final words = find.text(title);
+        await tester.ensureVisible(change(title));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(change(title)).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(words).dy),
+          reason: title,
+        );
+        expect(
+          tester.getTopLeft(change(title)).dx,
+          lessThanOrEqualTo(tester.getTopLeft(words).dx),
+          reason: title,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('"Ficar com" and "Voltar" keep a gap between them', (
+      tester,
+    ) async {
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      await toTopic(tester);
+      await forOlder(tester);
+
+      final stay = find.widgetWithText(
+        QuietAction,
+        stayWithLabel(AgeBand.upTo4),
+      );
+      final back = find.widgetWithText(QuietAction, 'Voltar');
+      expect(
+        tester.getTopLeft(back).dy - tester.getBottomLeft(stay).dy,
+        greaterThanOrEqualTo(Space.sm),
+      );
     });
   });
 }

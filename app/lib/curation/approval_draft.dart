@@ -146,20 +146,26 @@ class ApprovalDraft {
   ChecklistGroup? get stoppedAt =>
       checklist.groups.where((g) => openIn(g) > 0).firstOrNull;
 
-  /// Coming back to a review in progress: the first page with an open
+  /// Where a review in progress picks up: the first page with an open
   /// question; once every one is answered, the theme and band when the
   /// answers approve, else the review. A tie to the channel stays on the
-  /// first page, which says so.
-  void resume() {
-    _returnTo = null;
+  /// first page, which says so. The one answer both for the page that
+  /// opens and for the words that say where the review stopped.
+  int get resumePage {
     final stopped = stoppedAt;
-    _page = conflict
+    return conflict
         ? 0
         : stopped != null
         ? checklist.groups.indexOf(stopped)
         : outcome == ApprovalOutcome.approve
         ? topicPage
         : reviewPage;
+  }
+
+  /// Coming back to a review in progress: opens [resumePage].
+  void resume() {
+    _returnTo = null;
+    _page = resumePage;
   }
 
   bool answered(ChecklistGroup g) =>
@@ -231,9 +237,11 @@ class ApprovalDraft {
   /// older band already stated (a kept draft).
   bool get olderOpen => _olderAsked || statesOlder;
 
+  /// Counted in characters, as the field and the server count them, not
+  /// in code units: an emoji is one.
   String? get _reason {
     final r = bandReason?.trim();
-    return r == null || r.isEmpty || r.length > bandReasonMax ? null : r;
+    return r == null || r.isEmpty || r.runes.length > bandReasonMax ? null : r;
   }
 
   /// The reason the approval carries: only with an older band.

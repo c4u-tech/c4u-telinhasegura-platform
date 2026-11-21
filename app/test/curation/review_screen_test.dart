@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
+import 'package:telinha_segura/curation/approve_screen.dart' show conflictLine;
 import 'package:telinha_segura/curation/review_screen.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show ChoiceTarget;
 import 'package:telinha_segura/design/theme.dart';
@@ -476,6 +477,28 @@ void main() {
 
       expect(find.widgetWithText(DoorRow, 'Continuar revisão'), findsOneWidget);
       expect(find.text('Falta confirmar a idade'), findsOneWidget);
+    });
+
+    testWidgets('a tie to the channel resumes on the first page, and the '
+        'door says so though a later group is open', (tester) async {
+      final h = await withDraft(tester, {'c25': 'appears', 'c03': 'ok'});
+
+      expect(find.text('Parou em Antes de começar'), findsOneWidget);
+      expect(find.text('Parou em Violência e medo'), findsNothing);
+      await tester.ensureVisible(find.text('Continuar revisão'));
+      await tester.tap(find.text('Continuar revisão'));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1/aprovar');
+      expect(find.text('Antes de começar'), findsOneWidget);
+      expect(find.text(conflictLine), findsOneWidget);
+    });
+
+    testWidgets('with every question answered and the answers refusing, '
+        'checking and sending is what is left', (tester) async {
+      await withDraft(tester, {...allNos, 'c04': 'appears'});
+
+      expect(find.text('Falta conferir e enviar'), findsOneWidget);
     });
 
     testWidgets('a long video still has its own questions open', (

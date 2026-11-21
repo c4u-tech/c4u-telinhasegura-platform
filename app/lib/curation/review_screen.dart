@@ -228,18 +228,23 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
   }
 
   /// The first door's title and line: a review not begun, or one in
-  /// progress with where it stopped. A draft whose answers are all to
-  /// questions the list no longer asks is one not begun.
+  /// progress with where it stopped, the page the flow opens on. A draft
+  /// whose answers are all to questions the list no longer asks is one not
+  /// begun.
   (String, String) _firstDoor() {
     const fresh = ('Revisar vídeo', 'Responder às perguntas');
     if (_kept == null) return fresh;
     final d = _progress;
     if (d == null) return (continueReview, 'Responder às perguntas');
     if (d.answers.isEmpty) return fresh;
-    if (d.stoppedAt case final g?) return (continueReview, stoppedIn(g.title));
+    final page = d.resumePage;
     return (
       continueReview,
-      d.outcome == ApprovalOutcome.approve ? ageLeft : sendLeft,
+      page <= d.stepCount
+          ? stoppedIn(d.checklist.groups[page].title)
+          : page == d.topicPage
+          ? ageLeft
+          : sendLeft,
     );
   }
 

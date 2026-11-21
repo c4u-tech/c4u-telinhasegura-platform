@@ -109,6 +109,8 @@ class _AnswerKey extends StatelessWidget {
   final VoidCallback? onTap;
 
   static const _stroke = 1.5;
+
+  /// The check's size at a text scale of 1; it grows with the word.
   static const _check = 20.0;
 
   /// What the key's padding and stroke take of its width.
@@ -124,13 +126,17 @@ class _AnswerKey extends StatelessWidget {
     )..layout();
     final width = words.width;
     words.dispose();
-    return _check + Space.xs + width <= room;
+    return _checkSize(context) + Space.xs + width <= room;
   }
+
+  double _checkSize(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(_check);
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final off = onTap == null;
+    final check = _checkSize(context);
     final ink = off
         ? p.text.withValues(alpha: .6)
         : selected
@@ -168,7 +174,7 @@ class _AnswerKey extends StatelessWidget {
           true => Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.check_rounded, size: _check, color: ink),
+              Icon(Icons.check_rounded, size: check, color: ink),
               word,
             ],
           ),
@@ -176,7 +182,7 @@ class _AnswerKey extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (selected) ...[
-                Icon(Icons.check_rounded, size: _check, color: ink),
+                Icon(Icons.check_rounded, size: check, color: ink),
                 const SizedBox(width: Space.xs),
               ],
               Flexible(child: word),
