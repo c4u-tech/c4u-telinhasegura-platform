@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // A signed-in adult without a family yet gets the same navigation as
 // everyone else, and the start of a family on Início and on Família.
 import 'package:clock/clock.dart';
@@ -77,6 +79,52 @@ void main() {
       final h = await noFamilyAt(tester, '/familia/criancas');
 
       expect(h.location(tester), '/');
+    });
+  });
+
+  group('while the family is read', () {
+    for (final (what, family) in [
+      ('with no family', null),
+      ('with a family', ownerFamily),
+    ]) {
+      for (final size in [const Size(390, 844), const Size(1280, 800)]) {
+        testWidgets('$what, the navigation is there from the start, at '
+            '${size.width}', (tester) async {
+          final answer = Completer<http.Response>();
+          final h = Harness(signedIn: true)..familyRead = () => answer.future;
+          await h.pump(tester, size: size);
+
+          expect(
+            find.byType(size.width < 600 ? ShellBar : InkRail),
+            findsOneWidget,
+          );
+          expect(find.byKey(const Key('family-placeholder')), findsOneWidget);
+          expect(find.text('Sair da conta'), findsNothing);
+
+          answer.complete(
+            family == null ? problem(404, 'no_family') : json(200, family),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.byType(size.width < 600 ? ShellBar : InkRail),
+            findsOneWidget,
+          );
+        });
+      }
+    }
+
+    testWidgets('an account whose email waits for confirmation is read '
+        'again without the navigation blinking in', (tester) async {
+      final h = Harness(signedIn: true)..unverified = true;
+      await h.pump(tester);
+      expect(find.byType(ShellBar), findsNothing);
+
+      unawaited(h.services.familyModel.refresh());
+      await tester.pump();
+
+      expect(find.byType(ShellBar), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.byType(ShellBar), findsNothing);
     });
   });
 

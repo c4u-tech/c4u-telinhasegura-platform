@@ -364,7 +364,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     builder: (_, state) => ListRoot(
       path: state.uri.path,
       root: Routes.staffHome,
-      first: (_) => staffFirstItem(services.familyModel.roles),
+      // The roles may still be read as the place opens: the first item
+      // follows them when they arrive.
+      first: (_) => ListenableBuilder(
+        listenable: services.familyModel,
+        builder: (_, _) => staffFirstItem(services.familyModel.roles),
+      ),
       child: const StaffRootScreen(),
     ),
   ),

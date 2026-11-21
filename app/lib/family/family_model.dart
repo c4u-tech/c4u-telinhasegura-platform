@@ -69,6 +69,7 @@ class FamilyModel extends ChangeNotifier {
   AccountStatus _status = AccountStatus.active;
   bool _termsAccepted = true;
   bool _verified = false;
+  bool _sessionRead = false;
   Future<void>? _reading;
   bool _read = false;
   String? _notice;
@@ -94,6 +95,11 @@ class FamilyModel extends ChangeNotifier {
   /// (suspension screens): the home becomes the suspended
   /// home and the router keeps to its routes. False until read.
   bool get suspended => _status == AccountStatus.suspended;
+
+  /// Whether nothing read so far says the account's email still waits
+  /// for its confirmation: true before the session is first read, then
+  /// as the session says.
+  bool get maybeVerified => !_sessionRead || _verified;
 
   /// Whether the account accepted the current terms and privacy policy,
   /// as its session was last read: the router holds a guardian on the
@@ -156,6 +162,7 @@ class FamilyModel extends ChangeNotifier {
       _status = session.status;
       _termsAccepted = session.termsAccepted;
       _verified = session.emailVerified;
+      _sessionRead = true;
       if (!_verified) return _set(EmailUnverified(session.email));
       final family = await _api.load();
       if (account == _account) _set(FamilyReady(family));
@@ -329,6 +336,7 @@ class FamilyModel extends ChangeNotifier {
     _status = AccountStatus.active;
     _termsAccepted = true;
     _verified = false;
+    _sessionRead = false;
     _read = false;
     _notice = null;
     _wink = false;

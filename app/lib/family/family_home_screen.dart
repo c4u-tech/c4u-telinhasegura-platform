@@ -165,6 +165,15 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
       }
       // Inside the navigation, which holds Equipe, the account and
       // signing out.
+      // Still being read inside the navigation: Início's greeting over the
+      // placeholder rows, so the page only fills in once the read answers.
+      if (state is FamilyLoading && ShellFrame.maybeOf(context) != null) {
+        return FieldLayout(
+          title: greeting(clock.now()),
+          wink: _wink,
+          children: familyPending(_model),
+        );
+      }
       // Inside the navigation, which holds Equipe, the account and
       // signing out.
       if (state case NoFamily(:final invitations)) {

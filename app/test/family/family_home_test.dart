@@ -417,27 +417,24 @@ void main() {
       });
     }
 
-    testWidgets('while the family loads, with no door yet, the foot still '
-        'names the account', (tester) async {
+    testWidgets('while the family loads, the home is Início\'s greeting '
+        'over the placeholder, with no foot: Conta holds the account', (
+      tester,
+    ) async {
       final answer = Completer<http.Response>();
-      final semantics = tester.ensureSemantics();
       final h = Harness(signedIn: true)..familyRead = () => answer.future;
       await h.pump(tester, initial: '/');
 
-      expect(find.widgetWithText(DoorRow, 'Sua conta'), findsNothing);
-      // Shown with the address's break marks, read plain (Plain Address
-      // Rule).
       expect(
-        find.text('Você entrou como ${addressBreaks('ana@example.com')}'),
-        findsOneWidget,
+        tester.widget<FieldLayout>(find.byType(FieldLayout)).title,
+        greeting(DateTime.now()),
       );
-      expect(
-        find.bySemanticsLabel('Você entrou como ana@example.com'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('family-placeholder')), findsOneWidget);
+      expect(find.textContaining('Você entrou como'), findsNothing);
+      expect(find.text('Sair da conta'), findsNothing);
+      expect(find.widgetWithText(DestinationTile, 'Conta'), findsOneWidget);
       answer.complete(json(200, ownerFamily));
       await tester.pumpAndSettle();
-      semantics.dispose();
     });
 
     testWidgets('signs out and lands on /entrar', (tester) async {
