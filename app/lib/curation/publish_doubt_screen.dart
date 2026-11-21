@@ -11,11 +11,12 @@ import '../design/field_layout.dart';
 import '../design/tokens.dart';
 import '../family/family.dart';
 import '../family/profile_fields.dart' show AgeBandChoice, SelectableRow;
+import '../family/confirm.dart' show staffReasonMax;
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
-import 'approve_screen.dart' show ReasonField, tooLongForYoungestLine;
+import 'approve_screen.dart' show tooLongForYoungestLine;
 import 'band_answer_row.dart';
 import 'curation.dart';
 import 'held_video_screen.dart' show doubtsHeading, heldGone;
@@ -308,7 +309,7 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       ReasonField(
         controller: _reason,
         label: 'Motivo',
-        maxLength: 200,
+        maxLength: staffReasonMax,
         errorText: _fieldError,
       ),
       const SizedBox(height: Space.xl),

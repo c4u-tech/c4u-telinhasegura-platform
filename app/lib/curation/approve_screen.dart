@@ -78,21 +78,6 @@ String stayWithLabel(AgeBand band) => 'Ficar com ${band.label}';
 String bandStatement(AgeBand from) =>
     'Pelas respostas, este vídeo serve a partir de ${from.label}';
 
-/// A reason's counter shows from here, near its bound.
-const _reasonCountFrom = 160;
-
-/// The counter of a reason with a bound: nothing until the words near it,
-/// then "170 de 200", muted.
-InputCounterWidgetBuilder nearBoundCounter(BuildContext context) =>
-    (_, {required currentLength, required isFocused, maxLength}) =>
-        maxLength == null || currentLength < _reasonCountFrom
-        ? null
-        : Text(
-            '$currentLength de $maxLength',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: context.palette.muted),
-          );
-
 /// Under "Aprovar" until the video has played to its end here.
 const watchHint = 'Para aprovar, deixe o vídeo tocar até o fim.';
 
@@ -982,62 +967,6 @@ class _SummaryLine extends StatelessWidget {
                 change,
               ],
             ),
-    );
-  }
-}
-
-/// A reason's field with a bound: it grows with its words, takes no more
-/// than [maxLength] and shows its count only near it ([nearBoundCounter]).
-/// At a text scale of 1.5 or more its label, which would float on two
-/// lines across the field's edge, stands as plain body-large text on its
-/// own line 8 px above the field, merged with it so it is read once as
-/// the field's.
-class ReasonField extends StatelessWidget {
-  const ReasonField({
-    super.key,
-    required this.controller,
-    required this.label,
-    required this.maxLength,
-    this.enabled = true,
-    this.errorText,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final int maxLength;
-  final bool enabled;
-  final String? errorText;
-
-  @override
-  Widget build(BuildContext context) {
-    final over = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
-    final field = TextField(
-      controller: controller,
-      enabled: enabled,
-      keyboardType: TextInputType.multiline,
-      textCapitalization: TextCapitalization.sentences,
-      minLines: 1,
-      maxLines: null,
-      maxLength: maxLength,
-      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-      buildCounter: nearBoundCounter(context),
-      decoration: InputDecoration(
-        labelText: over ? null : label,
-        alignLabelWithHint: true,
-        errorText: errorText,
-        errorMaxLines: 3,
-      ),
-    );
-    if (!over) return field;
-    return MergeSemantics(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodyLarge),
-          const SizedBox(height: Space.sm),
-          field,
-        ],
-      ),
     );
   }
 }

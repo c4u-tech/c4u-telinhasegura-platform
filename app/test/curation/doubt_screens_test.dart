@@ -79,10 +79,7 @@ List<String> writePaths(Harness h) => [
 /// a reason.
 Future<void> publishFromHeld(WidgetTester tester) async {
   await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
-  await tester.enterText(
-    find.widgetWithText(TextField, 'Motivo'),
-    'Sem risco no vídeo.',
-  );
+  await tester.enterText(reasonOf(), 'Sem risco no vídeo.');
   await tester.pump();
   await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 }
@@ -158,10 +155,7 @@ void main() {
       tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
       isTrue,
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      'Sem risco no vídeo.',
-    );
+    await tester.enterText(reasonOf(), 'Sem risco no vídeo.');
     await tester.pump();
     expect(
       tester
@@ -191,10 +185,7 @@ void main() {
     expect(find.text(publishLead), findsOneWidget);
     await tapOn(tester, row('Natureza'));
     await tapOn(tester, row('2\u00A0a\u00A04\u00A0anos'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      '  Sem risco no vídeo. ',
-    );
+    await tester.enterText(reasonOf(), '  Sem risco no vídeo. ');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
@@ -389,10 +380,7 @@ void main() {
     );
 
     await tapOn(tester, row('2\u00A0a\u00A04\u00A0anos'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      'Motivo válido.',
-    );
+    await tester.enterText(reasonOf(), 'Motivo válido.');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
@@ -423,10 +411,7 @@ void main() {
       tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
       isTrue,
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      'Motivo válido.',
-    );
+    await tester.enterText(reasonOf(), 'Motivo válido.');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
@@ -457,15 +442,12 @@ void main() {
 
     await tapOn(tester, row('Música'));
     await tapOn(tester, row('5\u00A0a\u00A08\u00A0anos'));
-    await tester.enterText(find.widgetWithText(TextField, 'Motivo'), 'ok');
+    await tester.enterText(reasonOf(), 'ok');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
     expect(
-      tester
-          .widget<TextField>(find.widgetWithText(TextField, 'Motivo'))
-          .decoration
-          ?.errorText,
+      tester.widget<TextField>(reasonOf()).decoration?.errorText,
       publishReasonInvalid,
     );
   });
@@ -475,10 +457,7 @@ void main() {
     final h = await doubtHeld(tester);
 
     await tapOn(tester, find.widgetWithText(QuietAction, 'Remover de vez'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      '  Desafio perigoso. ',
-    );
+    await tester.enterText(reasonOf(), '  Desafio perigoso. ');
     await tester.pump();
     await tapOn(tester, confirming('Remover de vez'));
 
@@ -498,10 +477,7 @@ void main() {
 
     await tapOn(tester, row('Música'));
     await tapOn(tester, row('5\u00A0a\u00A08\u00A0anos'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      'Motivo válido.',
-    );
+    await tester.enterText(reasonOf(), 'Motivo válido.');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
@@ -518,10 +494,7 @@ void main() {
 
     await tapOn(tester, row('Música'));
     await tapOn(tester, row('5\u00A0a\u00A08\u00A0anos'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      'Motivo válido.',
-    );
+    await tester.enterText(reasonOf(), 'Motivo válido.');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
@@ -772,7 +745,7 @@ void main() {
   testWidgets('"Motivo" grows with its words, counts toward its 200 '
       'characters near the end, and takes no more', (tester) async {
     await doubtHeld(tester, initial: '/moderacao/retidos/v1/publicar');
-    final field = find.widgetWithText(TextField, 'Motivo');
+    final field = reasonOf();
 
     expect(find.text('0/200'), findsNothing);
     expect(tester.widget<TextField>(field).maxLines, isNull);

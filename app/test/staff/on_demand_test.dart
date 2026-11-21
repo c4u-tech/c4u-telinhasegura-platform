@@ -97,7 +97,7 @@ Finder confirming(String label) => find.descendant(
 );
 
 Future<void> confirmWith(WidgetTester tester, String label) async {
-  await tester.enterText(find.widgetWithText(TextField, 'Motivo'), why);
+  await tester.enterText(reasonOf(), why);
   await tester.pump();
   await tapOn(tester, confirming(label));
 }

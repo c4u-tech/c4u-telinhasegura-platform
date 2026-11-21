@@ -2286,10 +2286,7 @@ final adminScreens =
         (tester, h) async {
           await _searched(tester, h);
           await tapOn(tester, find.text('Desvincular').first);
-          await tester.enterText(
-            find.widgetWithText(TextField, 'Motivo'),
-            'Pedido da família.',
-          );
+          await tester.enterText(reasonOf(), 'Pedido da família.');
           await tester.pump();
           await tapOn(tester, find.widgetWithText(FilledButton, 'Desvincular'));
         },
@@ -2396,7 +2393,7 @@ final adminScreens =
         (tester, _) async {
           await tapOn(tester, find.text('Reabrir para revisão'));
           await tester.enterText(
-            find.widgetWithText(TextField, 'Motivo'),
+            reasonOf(),
             List.filled(40, 'canal').join(' ').substring(0, 190),
           );
           await tester.pumpAndSettle();
@@ -2439,10 +2436,7 @@ Future<void> _searched(WidgetTester tester, Harness _) async {
 /// Opens the sheet's [action], gives a reason, and confirms.
 Future<void> _confirmStaff(WidgetTester tester, String action) async {
   await tapOn(tester, find.text(action));
-  await tester.enterText(
-    find.widgetWithText(TextField, 'Motivo'),
-    'Pedido da família.',
-  );
+  await tester.enterText(reasonOf(), 'Pedido da família.');
   await tester.pump();
   await tapOn(tester, find.widgetWithText(FilledButton, action));
 }
