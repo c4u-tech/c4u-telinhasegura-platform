@@ -348,6 +348,11 @@ func TestDecideDoubtRefusesToReadAnUnknownList(t *testing.T) {
 	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
 	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
 	v := f.heldDoubt(ytID, "2099-01-01", map[string]string{"c22": "appears"})
+	// The held list still loads, with no band for that video.
+	held, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(held) != 1 || held[0].Video.ID != v || held[0].ComputedBand != "" {
+		t.Fatalf("held %+v %v", held, err)
+	}
 	if err := f.svc.DecideDoubt(ctx, m, v, young); err == nil || errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("decided under an unknown list: %v", err)
 	}

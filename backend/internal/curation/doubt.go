@@ -102,6 +102,9 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 	return nil
 }
 
+// errUnknownList is a review stored under a list the code does not know.
+var errUnknownList = errors.New("curation: review stored under an unknown list")
+
 // roundBand is the youngest band a round's answers allow for a video of
 // that many seconds: the oldest any of its reviews allows. Each review is
 // read under the list it was stored with, where a band question's yes
@@ -127,7 +130,7 @@ func (s *Service) roundBand(ctx context.Context, q querier, videoID string, roun
 			return "", err
 		}
 		if !knownList(version) {
-			return "", fmt.Errorf("curation: a review of video %s is stored under unknown list %q", videoID, version)
+			return "", fmt.Errorf("%w: video %s, list %q", errUnknownList, videoID, version)
 		}
 		return bandFrom(version, answers, over), nil
 	})
