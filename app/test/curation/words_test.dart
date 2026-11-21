@@ -174,11 +174,12 @@ void main() {
     }
   });
 
-  test('a dot joins words and never opens or ends a line', () {
-    expect(CurationWords.dot, '\u00A0·\u00A0');
+  test('a dot joins words and never opens a line, the line free to break '
+      'after it', () {
+    expect(CurationWords.dot, '\u00A0· ');
     expect(
       CurationWords.joined(['Canal Bichos', '4\u00A0min']),
-      'Canal Bichos\u00A0·\u00A04\u00A0min',
+      'Canal Bichos\u00A0· 4\u00A0min',
     );
     expect(CurationWords.joined(['Só um']), 'Só um');
   });
@@ -215,7 +216,7 @@ void main() {
             band: AgeBand.from5To8,
           ),
         ),
-        'Pedagogo(a) aprovou\u00A0·\u00A0Bichos\u00A0·\u00A05\u00A0a\u00A08\u00A0anos',
+        'Pedagogo(a) aprovou\u00A0· Bichos\u00A0· 5\u00A0a\u00A08\u00A0anos',
       );
     });
 
@@ -253,7 +254,7 @@ void main() {
             theme: VideoTheme.unknown,
           ),
         ),
-        'Cuidador(a) aprovou\u00A0·\u00A0Tema não informado',
+        'Cuidador(a) aprovou\u00A0· Tema não informado',
       );
     });
   });
@@ -265,7 +266,7 @@ void main() {
     expect(CurationWords.videos(3), '3 vídeos');
     expect(
       CurationWords.heldCounts(refusals: 2, reports: 3),
-      '2 recusas\u00A0·\u00A03 denúncias',
+      '2 recusas\u00A0· 3 denúncias',
     );
     expect(CurationWords.heldCounts(refusals: 1, reports: 0), '1 recusa');
     expect(CurationWords.heldCounts(refusals: 0, reports: 1), '1 denúncia');

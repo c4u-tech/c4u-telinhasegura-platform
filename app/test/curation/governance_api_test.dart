@@ -200,7 +200,7 @@ void main() {
     expect(CurationWords.marked(Review.fromJson(rejectionJson), list), isEmpty);
     expect(
       CurationWords.review(doubt),
-      'Mãe ou pai teve dúvida\u00A0·\u00A0Bichos\u00A0·\u00A05\u00A0a\u00A08\u00A0anos',
+      'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5\u00A0a\u00A08\u00A0anos',
       reason: 'a doubt names the theme and band its curator chose',
     );
   });

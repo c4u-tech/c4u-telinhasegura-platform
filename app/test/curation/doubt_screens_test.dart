@@ -48,6 +48,8 @@ Future<Harness> doubtHeld(
   FutureOr<http.Response> Function(http.Request)? settle,
   FutureOr<http.Response> Function()? checklist,
   Map<String, Object?>? held,
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   final h =
       Harness(
@@ -60,7 +62,7 @@ Future<Harness> doubtHeld(
         )
         ..family = ownerFamily
         ..roles = ['admin'];
-  await h.pump(tester, initial: initial);
+  await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
 }
 

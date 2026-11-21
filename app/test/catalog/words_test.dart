@@ -193,13 +193,13 @@ void main() {
     });
 
     test('a count never parts from its role, nor the dot from the words '
-        'around it (the Whole Phrase Rule)', () {
+        'before it (the Whole Phrase Rule)', () {
       final s = CatalogWords.provenance(
         provenance({DisplayRole.maePai: 2}, daysAgo: 1),
         now,
       );
       expect(s, contains('2 mães'));
-      expect(s, contains('pais\u00A0·\u00A0'));
+      expect(s, contains('pais\u00A0· '));
       expect(plain(s), endsWith('última revisão ontem'));
     });
 
