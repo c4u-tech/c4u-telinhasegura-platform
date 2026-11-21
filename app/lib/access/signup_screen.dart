@@ -102,7 +102,7 @@ class _SignupScreenState extends State<SignupScreen> {
           busy: _submission.busy,
           onPressed: _adult && !_submission.blocked ? _submit : null,
         ),
-        SubmitHint(declarationHint, visible: !_adult),
+        SubmitHint(declarationHint, visible: !_adult, reserve: true),
         const SizedBox(height: Space.xxl),
         Wrap(
           alignment: WrapAlignment.center,

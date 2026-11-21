@@ -345,3 +345,24 @@ Finder reasonOf([String label = 'Motivo']) => find.descendant(
   of: find.byWidgetPredicate((w) => w is ReasonField && w.label == label),
   matching: find.byType(TextField),
 );
+
+/// [primary] stays where it was as [complete] finishes the form: the page
+/// scrolled to its foot first, where a hint under the primary going away
+/// would pull everything down by its height.
+Future<void> expectPrimaryStays(
+  WidgetTester tester,
+  Finder primary,
+  Future<void> Function() complete,
+) async {
+  final page = tester
+      .state<ScrollableState>(
+        find.ancestor(of: primary, matching: find.byType(Scrollable)).first,
+      )
+      .position;
+  page.jumpTo(page.maxScrollExtent);
+  await tester.pumpAndSettle();
+  final before = tester.getRect(primary);
+  await complete();
+  await tester.pumpAndSettle();
+  expect(tester.getRect(primary), before);
+}

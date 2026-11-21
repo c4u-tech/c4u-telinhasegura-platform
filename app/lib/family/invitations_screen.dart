@@ -195,7 +195,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
       if (full)
         const SubmitHint(Copy.adultsFull)
       else
-        SubmitHint(typeAnEmail, visible: !typed),
+        SubmitHint(typeAnEmail, visible: !typed, reserve: true),
     ];
   }
 }
