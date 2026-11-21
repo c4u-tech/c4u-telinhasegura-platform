@@ -8,6 +8,9 @@ import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/design/display_title.dart';
+import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/pinned_header.dart';
+import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/shell/list_detail.dart';
 import 'package:telinha_segura/auth/api_error.dart';
@@ -479,9 +482,72 @@ void main() {
       await expectPinned();
     });
 
-    testWidgets('at 360 × 640 and 200 % text it scrolls with the page, '
-        'since it would leave less than half the height', (tester) async {
+    /// What the flow's pinned header keeps at the top.
+    PinnedPart kept(WidgetTester tester) => tester
+        .renderObject<RenderPinnedHeader>(find.byType(PinnedHeader))
+        .pinned;
+
+    /// The band's top.
+    double band(WidgetTester tester) =>
+        tester.getTopLeft(find.byKey(FieldLayout.fieldKey)).dy;
+
+    testWidgets('at 390 × 844 the band, the window and its line all stay', (
+      tester,
+    ) async {
+      await approving(tester);
+      final (bandAt, windowAt, lineAt) = (
+        band(tester),
+        top(tester),
+        tester.getTopLeft(endLine(playedToEnd)).dy,
+      );
+
+      expect(kept(tester), PinnedPart.both);
+      await scrollContent(tester, 300);
+
+      expect(band(tester), bandAt);
+      expect(top(tester), windowAt);
+      expect(tester.getTopLeft(endLine(playedToEnd)).dy, lineAt);
+    });
+
+    testWidgets('at 360 × 640 the band scrolls away and the window and its '
+        'line stay, leaving the questions half the height', (tester) async {
+      await approving(tester, size: const Size(360, 640));
+      final bandAt = band(tester);
+      expect(kept(tester), PinnedPart.child);
+
+      await scrollContent(tester, 300);
+
+      expect(band(tester), lessThan(bandAt));
+      expect(top(tester), Space.lg, reason: 'the window near the top');
+      final lineBottom = tester.getBottomLeft(endLine(playedToEnd)).dy;
+      expect(lineBottom, lessThan(320));
+      expect(
+        tester
+            .hitTestOnBinding(tester.getCenter(window()))
+            .path
+            .any((e) => e.target == tester.renderObject(window())),
+        isTrue,
+      );
+      await scrollContent(tester, 300);
+      expect(top(tester), Space.lg, reason: 'it stays as the page goes on');
+    });
+
+    testWidgets('at 360 × 640 and 200 % text the window and its line still '
+        'leave half the height, and stay', (tester) async {
       await approving(tester, size: const Size(360, 640), textScale: 2);
+
+      expect(kept(tester), PinnedPart.child);
+      await scrollContent(tester, 300);
+      expect(top(tester), Space.lg);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('where even the window and its line would leave less than '
+        'half the height, nothing stays: they scroll with the page', (
+      tester,
+    ) async {
+      await approving(tester, size: const Size(360, 480), textScale: 2);
+      expect(kept(tester), PinnedPart.none);
       final before = top(tester);
 
       await scrollContent(tester, 200);

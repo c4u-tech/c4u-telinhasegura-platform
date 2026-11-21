@@ -344,8 +344,9 @@ class FieldLayout extends StatelessWidget {
 }
 
 /// The narrow band and [watch] under it stay at the top while [task]
-/// scrolls beneath them, unless together they would leave the task less
-/// than half the height; then they scroll with it.
+/// scrolls beneath them, as long as the task keeps at least half the
+/// height: else the band scrolls away and [watch] alone stays, when that
+/// leaves the task half; else both scroll with it.
 Widget _pinnedUnderBand(
   BuildContext context, {
   required Widget watch,
@@ -359,40 +360,33 @@ Widget _pinnedUnderBand(
     slivers: [
       PinnedHeader(
         edge: p.outline.withValues(alpha: .5),
+        lead: ColoredBox(
+          color: p.ground,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.md, 0),
+            child: _Field(
+              corner: FieldSizes.bandCorner,
+              tevi: FieldSizes.bandTevi,
+              wink: wink,
+              child: _FieldContent(size: FieldSize.band, onBack: onBack),
+            ),
+          ),
+        ),
         child: ColoredBox(
           color: p.ground,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.md,
-                  Space.sm,
-                  Space.md,
-                  0,
-                ),
-                child: _Field(
-                  corner: FieldSizes.bandCorner,
-                  tevi: FieldSizes.bandTevi,
-                  wink: wink,
-                  child: _FieldContent(size: FieldSize.band, onBack: onBack),
-                ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.xl,
+              Space.lg,
+              Space.xl,
+              Space.lg,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: width),
+                child: watch,
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.xl,
-                  Space.lg,
-                  Space.xl,
-                  Space.lg,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: width),
-                    child: watch,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -593,8 +587,9 @@ class _RailFramedState extends State<_RailFramed> {
   );
 
   /// The back control and what is watched stay at the top while the task
-  /// scrolls beneath them, unless they would leave the task less than
-  /// half the height.
+  /// scrolls beneath them, as long as the task keeps at least half the
+  /// height: else the back control scrolls away and what is watched alone
+  /// stays, when that leaves the task half; else both scroll with it.
   Widget _pinned(BuildContext context, Widget watch) {
     final p = context.palette;
     final sides = _RailFramed.padding(widget.pane);
@@ -609,20 +604,18 @@ class _RailFramedState extends State<_RailFramed> {
       slivers: [
         PinnedHeader(
           edge: p.outline.withValues(alpha: .5),
+          lead: ColoredBox(
+            color: p.ground,
+            child: Padding(
+              padding: sides.copyWith(bottom: Space.sm),
+              child: column(_backSlot(context)),
+            ),
+          ),
           child: ColoredBox(
             color: p.ground,
             child: Padding(
-              padding: sides.copyWith(bottom: Space.lg),
-              child: column(
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _backSlot(context),
-                    const SizedBox(height: Space.sm),
-                    watch,
-                  ],
-                ),
-              ),
+              padding: sides.copyWith(top: 0, bottom: Space.lg),
+              child: column(watch),
             ),
           ),
         ),
