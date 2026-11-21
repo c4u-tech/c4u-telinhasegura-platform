@@ -71,7 +71,9 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('Entrar na família joins it and the sun rises', (tester) async {
+    testWidgets('Entrar na família joins it and the mascot winks', (
+      tester,
+    ) async {
       final h = await firstUse(
         tester,
         () => [received('i1', 'carla@example.com')],
@@ -83,7 +85,7 @@ void main() {
 
       expect(h.actionsPastHome, ['POST /v1/invitations/i1/accept']);
       expect(find.byType(Inicio), findsOneWidget);
-      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+      expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
     });
 
     testWidgets('an erased inviter reads as a family', (tester) async {
@@ -256,9 +258,10 @@ void main() {
 
       expect(find.text(Copy.invitationGone), findsOneWidget);
       expect(find.text('Tenho um convite'), findsOneWidget);
+      // Início's greeting again, as for any account with no family.
       expect(
         tester.widget<FieldLayout>(find.byType(FieldLayout)).title,
-        'Sua família',
+        greeting(DateTime.now()),
       );
     });
 

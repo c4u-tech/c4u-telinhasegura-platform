@@ -238,9 +238,9 @@ enum ChecklistAnswer {
 }
 
 /// What a Sim ([ChecklistAnswer.appears]) does to a review: it refuses
-/// the video, sends it to the team, rules out the youngest band, keeps
-/// the curator from reviewing it, or ([notes]) nothing: the answer is only
-/// kept for the team.
+/// the video, sends it to the team, allows the video only from the
+/// question's own band up ([band]), keeps the curator from reviewing it,
+/// or ([notes]) nothing: the answer is only kept for the team.
 enum ChecklistRule {
   refuses('refuses'),
   doubt('doubt'),
@@ -265,6 +265,7 @@ class ChecklistItem {
     required this.text,
     required this.rule,
     this.longOnly = false,
+    this.minBand,
   });
 
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
@@ -272,6 +273,7 @@ class ChecklistItem {
     text: j['text'] as String,
     rule: ChecklistRule.parse(j['rule']),
     longOnly: j['long_only'] as bool? ?? false,
+    minBand: j['min_band'] == null ? null : AgeBand.parse(j['min_band']),
   );
 
   final String id;
@@ -280,6 +282,20 @@ class ChecklistItem {
 
   /// Asked only of a video longer than [Checklist.longFrom].
   final bool longOnly;
+
+  /// A band question's youngest band a Sim still allows; null on any other
+  /// question, and on a band question from a server that does not say.
+  final AgeBand? minBand;
+}
+
+extension BandRule on ChecklistItem {
+  /// The youngest band a Sim allows. A band question an older server did
+  /// not qualify bars the youngest only, and so does one with a band this
+  /// build does not know, which would otherwise bar every band.
+  AgeBand get allowsFrom => switch (minBand) {
+    null || AgeBand.unknown => AgeBand.from5To8,
+    final b => b,
+  };
 }
 
 class ChecklistGroup {
@@ -302,10 +318,6 @@ class ChecklistGroup {
   final String title;
   final List<ChecklistItem> items;
 }
-
-/// The question of a fast pace: a Sim rules out the youngest band, in
-/// every review of the round, also when a moderator decides.
-const fastPaceItem = 'c22';
 
 /// From this length a video counts as long, when the server does not say.
 const defaultLongFrom = Duration(minutes: 20);
@@ -580,6 +592,9 @@ class HeldVideo {
     this.heldReason = HeldReason.review,
     this.reports = const ReportSummary(),
     this.audit,
+    this.computedBand,
+    this.bandAnswers = const [],
+    this.playedToEnd = false,
   });
 
   factory HeldVideo.fromJson(Map<String, dynamic> j) => HeldVideo(
@@ -597,6 +612,15 @@ class HeldVideo {
     audit: j['audit'] == null
         ? null
         : HeldAudit.fromJson(j['audit'] as Map<String, dynamic>),
+    computedBand: switch (j['computed_band']) {
+      final String b when b.isNotEmpty => AgeBand.parse(b),
+      _ => null,
+    },
+    bandAnswers: [
+      for (final b in j['band_answers'] as List<dynamic>? ?? const [])
+        BandAnswer.fromJson(b as Map<String, dynamic>),
+    ],
+    playedToEnd: j['played_to_end'] == true,
   );
 
   final Video video;
@@ -609,6 +633,80 @@ class HeldVideo {
 
   /// Only for [HeldReason.audit]: the audit that held the video.
   final HeldAudit? audit;
+
+  /// The youngest band the round's answers and the video's length allow
+  /// it to be published in; null from a server that does not say.
+  final AgeBand? computedBand;
+
+  /// The round's answers behind [computedBand], in the list's order; none
+  /// from a server that does not say.
+  final List<BandAnswer> bandAnswers;
+
+  /// Whether the video played to its end for the one reading the list, in
+  /// its current round; false from a server that does not say.
+  final bool playedToEnd;
+}
+
+/// An answer of a round that bars a younger band: the question as the
+/// list asked it, the answer ("Sim" or "Não sei") and the displayed role of
+/// who gave it, never who.
+class BandAnswer {
+  const BandAnswer({
+    required this.text,
+    required this.answer,
+    required this.displayRole,
+  });
+
+  factory BandAnswer.fromJson(Map<String, dynamic> j) => BandAnswer(
+    text: j['text'] as String,
+    answer: ChecklistAnswer.parse(j['answer']),
+    displayRole: DisplayRole.parse(j['display_role']),
+  );
+
+  final String text;
+  final ChecklistAnswer answer;
+  final DisplayRole displayRole;
+}
+
+/// A curator's own unfinished review of a video, as the server keeps it:
+/// the answers so far, the theme, band and note, when the review began and
+/// when the player reached the video's end.
+class ReviewDraft {
+  const ReviewDraft({
+    required this.version,
+    required this.answers,
+    this.theme,
+    this.minAgeBand,
+    this.note,
+    required this.beganAt,
+    this.playedToEndAt,
+  });
+
+  factory ReviewDraft.fromJson(Map<String, dynamic> j) => ReviewDraft(
+    version: j['checklist_version'] as String,
+    answers: {
+      for (final e in (j['answers'] as Map<String, dynamic>).entries)
+        e.key: ChecklistAnswer.parse(e.value),
+    },
+    theme: j['theme'] == null ? null : VideoTheme.parse(j['theme']),
+    minAgeBand: j['min_age_band'] == null
+        ? null
+        : AgeBand.parse(j['min_age_band']),
+    note: j['note'] as String?,
+    beganAt: DateTime.parse(j['began_at'] as String),
+    playedToEndAt: _time(j['played_to_end_at']),
+  );
+
+  /// The list version the answers were given to; empty with no answers.
+  final String version;
+  final Map<String, ChecklistAnswer> answers;
+  final VideoTheme? theme;
+  final AgeBand? minAgeBand;
+  final String? note;
+  final DateTime beganAt;
+
+  /// Null until the player reached the video's end.
+  final DateTime? playedToEndAt;
 }
 
 /// A video the guardian suggested, with where it stands.

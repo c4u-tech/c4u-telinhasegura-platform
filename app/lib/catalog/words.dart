@@ -27,7 +27,7 @@ const videoGone = 'Esse vídeo saiu do catálogo.';
 /// The section of today's pacotinhos on a child's catalogue, and the line
 /// that closes it.
 const packsHeading = 'Pacotinhos de hoje';
-const packsDaily = 'Mudam a cada dia, como as prateleiras.';
+const packsDaily = 'Mudam a cada dia, como os vídeos de cada tema.';
 
 /// Back on the child's catalogue when a pacotinho is not among today's.
 const packGone = 'Esse pacotinho não está mais entre os de hoje.';
@@ -83,6 +83,30 @@ abstract final class CatalogWords {
     };
   }
 
+  /// How many people approved it, every role counted.
+  static int people(Provenance p) =>
+      p.approvals.values.fold(0, (sum, n) => sum + n);
+
+  /// The provenance's lead when anyone approved it: "Visto antes por 3
+  /// pessoas"; null when no approval is counted.
+  static String? seenBy(Provenance p) => switch (people(p)) {
+    0 => null,
+    1 => 'Visto antes por 1${_nbsp}pessoa',
+    final n => 'Visto antes por $n${_nbsp}pessoas',
+  };
+
+  /// Beneath [seenBy], who they were by role and when it was last
+  /// reviewed: "2 mães ou pais e 1 pedagogo(a) · última revisão há 3
+  /// dias"; null when no approval is counted.
+  static String? seenByWhom(Provenance p, DateTime now) =>
+      switch (_approvers(p)) {
+        final who? => CurationWords.joined([
+          who,
+          'última revisão ${CurationWords.ago(p.lastReviewedAt, now)}',
+        ]),
+        null => null,
+      };
+
   /// The approvals by role, "2 mães ou pais e 1 pedagogo(a)"; null when
   /// none is counted.
   static String? _approvers(Provenance p) {
@@ -124,6 +148,22 @@ abstract final class CatalogWords {
         'última revisão ${CurationWords.ago(p.provenance.lastReviewedAt, now)}',
       ]);
 
+  /// Beneath [seenBy] on a pacotinho, who approved it by role, then who
+  /// built it and when it was last reviewed: "2 mães ou pais · montado por
+  /// pedagogo(a) · última revisão há 3 dias"; null when no approval is
+  /// counted, where [packProvenance] says it all.
+  static String? packSeenByWhom(
+    FamilyPack p,
+    DateTime now,
+  ) => switch (_approvers(p.provenance)) {
+    final who? => CurationWords.joined([
+      who,
+      'montado por ${p.composerRole.inline}',
+      'última revisão ${CurationWords.ago(p.provenance.lastReviewedAt, now)}',
+    ]),
+    null => null,
+  };
+
   /// A pacotinho's video skipped for [nickname].
   static String packSkipped(String nickname) => 'Fica de fora para $nickname';
 
@@ -148,8 +188,8 @@ abstract final class CatalogWords {
 
   /// The catalogue's line under its title.
   static String lead(String nickname) =>
-      'Tudo o que $nickname pode assistir. A cada dia, as prateleiras '
-      'mostram uma parte.';
+      'Tudo o que $nickname pode assistir. A cada dia, a telinha '
+      'mostra uma parte.';
 
   /// The video's primary, hidden or not.
   static String hide(String nickname) => 'Esconder para $nickname';

@@ -74,8 +74,8 @@ void main() {
     expect(b.calls, ['GET /v1/session', 'GET /v1/family']);
   });
 
-  test('load reads once; refresh reads the session and the family again '
-      '(suspension screens)', () async {
+  test('load reads once; refresh reads the session and the family again, so '
+      'a suspension or a reinstatement shows', () async {
     final b = build();
     await b.model.load();
     await b.model.load();
@@ -259,15 +259,15 @@ void main() {
     });
   });
 
-  test('joined holds the family and asks once for the rise', () async {
+  test('joined holds the family and asks once for the wink', () async {
     final b = build(family: () => problem(404, 'no_family'));
     await b.model.load();
 
     b.model.joined(Family.fromJson(ownerFamily));
 
     expect(b.model.state, isA<FamilyReady>());
-    expect(b.model.takeRise(), isTrue);
-    expect(b.model.takeRise(), isFalse);
+    expect(b.model.takeWink(), isTrue);
+    expect(b.model.takeWink(), isFalse);
   });
 
   test('signing out forgets the family, so the next account reads its '
@@ -534,7 +534,7 @@ void main() {
       expect((b.model.state as NoFamily).invitations, isEmpty);
     });
 
-    test('acceptById joins with the rise', () async {
+    test('acceptById joins with the wink', () async {
       final b = build(
         family: () => problem(404, 'no_family'),
         other: (req) =>
@@ -546,7 +546,7 @@ void main() {
       await b.model.acceptById('i1');
 
       expect((b.model.state as FamilyReady).family.id, 'f1');
-      expect(b.model.takeRise(), isTrue);
+      expect(b.model.takeWink(), isTrue);
       expect(b.calls.last, 'POST /v1/invitations/i1/accept');
     });
 
@@ -626,7 +626,7 @@ void main() {
       await accepting;
 
       expect(b.model.state, isA<FamilyLoading>());
-      expect(b.model.takeRise(), isFalse);
+      expect(b.model.takeWink(), isFalse);
     });
 
     test('create answering after a sign-out is dropped', () async {

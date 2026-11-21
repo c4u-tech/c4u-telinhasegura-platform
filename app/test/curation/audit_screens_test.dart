@@ -208,10 +208,7 @@ void main() {
         matching: find.byType(TextButton),
       ),
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      '  Faixa errada. ',
-    );
+    await tester.enterText(reasonOf(), '  Faixa errada. ');
     await tester.pump();
     await tapOn(tester, confirming('Discordo'));
 
@@ -232,10 +229,7 @@ void main() {
       tester,
       find.widgetWithText(QuietAction, 'Discordo e tirar do app'),
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Motivo'),
-      'Tem publi no fim.',
-    );
+    await tester.enterText(reasonOf(), 'Tem publi no fim.');
     await tester.pump();
     await tapOn(tester, confirming('Tirar do app'));
 
@@ -307,7 +301,7 @@ void main() {
           matching: find.byType(TextButton),
         ),
       );
-      await tester.enterText(find.widgetWithText(TextField, 'Motivo'), short);
+      await tester.enterText(reasonOf(), short);
       await tester.pump();
 
       expect(

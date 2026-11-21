@@ -214,13 +214,14 @@ void main() {
       expect(header.getUint32(20), 1024);
     });
 
-    // The splash opens on the icon's own ground: ink by day, the dark
-    // brand ground at night, so launching keeps one colour.
+    // The splash opens on the brand's main ground, ink, in light and in dark:
+    // the mascot's dark parts would vanish on the dark ground, so night does
+    // not get its own colour.
     for (final (name, values, drawable, rgb) in [
-      ('ink', 'values-v31', 'drawable', [0x1E, 0x5B, 0x66]),
-      ('dark', 'values-night-v31', 'drawable-night', [0x0F, 0x2A, 0x30]),
+      ('day', 'values-v31', 'drawable', [0x1E, 0x5B, 0x66]),
+      ('night', 'values-night-v31', 'drawable-night', [0x1E, 0x5B, 0x66]),
     ]) {
-      test('the $name splash is the brand $name', () {
+      test('the $name splash is the brand ink', () {
         final hex = rgb
             .map((c) => c.toRadixString(16).padLeft(2, '0'))
             .join()

@@ -33,6 +33,9 @@ import '../kid/kid_home_screen.dart';
 import '../kid/pack_player_screen.dart';
 import '../kid/player_screen.dart';
 import '../kid/profile_picker_screen.dart';
+import '../kid/room_screen.dart';
+import '../kid/room_transition.dart';
+import '../kid/theme_glyph.dart' show worldOf;
 import '../kid_mode/devices_screen.dart';
 import '../kid_mode/hand_over_screen.dart';
 import '../kid_mode/kid_mode_screen.dart';
@@ -73,7 +76,8 @@ import '../curation/team_words.dart' show TeamNotice;
 import '../curation/new_suggestion_screen.dart';
 import '../curation/shared_link.dart';
 import '../curation/approve_screen.dart';
-import '../curation/curation.dart' show AuditCandidate, HeldVideo, Video;
+import '../curation/curation.dart'
+    show AuditCandidate, HeldVideo, Video, VideoTheme;
 import '../curation/publish_doubt_screen.dart';
 import '../curation/curator_terms_screen.dart';
 import '../curation/queue_screen.dart';
@@ -94,6 +98,7 @@ import '../staff/audit_screen.dart';
 import '../staff/staff_gate.dart';
 import '../staff/staff_root_screen.dart';
 import '../design/field_layout.dart';
+import '../design/tokens.dart' show ColourWorlds;
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../auth/auth_api.dart' show PlatformRole;
 import 'guardian_shell.dart';
@@ -359,7 +364,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     builder: (_, state) => ListRoot(
       path: state.uri.path,
       root: Routes.staffHome,
-      first: (_) => staffFirstItem(services.familyModel.roles),
+      // The roles may still be read as the place opens: the first item
+      // follows them when they arrive.
+      first: (_) => ListenableBuilder(
+        listenable: services.familyModel,
+        builder: (_, _) => staffFirstItem(services.familyModel.roles),
+      ),
       child: const StaffRootScreen(),
     ),
   ),
@@ -707,6 +717,32 @@ List<RouteBase> _outsideRoutes(AppServices services) => [
       GoRoute(path: 'sair', builder: (_, _) => const KidExitScreen()),
       GoRoute(path: 'quem', builder: (_, _) => const ProfilePickerScreen()),
       GoRoute(
+        path: 'tema/:tema',
+        pageBuilder: (_, state) {
+          final theme = VideoTheme.parse(state.pathParameters['tema']);
+          final door = RoomDoor.of(state.extra);
+          // The home's block grows into the page.
+          return roomPage(
+            key: state.pageKey,
+            from: door?.from,
+            ground: worldOf(theme).ground,
+            child: RoomScreen.theme(theme: theme, day: door?.day),
+          );
+        },
+      ),
+      GoRoute(
+        path: 'pacotinhos',
+        pageBuilder: (_, state) {
+          final door = RoomDoor.of(state.extra);
+          return roomPage(
+            key: state.pageKey,
+            from: door?.from,
+            ground: ColourWorlds.home.ground,
+            child: RoomScreen.packs(day: door?.day),
+          );
+        },
+      ),
+      GoRoute(
         path: 'pacotinho/:id',
         builder: (_, state) => PackPlayerScreen(
           start: switch (state.extra) {
@@ -797,7 +833,8 @@ String _hold(AppServices services, String? token) {
 }
 
 /// Without a family (or a confirmed email) the family screens send home,
-/// where the first use or the verify prompt waits. A
+/// where the first use or the verify prompt waits; Família's own root
+/// offers the first use as well. A
 /// guardian never sees the owner's screens.
 /// While suspended: home, the data and the erasure for anyone; the
 /// adults and the family's deletion for its owner, or while the family is
@@ -825,6 +862,8 @@ bool _ownerStep(FamilyState state) => switch (state) {
 };
 
 String? _familyRedirect(FamilyState state, String path) => switch (state) {
+  // Família's root is where a family can be started too.
+  NoFamily() when path == Routes.family => null,
   NoFamily() || EmailUnverified() => Routes.home,
   FamilyReady(:final family)
       when family.role != FamilyRole.owner && Routes.ownerOnly.contains(path) =>

@@ -21,10 +21,12 @@ void main() {
 
   for (final (name, path, signedIn) in [
     ('the entry', '/entrar', false),
-    ('the first use, before a family', '/', true),
+    ('the email to confirm, before a family', '/', true),
   ]) {
     testWidgets('$name carries it on its wide panel', (tester) async {
-      final h = Harness(signedIn: signedIn, api: catalogApi())..family = null;
+      final h = Harness(signedIn: signedIn, api: catalogApi())
+        ..family = null
+        ..unverified = signedIn;
       await h.pump(tester, initial: path, size: wide);
 
       expect(find.byKey(FieldLayout.panelKey), findsOneWidget);
@@ -37,6 +39,7 @@ void main() {
   // the destinations, no panel and so no promise to carry.
   for (final (name, path, family) in [
     ('the home', '/', ownerFamily),
+    ('the home before a family', '/', null),
     ('a child\'s catalogue', '/familia/videos/m1', threeChildren),
   ]) {
     testWidgets('$name, beside the rail, has no panel to carry it', (

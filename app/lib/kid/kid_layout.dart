@@ -3,14 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../design/espiadinha.dart';
+import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../shell/system_bars.dart';
+import 'press_sink.dart';
 
 /// The frame of every child screen, "dentro da telinha":
 /// the ink field is the whole ground, edge to edge, in either
-/// theme; the simplified mark sits small at the top strip's start, quiet
-/// (fullscreen design); [exit] takes the top end corner; [child] is
+/// theme; the simplified mascot sits small at the top strip's start, quiet,
+/// unless a [lead] takes its place; [exit] takes the
+/// top end corner; [child] is
 /// centred in a column that scrolls rather than overflow. Everything inside paints in the kid dialect. A [fullWidth]
 /// screen (the shelves) takes the whole width from the top instead, its
 /// rows running to the screen's edges. A screen that must not scroll (the
@@ -21,11 +24,16 @@ class KidLayout extends StatelessWidget {
     super.key,
     required this.child,
     this.exit,
+    this.lead,
+    this.mark = true,
+    this.ground,
+    this.rise = 0,
     this.fullWidth = false,
     this.scrolls = true,
     this.strip = true,
   }) : assert(scrolls || fullWidth, 'only a full-width screen fills'),
-       assert(strip || !scrolls, 'only a screen that fills goes bare');
+       assert(strip || !scrolls, 'only a screen that fills goes bare'),
+       assert(rise == 0 || (strip && !scrolls), 'only a filled strip rises');
 
   final Widget child;
 
@@ -39,106 +47,187 @@ class KidLayout extends StatelessWidget {
   /// The exit control, if the screen has one.
   final Widget? exit;
 
+  /// What stands at the strip's start in the mark's place (the child's
+  /// own avatar on their home).
+  final Widget? lead;
+
+  /// False: without [lead] the strip's start stays empty. Where the
+  /// mascot stands whole on the screen, a small one beside it says
+  /// nothing more.
+  final bool mark;
+
+  /// The ground edge to edge, when the screen is a theme's world rather
+  /// than the ink field.
+  final Color? ground;
+
+  /// How far [child] reaches up into the strip, between [lead] and
+  /// [exit]: the mascot standing on the home's first picture lifts its
+  /// head there. The strip has no ground of its own, so what rises shows,
+  /// and [lead] and [exit] stay above it and keep their taps.
+  final double rise;
+
+  /// The strip's height: the exit's target and its inset on both sides.
+  static const stripHeight = KidSizes.target + 2 * exitInset;
+
   /// False: no top strip, neither mark nor exit; [child] fills the safe
-  /// area (the player in fullscreen, fullscreen design).
+  /// area (the player in fullscreen).
   final bool strip;
 
-  /// The simplified mark's tier is 20–47 px; small and quiet, not a
-  /// heading.
+  /// The simplified mascot, small and quiet: not a heading.
   static const markSize = 24.0;
 
-  /// The exit's inset from the safe area's top and side: its ring, 2 dp
-  /// inside its 64 dp target, stands clear of the edges, level with the
-  /// mark centred in the same strip.
+  /// The exit's inset from the safe area's top: its ring, 2 dp inside its
+  /// 64 dp target, stands clear of the edge, level with the mark centred
+  /// in the same strip.
   static const exitInset = Space.lg;
+
+  /// A phone's content stands this far in from the screen's sides.
+  static const inset = 20.0;
+
+  /// From 840 px, as far in as this.
+  static const insetWide = 48.0;
+
+  /// A phone's column grows no wider; on a wider narrow window it is
+  /// centred.
+  static const column = 600.0;
+
+  /// The screen's one edge at [width]: where the content starts, and so
+  /// where the strip's lead starts and its exit ends.
+  static double edge(double width) => width >= FieldSizes.wideBreakpoint
+      ? insetWide
+      : math.max(inset, (width - column) / 2);
 
   static double _vertical(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     return math.max(pad.top, pad.bottom);
   }
 
+  /// What a screen reader hears for the strip: the app's name, said by
+  /// the small mark where it stands.
+  static const name = 'Telinha Segura';
+
+  Widget _strip() => SizedBox(
+    height: stripHeight,
+    child: LayoutBuilder(
+      builder: (context, box) => _stripOn(edge(box.maxWidth)),
+    ),
+  );
+
+  Widget _stripOn(double edge) => Stack(
+    children: [
+      // Where no mark is drawn, the strip still says whose screen this
+      // is, without painting anything or taking a touch.
+      if (lead != null || !mark)
+        Positioned.fill(
+          child: Semantics(
+            container: true,
+            label: name,
+            child: SizedBox.expand(),
+          ),
+        ),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(start: edge),
+          // The figure takes its colours from the ground below it.
+          child:
+              lead ??
+              (mark
+                  ? Builder(
+                      builder: (context) => Tevi(
+                        size: markSize,
+                        tier: TeviTier.simplified,
+                        night: TeviGround.nightAt(context),
+                        semanticLabel: name,
+                      ),
+                    )
+                  : const SizedBox.shrink()),
+        ),
+      ),
+      if (exit case final exit?)
+        PositionedDirectional(top: exitInset, end: edge, child: exit),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => Theme(
     data: buildTheme(Brightness.dark, Palette.kid),
     child: AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      // The bars' icons read on the ground edge to edge: light on the
+      // child's dark grounds, dark on a theme's light world.
+      value: barsOver(ThemeData.estimateBrightnessForColor(_ground)),
       child: Scaffold(
-        backgroundColor: Palette.kid.ground,
+        backgroundColor: _ground,
         // Bare, the safe area's larger vertical inset stands on both sides,
         // so what fills it is centred on the screen, clear of a home
-        // indicator (fullscreen design).
-        body: SafeArea(
-          top: strip,
-          bottom: strip,
-          minimum: strip
-              ? EdgeInsets.zero
-              : EdgeInsets.symmetric(vertical: _vertical(context)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (strip)
-                SizedBox(
-                  height: KidSizes.target + 2 * exitInset,
-                  child: Stack(
-                    children: [
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: Space.xl,
-                          ),
-                          child: Semantics(
-                            image: true,
-                            label: 'Telinha Segura',
-                            child: const CustomPaint(
-                              size: Size.square(markSize),
-                              painter: SimplifiedMarkPainter(),
+        // indicator.
+        // Every mascot on the screen reads this ground for its colours.
+        body: TeviGround(
+          color: _ground,
+          child: SafeArea(
+            top: strip,
+            bottom: strip,
+            minimum: strip
+                ? EdgeInsets.zero
+                : EdgeInsets.symmetric(vertical: _vertical(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (strip && rise == 0) _strip(),
+                Expanded(
+                  child: rise > 0
+                      ? Stack(
+                          children: [
+                            Positioned.fill(
+                              top: stripHeight - rise,
+                              child: child,
                             ),
-                          ),
-                        ),
-                      ),
-                      if (exit case final exit?)
-                        PositionedDirectional(
-                          top: exitInset,
-                          end: exitInset,
-                          child: exit,
-                        ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: !scrolls
-                    ? child
-                    : fullWidth
-                    ? SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(vertical: Space.xl),
-                        child: child,
-                      )
-                    : LayoutBuilder(
-                        builder: (context, box) => SingleChildScrollView(
-                          padding: const EdgeInsets.all(Space.xl),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: box.maxHeight - 2 * Space.xl,
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: stripHeight,
+                              child: _strip(),
                             ),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: FieldSizes.columnMaxWidth,
+                          ],
+                        )
+                      : !scrolls
+                      ? child
+                      : fullWidth
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: Space.xl,
+                          ),
+                          child: child,
+                        )
+                      : LayoutBuilder(
+                          builder: (context, box) => SingleChildScrollView(
+                            padding: const EdgeInsets.all(Space.xl),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: box.maxHeight - 2 * Space.xl,
+                              ),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: FieldSizes.columnMaxWidth,
+                                  ),
+                                  child: child,
                                 ),
-                                child: child,
                               ),
                             ),
                           ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     ),
   );
+
+  Color get _ground => ground ?? Palette.kid.ground;
 }
 
 /// The quiet "Voltar" of a child screen, at the child side's 64 dp:
@@ -151,13 +240,16 @@ class KidBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        minimumSize: const Size.square(KidSizes.target),
-        padding: const EdgeInsets.symmetric(horizontal: Space.md),
+    child: PressSink(
+      enabled: onPressed != null,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size.square(KidSizes.target),
+          padding: const EdgeInsets.symmetric(horizontal: Space.md),
+        ),
+        child: const Text('Voltar'),
       ),
-      child: const Text('Voltar'),
     ),
   );
 }

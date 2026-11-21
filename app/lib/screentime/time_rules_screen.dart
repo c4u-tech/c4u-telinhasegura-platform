@@ -31,7 +31,7 @@ const pickerMaxTextScale = 1.2;
 
 /// `/familia/tempo/:id/limite`: one child's daily limit in a stepper of
 /// 15-minute steps from 15 to 240, the hours as two rows opening the
-/// 24-hour picker, the family's zone in words, and "Salvar" (screen-time screens).
+/// 24-hour picker, the family's zone in words, and "Salvar".
 /// The bounds and the hours' order only spare a round
 /// trip: the server enforces both.
 class TimeRulesScreen extends StatefulWidget {

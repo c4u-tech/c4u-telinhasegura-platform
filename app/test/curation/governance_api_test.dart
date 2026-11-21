@@ -60,6 +60,7 @@ void main() {
       'c15',
       'c12',
       'c22',
+      'c35',
       'c23',
       'c24',
       'c26',
@@ -68,6 +69,7 @@ void main() {
     ]);
     expect(list.item('c25')!.rule, ChecklistRule.conflict);
     expect(list.item('c28')!.rule, ChecklistRule.notes);
+    expect(list.item('c35')!.minBand, AgeBand.from9To12);
     expect(list.item('c26')!.longOnly, isTrue);
     expect(list.item('c24')!.longOnly, isFalse);
     expect(list.longFrom, const Duration(minutes: 20));
@@ -76,6 +78,64 @@ void main() {
     expect(ChecklistRule.parse('new_rule'), ChecklistRule.unknown);
     expect(ChecklistRule.parse('invalid_reason'), ChecklistRule.unknown);
     expect(ChecklistAnswer.parse('maybe'), ChecklistAnswer.unknown);
+  });
+
+  test('a band question carries the youngest band a yes allows', () {
+    final item = ChecklistItem.fromJson({
+      'id': 'c35',
+      'text': '?',
+      'rule': 'band',
+      'min_band': '9-12',
+    });
+    expect(item.minBand, AgeBand.from9To12);
+    expect(item.allowsFrom, AgeBand.from9To12);
+    final old = ChecklistItem.fromJson({
+      'id': 'c22',
+      'text': '?',
+      'rule': 'band',
+    });
+    expect(old.minBand, isNull);
+    expect(old.allowsFrom, AgeBand.from5To8);
+  });
+
+  test('a held video carries the band its answers allow from', () {
+    final held = HeldVideo.fromJson({
+      ...heldOf(pendingJson, reason: 'doubt'),
+      'computed_band': '5-8',
+    });
+    expect(held.computedBand, AgeBand.from5To8);
+    expect(
+      HeldVideo.fromJson(heldOf(pendingJson)).computedBand,
+      isNull,
+      reason: 'an older server sends none',
+    );
+  });
+
+  test('a held video carries the answers behind its band, by displayed '
+      'role', () {
+    final held = HeldVideo.fromJson({
+      ...heldOf(pendingJson, reason: 'doubt'),
+      'band_answers': [
+        {
+          'text': 'Tem ritmo agitado?',
+          'answer': 'doubt',
+          'display_role': 'mae-pai',
+        },
+        {'text': 'Namoro?', 'answer': 'appears', 'display_role': 'pedagogo'},
+      ],
+    });
+    expect(
+      [for (final b in held.bandAnswers) (b.text, b.answer, b.displayRole)],
+      [
+        ('Tem ritmo agitado?', ChecklistAnswer.doubt, DisplayRole.maePai),
+        ('Namoro?', ChecklistAnswer.appears, DisplayRole.pedagogo),
+      ],
+    );
+    expect(
+      HeldVideo.fromJson(heldOf(pendingJson)).bandAnswers,
+      isEmpty,
+      reason: 'an older server sends none',
+    );
   });
 
   test('a list without its limits reads 20 and 60 minutes', () {
@@ -140,7 +200,7 @@ void main() {
     expect(CurationWords.marked(Review.fromJson(rejectionJson), list), isEmpty);
     expect(
       CurationWords.review(doubt),
-      'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5 a 8 anos',
+      'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5\u00A0a\u00A08\u00A0anos',
       reason: 'a doubt names the theme and band its curator chose',
     );
   });
@@ -171,6 +231,7 @@ void main() {
   test('the moderation contract: decide, sample, audit', () async {
     final t = build(ClientKind.mobile, contract);
     final api = StaffApi(t.client);
+    await api.moderatorEnded('v1');
     await api.decideDoubt(
       'v1',
       publish: true,
@@ -189,6 +250,7 @@ void main() {
       hold: true,
     );
     expect(t.calls, [
+      'POST /v1/moderation/videos/v1/ended',
       'POST /v1/moderation/videos/v1/decide {"decision":"approve","theme":"natureza","min_age_band":"ate-4","reason":"Sem risco."}',
       'POST /v1/moderation/videos/v1/decide {"decision":"reject","reason":"Desafio perigoso."}',
       'GET /v1/moderation/audit-sample',
@@ -215,6 +277,7 @@ void main() {
       'declaration_outdated',
       'already_audited',
       'own_review',
+      'not_watched',
     ]) {
       final words = Copy.forError(ApiError(status: 409, code: code));
       expect(words, isNot(Copy.genericRetry), reason: code);

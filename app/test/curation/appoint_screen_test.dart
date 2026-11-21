@@ -54,7 +54,7 @@ Finder confirming(String label) => find.descendant(
 /// Gives the open confirmation a reason (padded, to be sent trimmed) and
 /// confirms it with [label].
 Future<void> confirmWith(WidgetTester tester, String label) async {
-  await tester.enterText(find.widgetWithText(TextField, 'Motivo'), '  $why ');
+  await tester.enterText(reasonOf(), '  $why ');
   await tester.pump();
   await tapOn(tester, confirming(label));
 }

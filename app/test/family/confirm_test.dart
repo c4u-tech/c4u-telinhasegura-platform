@@ -51,7 +51,9 @@ Future<Object?> reopening(BuildContext context) => confirmWithReason(
 );
 
 Finder get action => find.widgetWithText(FilledButton, 'Reabrir para revisão');
-Finder get reason => find.widgetWithText(TextField, 'Motivo');
+
+/// "Motivo": its label stands over it at large text, outside the field.
+Finder get reason => find.byType(TextField);
 
 bool enabled(WidgetTester tester) =>
     tester.widget<FilledButton>(action).onPressed != null;

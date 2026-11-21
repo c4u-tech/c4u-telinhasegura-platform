@@ -79,7 +79,8 @@ bool padEnabled(WidgetTester tester) =>
     tester.widget<PinPad>(find.byType(PinPad)).enabled;
 
 /// Every PIN screen reads in one order: [lead] (the intro line or the
-/// title), then the error note right above the pad (fix round, item 7).
+/// title), then the error note right above the pad, where the eye already
+/// is when a PIN is refused.
 void expectNoteAbovePad(WidgetTester tester, Finder lead) {
   final note = tester.getRect(find.byType(ErrorNote));
   expect(tester.getRect(lead).bottom, lessThanOrEqualTo(note.top));
@@ -118,7 +119,7 @@ void main() {
   });
 
   testWidgets('a matching confirmation saves the PIN and returns to the '
-      'guide at Passo 2 de 2, the sun rising', (tester) async {
+      'guide at Passo 2 de 2, the mascot winking', (tester) async {
     final h = await setPin(tester);
 
     await enter(tester, '2580');
@@ -128,7 +129,7 @@ void main() {
     expect(h.location(tester), '/modo-crianca');
     final step = tester.widget<StepMarks>(find.byType(StepMarks));
     expect((step.step, step.of), (2, 2));
-    expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).rise, true);
+    expect(tester.widget<FieldLayout>(find.byType(FieldLayout)).wink, true);
     expect(
       find.text(
         'PIN criado. Avisamos por e-⁠mail os outros adultos da família.',

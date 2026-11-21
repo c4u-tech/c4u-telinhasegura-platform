@@ -76,6 +76,29 @@ void main() {
       expect(submitButton(tester, 'Criar conta').onPressed, isNotNull);
     });
 
+    testWidgets('Criar conta stays put as the declaration is checked', (
+      tester,
+    ) async {
+      await Harness().pump(
+        tester,
+        initial: '/criar-conta',
+        size: const Size(360, 640),
+        textScale: 2,
+      );
+      await fillSignup(tester, declare: false);
+
+      await expectPrimaryStays(
+        tester,
+        find.widgetWithText(PrimaryButton, 'Criar conta'),
+        // Checked without a tap: at the page's foot the row may be above
+        // the fold, and a tap would scroll to it.
+        () async => tester
+            .widget<DeclarationRow>(find.byType(DeclarationRow))
+            .onChanged!(true),
+      );
+      expect(submitButton(tester, 'Criar conta').onPressed, isNotNull);
+    });
+
     testWidgets('a disabled submit says why', (tester) async {
       await Harness().pump(tester, initial: '/criar-conta');
 
@@ -83,7 +106,18 @@ void main() {
       await tester.ensureVisible(find.byType(Checkbox));
       await tester.tap(find.byType(Checkbox));
       await tester.pump();
-      expect(find.text(declarationHint), findsNothing);
+      // Hidden, its place kept.
+      expect(
+        tester
+            .widget<SubmitHint>(
+              find.ancestor(
+                of: find.text(declarationHint),
+                matching: find.byType(SubmitHint),
+              ),
+            )
+            .visible,
+        isFalse,
+      );
     });
 
     testWidgets('a short password shows the guidance unmet and calls nothing', (

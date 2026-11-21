@@ -141,7 +141,7 @@ func TestLinksResolveAndLeaveOnlyForKnownPlaces(t *testing.T) {
 	}
 }
 
-// Both offers on the landing, the letterhead's and the signature's, lead
+// Both offers on the landing, the opening's and the closing's, lead
 // with the two store badges and keep the web app as the quieter way in.
 func TestLandingOffersTheStoresAndTheWebApp(t *testing.T) {
 	p := mustPages(t)["/"]
@@ -157,6 +157,18 @@ func TestLandingOffersTheStoresAndTheWebApp(t *testing.T) {
 	for _, store := range []string{PlayStoreURL, AppStoreURL} {
 		if n := count(store, ""); n != 2 {
 			t.Errorf("the landing links %s %d times, want 2", store, n)
+		}
+	}
+	// Apple asks its badge to come first when both stand together.
+	var order []string
+	for _, href := range p.Hrefs {
+		if href == AppStoreURL || href == PlayStoreURL {
+			order = append(order, href)
+		}
+	}
+	for i := 0; i+1 < len(order); i += 2 {
+		if order[i] != AppStoreURL || order[i+1] != PlayStoreURL {
+			t.Errorf("offer %d puts %s first, want the App Store badge then Google Play", i/2+1, order[i])
 		}
 	}
 	if n := count(AppURL, "ou use no navegador"); n != 2 {
@@ -407,13 +419,37 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 		"fica fora das telinhas até a equipe decidir",
 		// The same words as the curators' question.
 		"ataque de propósito, mesmo de brincadeira",
+		"assistem a ele até o fim",
+		"confirma essa faixa ou escolhe uma faixa maior, nunca uma menor",
+		"contra a lei, mesmo sem violência",
+		"trata da tristeza de algum personagem",
+		"de onde vêm os bebês",
+		"outra droga",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/curadoria does not say %q", want)
 		}
 	}
+	if strings.Contains(p.Text, "a curadoria diz a partir de que faixa") {
+		t.Error("/curadoria still says the curators pick the band")
+	}
 	if !contains(pages["/participe"].Hrefs, "/curadoria") {
 		t.Error("/participe does not link /curadoria")
+	}
+}
+
+// The privacy policy names what is kept about an unfinished review, and
+// about a held video a moderator watched to its end, and when each goes.
+func TestPrivacyPolicyNamesTheUnfinishedReview(t *testing.T) {
+	p := mustPages(t)["/privacidade"]
+	for _, want := range []string{
+		"quando cada revisão começou", "revisão que você deixou pela metade", "se o vídeo já tocou até o fim",
+		"para quem modera, se cada vídeo retido já tocou até o fim, até a equipe decidir o vídeo",
+		"o registro de quem modera também é apagado quando você deixa a moderação",
+	} {
+		if !strings.Contains(p.Text, want) {
+			t.Errorf("/privacidade does not say %q", want)
+		}
 	}
 }
 

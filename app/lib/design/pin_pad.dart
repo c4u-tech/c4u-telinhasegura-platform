@@ -205,8 +205,8 @@ class _PinPadState extends State<PinPad> {
 
 enum _KeyKind { digit, erase, confirm }
 
-/// One key: a 64 dp screen cut at the 10/33 corner. Read by its digit or
-/// its action; never by what has been typed.
+/// One key: a 64 dp screen cut at the shape ratio's corner. Read by its
+/// digit or its action; never by what has been typed.
 class _Key extends StatelessWidget {
   const _Key({
     required this.kind,

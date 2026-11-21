@@ -1,6 +1,6 @@
 # Trademark policy
 
-"Telinha Segura", the Espiadinha mark, the monogram, the lockups and the
+"Telinha Segura", the mascot (Tevi), the wordmark, the lockups and the
 app icons in [`brand/`](brand/) are trademarks of Coding For You Tecnologia Ltda.
 ("the marks"). The code is free software
 ([COPYRIGHT.md](COPYRIGHT.md)); the marks are not part of that licence.

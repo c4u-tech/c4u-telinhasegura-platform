@@ -1,16 +1,33 @@
+import 'package:flutter/material.dart' show Easing;
 import 'package:flutter/widgets.dart';
 
-/// The brand's four colours, copied from `brand/tokens/brand-tokens.json`
+/// The brand's six colours, copied from `brand/tokens/brand-tokens.json`
 /// (tokens_test.dart fails if they drift).
 abstract final class BrandColors {
   static const ink = Color(0xFF1E5B66);
-  static const sun = Color(0xFFF2B23A);
+
+  /// The mascot's body: a fill, never text.
+  static const sun = Color(0xFFFFC42E);
   static const cream = Color(0xFFFBF6EC);
   static const dark = Color(0xFF0F2A30);
+
+  /// The beak of the mark and the dot of the wordmark's i. It belongs to
+  /// the mark: never an error colour, never text.
+  static const beak = Color(0xFFFF5A36);
+
+  /// A support ground, light enough for dark text.
+  static const sky = Color(0xFFA9DDE8);
 }
 
 /// The UI palette the brand does not define. Every neutral is tinted from
-/// ink; sun appears only in the Espiadinha's head, never as text or state.
+/// ink. Sun, beak and sky are brand colours for the mark and its
+/// grounds, never text. Sun is a fill: it carries the active indicator
+/// and, on the dark and child grounds, the primary action, so selection
+/// (a chosen option or avatar) shows in it there, always under a dark
+/// label and never alone on a light ground. What measures (a step done,
+/// a module filled, a hold under way) takes [meter] instead, so sun
+/// keeps meaning "act here". Beak belongs to the mark and is never an
+/// error colour. Sky is a support ground.
 /// Contrast pairs are asserted in tokens_test.dart.
 class Palette {
   const Palette({
@@ -25,10 +42,12 @@ class Palette {
     required this.outline,
     required this.action,
     required this.onAction,
+    required this.meter,
+    required this.indicator,
+    required this.onIndicator,
     required this.focus,
     required this.error,
     required this.errorGround,
-    required this.headOutline,
   });
 
   final Brightness brightness;
@@ -36,7 +55,7 @@ class Palette {
   /// The work ground every form sits on.
   final Color ground;
 
-  /// The flat ink field: the Espiadinha's screen.
+  /// The flat ink field the mascot stands on.
   final Color field;
   final Color onField;
   final Color onFieldMuted;
@@ -48,14 +67,20 @@ class Palette {
   /// The primary action's fill.
   final Color action;
   final Color onAction;
+
+  /// The fill of what measures rather than acts: the filled modules of a
+  /// state, a step or a time, and a ring filling while it is held.
+  final Color meter;
+
+  /// The navigation's active destination: its indicator's fill and the
+  /// icon on it.
+  final Color indicator;
+  final Color onIndicator;
   final Color focus;
 
   /// A warm earth tone: errors are calm, never alarm red.
   final Color error;
   final Color errorGround;
-
-  /// The head's outline: required on light grounds (identity.md, Colour).
-  final Color headOutline;
 
   static const light = Palette(
     brightness: Brightness.light,
@@ -63,16 +88,18 @@ class Palette {
     field: BrandColors.ink,
     onField: BrandColors.cream,
     onFieldMuted: Color(0xFFD3E2E3),
-    text: Color(0xFF12343B),
+    text: BrandColors.dark,
     muted: Color(0xFF4A666B),
     input: Color(0xFFFFFDF8),
     outline: Color(0xFF6F8B90),
     action: BrandColors.ink,
     onAction: BrandColors.cream,
+    meter: BrandColors.ink,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: BrandColors.ink,
     error: Color(0xFF974614),
     errorGround: Color(0xFFF6E8DB),
-    headOutline: BrandColors.ink,
   );
 
   static const dark = Palette(
@@ -85,18 +112,22 @@ class Palette {
     muted: Color(0xFFA6BFC2),
     input: Color(0xFF16363D),
     outline: Color(0xFF6A8D93),
-    action: BrandColors.cream,
+    action: BrandColors.sun,
     onAction: BrandColors.dark,
+    meter: BrandColors.sky,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: Color(0xFFA6BFC2),
     error: Color(0xFFEFA97E),
-    errorGround: Color(0xFF2B2E28),
-    headOutline: BrandColors.dark,
+    // A petrol a step lighter than the ground: the note stands out from
+    // it and stays in the brand's family.
+    errorGround: Color(0xFF143B43),
   );
 
-  /// The kid dialect: the child is inside the Espiadinha's screen, so ink
+  /// The kid dialect: the child is inside the ink field, so ink
   /// is the ground in both themes and cream the figure. Errors keep
-  /// ember, on dark (tinted from ink) rather than the olive of the night
-  /// palette; ember reads as text only on that ground.
+  /// ember, on dark (tinted from ink); ember reads as text only on a
+  /// ground that deep.
   static const kid = Palette(
     brightness: Brightness.dark,
     ground: BrandColors.ink,
@@ -107,13 +138,87 @@ class Palette {
     muted: Color(0xFFD3E2E3),
     input: Color(0xFF16363D),
     outline: Color(0xFFA6BFC2),
-    action: BrandColors.cream,
+    action: BrandColors.sun,
     onAction: BrandColors.dark,
+    meter: BrandColors.cream,
+    indicator: BrandColors.sun,
+    onIndicator: BrandColors.dark,
     focus: BrandColors.cream,
     error: Color(0xFFEFA97E),
     errorGround: BrandColors.dark,
-    headOutline: BrandColors.dark,
   );
+}
+
+/// A theme's colours on the child side: the [ground] its block and its
+/// page are filled with, and the [figure] drawn on it (the theme's glyph,
+/// the keys of its page).
+@immutable
+class ColourWorld {
+  const ColourWorld({
+    required this.ground,
+    required this.figure,
+    this.ringsDisc = false,
+  });
+
+  final Color ground;
+  final Color figure;
+
+  /// The ground is light enough that the sun play disc would sink into
+  /// it, so the disc carries a [ColourWorlds.discRing] there.
+  final bool ringsDisc;
+}
+
+/// The six themes' worlds, each a brand colour or a lighter tone of one,
+/// with the figure that reads on it. Contrast pairs are asserted in
+/// tokens_test.dart.
+abstract final class ColourWorlds {
+  /// Ink lifted toward sky: a ground of its own, still dark enough for
+  /// cream.
+  static const lightInk = Color(0xFF2F7482);
+
+  /// Sun lifted toward cream: a second warm ground beside sun.
+  static const lightSun = Color(0xFFFFE08A);
+
+  static const bichos = ColourWorld(
+    ground: BrandColors.sun,
+    figure: BrandColors.dark,
+    ringsDisc: true,
+  );
+  static const musica = ColourWorld(
+    ground: BrandColors.sky,
+    figure: BrandColors.dark,
+    ringsDisc: true,
+  );
+  static const historias = ColourWorld(
+    ground: BrandColors.cream,
+    figure: BrandColors.ink,
+    ringsDisc: true,
+  );
+  static const aprender = ColourWorld(
+    ground: BrandColors.dark,
+    figure: BrandColors.sun,
+  );
+  static const natureza = ColourWorld(
+    ground: lightInk,
+    figure: BrandColors.cream,
+  );
+  static const brincar = ColourWorld(
+    ground: lightSun,
+    figure: BrandColors.dark,
+    ringsDisc: true,
+  );
+
+  static const all = [bichos, musica, historias, aprender, natureza, brincar];
+
+  /// The home's own ground, for a page that opens from the home and is no
+  /// theme's (every pacotinho of the day).
+  static const home = ColourWorld(
+    ground: BrandColors.ink,
+    figure: BrandColors.cream,
+  );
+
+  /// The ring around the play disc on a light ground.
+  static const discRing = BrandColors.dark;
 }
 
 /// One spacing rhythm: 4-point steps.
@@ -127,21 +232,42 @@ abstract final class Space {
   static const xxxl = 48.0;
 }
 
-/// Corner radii cut from the mark's screen (radius 10 on a 33-unit-tall
-/// rectangle): every control keeps that ratio to its height.
+/// Corner radii cut from the mascot's body, a rounded rectangle 70 units
+/// tall with a 26-unit corner: every control keeps that ratio to its
+/// height, so a button reads as the same soft block the mascot is.
 abstract final class Radii {
-  static const screenRatio = 10 / 33;
+  /// The shape ratio: a corner over the height it rounds.
+  static const screenRatio = 26 / 70;
 
-  /// A 56 dp control.
-  static const control = 17.0;
+  /// A 56 dp control (the theme's buttons and fields) at the ratio: 20.8.
+  static const control = 56 * screenRatio;
   static const small = 8.0;
+
+  /// A panel that groups several rows.
+  static const card = 28.0;
 }
 
-/// Sizes of the flat field and its Espiadinha.
+/// The proportions of shapes the app draws more than once.
+abstract final class Proportions {
+  /// The small screen (the PIN's slots, a device's or a time's module),
+  /// width over height: 58 by 33, close to 16:9, a screen a child knows.
+  static const screen = 58 / 33;
+}
+
+/// Sizes of the flat field and the mascot standing on it.
 abstract final class FieldSizes {
-  /// Grid unit of the mark on the entry field: the head radius is 14 units.
-  static const heroUnit = 3.0;
-  static const bandUnit = 1.75;
+  /// The entry field's corner, on a phone and as the wide panel.
+  static const heroCorner = 40.0;
+
+  /// The band's corner: tighter, as the band is a much shorter field.
+  static const bandCorner = 26.0;
+
+  /// The mascot standing on the entry field.
+  static const heroTevi = 112.0;
+
+  /// The mascot standing on the band: small enough that a task screen's
+  /// first section still starts above the fold of a common phone.
+  static const bandTevi = 72.0;
   static const wideBreakpoint = 840.0;
   // Google's rendered web button tops out at 400 px; every control in
   // the column shares that width so their edges line up.
@@ -154,17 +280,27 @@ abstract final class FieldSizes {
 }
 
 /// The guardian's navigation: the ink rail on a wide window and the bar
-/// on a narrow one. The selected destination's indicator is the mark's
-/// screen (58 × 33) at [indicator] tall, cornered at the same ratio.
+/// on a narrow one. The selected destination's indicator is [indicator]
+/// tall, cornered at the mascot body's ratio.
 abstract final class ShellSizes {
-  /// The rail's ink field, the head over it drawn on the same grid.
-  static const railUnit = 2.0;
+  /// The ink rail's corner. The rail is a field, not a panel of rows,
+  /// so it keeps its own corner even where it matches a card's.
+  static const railCorner = 28.0;
+
+  /// The mascot standing on the rail: it takes about the room above the
+  /// rail that the navigation always kept there.
+  static const railTevi = 72.0;
   static const railWidth = 248.0;
 
   /// The rail's field inset from the window, as the wide panel's was.
   static const railInset = Space.lg;
   static const indicator = 32.0;
-  static const indicatorWidth = indicator * 58 / 33;
+
+  /// Wide enough that the indicator reads as a block behind its icon,
+  /// not a halo hugging it: on the light bar sun is close to the ground
+  /// in lightness, so the block's width is what keeps the active place
+  /// visible.
+  static const indicatorWidth = 56.0;
 
   /// A destination's row in the rail, a control's height.
   static const railItem = 56.0;
@@ -189,15 +325,105 @@ abstract final class WordmarkSizes {
 }
 
 /// The kid dialect's sizes: small hands get 64 dp targets (the PIN keys
-/// too), and a child finds themself by a 96 dp+ avatar; the child home's
-/// grows to [avatarWide] on wide screens.
+/// too), and a child finds themself by a 96 dp+ avatar.
 abstract final class KidSizes {
   static const target = 64.0;
   static const avatar = 96.0;
-  static const avatarLarge = 128.0;
-  static const avatarWide = 192.0;
 }
 
 abstract final class Typefaces {
   static const family = 'Bricolage Grotesque';
+}
+
+/// One motion scale. Motion answers what the person did or what the app
+/// just learned; nothing moves on its own to call for attention. Under
+/// reduced motion every animation is a cut or a still, except [hold],
+/// which is how long a press must last, not how it looks.
+abstract final class Motion {
+  /// A target sinking under the finger: quick enough to feel attached.
+  static const press = Duration(milliseconds: 90);
+
+  /// A small fade beside what the person is reading.
+  static const quick = Duration(milliseconds: 150);
+
+  /// A change of state in place: a choice filling, a frame fading in, the
+  /// mascot's look passing to another.
+  static const change = Duration(milliseconds: 220);
+
+  /// A page opening from the home's door.
+  static const room = Duration(milliseconds: 300);
+
+  /// The ink field growing from the guardian's band to the whole screen.
+  static const band = Duration(milliseconds: 400);
+
+  /// The longest the opening may take.
+  static const opening = Duration(milliseconds: 1000);
+
+  /// How long a child-proof press is held.
+  static const hold = Duration(milliseconds: 2000);
+
+  /// The mascot's eye shutting and opening again, once.
+  static const blink = Duration(milliseconds: 160);
+
+  /// A target coming back up once the finger lifts: slower than [press],
+  /// so the return is seen.
+  static const release = Duration(milliseconds: 160);
+
+  /// The eyelid going down to sleep: slow, as a sleepy eye is.
+  static const fallAsleep = Duration(milliseconds: 600);
+
+  /// One breath of a guardian's placeholder bars, out and back.
+  static const breath = Duration(milliseconds: 1400);
+
+  /// One sweep of the mascot's gaze while the child's home loads.
+  static const gaze = Duration(milliseconds: 1800);
+
+  /// What arrives or settles: fast at first, gentle at the end.
+  static const settle = Curves.easeOutCubic;
+
+  /// What travels across the screen, as a page from its door.
+  static const travel = Easing.standard;
+
+  /// An eyelid shutting.
+  static const shut = Curves.easeOut;
+
+  /// What goes and comes back: a loop, a blink, an eyelid reopening.
+  static const sway = Curves.easeInOut;
+
+  /// The opening's look wiping across the body: quick, then easing in.
+  static const wipe = Cubic(.2, .7, .2, 1);
+
+  /// The opening's eye popping open, a little past its size and back.
+  static const pop = Cubic(.3, 1.5, .5, 1);
+
+  /// The opening's beak and tail springing out of the body.
+  static const spring = Cubic(.3, 1.4, .5, 1);
+
+  /// [length], or none where the platform asks for reduced motion: what
+  /// would have eased then simply changes.
+  static Duration of(BuildContext context, Duration length) =>
+      MediaQuery.disableAnimationsOf(context) ? Duration.zero : length;
+
+  /// Whether a loop (a loader's breath or gaze) runs below [context]:
+  /// never under reduced motion, where a loader stays still.
+  static bool loopsIn(BuildContext context) =>
+      loops && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+
+  /// Off, every loop stays still, as under reduced motion. A widget test
+  /// settles only once nothing moves, and a loop never stops on its own,
+  /// so the tests turn loops off and back on where they watch one.
+  @visibleForTesting
+  static bool loops = true;
+
+  /// Whether the app's opening plays below [context]: never under
+  /// reduced motion, where the mascot stands whole and still.
+  static bool opensIn(BuildContext context) =>
+      opens && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+
+  /// Off, the app's opening is cut, as under reduced motion: the whole
+  /// mascot stands on its ground until the mode is known, and the first
+  /// screen shows at once. A test that starts the app then finds that
+  /// screen as soon as the mode settles, as it always has.
+  @visibleForTesting
+  static bool opens = true;
 }

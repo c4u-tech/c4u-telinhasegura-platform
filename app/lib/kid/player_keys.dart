@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import 'press_sink.dart';
 
 /// The player's glyphs: the universal back, play and pause shapes, cut at
-/// the screen's 10/33 corner (the no-play-triangle rule stays the
-/// mark's).
+/// the shape ratio's corner.
 enum PlayerGlyph { back, play, pause }
 
-/// One of the player's controls, cut as the PIN pad's keys are: 64 dp at
-/// the kid-target corner, the quiet key in the input tone with an outline
-/// stroke, the filled one in the action colour. Read by its one verb; the
-/// child finds it by its glyph.
+/// One of the player's controls, round, [size] across (64 dp at least):
+/// the quiet key in ink with its glyph in sky, the filled one a sun disc
+/// with a dark glyph, the play disc grown into a key. Read by its one
+/// verb; the child finds it by its glyph.
 class PlayerKey extends StatefulWidget {
   const PlayerKey({
     super.key,
@@ -19,12 +19,14 @@ class PlayerKey extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.filled = false,
+    this.size = KidSizes.target,
   });
 
   final PlayerGlyph glyph;
   final String label;
   final VoidCallback onPressed;
   final bool filled;
+  final double size;
 
   @override
   State<PlayerKey> createState() => _PlayerKeyState();
@@ -36,41 +38,41 @@ class _PlayerKeyState extends State<PlayerKey> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(KidSizes.target * Radii.screenRatio),
-      side: widget.filled
-          ? BorderSide.none
-          : BorderSide(color: p.outline, width: 1.5),
-    );
-    final ring = _focused ? focusRing(p).resolve({WidgetState.focused}) : null;
+    final fill = widget.filled ? p.action : BrandColors.ink;
+    final glyph = widget.filled ? p.onAction : BrandColors.sky;
+    final ring =
+        (_focused ? focusRing(p).resolve({WidgetState.focused}) : null) ??
+        BorderSide.none;
     return Semantics(
       container: true,
       button: true,
       label: widget.label,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: SizedBox.square(
-          dimension: KidSizes.target,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: ShapeDecoration(
-              shape: shape.copyWith(side: ring ?? shape.side),
-            ),
-            child: Material(
-              color: widget.filled ? p.action : p.input,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: widget.onPressed,
-                onFocusChange: (f) => setState(() => _focused = f),
-                focusColor: Colors.transparent,
-                hoverColor: p.outline.withValues(alpha: .08),
-                highlightColor: p.outline.withValues(alpha: .12),
-                splashColor: p.outline.withValues(alpha: .12),
-                child: CustomPaint(
-                  painter: PlayerGlyphPainter(
-                    widget.glyph,
-                    widget.filled ? p.onAction : p.text,
+        child: PressSink(
+          child: SizedBox.square(
+            dimension: widget.size,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(shape: CircleBorder(side: ring)),
+              child: Material(
+                color: fill,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onPressed,
+                  onFocusChange: (f) => setState(() => _focused = f),
+                  focusColor: Colors.transparent,
+                  hoverColor: glyph.withValues(alpha: .08),
+                  highlightColor: glyph.withValues(alpha: .12),
+                  splashColor: glyph.withValues(alpha: .12),
+                  child: CustomPaint(
+                    // The glyph keeps its share of the key as the key grows.
+                    painter: PlayerGlyphPainter(
+                      widget.glyph,
+                      glyph,
+                      side: 28 * widget.size / KidSizes.target,
+                    ),
                   ),
                 ),
               ),
@@ -82,15 +84,14 @@ class _PlayerKeyState extends State<PlayerKey> {
   }
 }
 
-/// Draws a [PlayerGlyph] at 28 dp in the key's middle, as the PIN pad's
-/// confirm arrow sits.
+/// Draws a [PlayerGlyph] [side] dp square in the canvas's middle: 28 in a
+/// key, as the PIN pad's confirm arrow sits.
 class PlayerGlyphPainter extends CustomPainter {
-  const PlayerGlyphPainter(this.glyph, this.color);
+  const PlayerGlyphPainter(this.glyph, this.color, {this.side = 28});
 
   final PlayerGlyph glyph;
   final Color color;
-
-  static const side = 28.0;
+  final double side;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -102,7 +103,7 @@ class PlayerGlyphPainter extends CustomPainter {
     );
     switch (glyph) {
       case PlayerGlyph.pause:
-        // Two bars, each a tall screen at its 10/33 corner.
+        // Two bars, each a tall screen at the shape ratio's corner.
         final w = side * .3;
         for (final left in [
           box.left + side * .12,
@@ -168,5 +169,5 @@ class PlayerGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PlayerGlyphPainter old) =>
-      old.glyph != glyph || old.color != color;
+      old.glyph != glyph || old.color != color || old.side != side;
 }

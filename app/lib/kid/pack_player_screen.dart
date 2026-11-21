@@ -1,18 +1,17 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../curation/kid_catalog.dart';
-import '../design/espiadinha.dart';
-import '../design/theme.dart';
+import '../design/tevi.dart';
 import '../design/tokens.dart';
 import '../screentime/kid_time.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'beat_loop.dart';
-import 'empty_shelf.dart';
 import 'hold_to_exit.dart';
 import 'kid_layout.dart';
 import 'kid_player.dart';
@@ -43,7 +42,7 @@ enum _Phase { playing, breath, goodbye }
 /// Each video is an ordinary
 /// play the server re-checks, in the player's whole window. When one ends
 /// the player goes and the breath stands in its place: the next cover and
-/// the Espiadinha, continuing by itself after [breath] or at a tap. After
+/// the mascot, continuing by itself after [breath] or at a tap. After
 /// the last, the goodbye, then the shelves; nothing plays after it. A
 /// video refused is passed over; a day without time sends the home to
 /// sleep.
@@ -58,7 +57,7 @@ class PackPlayerScreen extends StatefulWidget {
   static const goodbye = Duration(seconds: 3);
 
   /// The one crossfade between window states.
-  static const fade = Duration(milliseconds: 220);
+  static const fade = Motion.change;
 
   static String progressLabel(int k, int n) => 'Vídeo $k de $n';
 
@@ -284,7 +283,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     unawaited(_close());
     final returns = AppScope.of(context).kidReturn;
     returns.value ??= (note: null, refetch: true);
-    context.go(Routes.kidHome);
+    backFromPlayer(context);
   }
 
   Future<void> _close() async {
@@ -323,7 +322,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
       key: key,
       tween: Tween(begin: still ? 1 : 0, end: 1),
       duration: still ? Duration.zero : PackPlayerScreen.fade,
-      curve: Curves.easeOutCubic,
+      curve: Motion.settle,
       builder: (_, t, child) => Opacity(opacity: t, child: child),
       child: child,
     );
@@ -356,7 +355,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     if (start == null) return const SizedBox.shrink();
     final n = _pack.videos.length;
     // A phone turned sideways shows each video alone; the breath and the
-    // goodbye keep the strip and the rail (fullscreen design).
+    // goodbye keep the strip and the rail.
     final full =
         _phase == _Phase.playing &&
         playerFullscreen(
@@ -368,11 +367,18 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
       active: full,
       child: KidLayout(
         exit: HoldToExit(onExit: () => context.go(Routes.kidExit)),
+        // Watching is a dark room; turned sideways, the video alone keeps
+        // the child's ground around it, as it always has.
+        ground: full ? null : BrandColors.dark,
+        mark: false,
         fullWidth: true,
         scrolls: false,
         strip: !full,
         child: PlayerStage(
           bare: full,
+          // The breath and the goodbye hold the mascot in the window's
+          // place.
+          perched: _phase == _Phase.playing,
           window: _window,
           progress: Semantics(
             label: PackPlayerScreen.progressLabel(_filled, n),
@@ -381,6 +387,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
                 count: n,
                 filled: _filled,
                 height: PlayerStage.module,
+                color: BrandColors.sky,
               ),
             ),
           ),
@@ -395,6 +402,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
               glyph: PlayerGlyph.play,
               label: PlayerScreen.playLabel,
               filled: true,
+              size: PlayerStage.toggleSize,
               onPressed: _continue,
             ),
             _Phase.playing => PlayerKey(
@@ -403,6 +411,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
                   ? PlayerScreen.pauseLabel
                   : PlayerScreen.playLabel,
               filled: true,
+              size: PlayerStage.toggleSize,
               onPressed: _toggle,
             ),
           },
@@ -412,11 +421,11 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
   }
 }
 
-/// The breath between two videos, in the window's place: on
-/// the input tone, the next video's cover in a screen frame with the
-/// Espiadinha peeking over its top edge, eyes looking down into it. No
-/// number, no filling bar. A tap continues; the key beside it says so to
-/// assistive technology.
+/// The breath between two videos, in the window's place: on the night
+/// itself, the next video's cover in a rounded frame with the mascot
+/// standing on its top edge toward the end, watching it. No number, no
+/// filling bar. A tap continues; the key beside it says so to assistive
+/// technology.
 class PackBreath extends StatelessWidget {
   const PackBreath({
     super.key,
@@ -429,21 +438,29 @@ class PackBreath extends StatelessWidget {
   final Future<Uint8List> cover;
   final VoidCallback onTap;
 
-  /// One unit of the mark's grid in a window of [size]: the art 64 units
-  /// wide, 22 of head over a 33-unit screen, as large as the window holds
-  /// with room around it. The goodbye stands at the same size.
-  static double unitFor(Size size) => [
-    size.height * .78 / (EspiadinhaPainter.height + 33),
-    size.width * .7 / EspiadinhaPainter.width,
-  ].reduce((a, b) => a < b ? a : b);
+  /// The frame's corner against its height: the highlight's on the home.
+  static const corner = FieldSizes.heroCorner / 197;
+
+  /// The mascot's box against the frame's height.
+  static const _tevi = .45;
+
+  /// How much of the window the frame and the mascot over it take, so the
+  /// window's own ground still frames them.
+  static const _width = .58;
+  static const _height = .85;
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-    // The art on the mark's grid: 64 units wide, 22 of head over a 58 ×
-    // 33 screen; as large as the window holds with room around it.
-    final u = unitFor(size);
-    final screen = Radius.circular(10 * u);
+    // The room the mascot takes above the frame, for each unit of the
+    // frame's height.
+    const stand = _tevi * (TeviPainter.perchY - TeviPainter.top);
+    final h = math.min(
+      size.width * _width * 9 / 16,
+      size.height * _height / (1 + stand),
+    );
+    final frame = Size(h * 16 / 9, h);
+    final tevi = h * _tevi;
+    final above = h * stand - TeviPainter.perchOverlap;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // The keys beside it say the same to assistive technology.
@@ -453,48 +470,58 @@ class PackBreath extends StatelessWidget {
         child: SizedBox.fromSize(
           size: size,
           child: ColoredBox(
-            color: p.input,
-            child: Center(
-              child: SizedBox(
-                width: EspiadinhaPainter.width * u,
-                height: (EspiadinhaPainter.height + 33) * u,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 3 * u,
-                      top: EspiadinhaPainter.height * u,
-                      width: 58 * u,
-                      height: 33 * u,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.all(screen),
-                        child: FutureBuilder(
-                          future: cover,
-                          builder: (context, snap) => switch (snap) {
-                            AsyncSnapshot(hasData: true, :final data!) =>
-                              Image.memory(
-                                data,
-                                fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                                errorBuilder: (_, _, _) =>
-                                    const HollowThumbnail(),
+            color: BrandColors.dark,
+            // The window's stand-in is the dark room itself: what stands in it
+            // reads on the night, as the player's keys do.
+            child: TeviGround(
+              color: BrandColors.dark,
+              child: Center(
+                child: SizedBox(
+                  width: frame.width,
+                  height: above + frame.height,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: above,
+                        width: frame.width,
+                        height: frame.height,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(h * corner),
+                          child: FutureBuilder(
+                            future: cover,
+                            builder: (context, snap) => switch (snap) {
+                              AsyncSnapshot(hasData: true, :final data!) =>
+                                Image.memory(
+                                  data,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  errorBuilder: (_, _, _) =>
+                                      HollowThumbnail(radius: h * corner),
+                                ),
+                              AsyncSnapshot(hasError: true) => HollowThumbnail(
+                                radius: h * corner,
                               ),
-                            AsyncSnapshot(hasError: true) =>
-                              const HollowThumbnail(),
-                            _ => const SizedBox.expand(),
-                          },
+                              _ => const SizedBox.expand(),
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: EspiadinhaPainter.width * u,
-                      height: EspiadinhaPainter.height * u,
-                      child: CustomPaint(
-                        painter: EspiadinhaPainter(palette: Palette.kid),
+                      // Toward the end, looking on into the picture.
+                      PositionedDirectional(
+                        start:
+                            frame.width * .78 -
+                            tevi * TeviPainter.body.center.dx,
+                        top:
+                            above +
+                            TeviPainter.perchOverlap -
+                            tevi * TeviPainter.perchY,
+                        width: tevi,
+                        height: tevi,
+                        child: FacingTevi(size: tevi),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -505,9 +532,9 @@ class PackBreath extends StatelessWidget {
   }
 }
 
-/// A pacotinho's end, in the window's place: the Espiadinha
-/// waving over its empty screen, eyes open, and one word, "Fim". Nothing
-/// more to watch; a tap goes back to the shelves sooner.
+/// A pacotinho's end, in the window's place: the mascot winking goodbye,
+/// and one word beneath it, "Fim". Nothing more to watch; a tap goes back
+/// to the shelves sooner.
 class PackGoodbye extends StatelessWidget {
   const PackGoodbye({super.key, required this.size, required this.onTap});
 
@@ -518,15 +545,11 @@ class PackGoodbye extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
     // The word grows with the window, as the nickname does from 840 px.
     final wide = size.width >= FieldSizes.wideBreakpoint;
     final text = wide
         ? Theme.of(context).textTheme.displaySmall
         : Theme.of(context).textTheme.headlineSmall;
-    // The same Espiadinha as the breath's, at the same size; the empty
-    // shelf's drawing is 3 dp a unit.
-    final art = PackBreath.unitFor(size) / 3;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // The keys beside it say the same to assistive technology.
@@ -535,32 +558,31 @@ class PackGoodbye extends StatelessWidget {
       child: SizedBox.fromSize(
         size: size,
         child: ColoredBox(
-          color: p.input,
-          child: Padding(
-            padding: const EdgeInsets.all(Space.lg),
-            // At large text the picture and the word shrink together
-            // rather than leave the window.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ExcludeSemantics(
-                    child: CustomPaint(
-                      size: EmptyShelf.size * art,
-                      painter: const EmptyShelfPainter(waving: true),
+          color: BrandColors.dark,
+          // The window's stand-in is the dark room itself: what stands in it
+          // reads on the night, as the player's keys do.
+          child: TeviGround(
+            color: BrandColors.dark,
+            child: Padding(
+              padding: const EdgeInsets.all(Space.lg),
+              // At large text the figure and the word shrink together
+              // rather than leave the window.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FacingTevi(size: size.height * .55, look: TeviLook.winking),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        word,
+                        textAlign: TextAlign.center,
+                        style: text?.copyWith(color: BrandColors.cream),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: Space.md),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      word,
-                      textAlign: TextAlign.center,
-                      style: text?.copyWith(color: BrandColors.cream),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

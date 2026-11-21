@@ -58,7 +58,7 @@ Future<void> settleWith(WidgetTester tester, String action) async {
       ? (reopen, 'Reabrir para revisão')
       : (removeForGood, 'Remover de vez');
   await tapOn(tester, open);
-  await tester.enterText(find.widgetWithText(TextField, 'Motivo'), '  $why ');
+  await tester.enterText(reasonOf(), '  $why ');
   await tester.pump();
   await tapOn(tester, confirming(label));
 }
@@ -218,7 +218,7 @@ void main() {
     expect(confirm.body.join(' '), contains('Baby Shark'));
     expect(h.adultPlayer.current!.calls, ['pause']);
     expect(writes(h), isEmpty);
-    await tester.enterText(find.widgetWithText(TextField, 'Motivo'), '  $why ');
+    await tester.enterText(reasonOf(), '  $why ');
     await tester.pump();
     await tapOn(tester, confirming('Reabrir para revisão'));
 
@@ -245,7 +245,7 @@ void main() {
     expect(confirm.body.join(' '), contains('não pode mais ser sugerido'));
     expect(h.adultPlayer.current!.calls, ['pause']);
     expect(writes(h), isEmpty);
-    await tester.enterText(find.widgetWithText(TextField, 'Motivo'), '  $why ');
+    await tester.enterText(reasonOf(), '  $why ');
     await tester.pump();
     await tapOn(tester, confirming('Remover de vez'));
 

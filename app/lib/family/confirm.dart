@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../access/widgets.dart';
 import '../design/field_layout.dart';
@@ -11,48 +10,11 @@ import '../design/tokens.dart';
 const staffReasonMin = 3;
 const staffReasonMax = 200;
 
-/// From this many characters the reason field shows its count.
-const _countFrom = 160;
-
 /// Whether [reason], trimmed, is a staff write's reason: [staffReasonMin]
-/// to [staffReasonMax] characters.
+/// to [staffReasonMax] characters, counted as the server counts them.
 bool validReason(String reason) {
-  final length = reason.trim().length;
+  final length = reasonLength(reason.trim());
   return length >= staffReasonMin && length <= staffReasonMax;
-}
-
-/// "Motivo": the reason a staff write or an account lookup is sent with,
-/// up to [staffReasonMax] characters, its count shown near the bound.
-class ReasonField extends StatelessWidget {
-  const ReasonField({super.key, required this.controller, this.enabled});
-
-  final TextEditingController controller;
-  final bool? enabled;
-
-  @override
-  Widget build(BuildContext context) => TextField(
-    controller: controller,
-    enabled: enabled,
-    keyboardType: TextInputType.multiline,
-    textCapitalization: TextCapitalization.sentences,
-    minLines: 3,
-    maxLines: null,
-    maxLength: staffReasonMax,
-    maxLengthEnforcement: MaxLengthEnforcement.enforced,
-    buildCounter:
-        (_, {required currentLength, required isFocused, maxLength}) =>
-            currentLength < _countFrom
-            ? null
-            : Text(
-                '$currentLength de $staffReasonMax',
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: context.palette.muted),
-              ),
-    decoration: const InputDecoration(
-      labelText: 'Motivo',
-      alignLabelWithHint: true,
-    ),
-  );
 }
 
 /// Under the action while the reason is not yet valid.
@@ -211,7 +173,12 @@ class _DestructiveConfirmationState extends State<DestructiveConfirmation> {
           ],
           const SizedBox(height: Space.md),
           if (widget.askReason) ...[
-            ReasonField(controller: _reason),
+            ReasonField(
+              controller: _reason,
+              label: 'Motivo',
+              maxLength: staffReasonMax,
+              minLines: 3,
+            ),
             const SizedBox(height: Space.xl),
           ],
           PrimaryButton(

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'display_title.dart';
-import 'espiadinha.dart';
+import 'pinned_header.dart';
+import 'tevi.dart';
 import 'theme.dart';
 import 'tokens.dart';
 import 'wordmark.dart';
@@ -43,7 +46,7 @@ class ShellFrame extends InheritedWidget {
   const ShellFrame({
     super.key,
     required this.rail,
-    required this.rises,
+    required this.winks,
     this.pane = Pane.single,
     this.chosen,
     this.chosenAtFirstLevel = false,
@@ -54,9 +57,9 @@ class ShellFrame extends InheritedWidget {
 
   final bool rail;
 
-  /// Counts the confirmations a framed screen asked to play: the rail's
-  /// head rises for them, since it is the field's head.
-  final ValueNotifier<int> rises;
+  /// Counts the confirmations a framed screen asked to play: the mascot
+  /// on the rail winks for them, since the rail is the screen's field.
+  final ValueNotifier<int> winks;
 
   /// Where the screens stand beside the rail.
   final Pane pane;
@@ -90,7 +93,7 @@ class ShellFrame extends InheritedWidget {
   @override
   bool updateShouldNotify(ShellFrame old) =>
       old.rail != rail ||
-      old.rises != rises ||
+      old.winks != winks ||
       old.pane != pane ||
       old.chosen != chosen ||
       old.chosenAtFirstLevel != chosenAtFirstLevel ||
@@ -98,29 +101,46 @@ class ShellFrame extends InheritedWidget {
       old.leavesOnBack != leavesOnBack;
 }
 
-/// The access surface's frame. The flat ink field is the Espiadinha's
-/// screen, with the head peeking over its top edge; the task sits on the
-/// ground beside it (wide) or below it (narrow). No cards: the field's
-/// edge does the dividing.
+/// The access surface's frame. The flat ink field carries the name plate,
+/// with the mascot standing on its top edge; the task sits on the ground
+/// beside it (wide) or below it (narrow). No cards: the field's edge does
+/// the dividing.
+///
+/// A screen that is watched while it is worked on gives a [watch] (a
+/// player and its state): it stays in view above the task, pinned under
+/// the band or the back control while the task scrolls beneath it, or in
+/// a pane of its own beside the task on a large window.
 class FieldLayout extends StatelessWidget {
   const FieldLayout({
     super.key,
     required this.title,
     required this.children,
+    this.watch,
     this.titleSemanticsLabel,
     this.titleLeading,
     this.titleLine,
     this.size = FieldSize.band,
     this.onBack,
-    this.rise = false,
+    this.backLabel = backWord,
+    this.wink = false,
     this.promise = promiseLine,
     this.columnWidth = FieldSizes.columnMaxWidth,
   });
 
+  /// What the back arrow says by default: one step back.
+  static const backWord = 'Voltar';
+
   /// The wide window's ink panel, absent when the rail stands for it.
   static const panelKey = Key('field-panel');
 
-  final String title;
+  /// The ink field itself, narrow or in the wide panel.
+  static const fieldKey = Key('ink-field');
+
+  /// The display title over the task; null for none.
+  final String? title;
+
+  /// What stays in view while the task is worked on; see the class.
+  final Widget? watch;
 
   /// The column's cap: the task's 400 px, wider only for a screen that
   /// is not one task (the home's two columns of children beside the rail).
@@ -144,8 +164,12 @@ class FieldLayout extends StatelessWidget {
   final FieldSize size;
   final VoidCallback? onBack;
 
-  /// Plays "o sol sobe" once: the confirmations.
-  final bool rise;
+  /// What the back arrow says it does, as its tooltip and to assistive
+  /// technology; a screen whose arrow leaves more than one step says where.
+  final String backLabel;
+
+  /// The mascot winks once: the confirmations.
+  final bool wink;
 
   /// The width a column can take in a screen [width] wide: the screen
   /// less the side padding its place gives the column.
@@ -197,9 +221,12 @@ class FieldLayout extends StatelessWidget {
     if (frame != null && frame.rail) {
       final framed = _RailFramed(
         task: task,
+        watch: watch,
+        width: columnWidth,
         onBack: _atPaneRoot(context, frame) ? null : onBack,
-        rise: rise,
-        rises: frame.rises,
+        backLabel: backLabel,
+        wink: wink,
+        winks: frame.winks,
         pane: frame.pane,
       );
       // Back from here leaves the place (the shell sees to it), so no
@@ -222,8 +249,9 @@ class FieldLayout extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(Space.lg),
                       child: _Field(
-                        unit: 4,
-                        rise: rise,
+                        corner: FieldSizes.heroCorner,
+                        tevi: FieldSizes.heroTevi,
+                        wink: wink,
                         expand: true,
                         // At large text the panel behaves as the narrow
                         // field: no promise for a band screen (the band
@@ -233,6 +261,7 @@ class FieldLayout extends StatelessWidget {
                         child: _FieldContent(
                           size: FieldSize.hero,
                           onBack: onBack,
+                          backLabel: backLabel,
                           large: true,
                           promise: largeText ? null : promise,
                         ),
@@ -246,7 +275,24 @@ class FieldLayout extends StatelessWidget {
                           horizontal: Space.xl,
                           vertical: Space.xxxl,
                         ),
-                        child: task,
+                        // Without a pane of its own here, what is watched
+                        // heads the task.
+                        child: switch (watch) {
+                          final watch? => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: columnWidth,
+                                ),
+                                child: watch,
+                              ),
+                              const SizedBox(height: Space.xl),
+                              task,
+                            ],
+                          ),
+                          null => task,
+                        },
                       ),
                     ),
                   ),
@@ -254,6 +300,17 @@ class FieldLayout extends StatelessWidget {
               );
             }
             final hero = size == FieldSize.hero && !compact;
+            if (watch case final watch?) {
+              return _pinnedUnderBand(
+                context,
+                watch: watch,
+                task: task,
+                onBack: onBack,
+                backLabel: backLabel,
+                wink: wink,
+                width: columnWidth,
+              );
+            }
             return SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -266,11 +323,15 @@ class FieldLayout extends StatelessWidget {
                       0,
                     ),
                     child: _Field(
-                      unit: hero ? FieldSizes.heroUnit : FieldSizes.bandUnit,
-                      rise: rise,
+                      corner: hero
+                          ? FieldSizes.heroCorner
+                          : FieldSizes.bandCorner,
+                      tevi: hero ? FieldSizes.heroTevi : FieldSizes.bandTevi,
+                      wink: wink,
                       child: _FieldContent(
                         size: hero ? FieldSize.hero : FieldSize.band,
                         onBack: onBack,
+                        backLabel: backLabel,
                         promise: promise,
                       ),
                     ),
@@ -294,6 +355,71 @@ class FieldLayout extends StatelessWidget {
   }
 }
 
+/// The narrow band and [watch] under it stay at the top while [task]
+/// scrolls beneath them, as long as the task keeps at least half the
+/// height: else the band scrolls away and [watch] alone stays, when that
+/// leaves the task half; else both scroll with it.
+Widget _pinnedUnderBand(
+  BuildContext context, {
+  required Widget watch,
+  required Widget task,
+  required VoidCallback? onBack,
+  required String backLabel,
+  required bool wink,
+  required double width,
+}) {
+  final p = context.palette;
+  return CustomScrollView(
+    slivers: [
+      PinnedHeader(
+        edge: p.outline.withValues(alpha: .5),
+        lead: ColoredBox(
+          color: p.ground,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.md, 0),
+            child: _Field(
+              corner: FieldSizes.bandCorner,
+              tevi: FieldSizes.bandTevi,
+              wink: wink,
+              child: _FieldContent(
+                size: FieldSize.band,
+                onBack: onBack,
+                backLabel: backLabel,
+              ),
+            ),
+          ),
+        ),
+        child: ColoredBox(
+          color: p.ground,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.xl,
+              Space.lg,
+              Space.xl,
+              Space.lg,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: width),
+                child: watch,
+              ),
+            ),
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          Space.xl,
+          Space.xl,
+          Space.xl,
+          Space.xxxl,
+        ),
+        sliver: SliverToBoxAdapter(child: Center(child: task)),
+      ),
+    ],
+  );
+}
+
 /// A screen beside the ink rail: the rail is its field. Every column
 /// stands at one place, at the top of the content area and centred in it
 /// (or at the start of its pane, beside a list), so the title stays put
@@ -302,17 +428,33 @@ class FieldLayout extends StatelessWidget {
 class _RailFramed extends StatefulWidget {
   const _RailFramed({
     required this.task,
+    required this.watch,
+    required this.width,
     required this.onBack,
-    required this.rise,
-    required this.rises,
+    required this.backLabel,
+    required this.wink,
+    required this.winks,
     required this.pane,
   });
 
   final Widget task;
+  final Widget? watch;
+
+  /// The task column's cap.
+  final double width;
   final VoidCallback? onBack;
-  final bool rise;
-  final ValueNotifier<int> rises;
+  final String backLabel;
+  final bool wink;
+  final ValueNotifier<int> winks;
   final Pane pane;
+
+  /// From this width of the content area what is watched takes a pane of
+  /// its own: the room a large window leaves beside the rail, the same
+  /// at which a place shows its list beside its item.
+  static const watchPaneFrom =
+      ShellSizes.listDetailBreakpoint -
+      ShellSizes.railInset -
+      ShellSizes.railWidth;
 
   /// The space around the column in each place beside the rail.
   static EdgeInsetsDirectional padding(Pane pane) => switch (pane) {
@@ -347,60 +489,162 @@ class _RailFramedState extends State<_RailFramed> {
   @override
   void initState() {
     super.initState();
-    _askRise();
+    _askWink();
   }
 
   @override
   void didUpdateWidget(_RailFramed old) {
     super.didUpdateWidget(old);
-    _askRise();
+    _askWink();
   }
 
-  /// A confirmation plays once, on the rail's head.
-  void _askRise() {
-    if (!widget.rise || _asked) return;
+  /// A confirmation plays once, on the rail's mascot.
+  void _askWink() {
+    if (!widget.wink || _asked) return;
     _asked = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => widget.rises.value++);
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.winks.value++);
   }
+
+  /// The back control's slot over the column, kept empty at a root.
+  Widget _backSlot(BuildContext context) => SizedBox(
+    height: 48,
+    child: switch (widget.onBack) {
+      // The arrow's edge on the column's edge; the button's own inset
+      // stands outside it.
+      final onBack? => Transform.translate(
+        offset: const Offset(-Space.md, 0),
+        child: IconButton(
+          onPressed: onBack,
+          tooltip: widget.backLabel,
+          color: context.palette.text,
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+      ),
+      null => null,
+    },
+  );
+
+  AlignmentGeometry get _align => widget.pane == Pane.single
+      ? Alignment.topCenter
+      : AlignmentDirectional.topStart;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: SingleChildScrollView(
-        padding: _RailFramed.padding(widget.pane),
-        child: Align(
-          alignment: widget.pane == Pane.single
-              ? Alignment.topCenter
-              : AlignmentDirectional.topStart,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 48,
-                child: switch (widget.onBack) {
-                  // The arrow's edge on the column's edge; the button's own
-                  // inset stands outside it.
-                  final onBack? => Transform.translate(
-                    offset: const Offset(-Space.md, 0),
-                    child: IconButton(
-                      onPressed: onBack,
-                      tooltip: 'Voltar',
-                      color: context.palette.text,
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                  ),
-                  null => null,
-                },
-              ),
-              const SizedBox(height: Space.sm),
-              widget.task,
-            ],
+      child: switch (widget.watch) {
+        final watch? => LayoutBuilder(
+          builder: (context, box) => box.maxWidth >= _RailFramed.watchPaneFrom
+              ? _beside(context, watch)
+              : _pinned(context, watch),
+        ),
+        null => SingleChildScrollView(
+          padding: _RailFramed.padding(widget.pane),
+          child: Align(
+            alignment: _align,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _backSlot(context),
+                const SizedBox(height: Space.sm),
+                widget.task,
+              ],
+            ),
+          ),
+        ),
+      },
+    ),
+  );
+
+  /// What is watched in its own pane, under the back control; a hairline;
+  /// then the task in its column, which scrolls on its own, its top level
+  /// with the watched pane's.
+  Widget _beside(BuildContext context, Widget watch) => Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(
+        // Read first: what is watched, then the task.
+        child: FocusTraversalGroup(
+          child: SingleChildScrollView(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              Space.xxxl,
+              Space.xxl,
+              Space.xl,
+              Space.xxxl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _backSlot(context),
+                const SizedBox(height: Space.sm),
+                watch,
+              ],
+            ),
           ),
         ),
       ),
-    ),
+      VerticalDivider(
+        width: 1,
+        thickness: 1,
+        color: context.palette.outline.withValues(alpha: .5),
+      ),
+      SizedBox(
+        width: widget.width + Space.xxxl + Space.xl,
+        child: FocusTraversalGroup(
+          child: SingleChildScrollView(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              Space.xxxl,
+              Space.xxl + 48 + Space.sm,
+              Space.xl,
+              Space.xxxl,
+            ),
+            child: widget.task,
+          ),
+        ),
+      ),
+    ],
   );
+
+  /// The back control and what is watched stay at the top while the task
+  /// scrolls beneath them, as long as the task keeps at least half the
+  /// height: else the back control scrolls away and what is watched alone
+  /// stays, when that leaves the task half; else both scroll with it.
+  Widget _pinned(BuildContext context, Widget watch) {
+    final p = context.palette;
+    final sides = _RailFramed.padding(widget.pane);
+    Widget column(Widget child) => Align(
+      alignment: _align,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: widget.width),
+        child: child,
+      ),
+    );
+    return CustomScrollView(
+      slivers: [
+        PinnedHeader(
+          edge: p.outline.withValues(alpha: .5),
+          lead: ColoredBox(
+            color: p.ground,
+            child: Padding(
+              padding: sides.copyWith(bottom: Space.sm),
+              child: column(_backSlot(context)),
+            ),
+          ),
+          child: ColoredBox(
+            color: p.ground,
+            child: Padding(
+              padding: sides.copyWith(top: 0, bottom: Space.lg),
+              child: column(watch),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: sides.copyWith(top: Space.xl),
+          sliver: SliverToBoxAdapter(child: column(widget.task)),
+        ),
+      ],
+    );
+  }
 }
 
 class _TaskColumn extends StatelessWidget {
@@ -415,7 +659,7 @@ class _TaskColumn extends StatelessWidget {
   });
 
   final double width;
-  final String title;
+  final String? title;
   final String? titleSemanticsLabel;
   final Widget? leading;
   final String? line;
@@ -425,18 +669,18 @@ class _TaskColumn extends StatelessWidget {
   final String? lead;
 
   /// The title, with its muted line under it and its mark beside both.
-  Widget _heading(BuildContext context) {
-    final title = Semantics(
+  Widget _heading(BuildContext context, String title) {
+    final heading = Semantics(
       header: true,
-      child: DisplayTitle(this.title, semanticsLabel: titleSemanticsLabel),
+      child: DisplayTitle(title, semanticsLabel: titleSemanticsLabel),
     );
     final line = this.line;
     final leading = this.leading;
-    if (line == null && leading == null) return title;
+    if (line == null && leading == null) return heading;
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        title,
+        heading,
         if (line != null) ...[
           const SizedBox(height: Space.xs),
           Text(
@@ -464,61 +708,55 @@ class _TaskColumn extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _heading(context),
-        if (lead case final lead?) ...[
-          const SizedBox(height: Space.md),
-          Text(lead, style: Theme.of(context).textTheme.bodyLarge),
+        if (title case final title?) ...[
+          _heading(context, title),
+          if (lead case final lead?) ...[
+            const SizedBox(height: Space.md),
+            Text(lead, style: Theme.of(context).textTheme.bodyLarge),
+          ],
+          const SizedBox(height: Space.xl),
         ],
-        const SizedBox(height: Space.xl),
         ...children,
       ],
     ),
   );
 }
 
-/// The head strip above a rounded ink field cut with the mark's radius
-/// (10 units on the same grid as the head).
+/// A rounded ink field with [corner], the mascot at [tevi] standing on
+/// its top edge.
 class _Field extends StatelessWidget {
   const _Field({
-    required this.unit,
+    required this.corner,
+    required this.tevi,
     required this.child,
-    this.rise = false,
+    this.wink = false,
     this.expand = false,
   });
 
-  final double unit;
+  final double corner;
+  final double tevi;
   final Widget child;
-  final bool rise;
+  final bool wink;
   final bool expand;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final field = DecoratedBox(
-      decoration: BoxDecoration(
-        color: p.field,
-        borderRadius: BorderRadius.circular(10 * unit),
-      ),
-      child: child,
+    final decoration = BoxDecoration(
+      color: p.field,
+      borderRadius: BorderRadius.circular(corner),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ExcludeSemantics(
-          child: Center(
-            child: PeekingHead(unit: unit, rise: rise),
-          ),
-        ),
-        if (expand)
+    return PerchedTevi(
+      size: tevi,
+      wink: wink,
+      corner: corner,
+      child: expand
           // The field fills the panel; at large text sizes its content
           // scrolls inside it rather than overflowing.
-          Expanded(
-            child: LayoutBuilder(
+          ? LayoutBuilder(
               builder: (context, box) => DecoratedBox(
-                decoration: BoxDecoration(
-                  color: p.field,
-                  borderRadius: BorderRadius.circular(10 * unit),
-                ),
+                key: FieldLayout.fieldKey,
+                decoration: decoration,
                 child: SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: box.maxHeight),
@@ -526,37 +764,80 @@ class _Field extends StatelessWidget {
                   ),
                 ),
               ),
+            )
+          : DecoratedBox(
+              key: FieldLayout.fieldKey,
+              decoration: decoration,
+              child: child,
             ),
-          )
-        else
-          field,
-      ],
     );
   }
 }
 
-/// The Espiadinha's head and fingers over an ink field drawn on the grid
-/// of [unit]; with [rise], "o sol sobe" plays once.
-class PeekingHead extends StatefulWidget {
-  const PeekingHead({super.key, required this.unit, required this.rise});
+/// The mascot standing on the top edge of [child], an ink field: whole,
+/// at the field's start, facing its content, its legs landing a little
+/// into the field. It takes [standOf] its [size] above the field and
+/// draws over the field's edge. With [wink], it winks once to confirm.
+class PerchedTevi extends StatefulWidget {
+  const PerchedTevi({
+    super.key,
+    required this.size,
+    required this.child,
+    this.wink = false,
+    this.corner = 0,
+  });
 
-  /// How long "o sol sobe" plays.
-  static const riseDuration = Duration(milliseconds: 1400);
+  /// How long the wink takes: the eye closes, holds and opens again.
+  static const winkDuration = Duration(milliseconds: 1400);
 
-  final double unit;
-  final bool rise;
+  /// The room a mascot [size] wide takes above the field: from the top
+  /// of its body down to the edge. The air the figure's box keeps above
+  /// the body is left to overhang, since nothing is drawn there.
+  static double standOf(double size) =>
+      size * (TeviPainter.perchY - TeviPainter.body.top) -
+      TeviPainter.perchOverlap;
+
+  final double size;
+  final bool wink;
+  final Widget child;
+
+  /// The field's corner radius: the app's opening, landing its mascot on
+  /// this one, closes its ground onto the field's shape.
+  final double corner;
 
   @override
-  State<PeekingHead> createState() => _HeadState();
+  State<PerchedTevi> createState() => _PerchedTeviState();
 }
 
-class _HeadState extends State<PeekingHead>
+class _PerchedTeviState extends State<PerchedTevi>
     with SingleTickerProviderStateMixin {
-  late final _rise = AnimationController(
+  late final _wink = AnimationController(
     vsync: this,
-    duration: PeekingHead.riseDuration,
-    value: 1,
+    duration: PerchedTevi.winkDuration,
   );
+
+  /// The eyelid over the wink: it shuts quickly, stays shut long enough
+  /// to be read, then opens more gently.
+  late final _lid = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Motion.shut)),
+      weight: 20,
+    ),
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
+    TweenSequenceItem(
+      tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Motion.sway)),
+      weight: 40,
+    ),
+  ]).animate(_wink);
+
+  bool _played = false;
+
+  /// The field it stands on, for the app's opening to close onto.
+  final _field = GlobalKey();
+
+  /// Under reduced motion the wink is shown, not played: the eye stays
+  /// shut until this ends.
+  Timer? _shut;
 
   @override
   void didChangeDependencies() {
@@ -565,46 +846,92 @@ class _HeadState extends State<PeekingHead>
   }
 
   /// A confirmation on a screen already shown (the family just created)
-  /// turns rise on in place.
+  /// turns the wink on in place.
   @override
-  void didUpdateWidget(PeekingHead old) {
+  void didUpdateWidget(PerchedTevi old) {
     super.didUpdateWidget(old);
-    if (!old.rise) _play();
+    if (!old.wink) _play();
   }
 
   void _play() {
-    final still = MediaQuery.of(context).disableAnimations;
-    if (widget.rise && !still && _rise.value == 1 && !_played) {
-      _played = true;
-      _rise.forward(from: 0);
+    if (!widget.wink || _played) return;
+    _played = true;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _shut = Timer(PerchedTevi.winkDuration, () {
+        if (mounted) setState(() => _shut = null);
+      });
+    } else {
+      _wink.forward(from: 0);
     }
   }
 
-  bool _played = false;
-
   @override
   void dispose() {
-    _rise.dispose();
+    _shut?.cancel();
+    _wink.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: EspiadinhaPainter.width * widget.unit,
-    height: EspiadinhaPainter.height * widget.unit,
-    child: AnimatedBuilder(
-      animation: _rise,
-      builder: (context, _) => CustomPaint(
-        painter: EspiadinhaPainter(palette: context.palette, rise: _rise.value),
+  Widget build(BuildContext context) {
+    final size = widget.size;
+    // On the dark theme's ground the figure's dark parts would vanish, so
+    // they take the night colours there, unless the screen says which
+    // ground it stands on.
+    final night =
+        TeviGround.maybeNightAt(context) ??
+        context.palette.brightness == Brightness.dark;
+    final figure = AnimatedBuilder(
+      animation: _lid,
+      // The wink moves the look itself, frame by frame.
+      builder: (context, _) => Tevi(
+        size: size,
+        night: night,
+        eases: false,
+        look: _shut != null
+            ? TeviLook.winking
+            : TeviLook.lerp(TeviLook.watching, TeviLook.winking, _lid.value),
       ),
-    ),
-  );
+    );
+    return Stack(
+      fit: StackFit.passthrough,
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: PerchedTevi.standOf(size)),
+          child: KeyedSubtree(key: _field, child: widget.child),
+        ),
+        // The figure's box is square and drawn facing the end side; its
+        // legs end at [TeviPainter.perchY] of its height.
+        PositionedDirectional(
+          top: -size * TeviPainter.body.top,
+          start: TeviPainter.perchInset - size * TeviPainter.body.left,
+          width: size,
+          height: size,
+          child: TeviLanding(
+            look: TeviLook.watching,
+            night: night,
+            flipped: Directionality.of(context) == TextDirection.rtl,
+            field: _field,
+            fieldCorner: widget.corner,
+            child: IgnorePointer(
+              child: Transform.flip(
+                flipX: Directionality.of(context) == TextDirection.rtl,
+                child: figure,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _FieldContent extends StatelessWidget {
   const _FieldContent({
     required this.size,
     this.onBack,
+    this.backLabel = FieldLayout.backWord,
     this.large = false,
     this.promise = promiseLine,
   });
@@ -614,13 +941,14 @@ class _FieldContent extends StatelessWidget {
   /// The promise at the field's foot; null leaves the field to the wordmark.
   final String? promise;
   final VoidCallback? onBack;
+  final String backLabel;
   final bool large;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    // The name plate sits on the head's axis: the field is centred under
-    // the head, so the wordmark is centred in the field.
+    // The name plate starts under the mascot's body, on the edge the text
+    // below it keeps, so figure, name and text read down one line.
     final wordmark = Wordmark(
       height: size == FieldSize.hero ? WordmarkSizes.hero : WordmarkSizes.band,
     );
@@ -628,24 +956,26 @@ class _FieldContent extends StatelessWidget {
         ? null
         : IconButton(
             onPressed: onBack,
-            tooltip: 'Voltar',
+            tooltip: backLabel,
             color: p.onField,
             icon: const Icon(Icons.arrow_back_rounded),
           );
     if (size == FieldSize.band) {
+      // A back control keeps the band's start; the name plate follows it
+      // at the band's own spacing.
       return Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Space.sm,
-          vertical: Space.sm,
+        padding: EdgeInsetsDirectional.fromSTEB(
+          back == null ? TeviPainter.perchInset : Space.sm,
+          Space.sm,
+          Space.sm,
+          Space.sm,
         ),
         child: SizedBox(
           height: 56,
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
+              if (back != null) ...[back, const SizedBox(width: Space.sm)],
               wordmark,
-              if (back != null)
-                Align(alignment: AlignmentDirectional.centerStart, child: back),
             ],
           ),
         ),
@@ -654,9 +984,9 @@ class _FieldContent extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        Space.xl,
+        TeviPainter.perchInset,
         back == null ? Space.xl : Space.sm,
-        Space.xl,
+        TeviPainter.perchInset,
         large ? Space.xxxl : Space.xl,
       ),
       child: Column(
@@ -678,11 +1008,11 @@ class _FieldContent extends StatelessWidget {
                     child: back,
                   ),
                 ),
-              Center(child: wordmark),
+              wordmark,
             ],
           ),
           if (promise case final promise?) ...[
-            // Further from the name plate than the plate is from the head.
+            // Further from the name plate than the plate is from the edge.
             SizedBox(height: large ? Space.xxxl : Space.xxl),
             Text(
               promise,

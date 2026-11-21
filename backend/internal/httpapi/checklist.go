@@ -17,6 +17,7 @@ func (s *Server) checklist(w http.ResponseWriter, _ *http.Request) {
 		Text     string `json:"text"`
 		Rule     string `json:"rule"`
 		LongOnly bool   `json:"long_only,omitempty"`
+		MinBand  string `json:"min_band,omitempty"`
 	}
 	type groupOut struct {
 		ID    string    `json:"id"`
@@ -27,7 +28,7 @@ func (s *Server) checklist(w http.ResponseWriter, _ *http.Request) {
 	for _, g := range curation.Checklist() {
 		out := groupOut{ID: g.ID, Title: g.Title, Items: []itemOut{}}
 		for _, it := range g.Items {
-			out.Items = append(out.Items, itemOut{it.ID, it.Text, string(it.Rule), it.LongOnly})
+			out.Items = append(out.Items, itemOut{it.ID, it.Text, string(it.Rule), it.LongOnly, string(it.MinBand)})
 		}
 		groups = append(groups, out)
 	}

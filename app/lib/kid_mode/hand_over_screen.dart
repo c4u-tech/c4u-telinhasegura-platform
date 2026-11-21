@@ -126,7 +126,8 @@ class _HandOverScreenState extends State<HandOverScreen> {
             ? null
             : () => _handOver(chosen),
       ),
-      // Its place stays once a child is chosen: nothing moves (fix round).
+      // Its place stays once a child is chosen, so nothing above or below
+      // it moves under the adult's finger.
       SubmitHint(
         'Escolha uma criança acima.',
         visible: chosen == null,
@@ -136,9 +137,9 @@ class _HandOverScreenState extends State<HandOverScreen> {
   }
 }
 
-/// One child as a choice of one: the 96 dp avatar with the nickname
-/// under it, read as a radio by the nickname. Chosen, the avatar takes
-/// the picker's ring.
+/// One child as a choice of one: the avatar, 96 dp unless [avatarSize]
+/// says otherwise, with the nickname under it, read as a radio by the
+/// nickname. Chosen, the avatar takes the picker's ring.
 class ChildChoice extends StatelessWidget {
   const ChildChoice({
     super.key,
@@ -146,20 +147,22 @@ class ChildChoice extends StatelessWidget {
     required this.avatar,
     required this.selected,
     required this.onTap,
+    this.avatarSize = KidSizes.avatar,
   });
 
   final String nickname;
   final Avatar avatar;
   final bool selected;
   final VoidCallback? onTap;
+  final double avatarSize;
 
   /// The ring's outer size: the avatar, its 2 px gap and 3 px stroke on
   /// each side, held by every tile, chosen or not, so choosing moves
   /// nothing.
-  static const ring = KidSizes.avatar + 2 * (3 + 2);
+  static double ringFor(double avatar) => avatar + 2 * (3 + 2);
 
-  /// The ring and 3 px on each side.
-  static const width = ring + 2 * 3;
+  /// The tile's width: the ring and 3 px on each side.
+  static double widthFor(double avatar) => ringFor(avatar) + 2 * 3;
 
   @override
   Widget build(BuildContext context) {
@@ -169,17 +172,18 @@ class ChildChoice extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       child: SizedBox(
-        width: width,
+        width: widthFor(avatarSize),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: Space.sm),
           child: Column(
             children: [
-              // The ring stands 2 px off the disc, as in the avatar picker.
+              // The ring stands 2 px off the disc, as in the avatar picker:
+              // the decoration keeps the stroke's 3 px inside its edge.
               SizedBox.square(
-                dimension: ring,
+                dimension: ringFor(avatarSize),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
+                  duration: Motion.of(context, Motion.change),
+                  curve: Motion.settle,
                   padding: const EdgeInsets.all(2),
                   decoration: ShapeDecoration(
                     shape: CircleBorder(
@@ -189,13 +193,10 @@ class ChildChoice extends StatelessWidget {
                       ),
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(3),
-                    child: AvatarDisc(
-                      avatar,
-                      size: KidSizes.avatar,
-                      excludeSemantics: true,
-                    ),
+                  child: AvatarDisc(
+                    avatar,
+                    size: avatarSize,
+                    excludeSemantics: true,
                   ),
                 ),
               ),

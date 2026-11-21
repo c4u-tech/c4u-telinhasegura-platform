@@ -88,13 +88,18 @@ abstract final class Panes {
   static const roots = {Routes.family, Routes.account, Routes.staffHome};
 
   /// What asks for the reader's whole attention takes the whole content
-  /// area: the PIN, deleting the family or the account, and turning on
-  /// the second factor.
+  /// area: the PIN, deleting the family or the account, turning on the
+  /// second factor, and a video's questions, which need the room for the
+  /// video beside them.
   static bool isFocus(String path) =>
       path == Routes.setPin ||
       path == Routes.deleteFamily ||
       path == Routes.accountDelete ||
-      _under(Routes.accountMfaEnroll, path);
+      _under(Routes.accountMfaEnroll, path) ||
+      _approval.hasMatch(path);
+
+  /// A queued video's questions: `/curadoria/<id>/aprovar`.
+  static final _approval = RegExp('^${Routes.curation}/[^/]+/aprovar\$');
 
   /// The items of each place, in the order their list shows them.
   static const _family = [

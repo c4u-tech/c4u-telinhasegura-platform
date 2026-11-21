@@ -43,8 +43,12 @@ dart-test:
 
 # Store screenshots from the real app: raw captures, then the composed
 # frames the stores receive. A tool, not a gate (needs Chrome and macOS sips).
+# The theme every store screenshot is captured in: dark or light, one for
+# the whole set (make store-screens STORE_THEME=light).
+STORE_THEME ?= dark
+
 store-screens-raw:
-	@cd app && rm -rf build/store_screens/raw && flutter test --tags store_screens test/store_screens || exit 1
+	@cd app && rm -rf build/store_screens/raw && flutter test --tags store_screens --dart-define=STORE_THEME=$(STORE_THEME) test/store_screens || exit 1
 
 store-screens: store-screens-raw
 	@bash app/store_screens/compose.sh || exit 1

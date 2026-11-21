@@ -194,7 +194,7 @@ class _ChildScreenState extends State<ChildScreen> {
         busy: _write.busy,
         onPressed: _changed && idle ? _save : null,
       ),
-      SubmitHint(unchangedHint, visible: !_changed),
+      SubmitHint(unchangedHint, visible: !_changed, reserve: true),
     ];
   }
 }

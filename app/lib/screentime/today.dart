@@ -100,14 +100,20 @@ class TodayTime extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < TodayWords.modules; i++) ...[
-                      if (i > 0) const SizedBox(width: Space.xs),
-                      StateModule(filled: i < filled),
+                // On the narrowest rows the modules shrink a little
+                // rather than run out of the row.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < TodayWords.modules; i++) ...[
+                        if (i > 0) const SizedBox(width: Space.xs),
+                        StateModule(filled: i < filled),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
                 const SizedBox(height: Space.xs),
                 Text(words, style: muted),

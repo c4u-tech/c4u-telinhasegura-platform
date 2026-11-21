@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/svg/telinha-segura-lockup-color-on-dark.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="brand/svg/telinha-segura-lockup-reversed.svg">
     <img src="brand/svg/telinha-segura-lockup-color.svg" alt="Telinha Segura" width="320">
   </picture>
 
@@ -67,7 +67,7 @@ Preparing a machine and running the app on an emulator are covered in [docs/deve
 - `app/` — the Flutter app (Android, iOS and web)
 - `backend/` — the Go API and its admin command
 - `docs/development/` — from a fresh clone to the app running locally
-- `brand/` — brand assets: logo SVGs, favicon and app icons, e-mail PNGs, brand tokens
+- `brand/` — brand assets: the mascot (Tevi), the wordmark and the lockups as SVGs, favicon and app icons, e-mail PNGs, brand tokens
 - `deploy/` — the backup image
 - `site/` — the public site
 - `scripts/` — the scripts behind the `make` targets and CI

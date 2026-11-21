@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/access/widgets.dart' show ReasonField;
+import 'package:telinha_segura/kid/tap_guard.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -17,6 +19,7 @@ import 'package:telinha_segura/parental/kid_mode_mark.dart';
 import 'package:telinha_segura/privacy/export_delivery.dart';
 import 'package:telinha_segura/screentime/time_zone_source.dart';
 import 'package:telinha_segura/shell/app.dart';
+import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/services.dart';
 
 import '../auth/fakes.dart';
@@ -106,7 +109,7 @@ class Harness {
   }) : player = player ?? FakeKidPlayer(),
        adultPlayer = adultPlayer ?? FakeKidPlayer() {
     _api = api ?? (_) => http.Response('', 204);
-    final store = MemoryTokenStore();
+    final store = tokenStore;
     if (signedIn && kind == ClientKind.mobile) {
       store.tokens = const Tokens(access: 'a', refresh: 'r');
     }
@@ -162,6 +165,9 @@ class Harness {
   }
 
   final ClientKind kind;
+
+  /// Where a mobile client keeps its session.
+  final tokenStore = MemoryTokenStore();
 
   /// The device's IANA zone.
   final String timeZone;
@@ -295,7 +301,22 @@ class Harness {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(app(initial: initial));
     await tester.pumpAndSettle();
+    // A child screen lets no touch through just after it appears; any
+    // other screen's clock is left where it stands. A screen outside the
+    // router (the start's failed read) has no location.
+    final screen = find.byType(Scaffold);
+    if (screen.evaluate().isNotEmpty &&
+        GoRouter.maybeOf(tester.element(screen.first)) != null &&
+        waitsForGuard(location(tester))) {
+      await tester.pump(TapGuard.window);
+    }
   }
+
+  /// Whether the screen at [location] is a child's, which ignores touches
+  /// just after it appears.
+  static bool waitsForGuard(String location) =>
+      Uri.parse(location).path == Routes.kidHome ||
+      Uri.parse(location).path.startsWith('${Routes.kidHome}/');
 
   Widget app({String initial = '/'}) =>
       TelinhaSeguraApp(services: services, initialLocation: initial);
@@ -322,4 +343,32 @@ class FixedDeviceLabel implements DeviceLabelSource {
 
   @override
   Future<String> read() async => label;
+}
+
+/// The reason field labelled [label], wherever its label stands: inside
+/// the field, or over it at large text.
+Finder reasonOf([String label = 'Motivo']) => find.descendant(
+  of: find.byWidgetPredicate((w) => w is ReasonField && w.label == label),
+  matching: find.byType(TextField),
+);
+
+/// [primary] stays where it was as [complete] finishes the form: the page
+/// scrolled to its foot first, where a hint under the primary going away
+/// would pull everything down by its height.
+Future<void> expectPrimaryStays(
+  WidgetTester tester,
+  Finder primary,
+  Future<void> Function() complete,
+) async {
+  final page = tester
+      .state<ScrollableState>(
+        find.ancestor(of: primary, matching: find.byType(Scrollable)).first,
+      )
+      .position;
+  page.jumpTo(page.maxScrollExtent);
+  await tester.pumpAndSettle();
+  final before = tester.getRect(primary);
+  await complete();
+  await tester.pumpAndSettle();
+  expect(tester.getRect(primary), before);
 }

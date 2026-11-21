@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../design/busy_ring.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 
@@ -18,9 +19,11 @@ class ErrorNote extends StatelessWidget {
       liveRegion: true,
       container: true,
       child: DecoratedBox(
+        // The corner of the fields and buttons around it, so the note
+        // reads as one of the column's blocks.
         decoration: BoxDecoration(
           color: p.errorGround,
-          borderRadius: BorderRadius.circular(Radii.small),
+          borderRadius: BorderRadius.circular(Radii.control),
         ),
         child: Padding(
           padding: const EdgeInsets.all(Space.md),
@@ -87,10 +90,7 @@ class PrimaryButton extends StatelessWidget {
             label: label,
             child: SizedBox.square(
               dimension: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: context.palette.text,
-              ),
+              child: BusyRing(strokeWidth: 2.5, color: context.palette.text),
             ),
           )
         // At large text a long label wraps; its lines stay centred.
@@ -198,13 +198,24 @@ class _PasswordFieldState extends State<PasswordField> {
   );
 }
 
-/// The state module: the mark's screen as a small rounded block, filled
-/// when its condition holds and hollow when it does not. State is never
+/// The state module: a small screen as a rounded block, filled in the
+/// meter's colour when its condition holds and hollow when it does not.
+/// It measures, so it never takes the action's colour. State is never
 /// carried by colour alone: the text beside it says the same.
 class StateModule extends StatelessWidget {
-  const StateModule({super.key, required this.filled, this.height = 10});
+  const StateModule({
+    super.key,
+    required this.filled,
+    this.height = 10,
+    this.color,
+  });
 
   final bool filled;
+
+  /// The fill and the outline both, where the modules stand on a ground
+  /// of their own (the player's dark room); the meter and the outline by
+  /// default.
+  final Color? color;
 
   /// 10 px beside text; larger where the modules are the content, as in
   /// the PIN pad.
@@ -215,14 +226,17 @@ class StateModule extends StatelessWidget {
     final p = context.palette;
     final h = height;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      width: h * 58 / 33,
+      duration: Motion.of(context, Motion.change),
+      curve: Motion.settle,
+      width: h * Proportions.screen,
       height: h,
       decoration: BoxDecoration(
-        color: filled ? p.action : Colors.transparent,
+        color: filled ? color ?? p.meter : Colors.transparent,
         borderRadius: BorderRadius.circular(h * Radii.screenRatio),
-        border: Border.all(color: filled ? p.action : p.outline, width: 1.5),
+        border: Border.all(
+          color: color ?? (filled ? p.meter : p.outline),
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -371,7 +385,7 @@ class QuietAction extends StatelessWidget {
       icon: busy
           ? SizedBox.square(
               dimension: 18,
-              child: CircularProgressIndicator(
+              child: BusyRing(
                 strokeWidth: 2,
                 color: color ?? context.palette.text,
               ),
@@ -514,6 +528,105 @@ class BulletItem extends StatelessWidget {
             child: Text(text, style: style, semanticsLabel: semanticsLabel),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The length of a reason as the server counts it: one per character code
+/// (a rune), so an emoji made of two codes counts two.
+int reasonLength(String text) => text.runes.length;
+
+/// A reason with a bound ("Motivo", "Por que é para mais velhos"): it grows
+/// with its words from [minLines], takes no more than [maxLength] counted
+/// as [reasonLength] counts, and shows "170 de 200" only near its bound.
+/// At a text scale of 1.5 or more its [label], which would float on two
+/// lines across the field's edge, stands as plain body-large text on its
+/// own line 8 px above the field, merged with it so it is read once as
+/// the field's.
+class ReasonField extends StatelessWidget {
+  const ReasonField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.maxLength,
+    this.minLines = 1,
+    this.enabled,
+    this.errorText,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLength;
+  final int minLines;
+  final bool? enabled;
+  final String? errorText;
+
+  /// The count shows from here, near the bound.
+  static const countFrom = 160;
+
+  @override
+  Widget build(BuildContext context) {
+    final over = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
+    final field = TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: TextInputType.multiline,
+      textCapitalization: TextCapitalization.sentences,
+      minLines: minLines,
+      maxLines: null,
+      // The bound in runes, not in the field's own symbols: what the field
+      // holds, the server takes.
+      inputFormatters: [_RuneLimit(maxLength)],
+      buildCounter:
+          (_, {required currentLength, required isFocused, maxLength}) {
+            final n = reasonLength(controller.text);
+            return n < countFrom
+                ? null
+                : Text(
+                    '$n de ${this.maxLength}',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: context.palette.muted),
+                  );
+          },
+      decoration: InputDecoration(
+        labelText: over ? null : label,
+        alignLabelWithHint: true,
+        errorText: errorText,
+        errorMaxLines: 3,
+      ),
+    );
+    if (!over) return field;
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyLarge),
+          const SizedBox(height: Space.sm),
+          field,
+        ],
+      ),
+    );
+  }
+}
+
+/// Cuts what is typed or pasted to [max] runes.
+class _RuneLimit extends TextInputFormatter {
+  _RuneLimit(this.max);
+
+  final int max;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (reasonLength(newValue.text) <= max) return newValue;
+    final text = String.fromCharCodes(newValue.text.runes.take(max));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: newValue.selection.end.clamp(0, text.length),
       ),
     );
   }

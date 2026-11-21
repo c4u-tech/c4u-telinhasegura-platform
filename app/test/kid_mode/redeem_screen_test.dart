@@ -17,6 +17,7 @@ import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/shell/services.dart';
 
 import '../access/harness.dart';
+import '../kid/kid_home_screen_test.dart' show labelled;
 import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'hand_over_screen_test.dart' show pumpUntil, tapOn;
@@ -30,6 +31,8 @@ Future<Harness> redeem(
   String initial = '/vincular-aparelho',
   FutureOr<http.Response> Function(http.Request)? answer,
   MemoryDeviceCredentialStore? devices,
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   final h = Harness(
     kind: ClientKind.mobile,
@@ -42,7 +45,7 @@ Future<Harness> redeem(
       _ => http.Response('', 204),
     },
   );
-  await h.pump(tester, initial: initial);
+  await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
 }
 
@@ -94,6 +97,21 @@ void main() {
     expect(labelField, findsOneWidget);
     expect(find.text('Ex.: Tablet da Ana'), findsOneWidget);
     expect(vincular(tester).onPressed, isNull, reason: 'nothing typed yet');
+  });
+
+  testWidgets('"Vincular" stays put as the fields complete', (tester) async {
+    await redeem(tester, size: const Size(360, 640), textScale: 2);
+    await tester.enterText(codeField, 'ABCD1234');
+    await tester.pumpAndSettle();
+
+    await expectPrimaryStays(
+      tester,
+      find.byType(PrimaryButton),
+      // Typed without focus, so the page does not scroll to the field.
+      () async =>
+          tester.widget<TextField>(labelField).controller!.text = 'Tablet',
+    );
+    expect(vincular(tester).onPressed, isNotNull);
   });
 
   testWidgets('both fields guide alike: their texts start on one line, '
@@ -174,7 +192,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.location(tester), '/crianca');
     expect(find.byType(KidHomeScreen), findsOneWidget);
-    expect(find.text('Lia'), findsOneWidget);
+    // The home is the linked child's: their avatar, read by the nickname.
+    expect(
+      find.descendant(
+        of: find.byType(KidHomeScreen),
+        matching: labelled('Lia'),
+      ),
+      findsOneWidget,
+    );
   });
 
   group('the device name', () {

@@ -7,10 +7,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/design/display_title.dart';
+import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/pinned_header.dart';
+import 'package:telinha_segura/design/tokens.dart';
+import 'package:telinha_segura/design/theme.dart';
+import 'package:telinha_segura/shell/list_detail.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
-import 'package:telinha_segura/curation/words.dart' show differenceReminder;
+import 'package:telinha_segura/curation/curation.dart' show VideoTheme;
+import 'package:telinha_segura/curation/words.dart'
+    show VideoThemeLabel, differenceReminder;
+import 'package:telinha_segura/family/family.dart' show AgeBand;
+import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/family/profile_fields.dart'
     show ChoiceTarget, SelectableRow, underTwoAdvice;
 import 'package:telinha_segura/legal/legal_links.dart';
@@ -20,11 +30,16 @@ import '../access/harness.dart';
 import '../family/fixtures.dart';
 import '../kid/fake_player.dart';
 import 'appoint_screen_test.dart' show tapOn;
+import 'queue_screen_test.dart' show goTo;
 import 'fixtures.dart';
 
 const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
 const allThemes = [...themes, 'Natureza'];
-const bands = ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos'];
+const bands = [
+  '2\u00A0a\u00A04\u00A0anos',
+  '5\u00A0a\u00A08\u00A0anos',
+  '9\u00A0a\u00A012\u00A0anos',
+];
 
 /// The fixture's questions.
 const tie = 'Você tem vínculo com este canal?';
@@ -32,6 +47,7 @@ const paid = 'Aparece promoção paga?';
 const hits = 'Alguém bate de propósito?';
 const sad = 'Algum personagem fica triste?';
 const fast = 'Tem ritmo agitado?';
+const dating = 'Tem namoro entre os personagens?';
 const others = 'O canal tem outros vídeos que você recusaria?';
 
 /// Every question of the fixture answered "Não".
@@ -44,6 +60,7 @@ const allNos = {
   'c15': 'ok',
   'c12': 'ok',
   'c22': 'ok',
+  'c35': 'ok',
   'c23': 'ok',
   'c24': 'ok',
 };
@@ -53,17 +70,28 @@ Future<Harness> approving(
   FutureOr<http.Response> Function(http.Request)? review,
   FutureOr<http.Response> Function()? checklist,
   FutureOr<http.Response> Function(String id)? video,
+  FutureOr<http.Response> Function()? draft,
+  FutureOr<http.Response> Function()? ended,
   String initial = '/curadoria/v1/aprovar',
   Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   final h =
       Harness(
           signedIn: true,
-          api: curatorApi(review: review, checklist: checklist, video: video),
+          api: curatorApi(
+            review: review,
+            checklist: checklist,
+            video: video,
+            // Unless a test says otherwise, the video already played to its
+            // end, so "Aprovar" does not wait.
+            draft: draft ?? () => kept(draftJson(ended: true)),
+            ended: ended,
+          ),
         )
         ..family = ownerFamily
         ..roles = ['curator'];
-  await h.pump(tester, initial: initial, size: size);
+  await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
 }
 
@@ -103,8 +131,15 @@ bool picked(WidgetTester tester, String question, String word) =>
 Future<void> answer(WidgetTester tester, String question, String word) =>
     tapOn(tester, key(question, word));
 
-Future<void> noneOfThis(WidgetTester tester) =>
-    tapOn(tester, find.widgetWithText(OutlinedButton, noneHappens));
+/// The shortcut at the foot of a step, whichever way it reads.
+Finder shortcut() => find.ancestor(
+  of: find.byWidgetPredicate(
+    (w) => w is Text && {noneHappens, restHappens}.contains(w.data),
+  ),
+  matching: find.byType(OutlinedButton),
+);
+
+Future<void> noneOfThis(WidgetTester tester) => tapOn(tester, shortcut());
 
 /// The review's "mudar" of [title].
 Finder change(String title) => find.byWidgetPredicate(
@@ -133,14 +168,31 @@ Future<void> toTopic(WidgetTester tester) async {
   await clearSteps(tester);
 }
 
-/// From the start to the review of an approval of "Música" for "5 a 8
-/// anos", every answer "Não".
+/// From the start to the review of an approval of "Música" for the band
+/// the answers give, "2 a 4 anos", every answer "Não".
 Future<void> toReview(WidgetTester tester) async {
   await toTopic(tester);
   await choose(tester, 'Música');
-  await choose(tester, '5 a 8 anos');
   await tapPrimary(tester);
 }
+
+/// "É para mais velhos" on the band page.
+Future<void> forOlder(WidgetTester tester) =>
+    tapOn(tester, find.widgetWithText(OutlinedButton, olderLabel));
+
+/// The field of why the video is for older children.
+/// At large text its label stands over it, outside the field: the band
+/// page has no other field.
+Finder reasonField() => find.byType(TextField);
+
+/// An answer listed under the statement: the question, then its answer.
+Finder bandAnswer(String question, String word) => find.text(
+  '$question —\u00A0${word.replaceAll(' ', '\u00A0')}',
+  findRichText: true,
+);
+
+/// The band page's "mudar" of [question].
+Finder changeAnswer(String question) => change(question);
 
 /// From the start to the review with "Não sei" on [sad]: the team decides.
 Future<void> toTeam(WidgetTester tester) async {
@@ -151,7 +203,7 @@ Future<void> toTeam(WidgetTester tester) async {
   await clearSteps(tester, from: 2);
 }
 
-/// Answers the whole list with "Não", chooses "Música" and "5 a 8 anos"
+/// Answers the whole list with "Não", chooses "Música", confirms the band
 /// and approves; with [settle] false it leaves the request running.
 Future<void> approve(WidgetTester tester, {bool settle = true}) async {
   await toReview(tester);
@@ -161,12 +213,50 @@ Future<void> approve(WidgetTester tester, {bool settle = true}) async {
 List<String> posts(Harness h) =>
     h.actions.where((c) => c.startsWith('POST ')).toList();
 
+/// The draft's saves, each with what it sent.
+List<String> draftSaves(Harness h) =>
+    h.actions.where((c) => c.startsWith('PUT ')).toList();
+
+/// A draft read's answer: [draft] kept from before.
+http.Response kept(Map<String, Object?> draft) => json(200, {'draft': draft});
+
 Map<String, dynamic> sent(Harness h) =>
     jsonDecode(posts(h).single.split(' ').skip(2).join(' '))
         as Map<String, dynamic>;
 
-int videoReads(Harness h) =>
-    h.actions.where((a) => a.startsWith('GET /v1/curation/videos/')).length;
+/// What the last post sent.
+Map<String, dynamic> sent2(Harness h) =>
+    jsonDecode(posts(h).last.split(' ').skip(2).join(' '))
+        as Map<String, dynamic>;
+
+/// The reads of the video itself, not of its draft.
+int videoReads(Harness h) => h.actions
+    .where(
+      (a) => a.startsWith('GET /v1/curation/videos/') && !a.endsWith('/draft'),
+    )
+    .length;
+
+/// The review's door into the flow.
+const reviewDoor = 'Revisar vídeo';
+
+/// The flow's player.
+Finder window() => find.byKey(FakePlayback.viewKey);
+
+/// The line under the window.
+Finder endLine(String words) => find.text(words);
+
+/// No page title and no video name: the window stands for the video.
+void expectUntitled(WidgetTester tester) {
+  expect(find.byType(DisplayTitle), findsNothing);
+  expect(find.text('Baby Shark'), findsNothing);
+  expect(find.text(nb('Canal Baby Shark · 4 min')), findsNothing);
+}
+
+/// Drags the page's content [dy] up.
+Future<void> scrollContent(WidgetTester tester, double dy) async {
+  await tester.drag(find.byType(Scrollable).last, Offset(0, -dy));
+  await tester.pumpAndSettle();
+}
 
 /// The video named under the display title as the review names it: its
 /// title in title-medium, then "Canal · 4 min" muted, both above [below].
@@ -195,7 +285,7 @@ void main() {
   test('the length line names the 60-minute bar of the youngest band', () {
     expect(
       tooLongForYoungestLine,
-      'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.',
+      'Vídeos com mais de 60 minutos não vão para a faixa de 2\u00A0a\u00A04\u00A0anos.',
     );
   });
 
@@ -235,41 +325,47 @@ void main() {
       expect(posts(h), isEmpty);
     });
 
-    testWidgets('names the video it approves under the title, as the review '
-        'does, through to the done state', (tester) async {
+    testWidgets('shows no page title and no video name: the window is what '
+        'the flow is about, through to the done state', (tester) async {
       await approving(tester);
 
-      expectNamed(tester, find.text(checkedByApp));
-      await approve(tester);
-      expectNamed(tester, find.text(approved));
+      expectUntitled(tester);
+      await start(tester);
+      expectUntitled(tester);
+      await clearSteps(tester);
+      await choose(tester, 'Música');
+      await tapPrimary(tester);
+      expectUntitled(tester);
+      await tapPrimary(tester);
+      expect(find.text(approved), findsOneWidget);
+      expectUntitled(tester);
     });
 
-    testWidgets('opened from the review, it names the video without reading '
-        'it again', (tester) async {
+    testWidgets('opened from the review, it does not read the video again', (
+      tester,
+    ) async {
       final h = await approving(tester, initial: '/curadoria/v1');
 
-      await tapOn(tester, find.text(flowTitle));
+      await tapOn(tester, find.text(reviewDoor));
 
       expect(h.location(tester), '/curadoria/v1/aprovar');
-      expectNamed(tester, find.text(checkedByApp));
+      expect(window(), findsOneWidget);
       expect(videoReads(h), 1);
     });
   });
 
   group('the video', () {
-    Finder window() => find.byKey(FakePlayback.viewKey);
-
     /// Opens the flow from the review, whose own player stays beneath:
     /// the flow's player is the one opened after it.
     Future<Harness> fromReview(WidgetTester tester) async {
       final h = await approving(tester, initial: '/curadoria/v1');
       expect(h.adultPlayer.opened, hasLength(1));
-      await tapOn(tester, find.text(flowTitle));
+      await tapOn(tester, find.text(reviewDoor));
       return h;
     }
 
     testWidgets('plays at the top of "Antes de começar" and of each step, '
-        'under the video\'s name, without playing on its own', (tester) async {
+        'its line under it, without playing on its own', (tester) async {
       final h = await fromReview(tester);
 
       expect(h.adultPlayer.opened, hasLength(2));
@@ -278,8 +374,8 @@ void main() {
       expect(flow.calls, isEmpty, reason: 'no autoplay');
       expect(window(), findsOneWidget);
       final below = [
-        find.text('Baby Shark'),
         window(),
+        endLine(playedToEnd),
         find.text('Antes de começar'),
       ];
       final tops = [for (final f in below) tester.getTopLeft(f).dy];
@@ -322,19 +418,19 @@ void main() {
       expect(flow.closed, isFalse);
     });
 
-    testWidgets('the theme and band and the review show no player', (
+    testWidgets('the theme and band and the review keep the same player', (
       tester,
     ) async {
       final h = await fromReview(tester);
+      final view = tester.element(window());
       await toTopic(tester);
 
       expect(find.text('Tema'), findsOneWidget);
-      expect(window(), findsNothing);
+      expect(tester.element(window()), same(view));
       await choose(tester, 'Música');
-      await choose(tester, '5 a 8 anos');
       await tapPrimary(tester);
       expect(find.text(reviewTitle), findsOneWidget);
-      expect(window(), findsNothing);
+      expect(tester.element(window()), same(view));
       expect(h.adultPlayer.opened, hasLength(2));
     });
 
@@ -361,17 +457,323 @@ void main() {
       expect(window(), findsOneWidget);
       expect(h.adultPlayer.opened.last.youtubeId, 'yt-v1');
     });
+
+    testWidgets('the player\'s end in the flow is reported to the draft', (
+      tester,
+    ) async {
+      final h = await fromReview(tester);
+      final flow = h.adultPlayer.opened.last;
+      final before = posts(h).length;
+
+      flow.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(posts(h).skip(before), [
+        'POST /v1/curation/videos/v1/draft/ended',
+      ]);
+      expect(flow.closed, isFalse);
+      expect(window(), findsOneWidget);
+    });
+  });
+
+  group('the window stays', () {
+    /// Where the window's top stands, and whether the whole of it is on
+    /// screen.
+    double top(WidgetTester tester) => tester.getTopLeft(window()).dy;
+
+    testWidgets('on a phone it stays under the band while the page scrolls '
+        'beneath it, on every page of the flow', (tester) async {
+      await approving(tester);
+
+      Future<void> expectPinned() async {
+        final before = top(tester);
+        await scrollContent(tester, 300);
+        expect(top(tester), before, reason: 'the window did not move');
+        // Nothing of the page is drawn over the window: what lies at its
+        // centre is the window.
+        final centre = tester.getCenter(window());
+        expect(
+          tester
+              .hitTestOnBinding(centre)
+              .path
+              .any((e) => e.target == tester.renderObject(window())),
+          isTrue,
+        );
+        await scrollContent(tester, -300);
+      }
+
+      await expectPinned();
+      await start(tester);
+      await expectPinned();
+      await clearSteps(tester);
+      expect(find.text('Tema'), findsOneWidget);
+      await expectPinned();
+      await choose(tester, 'Música');
+      await tapPrimary(tester);
+      expect(find.text(reviewTitle), findsOneWidget);
+      await expectPinned();
+    });
+
+    /// What the flow's pinned header keeps at the top.
+    PinnedPart kept(WidgetTester tester) => tester
+        .renderObject<RenderPinnedHeader>(find.byType(PinnedHeader))
+        .pinned;
+
+    /// The band's top.
+    double band(WidgetTester tester) =>
+        tester.getTopLeft(find.byKey(FieldLayout.fieldKey)).dy;
+
+    testWidgets('at 390 × 844 the band, the window and its line all stay', (
+      tester,
+    ) async {
+      await approving(tester);
+      final (bandAt, windowAt, lineAt) = (
+        band(tester),
+        top(tester),
+        tester.getTopLeft(endLine(playedToEnd)).dy,
+      );
+
+      expect(kept(tester), PinnedPart.both);
+      await scrollContent(tester, 300);
+
+      expect(band(tester), bandAt);
+      expect(top(tester), windowAt);
+      expect(tester.getTopLeft(endLine(playedToEnd)).dy, lineAt);
+    });
+
+    testWidgets('at 360 × 640 the band scrolls away and the window and its '
+        'line stay, leaving the questions half the height', (tester) async {
+      await approving(tester, size: const Size(360, 640));
+      final bandAt = band(tester);
+      expect(kept(tester), PinnedPart.child);
+
+      await scrollContent(tester, 300);
+
+      expect(band(tester), lessThan(bandAt));
+      expect(top(tester), Space.lg, reason: 'the window near the top');
+      final lineBottom = tester.getBottomLeft(endLine(playedToEnd)).dy;
+      expect(lineBottom, lessThan(320));
+      expect(
+        tester
+            .hitTestOnBinding(tester.getCenter(window()))
+            .path
+            .any((e) => e.target == tester.renderObject(window())),
+        isTrue,
+      );
+      await scrollContent(tester, 300);
+      expect(top(tester), Space.lg, reason: 'it stays as the page goes on');
+    });
+
+    testWidgets('where even the window and its line would leave less than '
+        'half the height, nothing stays: they scroll with the page', (
+      tester,
+    ) async {
+      await approving(tester, size: const Size(360, 480), textScale: 2);
+      expect(kept(tester), PinnedPart.none);
+      final before = top(tester);
+
+      await scrollContent(tester, 200);
+
+      expect(top(tester), lessThan(before));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('at 1280 × 800 it has its own pane, the list steps aside, '
+        'and the questions scroll beside it', (tester) async {
+      await approving(tester, size: const Size(1280, 800));
+
+      expect(find.byKey(ListDetail.listKey), findsNothing);
+      final question = find.text(tie);
+      final windowBox = tester.getRect(window());
+      expect(windowBox.right, lessThan(tester.getTopLeft(question).dx));
+      expect(
+        tester.getTopLeft(endLine(playedToEnd)).dy,
+        greaterThan(windowBox.bottom),
+      );
+      final divider = tester.getRect(find.byType(VerticalDivider));
+      expect(divider.left, greaterThan(windowBox.right));
+      expect(divider.right, lessThan(tester.getTopLeft(question).dx));
+
+      await start(tester);
+      final before = top(tester);
+      await scrollContent(tester, 300);
+      expect(top(tester), before);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the video\'s end', () {
+    /// The review's primary, "Aprovar" once every answer is "Não".
+    Future<Harness> unwatched(WidgetTester tester, {Size? size}) => approving(
+      tester,
+      draft: () => kept(draftJson()),
+      size: size ?? const Size(390, 844),
+    );
+
+    testWidgets('the line says the video has not played to its end, muted, '
+        'until the player reports the end, then says it has, with the '
+        'check', (tester) async {
+      final h = await unwatched(tester);
+
+      expect(notPlayedToEnd, 'Ainda não tocou até o fim');
+      expect(playedToEnd, 'Tocou até o fim');
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      expect(endLine(playedToEnd), findsNothing);
+      final palette = tester.element(endLine(notPlayedToEnd)).palette;
+      expect(
+        tester.widget<Text>(endLine(notPlayedToEnd)).style?.color,
+        palette.muted,
+      );
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
+
+      await start(tester);
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Etapa 1 de 5'), findsOneWidget, reason: 'same page');
+      expect(endLine(notPlayedToEnd), findsNothing);
+      expect(endLine(playedToEnd), findsOneWidget);
+      expect(
+        tester.widget<Text>(endLine(playedToEnd)).style?.color,
+        palette.text,
+      );
+      final check = find.byIcon(Icons.check_rounded);
+      expect(check, findsOneWidget);
+      expect(
+        tester.getCenter(check).dy,
+        closeTo(tester.getCenter(endLine(playedToEnd)).dy, 2),
+      );
+    });
+
+    testWidgets('at its end the window shows the same video waiting again, '
+        'nothing playing, and each end is told once', (tester) async {
+      final h = await unwatched(tester);
+      final player = h.adultPlayer.opened.last;
+      final opened = h.adultPlayer.opened.length;
+      int ends() => h.actions.where((a) => a.contains('/draft/ended')).length;
+
+      player.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(player.calls, ['cue']);
+      expect(h.adultPlayer.opened, hasLength(opened), reason: 'not reopened');
+      expect(ends(), 1);
+
+      player
+        ..emit(const PlayerPlaying())
+        ..emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(player.calls, ['cue', 'cue']);
+      expect(ends(), 2);
+    });
+
+    testWidgets('an end is told once even when the window cannot show the '
+        'video again', (tester) async {
+      final h = await unwatched(tester);
+      final player = h.adultPlayer.opened.last..cueFails = true;
+
+      player.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(h.actions.where((a) => a.contains('/draft/ended')), hasLength(1));
+      expect(endLine(playedToEnd), findsOneWidget);
+    });
+
+    testWidgets('the line is one label, announced as a live region', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await unwatched(tester);
+
+      expect(
+        tester.getSemantics(endLine(notPlayedToEnd)),
+        isSemantics(label: notPlayedToEnd, isLiveRegion: true),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('a draft whose end was already recorded says so from the '
+        'start', (tester) async {
+      await approving(tester, draft: () => kept(draftJson(ended: true)));
+
+      expect(endLine(playedToEnd), findsOneWidget);
+      expect(endLine(notPlayedToEnd), findsNothing);
+    });
+
+    testWidgets('an end the review\'s player saw but failed to report says '
+        'so too', (tester) async {
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+        ended: () => problem(503, 'unavailable'),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text(reviewDoor));
+
+      expect(endLine(playedToEnd), findsOneWidget);
+    });
+
+    testWidgets('"Aprovar" waits, with its hint, until the video plays to its '
+        'end; then it sends', (tester) async {
+      final h = await unwatched(tester);
+      await toReview(tester);
+
+      expect(primary(tester).label, approveLabel);
+      expect(primary(tester).onPressed, isNull);
+      expect(watchHint, 'Para aprovar, deixe o vídeo tocar até o fim.');
+      expect(
+        tester.widget<SubmitHint>(find.byType(SubmitHint)).visible,
+        isTrue,
+      );
+      expect(find.text(watchHint), findsOneWidget);
+
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(primary(tester).onPressed, isNotNull);
+      expect(
+        tester.widget<SubmitHint>(find.byType(SubmitHint)).visible,
+        isFalse,
+      );
+      await tapPrimary(tester);
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('a doubt is sent without waiting for the end', (tester) async {
+      final h = await unwatched(tester);
+      await toTeam(tester);
+
+      expect(primary(tester).label, teamLabel);
+      expect(primary(tester).onPressed, isNotNull);
+      expect(find.text(watchHint), findsNothing);
+      await tapPrimary(tester);
+      expect(posts(h), hasLength(1));
+    });
+
+    testWidgets('a refusal does not wait for the end', (tester) async {
+      await unwatched(tester);
+      await start(tester);
+      await answer(tester, hits, 'Sim');
+      await answer(tester, sad, 'Não');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+
+      expect(primary(tester).label, refuseLabel);
+      expect(primary(tester).onPressed, isNotNull);
+      expect(find.text(watchHint), findsNothing);
+    });
   });
 
   group('the title', () {
-    void expectTitle(WidgetTester tester) {
-      expect(find.text(flowTitle), findsOneWidget);
-      expect(find.text('Aprovar'), findsNothing);
-    }
+    void expectTitle(WidgetTester tester) => expectUntitled(tester);
 
-    testWidgets('says "Revisar vídeo" on every page, whatever the answers '
-        'lead to', (tester) async {
-      expect(flowTitle, 'Revisar vídeo');
+    testWidgets('no page shows a title, whatever the answers lead to', (
+      tester,
+    ) async {
       final h = await approving(
         tester,
         review: (_) => json(201, {'video_state': 'held'}),
@@ -403,7 +805,6 @@ void main() {
         isSemantics(isHeader: true),
       );
       await choose(tester, 'Música');
-      await choose(tester, '5 a 8 anos');
       await tapPrimary(tester);
       expect(
         tester.getSemantics(find.text(reviewTitle)),
@@ -414,19 +815,20 @@ void main() {
   });
 
   group('the steps', () {
-    testWidgets('a step says "Etapa n de 5" and its group, offers the '
-        'shortcut over "ou responda uma a uma", and goes on only once '
-        'every question is answered', (tester) async {
+    testWidgets('a step says "Etapa n de 5" and its group, lists its '
+        'questions before the shortcut, and goes on only once every question '
+        'is answered', (tester) async {
       await approving(tester);
       await start(tester);
 
       expect(find.text('Etapa 1 de 5'), findsOneWidget);
       expect(find.text('Violência e medo'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, noneHappens), findsOneWidget);
-      final shortcut = tester.getTopLeft(find.text(noneHappens)).dy;
-      final line = tester.getTopLeft(find.text(orOneByOne)).dy;
-      final question = tester.getTopLeft(find.text(hits)).dy;
-      expect(shortcut < line && line < question, isTrue);
+      expect(find.text('ou responda uma a uma'), findsNothing);
+      final last = tester.getBottomLeft(find.text(sad)).dy;
+      final foot = tester.getTopLeft(shortcut()).dy;
+      final next = tester.getTopLeft(find.byType(PrimaryButton)).dy;
+      expect(last < foot && foot < next, isTrue);
       expect(primary(tester).label, nextStep);
       expect(primary(tester).onPressed, isNull);
       await answer(tester, hits, 'Não');
@@ -437,6 +839,52 @@ void main() {
 
       expect(find.text('Etapa 2 de 5'), findsOneWidget);
       expect(find.text('Linguagem e respeito'), findsOneWidget);
+    });
+
+    testWidgets('once a question is answered the shortcut answers the rest, '
+        'says how many, never changes an answer given, and goes once none is '
+        'open', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      expect(find.text('Etapa 5 de 5'), findsOneWidget);
+
+      await answer(tester, fast, 'Sim');
+      expect(find.widgetWithText(OutlinedButton, noneHappens), findsNothing);
+      expect(find.widgetWithText(OutlinedButton, restHappens), findsOneWidget);
+      expect(find.text(restLine(3)), findsOneWidget);
+      expect(restLine(3), 'Marca Não nas 3 perguntas ainda sem resposta.');
+      await answer(tester, dating, 'Não');
+      await answer(tester, others, 'Não');
+      expect(find.text(restLine(1)), findsOneWidget);
+      expect(restLine(1), 'Marca Não na pergunta ainda sem resposta.');
+
+      await noneOfThis(tester);
+      expect(picked(tester, fast, 'Sim'), isTrue);
+      expect(picked(tester, 'Falta começo, meio ou fim?', 'Não'), isTrue);
+      expect(shortcut(), findsNothing);
+      expect(find.textContaining('ainda sem resposta'), findsNothing);
+      expect(primary(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('"Antes de começar" has no shortcut', (tester) async {
+      await approving(tester);
+
+      expect(find.text(checkedByApp), findsOneWidget);
+      expect(shortcut(), findsNothing);
+    });
+
+    testWidgets('while answering, no question says what its answer does to '
+        'the band', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+
+      await answer(tester, fast, 'Sim');
+      await answer(tester, dating, 'Não sei');
+
+      expect(find.textContaining('anos'), findsNothing);
+      expect(find.textContaining('a partir de'), findsNothing);
     });
 
     testWidgets('"Nada disso acontece no vídeo" answers Não to every '
@@ -507,7 +955,7 @@ void main() {
 
       expect(find.text('Etapa 5 de 5'), findsOneWidget);
       await noneOfThis(tester);
-      expect(primary(tester).label, chooseTopic);
+      expect(primary(tester).label, 'Ver a idade e escolher o tema');
       // Leading to the summary, not to another step.
       await answer(tester, 'Falta começo, meio ou fim?', 'Sim');
       expect(primary(tester).label, seeSummary);
@@ -565,42 +1013,481 @@ void main() {
       expect(h.location(tester), '/curadoria/v1');
     });
 
-    testWidgets('leaving the flow drops its answers', (tester) async {
-      await approving(tester, initial: '/curadoria/v1');
-      await tapOn(tester, find.text(flowTitle));
+    testWidgets('the band\'s arrow leaves for the video in one step from any '
+        'page, the answers kept, and says where it goes', (tester) async {
+      final h = await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 2);
+      expect(find.text('Etapa 3 de 5'), findsOneWidget);
+      final saved = draftSaves(h).length;
+
+      expect(find.byTooltip('Voltar'), findsNothing);
+      await tester.tap(find.byTooltip(leaveForVideo));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1');
+      expect(draftSaves(h).length, saved, reason: 'nothing is undone');
+      expect(draftSaves(h).last, contains('"c04":"ok"'));
+    });
+
+    testWidgets('on a large window the arrow above the window leaves for the '
+        'video in one step', (tester) async {
+      final h = await approving(tester, size: const Size(1280, 800));
+      await start(tester);
+      await clearSteps(tester, to: 1);
+      expect(find.text('Etapa 2 de 5'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(leaveForVideo));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1');
+    });
+
+    testWidgets('coming back to a video restores the answers, theme, band '
+        'and note', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: {'c25': 'ok', 'c03': 'ok'},
+            theme: 'musica',
+            band: '5-8',
+          ),
+        ),
+      );
+
+      // It opens where the answers stopped.
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+      expect(primary(tester).onPressed, isNotNull);
+      await tapPrimary(tester);
+      await clearSteps(tester);
+
+      expect(chosen(tester, 'Música'), isTrue);
+      expect(chosen(tester, '5\u00A0a\u00A08\u00A0anos'), isTrue);
+    });
+
+    testWidgets('coming back to a doubt restores its note', (tester) async {
+      final h = await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: {'c25': 'ok', 'c03': 'ok', 'c04': 'ok', 'c07': 'doubt'},
+            note: 'A tristeza pesa.',
+          ),
+        ),
+      );
+
+      expect(draftSaves(h), isEmpty, reason: 'restoring is not a change');
+      expect(find.text('Etapa 2 de 5'), findsOneWidget);
+      await clearSteps(tester, from: 2);
+
+      expect(primary(tester).label, teamLabel);
+      expect(find.text('A tristeza pesa.'), findsOneWidget);
+    });
+
+    testWidgets('coming back with every question answered opens on the band '
+        'page', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(draftJson(answers: allNos, ended: true)),
+      );
+
+      expect(find.text(bandStatement(AgeBand.upTo4)), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Etapa 5 de 5'), findsOneWidget);
+    });
+
+    testWidgets('coming back opens on the first group with an open question, '
+        'in the list\'s order', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: {'c25': 'ok', 'c03': 'ok', 'c04': 'ok', 'c08': 'ok'},
+          ),
+        ),
+      );
+
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      expect(picked(tester, hits, 'Não'), isTrue);
+      expect(find.widgetWithText(OutlinedButton, restHappens), findsOneWidget);
+    });
+
+    testWidgets('a draft that failed to read is read again before the first '
+        'write, which keeps what it held', (tester) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        draft: () => fail
+            ? problem(503, 'unavailable')
+            : kept(draftJson(answers: {'c04': 'ok', 'c07': 'ok'})),
+      );
+      int reads() => h.actions
+          .where((c) => c == 'GET /v1/curation/videos/v1/draft')
+          .length;
+      final before = reads();
+
       await answer(tester, tie, 'Não');
+      expect(reads(), before + 1);
+      expect(draftSaves(h), isEmpty, reason: 'the kept draft is still unread');
 
-      await tapOn(tester, find.byTooltip('Voltar').last);
-      await tapOn(tester, find.text(flowTitle));
+      fail = false;
+      await answer(tester, paid, 'Não');
+      expect(reads(), before + 2);
+      expect(draftSaves(h), [
+        'PUT /v1/curation/videos/v1/draft '
+            '{"checklist_version":"2026-11-11",'
+            '"answers":{"c25":"ok","c03":"ok","c04":"ok","c07":"ok"}}',
+      ]);
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+    });
 
-      expect(picked(tester, tie, 'Não'), isFalse);
+    testWidgets('a late draft read with the same note leaves the cursor '
+        'where it was', (tester) async {
+      Completer<http.Response>? held;
+      await approving(
+        tester,
+        draft: () => held?.future ?? Future.value(problem(503, 'unavailable')),
+      );
+      await start(tester);
+      await noneOfThis(tester);
+      await answer(tester, sad, 'Não sei');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+
+      held = Completer<http.Response>();
+      final field = find.widgetWithText(TextField, doubtNoteLabel);
+      await tester.enterText(field, 'Pesa?');
+      await tester.pump();
+      final note = tester.widget<TextField>(field).controller!;
+      note.selection = const TextSelection.collapsed(offset: 2);
+      held.complete(kept(draftJson(answers: {'c25': 'ok'}, note: 'Pesa?')));
+      await tester.pumpAndSettle();
+
+      expect(note.text, 'Pesa?');
+      expect(note.selection, const TextSelection.collapsed(offset: 2));
+    });
+
+    testWidgets('each answer is written to the draft', (tester) async {
+      final h = await approving(tester);
+
+      await answer(tester, tie, 'Não');
+      await answer(tester, paid, 'Sim');
+
+      expect(
+        draftSaves(h),
+        contains(
+          'PUT /v1/curation/videos/v1/draft '
+          '{"checklist_version":"2026-11-11",'
+          '"answers":{"c25":"ok","c03":"appears"}}',
+        ),
+      );
+    });
+
+    testWidgets('the shortcut, the theme, the band and the note are written '
+        'to the draft', (tester) async {
+      final h = await approving(tester);
+      await start(tester);
+      await noneOfThis(tester);
+      expect(draftSaves(h).last, contains('"c04":"ok","c07":"ok"'));
+      await answer(tester, sad, 'Não sei');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+      await tester.enterText(
+        find.widgetWithText(TextField, doubtNoteLabel),
+        'Pesa?',
+      );
+      await tester.pumpAndSettle();
+      expect(draftSaves(h).last, endsWith('"note":"Pesa?"}'));
+
+      await tapOn(tester, change('Violência e medo'));
+      await answer(tester, sad, 'Não');
+      await tapPrimary(tester);
+      await choose(tester, 'Música');
+      expect(draftSaves(h).last, contains('"theme":"musica"'));
+      await forOlder(tester);
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
+      expect(
+        draftSaves(h).last,
+        contains('"theme":"musica","min_age_band":"9-12"'),
+      );
+      final saves = draftSaves(h).length;
+      await tester.enterText(reasonField(), 'Usa ironia.');
+      await tester.pumpAndSettle();
+      expect(draftSaves(h), hasLength(saves), reason: 'the reason is not kept');
     });
   });
 
-  group('the theme and band', () {
-    testWidgets('offer the six themes and the three bands, none chosen; the '
-        'primary waits with its hint', (tester) async {
+  group('the band page', () {
+    testWidgets('states the band the answers give, with no answer listed '
+        'when none moved it, then the rule, the link and the six themes, '
+        'each with its definition; no band to choose', (tester) async {
+      final semantics = tester.ensureSemantics();
       await approving(tester);
       await toTopic(tester);
 
+      final statement = find.text(bandStatement(AgeBand.upTo4));
+      expect(statement, findsOneWidget);
+      expect(
+        bandStatement(AgeBand.from5To8),
+        'Pelas respostas, este vídeo serve a partir de 5\u00A0a\u00A08\u00A0anos',
+      );
+      expect(tester.getSemantics(statement), isSemantics(isHeader: true));
+      expect(
+        tester.widget<Text>(statement).style?.fontSize,
+        Theme.of(tester.element(statement)).textTheme.headlineSmall?.fontSize,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is QuietAction && w.label == changeLabel,
+        ),
+        findsNothing,
+      );
+      expect(find.text(curationRule), findsOneWidget);
+      expect(find.text(curationCriteriaLink), findsOneWidget);
       expect(find.text('Tema'), findsOneWidget);
-      expect(find.text('A partir de'), findsOneWidget);
-      for (final label in [...allThemes, ...bands]) {
-        expect(row(label), findsOneWidget, reason: label);
-        expect(chosen(tester, label), isFalse, reason: label);
+      for (final t in VideoTheme.values.where((t) => t != VideoTheme.unknown)) {
+        expect(
+          find.descendant(of: row(t.label), matching: find.text(t.definition!)),
+          findsOneWidget,
+          reason: t.label,
+        );
+        expect(chosen(tester, t.label), isFalse);
       }
-      // Not a step: it leads to the summary.
-      expect(primary(tester).label, seeSummary);
-      expect(seeSummary, 'Ver resumo');
+      expect(find.text('A partir de'), findsNothing);
+      for (final band in bands) {
+        expect(row(band), findsNothing, reason: band);
+      }
+      final statementTop = tester.getTopLeft(statement).dy;
+      expect(statementTop, lessThan(tester.getTopLeft(find.text('Tema')).dy));
+      semantics.dispose();
+    });
+
+    testWidgets('"Confirmar" waits for a theme with its hint, then states the '
+        'band and leads to the review, which shows it', (tester) async {
+      final h = await approving(tester);
+      await toTopic(tester);
+
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
       expect(primary(tester).onPressed, isNull);
-      expect(find.text(approveHint), findsOneWidget);
+      expect(themeHint, 'Escolha um tema acima.');
+      expect(find.text(themeHint), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, olderLabel), findsOneWidget);
+      expect(olderLabel, 'É para mais velhos');
       await choose(tester, 'Bichos');
       await choose(tester, 'Música');
       expect(chosen(tester, 'Bichos'), isFalse);
       expect(chosen(tester, 'Música'), isTrue);
-      expect(primary(tester).onPressed, isNull);
-      await choose(tester, '9 a 12 anos');
       expect(primary(tester).onPressed, isNotNull);
+      await tapPrimary(tester);
+
+      expect(find.text(reviewTitle), findsOneWidget);
+      expect(find.text(nb('Música · 2 a 4 anos')), findsOneWidget);
+      await tapPrimary(tester);
+      expect(sent(h)['min_age_band'], 'ate-4');
+      expect(sent(h).containsKey('band_reason'), isFalse);
+    });
+
+    testWidgets('lists each answer that moved the band as the question and '
+        'its answer, each with a "mudar" back to its page, which returns to '
+        'the band page', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      await noneOfThis(tester);
+      await answer(tester, fast, 'Sim');
+      await tapPrimary(tester);
+
+      expect(find.text(bandStatement(AgeBand.from5To8)), findsOneWidget);
+      expect(bandAnswer(fast, 'Sim'), findsOneWidget);
+      expect(bandAnswer(dating, 'Sim'), findsNothing);
+      expect(primary(tester).label, 'Confirmar 5\u00A0a\u00A08\u00A0anos');
+      await tapOn(tester, changeAnswer(fast));
+
+      expect(find.text('Etapa 5 de 5'), findsOneWidget);
+      await answer(tester, dating, 'Sim');
+      await tapPrimary(tester);
+
+      expect(find.text(bandStatement(AgeBand.from9To12)), findsOneWidget);
+      final tops = [
+        for (final q in [fast, dating])
+          tester.getTopLeft(bandAnswer(q, 'Sim')).dy,
+      ];
+      expect(tops, [...tops]..sort(), reason: "in the list's order");
+    });
+
+    testWidgets('each "mudar" is named by its question', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      await noneOfThis(tester);
+      await answer(tester, fast, 'Sim');
+      await tapPrimary(tester);
+
+      expect(find.bySemanticsLabel('$changeLabel: $fast'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('when the answers give the oldest band only the confirmation '
+        'is offered', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      await noneOfThis(tester);
+      await answer(tester, dating, 'Sim');
+      await tapPrimary(tester);
+
+      expect(find.text(bandStatement(AgeBand.from9To12)), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, olderLabel), findsNothing);
+      expect(primary(tester).label, 'Confirmar 9\u00A0a\u00A012\u00A0anos');
+    });
+
+    testWidgets('"É para mais velhos" shows only the older bands, none chosen '
+        'of two, and the reason; "Continuar" waits for both with its hint, '
+        'and the reason travels with the approval and shows in the '
+        'review', (tester) async {
+      final h = await approving(tester);
+      await toTopic(tester);
+      await choose(tester, 'Música');
+      await forOlder(tester);
+
+      expect(find.widgetWithText(OutlinedButton, olderLabel), findsNothing);
+      expect(find.text('A partir de'), findsOneWidget);
+      expect(row('2\u00A0a\u00A04\u00A0anos'), findsNothing);
+      expect(chosen(tester, '5\u00A0a\u00A08\u00A0anos'), isFalse);
+      expect(chosen(tester, '9\u00A0a\u00A012\u00A0anos'), isFalse);
+      expect(reasonField(), findsOneWidget);
+      expect(primary(tester).label, continueLabel);
+      expect(primary(tester).onPressed, isNull);
+      expect(find.text(olderBandHint), findsOneWidget);
+      expect(
+        find.widgetWithText(QuietAction, 'Ficar com 2\u00A0a\u00A04\u00A0anos'),
+        findsOneWidget,
+      );
+
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
+      expect(primary(tester).onPressed, isNull);
+      expect(olderReasonHint, 'Escreva por que é para mais velhos.');
+      expect(find.text(olderReasonHint), findsOneWidget);
+      await tester.enterText(reasonField(), '   ');
+      await tester.pumpAndSettle();
+      expect(primary(tester).onPressed, isNull, reason: 'blanks are no reason');
+      await tester.enterText(reasonField(), 'Usa ironia.');
+      await tester.pumpAndSettle();
+      expect(primary(tester).onPressed, isNotNull);
+      await tapPrimary(tester);
+
+      expect(find.text(reviewTitle), findsOneWidget);
+      final topic = find.text(nb('Música · 9 a 12 anos'));
+      expect(topic, findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Usa ironia.')).dy,
+        greaterThan(tester.getTopLeft(topic).dy),
+      );
+      await tapPrimary(tester);
+      expect(sent(h)['min_age_band'], '9-12');
+      expect(sent(h)['band_reason'], 'Usa ironia.');
+    });
+
+    testWidgets('with one older band, it is the one offered, already '
+        'chosen', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      await noneOfThis(tester);
+      await answer(tester, fast, 'Sim');
+      await tapPrimary(tester);
+      await forOlder(tester);
+
+      expect(row('5\u00A0a\u00A08\u00A0anos'), findsNothing);
+      expect(chosen(tester, '9\u00A0a\u00A012\u00A0anos'), isTrue);
+      expect(find.text(themeHint), findsOneWidget, reason: 'no theme yet');
+    });
+
+    testWidgets('"Ficar com" goes back to confirming the band', (tester) async {
+      await approving(tester);
+      await toTopic(tester);
+      await forOlder(tester);
+      await choose(tester, '5\u00A0a\u00A08\u00A0anos');
+
+      await tapOn(
+        tester,
+        find.widgetWithText(QuietAction, 'Ficar com 2\u00A0a\u00A04\u00A0anos'),
+      );
+
+      expect(row('5\u00A0a\u00A08\u00A0anos'), findsNothing);
+      expect(reasonField(), findsNothing);
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
+      expect(find.widgetWithText(OutlinedButton, olderLabel), findsOneWidget);
+    });
+
+    testWidgets('the reason counts toward its 200 characters near the end, '
+        'and takes no more', (tester) async {
+      await approving(tester);
+      await toTopic(tester);
+      await forOlder(tester);
+
+      await tester.enterText(reasonField(), 'a' * 150);
+      await tester.pump();
+      expect(find.textContaining(' de 200'), findsNothing);
+      await tester.enterText(reasonField(), 'a' * 170);
+      await tester.pump();
+      expect(find.text('170 de 200'), findsOneWidget);
+      await tester.enterText(reasonField(), 'a' * 250);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(reasonField()).controller!.text,
+        hasLength(200),
+      );
+    });
+
+    testWidgets('a band confirmed that the answers no longer give is stated '
+        'anew: a change from the review comes back to the band page', (
+      tester,
+    ) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      await noneOfThis(tester);
+      await answer(tester, dating, 'Sim');
+      await tapPrimary(tester);
+      await choose(tester, 'Música');
+      await tapPrimary(tester);
+      expect(find.text(nb('Música · 9 a 12 anos')), findsOneWidget);
+
+      await tapOn(tester, change('Ritmo e canal'));
+      await answer(tester, dating, 'Não');
+      await tapPrimary(tester);
+
+      expect(find.text(bandStatement(AgeBand.upTo4)), findsOneWidget);
+      expect(chosen(tester, 'Música'), isTrue);
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
+    });
+
+    testWidgets('coming back to an older band kept in the draft opens it, '
+        'asking its reason again', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: allNos,
+            theme: 'musica',
+            band: '9-12',
+            ended: true,
+          ),
+        ),
+      );
+
+      expect(chosen(tester, '9\u00A0a\u00A012\u00A0anos'), isTrue);
+      expect(tester.widget<TextField>(reasonField()).controller!.text, isEmpty);
+      expect(find.text(olderReasonHint), findsOneWidget);
     });
 
     testWidgets('every choice is a radio', (tester) async {
@@ -611,7 +1498,7 @@ void main() {
       expect(
         tester.getSemantics(row('Natureza')),
         isSemantics(
-          label: 'Natureza',
+          label: 'Natureza, ${VideoTheme.natureza.definition}',
           isInMutuallyExclusiveGroup: true,
           hasCheckedState: true,
           isChecked: false,
@@ -648,49 +1535,14 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('a curator choosing "2 a 4 anos" sees no advice meant for '
+    testWidgets('a curator stating an older band sees no advice meant for '
         'guardians', (tester) async {
       await approving(tester);
       await toTopic(tester);
-      await choose(tester, '2 a 4 anos');
+      await forOlder(tester);
+      await choose(tester, '5\u00A0a\u00A08\u00A0anos');
 
       expect(find.text(underTwoAdvice), findsNothing);
-    });
-
-    testWidgets('a fast pace disables "2 a 4 anos" and says why; answered '
-        'again from the review, it takes back a "2 a 4 anos" chosen', (
-      tester,
-    ) async {
-      await approving(tester);
-      await start(tester);
-      await clearSteps(tester, to: 4);
-      await noneOfThis(tester);
-      await answer(tester, fast, 'Sim');
-      await tapPrimary(tester);
-
-      expect(find.text(fastPaceLine), findsOneWidget);
-      expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
-      await choose(tester, 'Música');
-      await choose(tester, '5 a 8 anos');
-      await tapPrimary(tester);
-      expect(primary(tester).label, approveLabel);
-
-      await tapOn(tester, change('Ritmo e canal'));
-      await answer(tester, fast, 'Não');
-      await tapPrimary(tester);
-      expect(find.text(reviewTitle), findsOneWidget);
-      await tapOn(tester, change(topicTitle));
-      expect(find.text(fastPaceLine), findsNothing);
-      await choose(tester, '2 a 4 anos');
-      await tapPrimary(tester);
-      expect(find.text(reviewTitle), findsOneWidget);
-
-      await tapOn(tester, change('Ritmo e canal'));
-      await answer(tester, fast, 'Sim');
-      await tapPrimary(tester);
-      expect(row('Música'), findsOneWidget, reason: 'the band is asked again');
-      expect(chosen(tester, '2 a 4 anos'), isFalse);
-      expect(primary(tester).onPressed, isNull);
     });
   });
 
@@ -722,7 +1574,6 @@ void main() {
       await answer(tester, 'Aparecem anúncios no meio do vídeo?', 'Sim');
       await tapPrimary(tester);
       await choose(tester, 'Música');
-      await choose(tester, '2 a 4 anos');
       await tapPrimary(tester);
       expect(primary(tester).label, approveLabel, reason: 'ads only noted');
       await tapPrimary(tester);
@@ -754,19 +1605,23 @@ void main() {
       expect(find.text('Etapa 1 de 6'), findsOneWidget);
     });
 
-    testWidgets('past 60 minutes disables "2 a 4 anos" and says why', (
-      tester,
-    ) async {
+    testWidgets('past 60 minutes, with no answer moving the band, says the '
+        'length does, in the answers\' place', (tester) async {
       await longApproving(tester, 61);
       await start(tester);
       await clearSteps(tester, to: 6);
 
+      expect(find.text(bandStatement(AgeBand.from5To8)), findsOneWidget);
       expect(find.text(tooLongForYoungestLine), findsOneWidget);
-      expect(find.text(fastPaceLine), findsNothing);
-      expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+      expect(
+        tester.getTopLeft(find.text(tooLongForYoungestLine)).dy,
+        lessThan(tester.getTopLeft(find.text(curationRule)).dy),
+      );
+      expect(primary(tester).label, 'Confirmar 5\u00A0a\u00A08\u00A0anos');
     });
 
-    testWidgets('past 60 minutes with a fast pace says both', (tester) async {
+    testWidgets('past 60 minutes with a fast pace lists the answer, not the '
+        'length', (tester) async {
       await longApproving(tester, 61);
       await start(tester);
       await clearSteps(tester, to: 4);
@@ -775,9 +1630,9 @@ void main() {
       await tapPrimary(tester);
       await clearSteps(tester, from: 6, to: 6);
 
-      expect(find.text(tooLongForYoungestLine), findsOneWidget);
-      expect(find.text(fastPaceLine), findsOneWidget);
-      expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+      expect(find.text(bandStatement(AgeBand.from5To8)), findsOneWidget);
+      expect(bandAnswer(fast, 'Sim'), findsOneWidget);
+      expect(find.text(tooLongForYoungestLine), findsNothing);
     });
   });
 
@@ -836,11 +1691,10 @@ void main() {
       await tapPrimary(tester);
       expect(row('Música'), findsOneWidget);
       await choose(tester, 'Música');
-      await choose(tester, '5 a 8 anos');
       await tapPrimary(tester);
 
       expect(find.text(reviewTitle), findsOneWidget);
-      expect(find.text(nb('Música · 5 a 8 anos')), findsOneWidget);
+      expect(find.text(nb('Música · 2 a 4 anos')), findsOneWidget);
       expect(change(topicTitle), findsOneWidget);
       expect(primary(tester).label, approveLabel);
     });
@@ -896,7 +1750,7 @@ void main() {
       expect(sent(h), {
         'decision': 'approve',
         'theme': 'musica',
-        'min_age_band': '5-8',
+        'min_age_band': 'ate-4',
         'checklist_version': '2026-11-11',
         'answers': allNos,
       });
@@ -967,7 +1821,6 @@ void main() {
       await answer(tester, sad, 'Não');
       await tapPrimary(tester);
       await choose(tester, 'Música');
-      await choose(tester, '5 a 8 anos');
       await tapPrimary(tester);
       await tapPrimary(tester);
 
@@ -1017,8 +1870,10 @@ void main() {
       expect(find.text(approved), findsOneWidget);
     });
 
-    testWidgets('validation goes back to the theme and band, cleared, and '
-        'on to the review again', (tester) async {
+    testWidgets('validation goes back to the band page with the theme and '
+        'band cleared and every answer kept, and on to the review again', (
+      tester,
+    ) async {
       var refuse = true;
       final h = await approving(
         tester,
@@ -1032,17 +1887,50 @@ void main() {
       expect(find.text(approvalRefused), findsOneWidget);
       expect(find.byType(ErrorNote), findsNothing);
       expect(chosen(tester, 'Música'), isFalse);
-      expect(chosen(tester, '5 a 8 anos'), isFalse);
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
       expect(primary(tester).onPressed, isNull);
       await choose(tester, 'Bichos');
       expect(find.text(approvalRefused), findsNothing);
-      await choose(tester, '5 a 8 anos');
       await tapPrimary(tester);
       expect(find.text(reviewTitle), findsOneWidget);
+      expect(find.text(allNo), findsNWidgets(6), reason: 'the answers kept');
       refuse = false;
       await tapPrimary(tester);
       expect(posts(h), hasLength(2));
+      expect(sent2(h)['answers'], allNos);
       expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('validation of an older band keeps its reason to send '
+        'again', (tester) async {
+      var refuse = true;
+      final h = await approving(
+        tester,
+        review: (_) => refuse
+            ? problem(422, 'validation')
+            : json(201, {'video_state': 'pending'}),
+      );
+      await toTopic(tester);
+      await choose(tester, 'Música');
+      await forOlder(tester);
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
+      await tester.enterText(reasonField(), 'Usa ironia.');
+      await tester.pumpAndSettle();
+      await tapPrimary(tester);
+      await tapPrimary(tester);
+
+      expect(find.text(approvalRefused), findsOneWidget);
+      await choose(tester, 'Música');
+      await forOlder(tester);
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
+      expect(
+        tester.widget<TextField>(reasonField()).controller!.text,
+        'Usa ironia.',
+      );
+      await tapPrimary(tester);
+      refuse = false;
+      await tapPrimary(tester);
+      expect(sent2(h)['band_reason'], 'Usa ironia.');
     });
 
     testWidgets('checklist_band says why and goes back to the band, '
@@ -1059,7 +1947,8 @@ void main() {
         findsOneWidget,
       );
       expect(chosen(tester, 'Música'), isTrue);
-      expect(chosen(tester, '5 a 8 anos'), isFalse);
+      expect(find.text(bandStatement(AgeBand.upTo4)), findsOneWidget);
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
     });
 
     testWidgets('checklist_refuses opens the refusal', (tester) async {
@@ -1073,11 +1962,20 @@ void main() {
       expect(Uri.parse(h.location(tester)).path, '/curadoria/v1/recusar');
     });
 
-    testWidgets('checklist_outdated reads the list again and starts over, '
-        'saying why', (tester) async {
+    testWidgets('checklist_outdated reads the list and the draft again and '
+        'keeps the unchanged answers, saying why', (tester) async {
+      var outdated = false;
+      var readsAfter = 0;
       final h = await approving(
         tester,
-        review: (_) => problem(409, 'checklist_outdated'),
+        review: (_) {
+          outdated = true;
+          return problem(409, 'checklist_outdated');
+        },
+        // The server keeps only the answers to questions left unchanged.
+        draft: () => outdated && ++readsAfter > 0
+            ? kept(draftJson(answers: {'c25': 'ok', 'c03': 'ok'}, ended: true))
+            : kept(draftJson(ended: true)),
       );
 
       await approve(tester);
@@ -1095,13 +1993,265 @@ void main() {
         h.actions.where((a) => a == 'GET /v1/curation/checklist'),
         hasLength(2),
       );
-      expect(find.text(checkedByApp), findsOneWidget);
+      expect(readsAfter, 1);
+      // The new list opens where its answers stop.
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+      await tapPrimary(tester);
       expect(
-        picked(tester, tie, 'Não'),
+        picked(tester, hits, 'Não'),
         isFalse,
-        reason: 'a new list unanswered',
+        reason: 'a changed question unanswered',
       );
       expect(primary(tester).onPressed, isNull);
+    });
+
+    testWidgets('not_watched says the video must play to its end and keeps '
+        'the answers', (tester) async {
+      var refuse = true;
+      final h = await approving(
+        tester,
+        review: (_) => refuse
+            ? problem(409, 'not_watched')
+            : json(201, {'video_state': 'pending'}),
+      );
+
+      await approve(tester);
+
+      expect(
+        find.widgetWithText(
+          ErrorNote,
+          Copy.forError(const ApiError(status: 409, code: 'not_watched')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(reviewTitle), findsOneWidget);
+      expect(find.text(nb('Música · 2 a 4 anos')), findsOneWidget);
+      // The server has no end for this round: the line says so, and
+      // "Aprovar" waits for the player's end again.
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      expect(primary(tester).onPressed, isNull);
+      refuse = false;
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      await tapPrimary(tester);
+      expect(posts(h).where((p) => p.contains('/reviews')), hasLength(2));
+      expect(
+        jsonDecode(posts(h).last.split(' ').skip(2).join(' '))['answers'],
+        allNos,
+      );
+    });
+
+    testWidgets('an end report still on its way is awaited before approving', (
+      tester,
+    ) async {
+      final landing = Completer<http.Response>();
+      final h = await approving(
+        tester,
+        draft: () => kept(draftJson()),
+        ended: () => landing.future,
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pump();
+
+      await toReview(tester);
+      await tapPrimary(tester, settle: false);
+      await tester.pump();
+      expect(posts(h).where((p) => p.contains('/reviews')), isEmpty);
+
+      landing.complete(json(200, {'draft': draftJson(ended: true)}));
+      await tester.pumpAndSettle();
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end seen in one round does not count when the video '
+        'comes back in the next: the line says so and "Aprovar" waits', (
+      tester,
+    ) async {
+      var round = 1;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+        video: (id) => detailOf({
+          ...queuedJson(id, 'Baby Shark', channel: 'Canal Baby Shark'),
+          'round': round,
+        }),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      round = 2;
+      goTo(tester, '/curadoria');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      await toReview(tester);
+      expect(primary(tester).onPressed, isNull);
+    });
+
+    testWidgets('an end report that failed in one round is not sent in the '
+        'next', (tester) async {
+      var round = 1;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => problem(503, 'unavailable'),
+        video: (id) => detailOf({
+          ...queuedJson(id, 'Baby Shark', channel: 'Canal Baby Shark'),
+          'round': round,
+        }),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+
+      round = 2;
+      goTo(tester, '/curadoria');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+    });
+
+    testWidgets('an end report that failed is sent again before approving', (
+      tester,
+    ) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        ended: () => fail
+            ? problem(503, 'unavailable')
+            : json(200, {'draft': draftJson(ended: true)}),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+      fail = false;
+
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end reported is not sent again', (tester) async {
+      final h = await approving(tester);
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+    });
+
+    testWidgets('an end the video screen failed to report is sent again '
+        'before approving', (tester) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => fail
+            ? problem(503, 'unavailable')
+            : json(200, {'draft': draftJson(ended: true)}),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+      fail = false;
+
+      await tapOn(tester, find.text('Revisar vídeo'));
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end another account saw is never sent for the next '
+        'one', (tester) async {
+      // Neither the draft nor the video has an end of its own: only what
+      // the first account saw could say it played.
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+        ended: () => problem(503, 'unavailable'),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+
+      await h.services.client.forgetSession();
+      await tester.pumpAndSettle();
+      h.email = 'bia@example.com';
+      h.services.client.rememberSession(csrfToken: 'csrf-b');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      await toReview(tester);
+      expect(primary(tester).onPressed, isNull);
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+    });
+
+    testWidgets('an end the video screen reported is not sent again', (
+      tester,
+    ) async {
+      final h = await approving(tester, initial: '/curadoria/v1');
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text('Revisar vídeo'));
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
     });
 
     testWidgets('checklist_outdated whose new list fails to read offers to '
@@ -1174,10 +2324,189 @@ void main() {
     ) async {
       final h = await approving(tester);
 
-      await tester.tap(find.byTooltip('Voltar').last);
+      await tester.tap(find.byTooltip(leaveForVideo).last);
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/curadoria/v1');
+    });
+  });
+
+  group('the watched block', () {
+    testWidgets('the line under the window stays one element from page to '
+        'page, so it is not announced again', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester);
+      final id = tester.getSemantics(endLine(playedToEnd)).id;
+
+      await start(tester);
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      expect(tester.getSemantics(endLine(playedToEnd)).id, id);
+      await clearSteps(tester);
+      expect(find.text('Tema'), findsOneWidget);
+      expect(tester.getSemantics(endLine(playedToEnd)).id, id);
+      semantics.dispose();
+    });
+
+    testWidgets('an end the review\'s player saw this session counts, though '
+        'the draft read does not have it yet', (tester) async {
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text(reviewDoor));
+
+      expect(endLine(playedToEnd), findsOneWidget);
+      await toReview(tester);
+      expect(primary(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('crossing between the wide and the narrow window keeps the '
+        'one player, never opening another', (tester) async {
+      final h = await approving(tester);
+      final player = h.adultPlayer.opened.last;
+      final opened = h.adultPlayer.opened.length;
+
+      for (final size in const [
+        Size(1280, 800),
+        Size(700, 800),
+        Size(390, 844),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        expect(window(), findsOneWidget, reason: '$size');
+        expect(h.adultPlayer.opened, hasLength(opened), reason: '$size');
+        expect(player.closed, isFalse, reason: '$size');
+      }
+    });
+
+    testWidgets('on a small phone the keyboard open on the bottom field '
+        'brings it into view, clear of what stays at the top', (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      await approving(tester, size: const Size(360, 640));
+      await toTopic(tester);
+      await choose(tester, 'Música');
+      await forOlder(tester);
+      await tester.ensureVisible(reasonField());
+      await tester.pumpAndSettle();
+      await tester.tap(reasonField());
+      await tester.pumpAndSettle();
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      final field = tester.getRect(reasonField());
+      expect(field.top, greaterThanOrEqualTo(0));
+      expect(field.bottom, lessThanOrEqualTo(640 - 300));
+      // Nothing that stays at the top is drawn over it.
+      final editable = tester.renderObject(reasonField());
+      for (final at in [field.topCenter, field.center]) {
+        expect(
+          tester
+              .hitTestOnBinding(at + const Offset(0, 4))
+              .path
+              .any((e) => e.target == editable),
+          isTrue,
+          reason: '$at',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the shortcut', () {
+    testWidgets('is read with how many questions it answers, and that line '
+        'is not read again on its own', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+
+      expect(tester.getSemantics(shortcut()).hint, isEmpty);
+      await answer(tester, fast, 'Sim');
+
+      expect(
+        tester.getSemantics(shortcut()),
+        isSemantics(label: restHappens, hint: restLine(3), isButton: true),
+      );
+      expect(find.bySemanticsLabel(restLine(3)), findsNothing);
+      semantics.dispose();
+    });
+  });
+
+  group('at 200 % text on a small phone', () {
+    testWidgets('the reason\'s label stands on its own line over the field, '
+        'in body-large, and is read as the field\'s', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      await toTopic(tester);
+      await forOlder(tester);
+      await tester.ensureVisible(reasonField());
+      await tester.pumpAndSettle();
+
+      final decoration = tester.widget<TextField>(reasonField()).decoration!;
+      expect(decoration.label, isNull);
+      expect(decoration.labelText, isNull);
+      final label = find.text(olderReasonLabel);
+      final context = tester.element(label);
+      expect(
+        tester.widget<Text>(label).style?.fontSize,
+        Theme.of(context).textTheme.bodyLarge?.fontSize,
+      );
+      expect(
+        tester.getTopLeft(reasonField()).dy - tester.getBottomLeft(label).dy,
+        Space.sm,
+      );
+      expect(
+        tester.getSemantics(reasonField()),
+        isSemantics(label: olderReasonLabel, isTextField: true),
+      );
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+
+    testWidgets('a summary row sets its words at full width with "mudar" '
+        'under them', (tester) async {
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      await toReview(tester);
+
+      for (final title in ['Violência e medo', topicTitle]) {
+        final words = find.text(title);
+        await tester.ensureVisible(change(title));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(change(title)).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(words).dy),
+          reason: title,
+        );
+        expect(
+          tester.getTopLeft(change(title)).dx,
+          lessThanOrEqualTo(tester.getTopLeft(words).dx),
+          reason: title,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('"Ficar com" and "Voltar" keep a gap between them', (
+      tester,
+    ) async {
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      await toTopic(tester);
+      await forOlder(tester);
+
+      final stay = find.widgetWithText(
+        QuietAction,
+        stayWithLabel(AgeBand.upTo4),
+      );
+      final back = find.widgetWithText(QuietAction, 'Voltar');
+      expect(
+        tester.getTopLeft(back).dy - tester.getBottomLeft(stay).dy,
+        greaterThanOrEqualTo(Space.sm),
+      );
     });
   });
 }

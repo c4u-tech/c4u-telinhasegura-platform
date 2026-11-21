@@ -3,10 +3,11 @@ import 'package:telinha_segura/family/family.dart';
 import 'package:telinha_segura/family/labels.dart';
 
 void main() {
-  test('each age band has its PT-BR label, unknown a neutral one', () {
-    expect(AgeBand.upTo4.label, '2 a 4 anos');
-    expect(AgeBand.from5To8.label, '5 a 8 anos');
-    expect(AgeBand.from9To12.label, '9 a 12 anos');
+  test('each age band has its PT-BR label, never parted at a line\'s end; '
+      'unknown a neutral one', () {
+    expect(AgeBand.upTo4.label, '2\u00A0a\u00A04\u00A0anos');
+    expect(AgeBand.from5To8.label, '5\u00A0a\u00A08\u00A0anos');
+    expect(AgeBand.from9To12.label, '9\u00A0a\u00A012\u00A0anos');
     expect(AgeBand.unknown.label, 'Faixa não informada');
   });
 

@@ -15,7 +15,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, curation.ErrValidation)
 		return
 	}
-	list, err := s.Curation.HeldVideos(r.Context())
+	list, err := s.Curation.HeldVideosFor(r.Context(), current(r).AccountID)
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -29,13 +29,21 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		Reason    string    `json:"reason"`
 		AuditedAt time.Time `json:"audited_at"`
 	}
+	type bandAnswer struct {
+		Text        string `json:"text"`
+		Answer      string `json:"answer"`
+		DisplayRole string `json:"display_role"`
+	}
 	type item struct {
-		Video      videoOut    `json:"video"`
-		Rejections []reviewOut `json:"rejections"`
-		Doubts     []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
-		HeldReason string      `json:"held_reason"`
-		Reports    reports     `json:"reports"`         // since the latest reopen, never who reported
-		Audit      *heldAudit  `json:"audit,omitempty"` // the audit that held the video, never who audited
+		Video        videoOut     `json:"video"`
+		Rejections   []reviewOut  `json:"rejections"`
+		Doubts       []reviewOut  `json:"doubts"` // a curator's doubt, with the answers and the note
+		HeldReason   string       `json:"held_reason"`
+		ComputedBand string       `json:"computed_band"`   // the youngest band a doubt may be published in
+		BandAnswers  []bandAnswer `json:"band_answers"`    // the round's answers behind it, by displayed role
+		Reports      reports      `json:"reports"`         // since the latest reopen, never who reported
+		Audit        *heldAudit   `json:"audit,omitempty"` // the audit that held the video, never who audited
+		PlayedToEnd  bool         `json:"played_to_end"`   // for the caller, in the video's current round
 	}
 	out := make([]item, 0, len(list))
 	for _, h := range list {
@@ -47,8 +55,12 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		if h.Audit != nil {
 			audit = &heldAudit{string(h.Audit.Verdict), h.Audit.Reason, h.Audit.AuditedAt.UTC()}
 		}
+		answers := make([]bandAnswer, 0, len(h.BandAnswers))
+		for _, b := range h.BandAnswers {
+			answers = append(answers, bandAnswer{b.Text, string(b.Answer), string(b.DisplayRole)})
+		}
 		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason,
-			reports{by, h.Reports.Notes}, audit})
+			string(h.ComputedBand), answers, reports{by, h.Reports.Notes}, audit, h.PlayedToEnd})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"videos": out})
 }
@@ -100,6 +112,22 @@ func (s *Server) decideDoubt(w http.ResponseWriter, r *http.Request) {
 	m := curation.Moderation{ActorID: current(r).AccountID, ActorRole: role, Reason: in.Reason}
 	d := curation.DoubtDecision{Decision: curation.Decision(in.Decision), Theme: in.Theme, MinAgeBand: family.AgeBand(in.MinAgeBand)}
 	if err := s.Curation.DecideDoubt(r.Context(), m, r.PathValue("id"), d); err != nil {
+		s.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// moderatorEnded records that a held video played to its end for the
+// caller, under the role their route matched.
+func (s *Server) moderatorEnded(w http.ResponseWriter, r *http.Request) {
+	role, ok := actorRole(r)
+	if !ok {
+		s.fail(w, errors.New("httpapi: moderation route without withRole"))
+		return
+	}
+	m := curation.Moderation{ActorID: current(r).AccountID, ActorRole: role}
+	if err := s.Curation.ModeratorWatched(r.Context(), m, r.PathValue("id")); err != nil {
 		s.fail(w, err)
 		return
 	}

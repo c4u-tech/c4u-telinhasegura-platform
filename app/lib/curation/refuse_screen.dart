@@ -20,7 +20,7 @@ import 'video_heading.dart';
 import 'words.dart' show differenceReminder;
 
 /// What a refusal does, said first.
-const refuseLead = 'Recusar tira o vídeo das prateleiras na mesma hora.';
+const refuseLead = 'Recusar tira o vídeo do app na mesma hora.';
 
 /// Over the questions.
 const refuseItemsLead =

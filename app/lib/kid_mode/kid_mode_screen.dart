@@ -33,7 +33,7 @@ const pinPurpose =
 
 /// `/modo-crianca`: the guide while the family has no PIN ("Passo 1 de
 /// 2", then "Passo 2 de 2" once the PIN is created), the index once it
-/// has one. A saved PIN arrives with the sun rising
+/// has one. A saved PIN arrives with the mascot's wink
 /// and the words that the other adults were told.
 class KidModeScreen extends StatefulWidget {
   const KidModeScreen({super.key, this.saved});
@@ -90,7 +90,7 @@ class _KidModeScreenState extends State<KidModeScreen> {
     listenable: _model,
     builder: (context, _) => FieldLayout(
       title: 'Modo criança',
-      rise: widget.saved != null,
+      wink: widget.saved != null,
       onBack: () => context.go(Routes.family),
       children: switch ((_model.state, _status)) {
         (FamilyReady(:final family), final status?) => _shape(family, status),

@@ -47,6 +47,21 @@ abstract final class AccountWords {
     return '${n < 0 ? '-' : ''}${groups.join('.')}';
   }
 
+  /// A median length in whole minutes ("12 min"), "menos de 1 min" under a
+  /// minute, or "menos de 5 casos" for a measure the server suppressed.
+  static String minutes(int? seconds, {required int suppressedBelow}) {
+    if (seconds == null) return _fewCases(suppressedBelow);
+    if (seconds < 60) return 'menos de 1 min';
+    return '${(seconds / 60).round()} min';
+  }
+
+  /// A share ("18%"), or "menos de 5 casos" for a measure the server
+  /// suppressed.
+  static String percent(int? p, {required int suppressedBelow}) =>
+      p == null ? _fewCases(suppressedBelow) : '$p%';
+
+  static String _fewCases(int below) => 'menos de $below casos';
+
   /// The muted line under the numbers.
   static String suppression(int below) =>
       'Números abaixo de $below aparecem como “menos de $below”.';

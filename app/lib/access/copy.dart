@@ -166,8 +166,11 @@ abstract final class Copy {
         'Com o que você marcou, o vídeo não pode ser aprovado. Recuse '
         'marcando o que aparece.',
     'checklist_band':
-        'Esse vídeo não serve para 2 a 4 anos, pelo ritmo ou pela duração. '
-        'Escolha outra idade.',
+        'Com as respostas que você deu, esse vídeo é para uma idade maior. '
+        'Escolha a idade indicada ou uma maior.',
+    'not_watched':
+        'Para aprovar, o vídeo precisa tocar até o fim aqui. Assista até o '
+        'fim e envie de novo.',
     'conflict_of_interest':
         'Você tem vínculo com este canal, então a revisão dele fica com '
         'outros curadores.',

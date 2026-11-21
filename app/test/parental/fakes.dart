@@ -5,8 +5,14 @@ class MemoryDeviceCredentialStore implements DeviceCredentialStore {
 
   String? token;
 
+  /// While set, reading the store fails, as a locked keychain does.
+  bool unreadable = false;
+
   @override
-  Future<String?> read() async => token;
+  Future<String?> read() async {
+    if (unreadable) throw StateError('storage');
+    return token;
+  }
 
   @override
   Future<void> write(String t) async => token = t;

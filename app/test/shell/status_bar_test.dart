@@ -8,6 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 import '../access/harness.dart';
 import '../kid/kid_home_screen_test.dart' show kidHome;
 
+/// The status bar's icons and, for iOS, its brightness, as [expected]
+/// gives them.
+void expectStatusBar(WidgetTester tester, SystemUiOverlayStyle expected) {
+  final style = statusBarStyle(tester)!;
+  expect(style.statusBarIconBrightness, expected.statusBarIconBrightness);
+  expect(style.statusBarBrightness, expected.statusBarBrightness);
+}
+
 SystemUiOverlayStyle? statusBarStyle(WidgetTester tester) {
   final view = tester.binding.renderViews.first;
   final top = Offset(view.size.width / 2, 1);
@@ -20,7 +28,7 @@ void main() {
   ) async {
     await Harness().pump(tester, initial: '/entrar');
 
-    expect(statusBarStyle(tester), SystemUiOverlayStyle.dark);
+    expectStatusBar(tester, SystemUiOverlayStyle.dark);
   });
 
   testWidgets('a guardian screen in the dark theme asks for light icons', (
@@ -30,12 +38,12 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await Harness().pump(tester, initial: '/entrar');
 
-    expect(statusBarStyle(tester), SystemUiOverlayStyle.light);
+    expectStatusBar(tester, SystemUiOverlayStyle.light);
   });
 
   testWidgets('a kid screen asks for light status bar icons', (tester) async {
     await kidHome(tester);
 
-    expect(statusBarStyle(tester), SystemUiOverlayStyle.light);
+    expectStatusBar(tester, SystemUiOverlayStyle.light);
   });
 }

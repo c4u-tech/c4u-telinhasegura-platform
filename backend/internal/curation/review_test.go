@@ -38,15 +38,49 @@ func cleanLong() map[string]curation.Answer {
 	return out
 }
 
+// olderReason is the reason approve gives a band older than its answers
+// allow, as an approval stating one must.
+const olderReason = "Para crianças mais velhas."
+
+// rank orders the bands, youngest first.
+var rank = map[family.AgeBand]int{family.AgeUpTo4: 1, family.Age5To8: 2, family.Age9To12: 3}
+
+// reasonFor is olderReason when the answers make a plain approval and band
+// is older than the youngest they allow (a band question's yes or "I don't
+// know" allows from its own band up), "" otherwise: a doubt gives none.
+func reasonFor(band family.AgeBand, answers map[string]curation.Answer) string {
+	allowed := family.AgeUpTo4
+	for _, g := range curation.Checklist() {
+		for _, it := range g.Items {
+			a := answers[it.ID]
+			if it.Rule != curation.RuleNotes && a == curation.AnswerDoubt || it.Rule == curation.RuleDoubt && a == curation.AnswerAppears {
+				return ""
+			}
+			if it.Rule == curation.RuleBand && (a == curation.AnswerAppears || a == curation.AnswerDoubt) &&
+				rank[it.MinBand] > rank[allowed] {
+				allowed = it.MinBand
+			}
+		}
+	}
+	if rank[band] > rank[allowed] {
+		return olderReason
+	}
+	return ""
+}
+
+// approve approves with clean answers, giving olderReason when band is
+// older than they allow.
 func approve(theme string, band family.AgeBand) curation.ReviewInput {
+	answers := clean()
 	return curation.ReviewInput{Decision: curation.Approve, Theme: theme, MinAgeBand: band,
-		ChecklistVersion: curation.ChecklistVersion, Answers: clean()}
+		ChecklistVersion: curation.ChecklistVersion, Answers: answers, BandReason: reasonFor(band, answers)}
 }
 
 // approveWith is approve with the given answers changed.
 func approveWith(theme string, band family.AgeBand, changed map[string]curation.Answer) curation.ReviewInput {
 	in := approve(theme, band)
 	maps.Copy(in.Answers, changed)
+	in.BandReason = reasonFor(band, in.Answers)
 	return in
 }
 
@@ -59,10 +93,23 @@ func reject(note string) curation.ReviewInput {
 // c04 is the question reject fails: the first line of its reason.
 const c04 = "Alguém bate, chuta, atira ou ataca de propósito, mesmo de brincadeira?"
 
+// watched records that the player reached the video's end for curatorID,
+// as an approval needs; it must succeed.
+func (f *fixture) watched(curatorID, videoID string) {
+	f.t.Helper()
+	if _, err := f.svc.DraftEnded(ctx, curatorID, videoID); err != nil {
+		f.t.Fatalf("ended: %v", err)
+	}
+}
+
 // review records a review that must succeed, a minute after the clock,
-// and returns the video's state after it.
+// and returns the video's state after it. An approval is preceded by the
+// player's end.
 func (f *fixture) review(curatorID, videoID string, in curation.ReviewInput) curation.State {
 	f.t.Helper()
+	if in.Decision == curation.Approve {
+		f.watched(curatorID, videoID)
+	}
 	f.now = f.now.Add(time.Minute)
 	_, state, err := f.svc.Review(ctx, curatorID, videoID, in)
 	if err != nil {
@@ -133,6 +180,7 @@ func TestApprovalsPublishTheVideo(t *testing.T) {
 	c2 := f.curator("c2@example.com", curation.Pedagogo)
 	v := f.video(ytID)
 
+	f.watched(c1, v)
 	f.now = f.now.Add(time.Minute)
 	r, state, err := f.svc.Review(ctx, c1, v, approve("bichos", family.Age5To8))
 	if err != nil || state != curation.Pending {
@@ -305,7 +353,7 @@ func TestReviewValidation(t *testing.T) {
 		"approval without answers":             noAnswers,
 		"an unknown answer":                    approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c04": "maybe"}),
 		"rejection without items":              items(),
-		"rejection for a non-refusing item":    items("c07"),
+		"rejection for a non-refusing item":    items("c24"),
 		"rejection for an unknown item":        items("c99"),
 		"rejection naming an item twice":       items("c04", "c04"),
 		"rejection with a theme":               themed,
@@ -347,6 +395,7 @@ func TestRevokingACuratorWaitsForTheirReviewInFlight(t *testing.T) {
 	admin := f.admin("ana@example.com")
 	bia := f.curator("bia@example.com", curation.MaePai)
 	v := f.video(ytID)
+	f.watched(bia, v)
 
 	tx, err := f.pool.Begin(ctx)
 	if err != nil {
@@ -392,6 +441,8 @@ func TestConcurrentLastApprovalsPublishOnce(t *testing.T) {
 	c3 := f.curator("c3@example.com", curation.MaePai)
 	v := f.video(ytID)
 	f.review(c1, v, approve("bichos", family.Age5To8))
+	f.watched(c2, v)
+	f.watched(c3, v)
 
 	tx, err := f.pool.Begin(ctx)
 	if err != nil {
@@ -539,5 +590,114 @@ func TestProvenanceOutlivesAHold(t *testing.T) {
 	}
 	if len(d.Reviews) != 1 || d.Reviews[0].Decision != curation.Reject {
 		t.Fatalf("held round's reviews %+v", d.Reviews)
+	}
+}
+
+// beganAt reads when curatorID's review of videoID began; nil when it was
+// stored without a draft.
+func (f *fixture) beganAt(curatorID, videoID string) *time.Time {
+	f.t.Helper()
+	var at *time.Time
+	if err := f.pool.QueryRow(ctx, `SELECT began_at FROM video_reviews WHERE curator_id = $1::uuid AND video_id = $2::uuid`,
+		curatorID, videoID).Scan(&at); err != nil {
+		f.t.Fatal(err)
+	}
+	return at
+}
+
+func TestAnApprovalNeedsTheVideoPlayedToItsEnd(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	if _, _, err := f.svc.Review(ctx, c, v, approve("bichos", family.Age5To8)); !errors.Is(err, curation.ErrNotWatched) {
+		t.Fatalf("an approval without a draft: %v", err)
+	}
+	if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+		t.Fatalf("a refused approval was stored: %d rows", n)
+	}
+	f.saveDraft(c, v, someAnswers())
+	if _, _, err := f.svc.Review(ctx, c, v, approve("bichos", family.Age5To8)); !errors.Is(err, curation.ErrNotWatched) {
+		t.Fatalf("an approval before the end: %v", err)
+	}
+	began := f.draft(c, v).BeganAt
+	f.now = f.now.Add(5 * time.Minute)
+	f.watched(c, v)
+	f.now = f.now.Add(time.Minute)
+	if _, state, err := f.svc.Review(ctx, c, v, approve("bichos", family.Age5To8)); err != nil || state != curation.Pending {
+		t.Fatalf("an approval after the end: %s %v", state, err)
+	}
+	if at := f.beganAt(c, v); at == nil || !at.Equal(began) {
+		t.Fatalf("began at %v, want %v", at, began)
+	}
+	if n := f.count(`SELECT count(*) FROM review_drafts`); n != 0 {
+		t.Fatalf("the review left %d drafts", n)
+	}
+
+	long := f.longVideo("longvideo01", 25*time.Minute)
+	in := approve("bichos", family.Age5To8)
+	in.Answers = cleanLong()
+	if _, _, err := f.svc.Review(ctx, c, long, in); !errors.Is(err, curation.ErrNotWatched) {
+		t.Fatalf("a long video's approval without the end: %v", err)
+	}
+	f.watched(c, long)
+	if _, _, err := f.svc.Review(ctx, c, long, in); err != nil {
+		t.Fatalf("a long video's approval after the end: %v", err)
+	}
+}
+
+func TestARefusalAndADoubtNeedNoEnd(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	doubt := approveWith("", "", map[string]curation.Answer{"c24": curation.AnswerAppears})
+	rejected := f.video(ytID)
+	if _, state, err := f.svc.Review(ctx, c, rejected, reject("Não.")); err != nil || state != curation.Held {
+		t.Fatalf("a rejection without a draft: %s %v", state, err)
+	}
+	if at := f.beganAt(c, rejected); at != nil {
+		t.Fatalf("a review without a draft began at %v", at)
+	}
+	doubted := f.video("doubtvideo1")
+	if _, state, err := f.svc.Review(ctx, c, doubted, doubt); err != nil || state != curation.Held {
+		t.Fatalf("a doubt without a draft: %s %v", state, err)
+	}
+
+	drafted := f.video("draftvideo1")
+	f.saveDraft(c, drafted, someAnswers())
+	began := f.draft(c, drafted).BeganAt
+	f.now = f.now.Add(time.Minute)
+	if _, state, err := f.svc.Review(ctx, c, drafted, doubt); err != nil || state != curation.Held {
+		t.Fatalf("a doubt on a draft without the end: %s %v", state, err)
+	}
+	if at := f.beganAt(c, drafted); at == nil || !at.Equal(began) {
+		t.Fatalf("began at %v, want %v", at, began)
+	}
+	if n := f.drafts(drafted); n != 0 {
+		t.Fatalf("the doubt left %d drafts", n)
+	}
+}
+
+func TestADraftDoesNotOutliveItsRound(t *testing.T) {
+	f := newFixture(t)
+	c1 := f.curator("c1@example.com", curation.MaePai)
+	c2 := f.curator("c2@example.com", curation.Pedagogo)
+	c3 := f.curator("c3@example.com", curation.Cuidador)
+	v := f.video(ytID)
+	f.watched(c3, v) // the player's end, round 1
+	f.review(c1, v, approve("bichos", family.Age5To8))
+	if state := f.review(c2, v, approve("bichos", family.Age5To8)); state != curation.Approved {
+		t.Fatalf("published: %s", state)
+	}
+	if d := f.detail(v).Video; d.Round != 2 {
+		t.Fatalf("round %d", d.Round)
+	}
+	if n := f.drafts(v); n != 0 {
+		t.Fatalf("the published round left %d drafts", n)
+	}
+	// A draft of the former round, ended, must not stand for the new one.
+	f.exec(`INSERT INTO review_drafts (curator_id, video_id, round, checklist_version, began_at, played_to_end_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, 1, $3, $4, $4, $4)`, c3, v, curation.ChecklistVersion, f.now)
+	f.now = f.now.Add(180 * 24 * time.Hour)
+	if _, _, err := f.svc.Review(ctx, c3, v, approve("bichos", family.Age5To8)); !errors.Is(err, curation.ErrNotWatched) {
+		t.Fatalf("an approval on the former round's end: %v", err)
 	}
 }

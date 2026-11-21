@@ -102,6 +102,33 @@ void main() {
       );
     });
 
+    test('beneath who saw it before, the roles first, then who built it '
+        'and when, without "revisado por"', () {
+      expect(
+        plain(
+          CatalogWords.packSeenByWhom(
+            pack(
+              [(240, false), (240, false), (240, false)],
+              approvals: {DisplayRole.pedagogo: 1, DisplayRole.maePai: 2},
+            ),
+            now,
+          )!,
+        ),
+        '2 mães ou pais e 1 pedagogo(a) · montado por pedagogo(a) · '
+        'última revisão há 3 dias',
+      );
+    });
+
+    test('with no approval counted, no line beneath who saw it before', () {
+      expect(
+        CatalogWords.packSeenByWhom(
+          pack([(240, false)], approvals: {DisplayRole.maePai: 0}),
+          now,
+        ),
+        isNull,
+      );
+    });
+
     test('a skipped video and the way to hide one', () {
       expect(CatalogWords.packSkipped('Lia'), 'Fica de fora para Lia');
       expect(
@@ -172,7 +199,7 @@ void main() {
         now,
       );
       expect(s, contains('2 mães'));
-      expect(s, contains('pais · '));
+      expect(s, contains('pais\u00A0· '));
       expect(plain(s), endsWith('última revisão ontem'));
     });
 
@@ -191,6 +218,49 @@ void main() {
         plain(CatalogWords.provenance(provenance({}), now)),
         'Última revisão há 3 dias',
       );
+    });
+  });
+
+  group('the people who saw it before', () {
+    test('one approval is one person, in the singular', () {
+      final p = provenance({DisplayRole.maePai: 1});
+      expect(CatalogWords.people(p), 1);
+      expect(plain(CatalogWords.seenBy(p)!), 'Visto antes por 1 pessoa');
+    });
+
+    test('the count is the sum of the approvals of every role', () {
+      final p = provenance({
+        DisplayRole.pedagogo: 1,
+        DisplayRole.maePai: 2,
+        DisplayRole.pediatra: 0,
+      });
+      expect(CatalogWords.people(p), 3);
+      expect(plain(CatalogWords.seenBy(p)!), 'Visto antes por 3 pessoas');
+    });
+
+    test('the count never parts from its noun', () {
+      final p = provenance({DisplayRole.maePai: 12});
+      expect(CatalogWords.seenBy(p), endsWith('12\u00A0pessoas'));
+    });
+
+    test('beneath it, the roles and the last review, without '
+        '"Revisado por"', () {
+      expect(
+        plain(
+          CatalogWords.seenByWhom(
+            provenance({DisplayRole.pedagogo: 1, DisplayRole.maePai: 2}),
+            now,
+          )!,
+        ),
+        '2 mães ou pais e 1 pedagogo(a) · última revisão há 3 dias',
+      );
+    });
+
+    test('with no approval counted, neither line', () {
+      final p = provenance({DisplayRole.maePai: 0});
+      expect(CatalogWords.people(p), 0);
+      expect(CatalogWords.seenBy(p), isNull);
+      expect(CatalogWords.seenByWhom(p, now), isNull);
     });
   });
 

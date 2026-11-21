@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/shell/guardian_shell.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/family/widgets.dart';
@@ -460,8 +461,8 @@ void main() {
     expect(find.byType(StaffRootScreen), findsNothing);
   });
 
-  testWidgets('with no family, the staff root still opens, with its back '
-      'to the home', (tester) async {
+  testWidgets('with no family, the staff root still opens, in the '
+      'navigation', (tester) async {
     final h = await staffRoot(tester, roles: ['curator'], family: null);
 
     expect(h.location(tester), '/equipe');
@@ -469,9 +470,8 @@ void main() {
       'Revisar vídeos',
       'Pacotinhos para revisar',
     ]);
-    await tester.tap(find.byTooltip('Voltar'));
-    await tester.pumpAndSettle();
-    expect(h.location(tester), '/');
+    expect(find.byTooltip('Voltar'), findsNothing);
+    expect(find.widgetWithText(DestinationTile, 'Equipe'), findsOneWidget);
   });
 
   testWidgets('in the shell, the staff root has no back control', (
@@ -519,19 +519,15 @@ void main() {
     });
   }
 
-  testWidgets('the home without a family offers one door to Equipe', (
-    tester,
-  ) async {
+  testWidgets('the home without a family leads to Equipe by the '
+      'navigation, with no door of its own', (tester) async {
     final h = Harness(signedIn: true, api: equipeApi())
       ..family = null
       ..roles = ['admin', 'curator'];
     await h.pump(tester);
 
-    expect(find.widgetWithText(DoorRow, 'Equipe'), findsOneWidget);
-    for (final gone in ['Curadoria', 'Moderação', 'Administração']) {
-      expect(find.widgetWithText(DoorRow, gone), findsNothing, reason: gone);
-    }
-    await tester.tap(find.widgetWithText(DoorRow, 'Equipe'));
+    expect(find.byType(DoorRow), findsNothing);
+    await tester.tap(find.widgetWithText(DestinationTile, 'Equipe'));
     await tester.pumpAndSettle();
     expect(h.location(tester), '/equipe');
   });

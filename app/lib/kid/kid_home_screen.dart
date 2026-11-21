@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/api_error.dart';
+import '../curation/curation.dart' show VideoTheme;
 import '../curation/kid_catalog.dart';
 import '../design/tokens.dart';
 import '../family/avatars.dart';
@@ -16,26 +16,31 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'empty_shelf.dart';
 import 'hold_to_exit.dart';
+import 'kid_day.dart';
 import 'kid_error_note.dart';
 import 'kid_layout.dart';
-import 'pack_player_screen.dart' show PackStart;
+import 'mosaic.dart';
 import 'paused_profile.dart';
 import 'player_screen.dart';
+import 'room_screen.dart' show RoomDoor;
+import 'room_transition.dart' show DoorPlace;
 import 'shelves.dart';
 import 'sleeping_telinha.dart';
+import 'tap_guard.dart';
 
 /// `/crianca`: the child home.
 /// The child finds their own avatar, from `AppModeModel.profile` on a
-/// shared and a linked device alike, small above their theme shelves.
-/// Without shelves (none yet, or the catalogue failed) the avatar and
-/// nickname stand large above the empty shelf or the way to try again,
-/// both larger from 840 px wide. Without a child (deleted, or the read
-/// failed) the neutral avatar stands alone and the exit still works.
-/// A day without time (used up, or outside the hours) sleeps:
-/// the same composition with the sleeping telinha in the shelf's place,
-/// whatever the shelves hold. A profile waiting for a guardian to
-/// authorize it again is paused the same way, saying so; only the exit
-/// behind the PIN leaves it.
+/// shared and a linked device alike, small at the strip's start, and the
+/// day on one screen: the highlight, the pictures that play at one tap
+/// and a block per theme (the mosaic). Without videos (none yet, or the
+/// catalogue failed) the empty shelf or the way to try again stands in
+/// its place, larger from 840 px wide. Without a child (deleted, or the
+/// read failed) the neutral avatar stands alone and the exit still works.
+/// A day without time (used up, or outside the hours) sleeps on the
+/// night's dark, the sleeping telinha in the pictures' place, whatever
+/// the catalogue holds. A profile waiting for a guardian to authorize it
+/// again is paused the same way, saying so; only the exit behind the PIN
+/// leaves it.
 class KidHomeScreen extends StatefulWidget {
   const KidHomeScreen({super.key});
 
@@ -51,43 +56,25 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   late final AppModeModel _mode;
   bool _started = false;
 
+  /// The resting picture's: from a day without time to a paused profile
+  /// and back, the mascot that fell asleep stays asleep.
+  final _resting = GlobalKey();
+
   /// The child the profile was read for, and what it answered.
   String? _minorId;
   bool _asked = false;
   Profile? _profile;
 
-  /// The child's shelves: null while loading; [_failed] when the read
-  /// failed.
-  KidCatalog? _catalog;
-  bool _failed = false;
-
-  /// The server answered `consent_required`: the profile is paused until
-  /// a guardian authorizes it again.
-  bool _paused = false;
-
   /// The profile read answered `consent_required`; it is read again once
   /// the shelves open.
   bool _profileRefused = false;
 
-  /// Each thumbnail read once per visit, however often a tile rebuilds.
-  final _thumbs = <String, Future<Uint8List>>{};
-
-  /// A play is on its way to the server; the shelves wait.
-  bool _pending = false;
-
-  /// The kid error note: a refused play here, or one the player sent
-  /// back.
-  String? _notice;
+  /// The day as read: the catalogue, a play on its way and the note,
+  /// shared with the pages that open from here.
+  late final KidDay _day;
 
   /// Asleep or paused, the catalogue is read again on this beat.
   Timer? _wake;
-
-  bool get _asleep =>
-      !_failed && (_catalog?.time.state ?? KidTimeState.ok) != KidTimeState.ok;
-
-  /// Waiting for something outside the child's hands: time again, or an
-  /// adult's new authorization.
-  bool get _waiting => _asleep || _paused;
 
   @override
   void initState() {
@@ -102,6 +89,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     _started = true;
     final services = AppScope.of(context);
     _mode = services.appMode;
+    _day = KidDay(services.child)..addListener(_onDay);
     _returns = services.kidReturn;
     _returns.addListener(_onReturn);
     _mode.addListener(_onMode);
@@ -116,7 +104,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     final back = _returns.value;
     if (back == null) return;
     _returns.value = null;
-    if (back.note case final note?) setState(() => _notice = note);
+    if (back.note case final note?) _day.note(note);
     // Without a note the shelves stay where they were while it reads,
     // and stay if it fails; awake past the limit, the home then sleeps.
     if (back.refetch) unawaited(_load(quiet: back.note == null));
@@ -128,6 +116,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     _wake?.cancel();
     _returns.removeListener(_onReturn);
     _mode.removeListener(_onMode);
+    _day.dispose();
     super.dispose();
   }
 
@@ -143,6 +132,7 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     if (_asked && minorId == _minorId) return;
     _asked = true;
     _minorId = minorId;
+    _day.child = minorId;
     if (!initial) setState(() => _profile = null);
     if (minorId != null) unawaited(_read(minorId));
     unawaited(_load());
@@ -151,57 +141,31 @@ class _KidHomeScreenState extends State<KidHomeScreen>
   /// Back in the foreground, a sleeping or paused home asks again.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _waiting) {
+    if (state == AppLifecycleState.resumed && _day.waiting) {
       unawaited(_load(quiet: true));
     }
   }
 
-  /// Reads the shelves, and again on "Tentar de novo". A [quiet]
-  /// read keeps what stands, the picture of a sleeping home or the
-  /// shelves the player returned to, while it runs and if it fails.
-  Future<void> _load({bool quiet = false}) async {
+  /// Reads the shelves, and again on "Tentar de novo"; [quiet] keeps what
+  /// stands while it runs and if it fails.
+  Future<void> _load({bool quiet = false}) => _day.load(quiet: quiet);
+
+  /// The day changed: the home redraws, beats while it waits, and reads a
+  /// profile refused while paused once the shelves open.
+  void _onDay() {
+    if (!mounted) return;
+    setState(() {});
+    _beat();
     final minorId = _minorId;
-    if (!quiet) {
-      setState(() {
-        _catalog = null;
-        _failed = false;
-        _paused = false;
-      });
+    if (_profileRefused && _day.catalog != null && minorId != null) {
+      unawaited(_read(minorId));
     }
-    try {
-      final catalog = await AppScope.of(context).child.catalog();
-      if (mounted && minorId == _minorId) {
-        setState(() {
-          _catalog = catalog;
-          _failed = false;
-          _paused = false;
-          // The paused line is true no longer once the shelves open.
-          if (_notice == PausedProfile.line) _notice = null;
-        });
-        // The profile read was refused while paused: read it now.
-        if (_profileRefused && minorId != null) unawaited(_read(minorId));
-      }
-    } on Object catch (e) {
-      if (mounted && minorId == _minorId) {
-        if (e is ApiError && e.code == 'consent_required') {
-          // Said even on a quiet read: the shelves no longer open.
-          setState(() {
-            _catalog = null;
-            _failed = false;
-            _paused = true;
-          });
-        } else if (!quiet) {
-          setState(() => _failed = true);
-        }
-      }
-    }
-    if (mounted) _beat();
   }
 
   /// Asleep or paused, the catalogue is read every [KidHomeScreen.wake];
   /// otherwise, not at all.
   void _beat() {
-    if (!_waiting) {
+    if (!_day.waiting) {
       _wake?.cancel();
       _wake = null;
     } else {
@@ -212,95 +176,36 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
-  /// Re-checks the video with the server and opens the player with the
-  /// YouTube id it returns. A refusal says so and fetches the
-  /// shelves again, since the video has left them; a day without
-  /// time says nothing and fetches them, to sleep.
-  Future<void> _play(KidVideo video) async {
-    if (_pending) return;
-    if (!video.fits) return _rest(PlayerScreen.doesNotFit);
-    final services = AppScope.of(context);
-    final router = GoRouter.of(context);
-    setState(() {
-      _pending = true;
-      _notice = null;
-    });
-    try {
-      final play = await services.child.play(video.id);
-      if (mounted) router.go(Routes.watch(video.id), extra: play);
-    } on Object catch (e) {
-      if (!mounted) return;
-      final note = refusalNote(e);
-      setState(() => _notice = note);
-      if (refetchAfter(note)) unawaited(_load());
-    } finally {
-      if (mounted) setState(() => _pending = false);
-    }
+  /// Opens the player in the home's place.
+  void _open(String location, Object extra) =>
+      GoRouter.of(context).go(location, extra: extra);
+
+  void _play(KidVideo video) => unawaited(_day.play(video, open: _open));
+
+  void _openPack(KidPack pack) => unawaited(_day.openPack(pack, open: _open));
+
+  /// The note floats over the home's foot, wherever the home stands.
+  Widget _note(String message) =>
+      FloatingNote(message, asleep: restsNote(message));
+
+  /// A theme's block tapped: the theme's page grows from where the block
+  /// stood, on the day this home read. A note from before stays here.
+  void _openTheme(VideoTheme theme, DoorPlace from) {
+    _day.note(null);
+    context.go(
+      Routes.theme(theme),
+      extra: RoomDoor(day: _day, from: from),
+    );
   }
 
-  /// Opens a pacotinho on its first video the server lets play:
-  /// a video refused is passed over for the next; a day without time
-  /// sleeps, a paused profile says so, and a video longer than the time
-  /// left stops the search, since no pacotinho should open past its first
-  /// video; with none left, the shelves say why the last one did not open.
-  Future<void> _openPack(KidPack pack) async {
-    if (_pending) return;
-    if (!pack.fits) return _rest(PlayerScreen.packDoesNotFit);
-    final services = AppScope.of(context);
-    final router = GoRouter.of(context);
-    setState(() {
-      _pending = true;
-      _notice = null;
-    });
-    try {
-      Object? refused;
-      for (final (i, video) in pack.videos.indexed) {
-        try {
-          final play = await services.child.play(video.id);
-          if (mounted) {
-            router.go(
-              Routes.pack(pack.id),
-              extra: PackStart(pack: pack, index: i, play: play),
-            );
-          }
-          return;
-        } on Object catch (e) {
-          refused = e;
-          if (refusesEvery(e) || doesNotFit(e)) {
-            break;
-          }
-        }
-      }
-      if (!mounted || refused == null) return;
-      final note = refusalNote(refused);
-      setState(() => _notice = note);
-      if (refetchAfter(note)) unawaited(_load());
-    } finally {
-      if (mounted) setState(() => _pending = false);
-    }
+  /// The door to every pacotinho, opening the same way.
+  void _openPacks(DoorPlace from) {
+    _day.note(null);
+    context.go(
+      Routes.kidPacks,
+      extra: RoomDoor(day: _day, from: from),
+    );
   }
-
-  /// A resting tile tapped: nothing to ask the server, only why. The note
-  /// sits above the first shelf, so a tap from a lower shelf brings it into
-  /// view at once (no scroll animation: the shelves add no motion).
-  void _rest(String note) {
-    setState(() => _notice = note);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final at = _noteKey.currentContext;
-      if (at != null && at.mounted) unawaited(Scrollable.ensureVisible(at));
-    });
-  }
-
-  final _noteKey = GlobalKey();
-
-  Widget _note(String message) => Padding(
-    key: _noteKey,
-    padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
-    child: KidErrorNote(message, asleep: restsNote(message)),
-  );
-
-  Future<Uint8List> _thumbnail(String id) =>
-      _thumbs[id] ??= AppScope.of(context).child.thumbnail(id);
 
   Future<void> _read(String minorId) async {
     _profileRefused = false;
@@ -316,11 +221,31 @@ class _KidHomeScreenState extends State<KidHomeScreen>
     }
   }
 
+  // A touch just after the home appears, or just after it changes what
+  // it shows, was aimed at what stood there before.
   @override
   Widget build(BuildContext context) {
-    final catalog = _catalog;
+    final catalog = _day.catalog;
+    final plan = catalog == null
+        ? null
+        : MosaicPlan.of(catalog, band: _profile?.ageBand ?? AgeBand.unknown);
+    final scene = switch (_day) {
+      KidDay(paused: true) => _Scene.paused,
+      KidDay(failed: true) => _Scene.failed,
+      KidDay(asleep: true) => _Scene.asleep,
+      _ when plan == null => _Scene.loading,
+      _ when plan.isEmpty => _Scene.empty,
+      _ => _Scene.pictures,
+    };
+    return TapGuard(scene: scene, child: _screen(context, plan));
+  }
+
+  Widget _screen(BuildContext context, MosaicPlan? plan) {
+    final catalog = _day.catalog;
+    final failed = _day.failed;
+    final pending = _day.pending;
     // A day without time sleeps, shelves or none.
-    final time = _failed ? null : catalog?.time.state;
+    final time = failed ? null : catalog?.time.state;
     final asleep = time != null && time != KidTimeState.ok;
     // Asleep, the door it opens offers more time.
     final exit = HoldToExit(
@@ -329,105 +254,93 @@ class _KidHomeScreenState extends State<KidHomeScreen>
         context.go(Routes.kidExit);
       },
     );
-    final paused = _paused;
-    if (!_failed &&
-        !asleep &&
-        !paused &&
-        (catalog == null ||
-            catalog.shelves.isNotEmpty ||
-            catalog.packs.isNotEmpty)) {
+    final paused = _day.paused;
+    final wide = MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint;
+    // The child and their picture at the strip's start, read as their
+    // nickname: not a target.
+    final avatar = Semantics(
+      image: true,
+      label: _profile?.nickname,
+      child: AvatarDisc(
+        _profile?.avatar ?? Avatar.unknown,
+        size: KidMosaic.avatar,
+        excludeSemantics: true,
+      ),
+    );
+    final notice = _day.notice;
+    if (!failed && !asleep && !paused && !(plan?.isEmpty ?? false)) {
       return KidLayout(
         exit: exit,
+        lead: avatar,
         fullWidth: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Semantics(
-                image: true,
-                label: _profile?.nickname,
-                child: AvatarDisc(
-                  _profile?.avatar ?? Avatar.unknown,
-                  size: KidShelves.avatar,
-                  excludeSemantics: true,
-                ),
-              ),
-            ),
-            const SizedBox(height: Space.xl),
-            if (_notice case final notice?) _note(notice),
-            if (catalog == null)
-              const ShelvesLoading()
-            else
-              KidShelves(
+        scrolls: false,
+        rise: KidMosaic.rise,
+        child: catalog == null
+            ? MosaicLoading(
+                band: _profile?.ageBand,
+                note: notice == null ? null : _note(notice),
+              )
+            : KidMosaic(
                 catalog: catalog,
-                thumbnail: _thumbnail,
-                onPlay: _pending ? null : _play,
-                onOpenPack: _pending ? null : _openPack,
+                plan: plan,
+                band: _profile?.ageBand ?? AgeBand.unknown,
+                thumbnail: _day.thumbnail,
+                onPlay: pending ? null : _play,
+                onOpenPack: pending ? null : _openPack,
+                onOpenTheme: pending ? null : _openTheme,
+                onOpenPacks: pending ? null : _openPacks,
+                note: notice == null ? null : _note(notice),
               ),
-          ],
+      );
+    }
+    if (!asleep && !paused) {
+      // The picture grows on a wide screen, as the sleeping home's does.
+      final scale = wide ? 1.5 : 1.25;
+      return KidLayout(
+        exit: exit,
+        lead: avatar,
+        // Below the frame's kid theme, so the text takes the kid dialect.
+        child: Builder(
+          builder: (context) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // The picture below answers the note with its own mascot,
+              // so the note brings none: one mascot on the screen.
+              if (notice != null) ...[
+                KidErrorNote(notice, asleep: restsNote(notice), mascot: false),
+                const SizedBox(height: Space.xl),
+              ],
+              if (failed)
+                ShelvesFailed(onRetry: () => unawaited(_load()), scale: scale)
+              else
+                Center(
+                  child: EmptyShelf(
+                    scale: scale,
+                    alerted: notice != null && !restsNote(notice),
+                  ),
+                ),
+            ],
+          ),
         ),
       );
     }
-    final profile = _profile;
-    final wide = MediaQuery.sizeOf(context).width >= FieldSizes.wideBreakpoint;
-    final avatarSize = wide ? KidSizes.avatarWide : KidSizes.avatarLarge;
+    // Asleep or paused, the home is a dark room: the strip as on the
+    // awake home, and the mascot asleep on its wire.
+    final scale = wide ? 1.5 : 1.25;
     return KidLayout(
       exit: exit,
+      lead: avatar,
+      ground: BrandColors.dark,
       // Below the frame's kid theme, so the text takes the kid dialect.
-      child: Builder(
-        builder: (context) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // The child and their picture, read as one: the nickname.
-            MergeSemantics(
-              child: Column(
-                children: [
-                  AvatarDisc(
-                    profile?.avatar ?? Avatar.unknown,
-                    size: avatarSize,
-                    excludeSemantics: true,
-                  ),
-                  if (profile != null) ...[
-                    const SizedBox(height: Space.md),
-                    Text(
-                      profile.nickname,
-                      textAlign: TextAlign.center,
-                      style: wide
-                          ? Theme.of(context).textTheme.displaySmall
-                          : Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.xxxl),
-            // Paused, the line below already says why nothing opens.
-            if (_notice case final notice? when !asleep && !paused) ...[
-              KidErrorNote(notice, asleep: restsNote(notice)),
-              const SizedBox(height: Space.xl),
-            ],
-            if (_failed)
-              ShelvesFailed(onRetry: () => unawaited(_load()))
-            else if (paused)
-              Center(
-                child: PausedProfile(scale: avatarSize / KidSizes.avatarLarge),
-              )
-            else if (asleep)
-              Center(
-                child: SleepingTelinha(
-                  state: time,
-                  scale: avatarSize / KidSizes.avatarLarge,
-                ),
-              )
-            else
-              // The shelf grows as the avatar does.
-              Center(
-                child: EmptyShelf(scale: avatarSize / KidSizes.avatarLarge),
-              ),
-          ],
-        ),
+      child: Center(
+        child: paused
+            ? PausedProfile(scale: scale, pictureKey: _resting)
+            : SleepingTelinha(state: time!, scale: scale, pictureKey: _resting),
       ),
     );
   }
 }
+
+/// What the home shows, as far as a touch is concerned.
+enum _Scene { loading, pictures, empty, failed, asleep, paused }

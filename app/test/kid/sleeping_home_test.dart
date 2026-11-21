@@ -4,21 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/avatars.dart';
-import 'package:telinha_segura/family/family.dart';
+import 'package:telinha_segura/kid/mosaic.dart';
 import 'package:telinha_segura/kid/empty_shelf.dart';
 import 'package:telinha_segura/kid/hold_to_exit.dart';
 import 'package:telinha_segura/kid/kid_error_note.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/kid/player_screen.dart';
 import 'package:telinha_segura/kid/shelves.dart';
+import 'package:telinha_segura/kid/paused_profile.dart';
 import 'package:telinha_segura/kid/sleeping_telinha.dart';
+import 'package:telinha_segura/screentime/kid_time.dart';
 
 import '../access/harness.dart';
+import '../design/pump.dart';
+import '../design/tevi_motion_test.dart' show drawn;
 import '../parental/parental_api_test.dart' show profileJson;
-import 'kid_home_screen_test.dart' show DrawLog, actionable, avatar;
-import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'kid_home_screen_test.dart' show actionable, avatar, nightGround;
+import 'kid_mosaic_test.dart' show pixel, twoShelves;
+import 'shelf_picture.dart';
 
 /// The day as the catalogue says it.
 Map<String, Object?> day(String state, [String? reason]) => {
@@ -68,7 +74,7 @@ void main() {
 
       expect(find.byType(SleepingTelinha), findsOneWidget);
       expect(find.text(line), findsOneWidget);
-      expect(find.byType(Shelf), findsNothing);
+      expect(find.byType(ThemeBlock), findsNothing);
       expect(find.byType(VideoTile), findsNothing);
       expect(find.byType(EmptyShelf), findsNothing);
     });
@@ -79,39 +85,42 @@ void main() {
     expect(SleepingTelinha.outsideWindow, 'Agora não é hora');
   });
 
-  testWidgets('asleep, the home keeps the child\'s large avatar and '
-      'nickname above the picture and its muted line', (tester) async {
+  testWidgets('asleep, the home stands on the night\'s dark, the picture '
+      'and its muted line centred beneath the strip', (tester) async {
     final h = sleepy();
     await h.pump(tester, initial: '/crianca');
 
-    final disc = tester.widget<AvatarDisc>(avatar);
-    expect((disc.avatar, disc.size), (Avatar.fox, KidSizes.avatarLarge));
-    final name = tester.getRect(find.text('Lia'));
+    expect(nightGround(tester), isTrue);
     final picture = tester.getRect(find.byType(SleepingTelinha));
-    expect(picture.top, greaterThan(name.bottom));
+    expect(picture.center.dx, closeTo(390 / 2, .5));
+    expect(picture.top, greaterThan(tester.getRect(avatar).bottom));
     final line = find.text(SleepingTelinha.timeUp);
     final style = tester.widget<Text>(line).style;
     final text = Theme.of(tester.element(line)).textTheme;
-    expect(style?.fontSize, text.bodyLarge?.fontSize);
+    expect(style?.fontSize, text.titleLarge?.fontSize);
     expect(style?.color, Palette.kid.muted);
   });
 
-  testWidgets('from 840 px the avatar and the picture grow as on the empty '
-      'home', (tester) async {
-    final h = sleepy();
-    await h.pump(tester, initial: '/crianca', size: const Size(1280, 800));
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.25),
+    (const Size(1280, 800), 1.5),
+  ]) {
+    testWidgets('at ${size.width.toInt()} px the picture stands at '
+        '${scale}x, as the empty home\'s', (tester) async {
+      final h = sleepy();
+      await h.pump(tester, initial: '/crianca', size: size);
 
-    expect(tester.widget<AvatarDisc>(avatar).size, KidSizes.avatarWide);
-    expect(
-      tester.getSize(
-        find.descendant(
-          of: find.byType(SleepingTelinha),
-          matching: find.byType(CustomPaint),
-        ),
-      ),
-      EmptyShelf.size * 1.5,
-    );
-  });
+      expect(tester.widget<AvatarDisc>(avatar).size, KidMosaic.avatar);
+      final picture = expectPerched(
+        tester,
+        find.byType(SleepingTelinha),
+        TeviLook.asleep,
+        perch: Perch.wire,
+        night: true,
+      );
+      expect(tester.getSize(picture), ShelfPicture.size * scale);
+    });
+  }
 
   testWidgets('asleep, only the exit can be acted on; no YouTube logo, no '
       'minutes shown or read', (tester) async {
@@ -128,32 +137,34 @@ void main() {
     semantics.dispose();
   });
 
-  test('the sleeping picture closes the Espiadinha\'s eyes: two arcs, no '
-      'open eye, sun only in the head and fingers', () {
-    final awake = DrawLog();
-    const EmptyShelfPainter().paint(awake, EmptyShelf.size);
-    final asleep = DrawLog();
-    const EmptyShelfPainter(asleep: true).paint(asleep, EmptyShelf.size);
+  testWidgets('the sleeping picture: the mascot asleep in its night colours '
+      'on a short wire, thin and dark, no screen and no words of its own', (
+    tester,
+  ) async {
+    final h = sleepy();
+    await h.pump(tester, initial: '/crianca');
 
-    final dark = BrandColors.dark.toARGB32();
-    expect(
-      [
-        for (final (name, color, _) in awake.draws)
-          if (color == dark) name,
-      ],
-      [#drawOval, #drawOval],
+    final picture = expectPerched(
+      tester,
+      find.byType(SleepingTelinha),
+      TeviLook.asleep,
+      perch: Perch.wire,
+      night: true,
     );
     expect(
-      [
-        for (final (name, color, _) in asleep.draws)
-          if (color == dark) name,
-      ],
-      [#drawPath, #drawPath],
+      find.descendant(of: picture, matching: find.byType(Text)),
+      findsNothing,
     );
-    final sun = BrandColors.sun.toARGB32();
+    // The wire runs the picture's screen from start to end, sagging gently.
+    final s = ShelfPicture.screen;
+    expect(ShelfPicture.wireAt(s.left), ShelfPicture.wireAt(s.right));
     expect(
-      asleep.draws.where((d) => d.$2 == sun),
-      hasLength(awake.draws.where((d) => d.$2 == sun).length),
+      ShelfPicture.wireAt(s.center.dx),
+      greaterThan(ShelfPicture.wireAt(s.left)),
+    );
+    expect(
+      ShelfPicture.wireAt(s.center.dx) - ShelfPicture.wireAt(s.left),
+      lessThan(s.width / 40),
     );
   });
 
@@ -177,7 +188,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(catalogReads(h), 3);
       expect(find.byType(SleepingTelinha), findsNothing);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
 
       // Awake, it reads no more on its own.
       await tester.pump(const Duration(minutes: 3));
@@ -203,7 +214,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(catalogReads(h), 2);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
     });
 
     testWidgets('while it reads, and if the read fails, the picture stays: '
@@ -219,7 +230,7 @@ void main() {
       await tester.pump();
       expect(catalogReads(h), 2);
       expect(find.byType(SleepingTelinha), findsOneWidget);
-      expect(find.byType(ShelvesLoading), findsNothing);
+      expect(find.byType(MosaicLoading), findsNothing);
 
       gate.complete(problem(503, 'internal'));
       await tester.pumpAndSettle();
@@ -230,7 +241,7 @@ void main() {
       answer = () => json(200, shelvesOn(day('ok')));
       await tester.pump(const Duration(seconds: 60));
       await tester.pumpAndSettle();
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
     });
   });
 
@@ -376,8 +387,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.location(tester), '/crianca');
       expect(catalogReads(h), 2);
-      expect(find.byType(Shelf), findsNWidgets(2));
-      expect(find.byType(ShelvesLoading), findsNothing);
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
+      expect(find.byType(MosaicLoading), findsNothing);
 
       gate.complete(json(200, shelvesOn(day('time_up', 'daily'))));
       await tester.pumpAndSettle();
@@ -408,8 +419,6 @@ void main() {
             req.url.path == '/v1/child/plays' ? opened : http.Response('', 204),
       );
       await h.pump(tester, initial: '/crianca');
-      await tester.drag(find.byType(VideoTile).first, const Offset(-120, 0));
-      await tester.pumpAndSettle();
       final tile = find.byType(VideoTile).at(1);
       final before = tester.getRect(tile);
       await tester.tap(tile);
@@ -421,7 +430,7 @@ void main() {
 
       expect(catalogReads(h), 2);
       expect(find.byType(ShelvesFailed), findsNothing);
-      expect(find.byType(Shelf), findsNWidgets(2));
+      expect(find.byType(ThemeBlock), findsNWidgets(2));
       expect(tester.getRect(tile), before);
     });
   });
@@ -435,5 +444,151 @@ void main() {
     expect(find.byType(SleepingTelinha), findsOneWidget);
     expect(find.byType(EmptyShelf), findsNothing);
     expect(find.byType(KidErrorNote), findsNothing);
+  });
+
+  group('the resting home\'s mascot falls asleep as it arrives', () {
+    const ms = Duration(milliseconds: 1);
+
+    testWidgets('awake at first, it does not blink; after a beat its eye '
+        'closes over the sleep\'s length, then the marks show and it stays '
+        'still', (tester) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.timeUp),
+        ground: Ground.kid,
+      );
+      expect(drawn(tester), TeviLook.watching, reason: 'awake on arrival');
+
+      await tester.pump(ms * 80);
+      expect(drawn(tester), TeviLook.watching, reason: 'no blink');
+      await tester.pump(ms * 140);
+      expect(drawn(tester), TeviLook.watching, reason: 'still the beat');
+
+      await tester.pump(ms * 300);
+      final midway = drawn(tester);
+      expect(midway.lid, inExclusiveRange(0, 1), reason: 'closing');
+      expect(midway.sleepMarks, isFalse);
+
+      await tester.pump(ms * 300);
+      expect(drawn(tester), TeviLook.asleep);
+      await tester.pump(ms * 16);
+      expect(drawn(tester), TeviLook.asleep);
+      expect(tester.hasRunningAnimations, isFalse, reason: 'then still');
+    });
+
+    testWidgets('the marks never show before the eyelid is down', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.outsideWindow),
+        ground: Ground.kid,
+      );
+      for (var t = 0; t < 900; t += 20) {
+        final look = drawn(tester);
+        if (look.lid < 1) expect(look.sleepMarks, isFalse, reason: '$t ms');
+        await tester.pump(ms * 20);
+      }
+      expect(drawn(tester), TeviLook.asleep);
+    });
+
+    testWidgets('a paused profile\'s mascot falls asleep the same way', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(tester, const PausedProfile(), ground: Ground.kid);
+      expect(drawn(tester), TeviLook.watching);
+      await tester.pumpAndSettle();
+      expect(drawn(tester), TeviLook.asleep);
+    });
+
+    testWidgets('it plays once: a rebuild, another reason to rest or the '
+        'paused profile in its place does not wake it again', (tester) async {
+      runLoops();
+      final key = GlobalKey();
+      final reason = ValueNotifier<KidTimeState?>(KidTimeState.timeUp);
+      addTearDown(reason.dispose);
+      await pumpOn(
+        tester,
+        ValueListenableBuilder(
+          valueListenable: reason,
+          builder: (context, state, _) => state == null
+              ? PausedProfile(pictureKey: key)
+              : SleepingTelinha(state: state, pictureKey: key),
+        ),
+        ground: Ground.kid,
+      );
+      await tester.pumpAndSettle();
+      expect(drawn(tester), TeviLook.asleep);
+
+      for (final next in [
+        KidTimeState.timeUp,
+        KidTimeState.outsideWindow,
+        null,
+        KidTimeState.timeUp,
+      ]) {
+        reason.value = next;
+        // A notifier set to its own value does not rebuild: mark it.
+        if (next == KidTimeState.timeUp) {
+          tester.element(find.byType(ShelfPicture)).markNeedsBuild();
+        }
+        await tester.pump();
+        expect(drawn(tester), TeviLook.asleep, reason: '$next');
+        expect(tester.hasRunningAnimations, isFalse, reason: '$next');
+      }
+    });
+
+    testWidgets('on the home it ends asleep, and the catalogue read again '
+        'each minute never replays it', (tester) async {
+      runLoops();
+      final h = sleepy();
+      await h.pump(tester, initial: '/crianca');
+      expect(drawn(tester), TeviLook.asleep);
+
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      expect(catalogReads(h), 2);
+      expect(drawn(tester), TeviLook.asleep);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('under reduced motion it is asleep from the first frame', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.timeUp),
+        ground: Ground.kid,
+        disableAnimations: true,
+      );
+      expect(drawn(tester), TeviLook.asleep);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('with motion still, as in tests, asleep at once too', (
+      tester,
+    ) async {
+      await pumpOn(
+        tester,
+        const SleepingTelinha(state: KidTimeState.timeUp),
+        ground: Ground.kid,
+      );
+      expect(drawn(tester), TeviLook.asleep);
+    });
+
+    testWidgets('the floating note\'s small mascot is asleep at once', (
+      tester,
+    ) async {
+      runLoops();
+      await pumpOn(
+        tester,
+        const KidErrorNote('Agora não.', asleep: true, beside: true),
+        ground: Ground.kid,
+      );
+      expect(drawn(tester), TeviLook.asleep);
+    });
   });
 }

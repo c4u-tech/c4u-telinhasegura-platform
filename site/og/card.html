@@ -5,7 +5,8 @@
   <title>Telinha Segura: link preview card</title>
   <!--
     The source of site/public/og/telinha-segura.png, the image a link to the
-    site shows when it is shared. It is not served. Render it at 1200x630:
+    site shows when it is shared. It is not served, so it may use a <style>
+    block. Render it at 1200x630:
 
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
       --disable-gpu --hide-scrollbars --window-size=1200,630 \
@@ -20,8 +21,9 @@
 
     :root {
       --ink: #1E5B66;
-      --sun: #F2B23A;
+      --sun: #FFC42E;
       --cream: #FBF6EC;
+      --dark: #0F2A30;
     }
 
     html,
@@ -40,18 +42,23 @@
       overflow: hidden;
     }
 
+    .wordmark {
+      position: absolute;
+      top: 64px;
+      left: 72px;
+      height: 40px;
+    }
+
     h1 {
       position: absolute;
-      top: 50px;
-      left: 60px;
-      right: 60px;
+      top: 150px;
+      left: 72px;
       margin: 0;
-      text-align: center;
       font-family: "Bricolage Grotesque", sans-serif;
-      font-weight: 700;
-      font-size: 76px;
-      line-height: 1.08;
-      letter-spacing: -0.015em;
+      font-weight: 800;
+      font-size: 82px;
+      line-height: 1;
+      letter-spacing: -0.035em;
       color: var(--cream);
     }
 
@@ -60,28 +67,48 @@
       white-space: nowrap;
     }
 
-    /* The telinha runs off the bottom edge: only the head, the fingers
-       and the top of the screen show, so the mark peeks into the card. */
-    .mark {
+    h1 em {
+      font-style: normal;
+      color: var(--sun);
+    }
+
+    /* The mascot perched on a wire, looking back at the words. */
+    .wire {
       position: absolute;
-      left: 390px;
-      top: 336px;
-      width: 420px;
-      height: auto;
+      left: 760px;
+      right: -20px;
+      top: 414px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--dark);
+    }
+
+    .mascot {
+      position: absolute;
+      left: 800px;
+      top: 104px;
+      width: 380px;
+      height: 380px;
+    }
+
+    /* One row of the brand pattern along the bottom edge. */
+    .pattern {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 96px;
+      background: url("../public/brand/telinha-segura-pattern-row.svg") left center / auto 96px repeat-x;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1><span>Vídeos escolhidos</span><span>por gente, não</span><span>por algoritmo</span></h1>
-    <!-- The Espiadinha: the head and fingers peek over an empty telinha. -->
-    <svg class="mark" viewBox="2 4 60 57" aria-hidden="true">
-      <path fill="#FBF6EC" d="M13 27H51A10 10 0 0 1 61 37V50A10 10 0 0 1 51 60H13A10 10 0 0 1 3 50V37A10 10 0 0 1 13 27Z"/>
-      <path fill="#F2B23A" d="M19.126 24.5A14 14 0 1 1 44.874 24.5Z"/>
-      <path fill="#F2B23A" d="M7.753 24.5A2.15 2.15 0 1 1 11.447 24.5ZM11.553 24.5A2.15 2.15 0 1 1 15.247 24.5ZM15.353 24.5A2.15 2.15 0 1 1 19.047 24.5ZM44.953 24.5A2.15 2.15 0 1 1 48.647 24.5ZM48.753 24.5A2.15 2.15 0 1 1 52.447 24.5ZM52.553 24.5A2.15 2.15 0 1 1 56.247 24.5Z"/>
-      <ellipse fill="#0F2A30" cx="26.5" cy="17" rx="2.6" ry="3.2"/>
-      <ellipse fill="#0F2A30" cx="37.5" cy="17" rx="2.6" ry="3.2"/>
-    </svg>
+    <img class="wordmark" src="../public/brand/telinha-segura-wordmark-reversed.svg" alt="">
+    <h1><span>Vídeos escolhidos</span><span>por <em>gente</em>, não</span><span>por algoritmo</span></h1>
+    <div class="wire"></div>
+    <img class="mascot" src="../public/brand/telinha-segura-mark-looking-back-color.svg" alt="">
+    <div class="pattern"></div>
   </div>
 </body>
 </html>

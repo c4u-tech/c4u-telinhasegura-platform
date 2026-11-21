@@ -19,26 +19,6 @@ import '../shell/services.dart';
 /// The muted line of a row with nothing waiting in it.
 const nothingWaiting = 'nada esperando';
 
-/// The line under the home's door to Equipe.
-const _equipeLine = 'O que espera revisão e as ferramentas';
-
-/// Where a staff member without a family reaches their work from the
-/// home: one door to Equipe for any platform role in [roles], none
-/// without one.
-List<DoorRow> staffDoors(BuildContext context, Set<PlatformRole> roles) => [
-  if (roles.isNotEmpty)
-    DoorRow(
-      title: 'Equipe',
-      semanticsLabel: 'Equipe, $_equipeLine',
-      onTap: () => context.go(Routes.staffHome),
-      child: Text(
-        _equipeLine,
-        style: Theme.of(context).textTheme.bodyMedium
-            ?.copyWith(color: context.palette.muted),
-      ),
-    ),
-];
-
 /// How many items wait in one of Equipe's rows, as far as the read that
 /// counted them can tell: [count] exactly, or, when [more] may follow
 /// past the page read, at least [count].

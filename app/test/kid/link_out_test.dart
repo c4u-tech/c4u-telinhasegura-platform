@@ -15,7 +15,7 @@ import '../family/fixtures.dart';
 import '../parental/fakes.dart';
 import '../parental/parental_api_test.dart' show profileJson;
 import 'kid_exit_screen_test.dart' show submit;
-import 'kid_shelves_test.dart' show pixel, twoShelves;
+import 'kid_mosaic_test.dart' show pixel, twoShelves;
 
 final logo = Uri.parse('https://www.youtube.com/watch?v=yt1&feature=emb_logo');
 
@@ -96,6 +96,17 @@ void main() {
     expect(h.player.current!.calls, contains('pause'));
     expect(find.byType(KidExitScreen), findsOneWidget);
     expect(h.links.opened, isEmpty);
+  });
+
+  testWidgets('a video that ends beneath the PIN gate leaves for the home, '
+      'never popping the gate in the player\'s place', (tester) async {
+    final h = await leavingShared(tester);
+    expect(find.byType(KidExitScreen), findsOneWidget);
+
+    h.player.current!.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    expect(h.location(tester), '/crianca');
+    expect(find.byType(PlayerScreen), findsNothing);
   });
 
   testWidgets('a link out pauses the video and opens the PIN gate, the link '
