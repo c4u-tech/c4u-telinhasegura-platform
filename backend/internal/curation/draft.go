@@ -180,9 +180,13 @@ func nonNil(answers map[string]Answer) map[string]Answer {
 	return answers
 }
 
-// closeDrafts drops every draft of the video: its round has ended, and a
-// draft of a finished round has nothing left to resume.
-func closeDrafts(ctx context.Context, tx pgx.Tx, videoID string) error {
-	_, err := tx.Exec(ctx, `DELETE FROM review_drafts WHERE video_id = $1::uuid`, videoID)
+// closeRound drops every draft of the video and every moderator's viewing
+// of it: its round has ended, a draft of a finished round has nothing left
+// to resume, and a viewing speaks only for the round it was recorded in.
+func closeRound(ctx context.Context, tx pgx.Tx, videoID string) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM review_drafts WHERE video_id = $1::uuid`, videoID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `DELETE FROM moderator_views WHERE video_id = $1::uuid`, videoID)
 	return err
 }

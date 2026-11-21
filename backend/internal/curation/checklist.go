@@ -170,16 +170,17 @@ func knownList(version string) bool {
 
 // bandFrom is the youngest band a review's answers allow, read under the
 // list the review was stored with: the oldest band among the band
-// questions answered yes, and at least the band above the youngest for a
-// video too long for it. Curators and moderators are held to this one
-// rule.
+// questions answered yes or "I don't know", and at least the band above
+// the youngest for a video too long for it. A band is not released over a
+// fact the reviewer could not affirm. Curators and moderators are held to
+// this one rule.
 func bandFrom(version string, answers map[string]Answer, overYoungest bool) family.AgeBand {
 	band := family.AgeUpTo4
 	if overYoungest {
 		band = family.Age5To8
 	}
 	for id, min := range bandRules(version) {
-		if answers[id] == AnswerAppears && bandRank(min) > bandRank(band) {
+		if a := answers[id]; (a == AnswerAppears || a == AnswerDoubt) && bandRank(min) > bandRank(band) {
 			band = min
 		}
 	}
@@ -192,7 +193,7 @@ func bandFrom(version string, answers map[string]Answer, overYoungest bool) fami
 // tie comes first, since such a curator must not judge the video at all;
 // then an answer that refuses the video; then a stated band younger than
 // computed, the band the answers and the length allow (a band question's
-// yes allows from its own band up). A doubt that states no band is not
+// yes or "I don't know" allows from its own band up). A doubt that states no band is not
 // judged on it. It reports whether the review is a doubt: an explicit
 // "doubt", or a yes on a question that asks for a moderator. The questions
 // asked of a long video only are checked when present; whether they must be

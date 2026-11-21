@@ -212,6 +212,9 @@ func TestADraftGoesWithTheRoleAndWhenTheRoundCloses(t *testing.T) {
 		if f.drafts(v) != 1 {
 			t.Fatalf("%s: a held video lost its drafts", decision.Decision)
 		}
+		if decision.Decision == curation.Approve {
+			f.moderatorWatched(m, v)
+		}
 		if err := f.svc.DecideDoubt(ctx, m, v, decision); err != nil {
 			t.Fatal(err)
 		}

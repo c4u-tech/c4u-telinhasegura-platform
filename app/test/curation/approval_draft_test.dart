@@ -326,6 +326,15 @@ void main() {
     expect(long.computedBand, AgeBand.from5To8);
   });
 
+  test('a "Não sei" on a band question bars the band as a Sim does', () {
+    final d = atLastStep()..band = AgeBand.from5To8;
+    d.answer(item('c35'), ChecklistAnswer.doubt);
+    expect(d.answersBand, AgeBand.from9To12);
+    expect(d.barredBands, {AgeBand.upTo4, AgeBand.from5To8});
+    expect(d.band, isNull, reason: 'the band chosen is now barred');
+    expect(d.outcome, ApprovalOutcome.team, reason: 'still a doubt');
+  });
+
   test('a band question an older server did not qualify bars the youngest '
       'only', () {
     const old = ChecklistItem(id: 'c22', text: '?', rule: ChecklistRule.band);

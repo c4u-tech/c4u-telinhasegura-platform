@@ -41,6 +41,7 @@ type Account struct {
 	Suggestions         []Suggestion         `json:"suggestions"`
 	Reviews             []Review             `json:"reviews"`
 	ReviewDrafts        []ReviewDraft        `json:"review_drafts"`
+	ModeratorViews      []ModeratorView      `json:"moderator_views"`
 	PackReviews         []PackReview         `json:"pack_reviews"`
 	PackCompositions    []PackComposition    `json:"pack_compositions"`
 }
@@ -125,6 +126,15 @@ type ReviewDraft struct {
 	Note             *string         `json:"note"`
 	BeganAt          time.Time       `json:"began_at"`
 	PlayedToEndAt    *time.Time      `json:"played_to_end_at"`
+}
+
+// ModeratorView is a held video that played to its end for the account
+// as a moderator, in the round it was held in.
+type ModeratorView struct {
+	YouTubeID     string    `json:"youtube_id"`
+	VideoTitle    string    `json:"video_title"`
+	Round         int       `json:"round"`
+	PlayedToEndAt time.Time `json:"played_to_end_at"`
 }
 
 // PackReview is one of the account's pack reviews.
@@ -607,6 +617,21 @@ func readCuration(ctx context.Context, tx pgx.Tx, a *Account) error {
 		err := r.Scan(&x.YouTubeID, &x.VideoTitle, &x.Round, &x.ChecklistVersion, &answers, &x.Theme,
 			&x.MinAgeBand, &x.Note, &x.BeganAt, &x.PlayedToEndAt)
 		x.Answers, x.BeganAt, x.PlayedToEndAt = answers, x.BeganAt.UTC(), utcOrNil(x.PlayedToEndAt)
+		return x, err
+	}); err != nil {
+		return err
+	}
+
+	rows, err = tx.Query(ctx, `SELECT v.youtube_id, v.title, m.round, m.played_to_end_at
+		FROM moderator_views m JOIN videos v ON v.id = m.video_id
+		WHERE m.moderator_id = $1::uuid ORDER BY m.played_to_end_at, v.youtube_id, m.round`, a.ID)
+	if err != nil {
+		return err
+	}
+	if a.ModeratorViews, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (ModeratorView, error) {
+		var x ModeratorView
+		err := r.Scan(&x.YouTubeID, &x.VideoTitle, &x.Round, &x.PlayedToEndAt)
+		x.PlayedToEndAt = x.PlayedToEndAt.UTC()
 		return x, err
 	}); err != nil {
 		return err

@@ -154,9 +154,9 @@ func (s *Service) decide(ctx context.Context, videoID string, from []State, to S
 		if !slices.Contains(from, State(st)) {
 			return ErrStateConflict
 		}
-		// A removal or a reopen ends the round under way, so no draft of it
-		// outlives it.
-		if err := closeDrafts(ctx, tx, videoID); err != nil {
+		// A removal or a reopen ends the round under way, so no draft or
+		// viewing of it outlives it.
+		if err := closeRound(ctx, tx, videoID); err != nil {
 			return err
 		}
 		// A reopen clears the hold and marks where report counting

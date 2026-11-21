@@ -120,6 +120,7 @@ func TestNoOneJudgesTheirOwnRoundOverHTTP(t *testing.T) {
 		approvalWith("bichos", "5-8", map[string]string{"c13": "doubt"}), bearer(both)...); !strings.Contains(r.Body.String(), `"video_state":"held"`) {
 		t.Fatalf("doubt: %d %s", r.Code, r.Body)
 	}
+	a.moderatorEnded(both, doubted.ID)
 	publish := map[string]any{"decision": "approve", "theme": "musica", "min_age_band": "5-8", "reason": "Sem risco no vídeo."}
 	if r := a.do(http.MethodPost, "/v1/moderation/videos/"+doubted.ID+"/decide", publish, bearer(both)...); r.Code != http.StatusConflict || r.problemCode() != "own_review" {
 		t.Fatalf("own decision: %d %q", r.Code, r.problemCode())

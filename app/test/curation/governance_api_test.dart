@@ -204,6 +204,7 @@ void main() {
   test('the moderation contract: decide, sample, audit', () async {
     final t = build(ClientKind.mobile, contract);
     final api = StaffApi(t.client);
+    await api.moderatorEnded('v1');
     await api.decideDoubt(
       'v1',
       publish: true,
@@ -222,6 +223,7 @@ void main() {
       hold: true,
     );
     expect(t.calls, [
+      'POST /v1/moderation/videos/v1/ended',
       'POST /v1/moderation/videos/v1/decide {"decision":"approve","theme":"natureza","min_age_band":"ate-4","reason":"Sem risco."}',
       'POST /v1/moderation/videos/v1/decide {"decision":"reject","reason":"Desafio perigoso."}',
       'GET /v1/moderation/audit-sample',

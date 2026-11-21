@@ -237,6 +237,7 @@ func TestAuditSampleLeavesOutRoundsWithNoCuratorApproval(t *testing.T) {
 	mod := f.account("mia@example.com")
 	v := f.doubted(ytID)
 	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Sem risco no vídeo."}
+	f.moderatorWatched(m, v)
 	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}); err != nil {
 		t.Fatal(err)
 	}
