@@ -383,10 +383,15 @@ class ShelvesFailed extends StatelessWidget {
     required this.onRetry,
     this.scale = 1,
     this.busy = false,
+    this.attempt = 0,
   });
 
   final VoidCallback onRetry;
   final bool busy;
+
+  /// How many tries failed so far: a new failure renews the line, so it
+  /// is announced again in place of the last.
+  final int attempt;
 
   /// The picture's scale, as the empty shelf's.
   final double scale;
@@ -403,11 +408,17 @@ class ShelvesFailed extends StatelessWidget {
         child: ShelfPicture(look: TeviLook.crestUp, scale: scale),
       ),
       const SizedBox(height: Space.lg),
-      Text(
-        line,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyLarge
-            ?.copyWith(color: context.palette.muted),
+      // Said as it appears, for the adult nearby and assistive technology.
+      Semantics(
+        key: ValueKey(attempt),
+        liveRegion: true,
+        container: true,
+        child: Text(
+          line,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyLarge
+              ?.copyWith(color: context.palette.muted),
+        ),
       ),
       const SizedBox(height: Space.xl),
       // As wide as the hollow frame above it, so the picture and its one

@@ -130,27 +130,34 @@ class AppModeModel extends ChangeNotifier {
   ///   than open the guardian area to a child; [childMayHold] then says
   ///   whose screen the retry stands on.
   Future<void> restore() async {
-    _childMayHold = false;
     try {
       await _restore();
     } on Object {
-      _childMayHold = await _handedOver();
+      await startFailed();
       rethrow;
     }
+    // Only a read that answered tells whose hands the device is in; until
+    // then, a try under way keeps the last answer, and its screen.
+    _childMayHold = false;
   }
 
   bool _childMayHold = false;
 
-  /// After a failed [restore]: whether the device may be in a child's
-  /// hands, being handed over and not taken back, so what it shows while
-  /// it cannot tell stays a child's.
+  /// After a failed start: whether the device may be in a child's hands,
+  /// so what it shows while it cannot tell stays a child's.
   bool get childMayHold => _childMayHold;
 
-  /// Whether the device was handed over and not taken back; a mark that
-  /// cannot be read says it was, as a sign-in's gate does.
-  Future<bool> _handedOver() async {
+  /// Records a start whose reads failed, [restore]'s or the session's
+  /// before it: a child may hold the device when it is a linked one, or
+  /// was handed over and not taken back. A store that cannot be read says
+  /// a child may, as a sign-in's gate does.
+  Future<void> startFailed() async {
+    _childMayHold = await _mayHold();
+  }
+
+  Future<bool> _mayHold() async {
     try {
-      return (await _mark.read()).isNotEmpty;
+      return await _child.isLinked() || (await _mark.read()).isNotEmpty;
     } on Object {
       return true;
     }

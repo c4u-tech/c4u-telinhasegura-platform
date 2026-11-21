@@ -48,6 +48,7 @@ class StartFailed extends StatelessWidget {
         child: ShelvesFailed(
           onRetry: onRetry,
           busy: busy,
+          attempt: attempt,
           scale: wide ? 1.5 : 1.25,
         ),
       );

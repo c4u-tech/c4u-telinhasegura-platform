@@ -79,17 +79,27 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
     });
   }
 
-  /// The session first, then the mode it decides.
-  Future<void> _restore() async {
-    await widget.services.client.restoreStatus();
-    await _restoreMode();
-  }
+  /// The session's status has been read: a retry reads only the mode.
+  bool _statusKnown = false;
 
-  Future<void> _restoreMode() async {
+  /// The session first, then the mode it decides; a retry does the same,
+  /// from where the last try failed. Either failing lands on the failed
+  /// start, so the opening never waits on a read that will not come.
+  Future<void> _restore() async {
     final failures = _restoring.value.failures;
     _restoring.value = (failures: failures, trying: true);
+    final appMode = widget.services.appMode;
     try {
-      await widget.services.appMode.restore();
+      if (!_statusKnown) {
+        try {
+          await widget.services.client.restoreStatus();
+        } on Object {
+          await appMode.startFailed();
+          rethrow;
+        }
+        _statusKnown = true;
+      }
+      await appMode.restore();
       if (mounted) _restoring.value = (failures: 0, trying: false);
     } on Object {
       if (mounted) _restoring.value = (failures: failures + 1, trying: false);
@@ -145,7 +155,7 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
                 ready: mode != null,
                 failure: failed
                     ? StartFailed(
-                        onRetry: _restoreMode,
+                        onRetry: _restore,
                         busy: restore.trying,
                         child: appMode.childMayHold,
                         attempt: restore.failures,

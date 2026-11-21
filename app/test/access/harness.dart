@@ -109,7 +109,7 @@ class Harness {
   }) : player = player ?? FakeKidPlayer(),
        adultPlayer = adultPlayer ?? FakeKidPlayer() {
     _api = api ?? (_) => http.Response('', 204);
-    final store = MemoryTokenStore();
+    final store = tokenStore;
     if (signedIn && kind == ClientKind.mobile) {
       store.tokens = const Tokens(access: 'a', refresh: 'r');
     }
@@ -165,6 +165,9 @@ class Harness {
   }
 
   final ClientKind kind;
+
+  /// Where a mobile client keeps its session.
+  final tokenStore = MemoryTokenStore();
 
   /// The device's IANA zone.
   final String timeZone;

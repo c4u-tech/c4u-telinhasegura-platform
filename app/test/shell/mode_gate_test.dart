@@ -21,6 +21,7 @@ import 'package:telinha_segura/parental/kid_mode_mark.dart';
 import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/splash.dart';
 import 'package:telinha_segura/shell/start_failed.dart';
+import 'package:telinha_segura/shell/system_bars.dart';
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -326,6 +327,122 @@ void main() {
       expect(h.services.appMode.mode, const SharedKid('m1'));
       expect(find.byType(KidHomeScreen), findsOneWidget);
     });
+  });
+
+  group('a retry keeps the screen that was showing while it runs', () {
+    for (final child in [true, false]) {
+      testWidgets(child ? "the child's failed shelf" : "the adult's screen", (
+        tester,
+      ) async {
+        final h = Harness(
+          kind: ClientKind.mobile,
+          signedIn: true,
+          sessionDelay: const Duration(seconds: 1),
+          kidModeMark: MemoryKidModeMark({if (child) 'a'}),
+        )..sessionFailure = 500;
+        await tester.pumpWidget(h.app());
+        for (var i = 0; i < 2; i++) {
+          await tester.pump(const Duration(seconds: 1));
+        }
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(FilledButton, 'Tentar de novo'));
+        await tester.pump();
+
+        final screen = child
+            ? find.byType(ShelvesFailed)
+            : find.byType(StartFailed);
+        expect(
+          find.byType(ShelvesFailed),
+          child ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(FieldLayout.fieldKey),
+          child ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.descendant(of: screen, matching: find.byType(BusyRing)),
+          findsOneWidget,
+        );
+        expect(ModeBars.hides(tester.element(screen)), child);
+
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(ShelvesFailed),
+          child ? findsOneWidget : findsNothing,
+        );
+        expect(ModeBars.hides(tester.element(screen)), child);
+      });
+    }
+  });
+
+  testWidgets("a repeat failure says the child's line again", (tester) async {
+    final semantics = tester.ensureSemantics();
+    final h = Harness(
+      kind: ClientKind.mobile,
+      signedIn: true,
+      kidModeMark: MemoryKidModeMark({'a'}),
+    )..sessionFailure = 500;
+    await h.pump(tester);
+
+    final line = find.text(ShelvesFailed.line);
+    final node = tester.getSemantics(line);
+    expect(node.flagsCollection.isLiveRegion, isTrue);
+    final before = tester.element(line);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Tentar de novo'));
+    await tester.pumpAndSettle();
+
+    expect(line, findsOneWidget);
+    expect(
+      tester.element(line),
+      isNot(same(before)),
+      reason: 'a new line is announced in place of the last',
+    );
+    semantics.dispose();
+  });
+
+  group('a session that cannot be read from the device lands on the failed '
+      'start, and its retry reads it again', () {
+    for (final child in [false, true]) {
+      testWidgets(child ? 'on a device handed to a child' : 'for an adult', (
+        tester,
+      ) async {
+        final h = Harness(
+          kind: ClientKind.mobile,
+          signedIn: true,
+          api: childApi,
+          kidModeMark: MemoryKidModeMark({if (child) 'a'}),
+        )..family = ownerFamily;
+        h.tokenStore.unreadable = true;
+        await h.pump(tester);
+
+        expect(h.services.appMode.mode, isNull);
+        expect(
+          find.byType(ShelvesFailed),
+          child ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.text(StartFailed.title),
+          child ? findsNothing : findsOneWidget,
+        );
+
+        h.tokenStore.unreadable = false;
+        if (child) h.kidMode = {'minor_id': 'm1'};
+        await tester.tap(find.widgetWithText(FilledButton, 'Tentar de novo'));
+        await tester.pumpAndSettle();
+
+        expect(
+          h.services.appMode.mode,
+          child ? const SharedKid('m1') : const Guardian(),
+        );
+        expect(
+          find.byType(child ? KidHomeScreen : FamilyHomeScreen),
+          findsOneWidget,
+        );
+      });
+    }
   });
 
   testWidgets('a shared kid reaches only /crianca and /crianca/sair', (
