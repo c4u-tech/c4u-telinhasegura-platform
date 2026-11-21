@@ -15,7 +15,7 @@ var questions = map[string]string{
 	"c04": "Alguém bate, chuta, atira ou ataca de propósito, mesmo de brincadeira?",
 	"c05": "Aparece arma em destaque, sangue, ferimento, morte, doença grave ou luto?",
 	"c06": "Tem clima de medo ou suspense, susto, monstro ameaçador ou grito de pavor?",
-	"c07": "Algum personagem fica triste de um jeito que a história para para mostrar?",
+	"c07": "A história trata da tristeza de algum personagem (uma despedida, uma perda, saudade)?",
 	"c29": "Alguém furta, picha, invade ou faz outra coisa contra a lei, mesmo sem violência?",
 	"c30": "Mostra vômito, fezes ou secreções para causar nojo, briga feia de palavras, acidente ou destruição com peso emocional, cirurgia ou ossada?",
 	"c32": "Aparece personagem de aparência estranha ou assustadora, ou que se transforma na tela, mesmo sendo bonzinho?",

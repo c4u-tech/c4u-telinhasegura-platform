@@ -64,7 +64,7 @@ var checklist = []ChecklistGroup{
 		{ID: "c04", Text: "Alguém bate, chuta, atira ou ataca de propósito, mesmo de brincadeira?", Rule: RuleRefuses},
 		{ID: "c05", Text: "Aparece arma em destaque, sangue, ferimento, morte, doença grave ou luto?", Rule: RuleRefuses},
 		{ID: "c06", Text: "Tem clima de medo ou suspense, susto, monstro ameaçador ou grito de pavor?", Rule: RuleRefuses},
-		{ID: "c07", Text: "Algum personagem fica triste de um jeito que a história para para mostrar?", Rule: RuleRefuses},
+		{ID: "c07", Text: "A história trata da tristeza de algum personagem (uma despedida, uma perda, saudade)?", Rule: RuleRefuses},
 		{ID: "c29", Text: "Alguém furta, picha, invade ou faz outra coisa contra a lei, mesmo sem violência?", Rule: RuleRefuses},
 		{ID: "c30", Text: "Mostra vômito, fezes ou secreções para causar nojo, briga feia de palavras, acidente ou destruição com peso emocional, cirurgia ou ossada?", Rule: RuleRefuses},
 		{ID: "c32", Text: "Aparece personagem de aparência estranha ou assustadora, ou que se transforma na tela, mesmo sendo bonzinho?", Rule: RuleBand, MinBand: family.Age5To8},
