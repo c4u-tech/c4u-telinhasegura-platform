@@ -2495,10 +2495,8 @@ final longSheet = <String, Object?>{
   ],
 };
 
-/// A held video at its bounds: a 100-character title, a 500-character
-/// refusal and note, every report reason.
 /// A doubt whose round's answers bar the younger bands, with long
-/// questions.
+/// questions; the video has not played to its end for the moderator.
 final _heldDoubt = heldOf(
   queuedJson('v1', List.filled(10, 'Bichos').join(' ')),
   reason: 'doubt',
@@ -2518,6 +2516,8 @@ final _heldDoubt = heldOf(
   ],
 );
 
+/// A held video at its bounds: a 100-character title, a 500-character
+/// refusal and note, every report reason.
 final longHeld = heldOf(
   queuedJson('v1', List.filled(15, 'Bichos').join(' ').substring(0, 100)),
   rejections: [
@@ -3204,6 +3204,39 @@ void main() {
         }
       });
     }
+  }
+
+  // The reviewer's and the moderator's watched states in the dark theme:
+  // the line under the window before and after the end, the band page and
+  // its answers, and "Publicar" waiting with its hint.
+  const darkCurator = [
+    'approve',
+    'approve, a step, played to its end',
+    'approve, band page',
+    'approve, band page with an answer that moved it',
+    'approve, review waiting for the end',
+  ];
+  const darkAdmin = [
+    'held video, a doubt',
+    'held video, a doubt played to its end',
+    'publish a doubt',
+  ];
+  for (final name in [...darkCurator, ...darkAdmin]) {
+    testWidgets('$name, dark: text contrast', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      final semantics = tester.ensureSemantics();
+      await (darkCurator.contains(name)
+          ? openCurator(tester, name)
+          : openAdmin(tester, name));
+
+      expect(
+        Theme.of(tester.element(find.byType(FieldLayout).first)).brightness,
+        Brightness.dark,
+      );
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+      semantics.dispose();
+    });
   }
 
   for (final name in adminScreens.keys) {

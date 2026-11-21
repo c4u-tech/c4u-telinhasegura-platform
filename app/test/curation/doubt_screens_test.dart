@@ -27,11 +27,20 @@ import 'fixtures.dart';
 import 'held_video_screen_test.dart' show confirming, writes;
 import 'queue_screen_test.dart' show goTo;
 
+/// A doubt held for the moderator; unless a test says otherwise the video
+/// already played to its end for them, so "Publicar" does not wait.
 final doubted = heldOf(
   queuedJson('v1', 'Baby Shark', channel: 'Canal Baby Shark'),
   reason: 'doubt',
   doubts: [doubtJson],
+  playedToEnd: true,
 );
+
+/// [doubted] before the video played to its end for the moderator.
+final unwatched = {...doubted, 'played_to_end': false};
+
+FilledButton publishButton(WidgetTester tester) =>
+    tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Publicar'));
 
 Future<Harness> doubtHeld(
   WidgetTester tester, {
@@ -565,6 +574,7 @@ void main() {
                   doubts: [
                     {...doubtJson, 'theme': null, 'min_age_band': null},
                   ],
+                  playedToEnd: true,
                 ),
               ]),
             ),
@@ -585,7 +595,7 @@ void main() {
 
   testWidgets('a video held by a doubt says under the window whether it '
       'played to its end', (tester) async {
-    final h = await doubtHeld(tester);
+    final h = await doubtHeld(tester, held: unwatched);
     final line = find.text(notPlayedToEnd);
     expect(line, findsOneWidget);
     expect(
@@ -691,8 +701,8 @@ void main() {
     expect(find.text(publishNotWatched), findsOneWidget);
     expect(
       publishNotWatched,
-      'Para publicar, o vídeo precisa tocar até o fim. Volte, assista até o '
-      'fim e publique de novo.',
+      'O vídeo ainda não tocou até o fim. Volte, assista inteiro e publique '
+      'de novo.',
     );
     expect(
       find.text(
@@ -706,5 +716,72 @@ void main() {
       isTrue,
     );
     expect(find.text('Sem risco no vídeo.'), findsOneWidget);
+  });
+
+  testWidgets('an end the server recorded for this moderator says so after '
+      'a reload, and "Publicar" does not wait', (tester) async {
+    await doubtHeld(tester);
+
+    expect(find.text(playedToEnd), findsOneWidget);
+    expect(publishButton(tester).onPressed, isNotNull);
+    expect(tester.widget<SubmitHint>(find.byType(SubmitHint)).visible, isFalse);
+  });
+
+  testWidgets('"Publicar" waits, with its hint, until the video plays to its '
+      'end; "Remover de vez" never waits', (tester) async {
+    final h = await doubtHeld(tester, held: unwatched);
+
+    expect(publishButton(tester).onPressed, isNull);
+    expect(heldPublishHint, 'Para publicar, deixe o vídeo tocar até o fim.');
+    expect(tester.widget<SubmitHint>(find.byType(SubmitHint)).visible, isTrue);
+    expect(find.text(heldPublishHint), findsOneWidget);
+    expect(
+      tester
+          .widget<QuietAction>(
+            find.widgetWithText(QuietAction, 'Remover de vez'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    expect(publishButton(tester).onPressed, isNotNull);
+    expect(tester.widget<SubmitHint>(find.byType(SubmitHint)).visible, isFalse);
+  });
+
+  testWidgets('an end seen this session counts after the list is read '
+      'again, though the list does not have it yet', (tester) async {
+    final h = await doubtHeld(tester, held: unwatched);
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    expect(writes(h), [endedPath]);
+
+    goTo(tester, '/moderacao/retidos');
+    await tester.pumpAndSettle();
+    goTo(tester, '/moderacao/retidos/v1');
+    await tester.pumpAndSettle();
+
+    expect(find.text(playedToEnd), findsOneWidget);
+    expect(publishButton(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('"Motivo" grows with its words, counts toward its 200 '
+      'characters near the end, and takes no more', (tester) async {
+    await doubtHeld(tester, initial: '/moderacao/retidos/v1/publicar');
+    final field = find.widgetWithText(TextField, 'Motivo');
+
+    expect(find.text('0/200'), findsNothing);
+    expect(tester.widget<TextField>(field).maxLines, isNull);
+    await tester.enterText(field, 'a' * 150);
+    await tester.pump();
+    expect(find.textContaining(' de 200'), findsNothing);
+    await tester.enterText(field, 'a' * 170);
+    await tester.pump();
+    expect(find.text('170 de 200'), findsOneWidget);
+    await tester.enterText(field, 'a' * 250);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).controller!.text, hasLength(200));
   });
 }

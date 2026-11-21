@@ -15,7 +15,7 @@ import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
-import 'approve_screen.dart' show tooLongForYoungestLine;
+import 'approve_screen.dart' show ReasonField, tooLongForYoungestLine;
 import 'band_answer_row.dart';
 import 'curation.dart';
 import 'held_video_screen.dart' show doubtsHeading, heldGone;
@@ -39,8 +39,8 @@ String answeredBy(DisplayRole role) => '${role.label} respondeu';
 /// `not_watched` here: the player is on the held video's screen, a step
 /// back.
 const publishNotWatched =
-    'Para publicar, o vídeo precisa tocar até o fim. Volte, assista até o '
-    'fim e publique de novo.';
+    'O vídeo ainda não tocou até o fim. Volte, assista inteiro e publique '
+    'de novo.';
 
 /// Back on the list after "Publicar".
 String publishedFromDoubt(String title) =>
@@ -305,15 +305,11 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
         onChanged: idle ? (b) => setState(() => _band = b) : null,
       ),
       const SizedBox(height: Space.xl),
-      TextField(
+      ReasonField(
         controller: _reason,
+        label: 'Motivo',
         maxLength: 200,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(
-          labelText: 'Motivo',
-          errorText: _fieldError,
-          errorMaxLines: 3,
-        ),
+        errorText: _fieldError,
       ),
       const SizedBox(height: Space.xl),
       if (_write.message case final message?) ...[

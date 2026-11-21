@@ -594,6 +594,7 @@ class HeldVideo {
     this.audit,
     this.computedBand,
     this.bandAnswers = const [],
+    this.playedToEnd = false,
   });
 
   factory HeldVideo.fromJson(Map<String, dynamic> j) => HeldVideo(
@@ -619,6 +620,7 @@ class HeldVideo {
       for (final b in j['band_answers'] as List<dynamic>? ?? const [])
         BandAnswer.fromJson(b as Map<String, dynamic>),
     ],
+    playedToEnd: j['played_to_end'] == true,
   );
 
   final Video video;
@@ -639,6 +641,10 @@ class HeldVideo {
   /// The round's answers behind [computedBand], in the list's order; none
   /// from a server that does not say.
   final List<BandAnswer> bandAnswers;
+
+  /// Whether the video played to its end for the one reading the list, in
+  /// its current round; false from a server that does not say.
+  final bool playedToEnd;
 }
 
 /// An answer of a round that bars a younger band: the question as the
