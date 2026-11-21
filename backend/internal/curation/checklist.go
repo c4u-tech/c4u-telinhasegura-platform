@@ -145,7 +145,9 @@ type bandQuestion struct {
 // missing here stops a moderator's decision, so when the current list
 // changes its band questions must be added here first, with their words.
 var formerBandQuestions = map[string][]bandQuestion{
-	"2026-10-20": {{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
+	// Asked in the positive there: its stored "appears" was the "no" to a
+	// calm pace, a fast one, as on every later list.
+	"2026-10-20": {{ID: "c22", Text: "Ritmo calmo, uma coisa por vez, frases curtas, sem gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
 	"2026-10-21": {{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
 	"2026-11-11": {{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
 }
