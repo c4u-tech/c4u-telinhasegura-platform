@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
 import 'package:telinha_segura/curation/curation.dart';
@@ -7,13 +7,27 @@ import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/family/profile_fields.dart' show ChoiceTarget;
 
 import '../family/widgets_test.dart' show pumpIn;
+import '../store_screens/store_screens_test.dart' show loadFonts;
 
 const question = 'Alguém bate de propósito?';
 const words = ['Não', 'Sim', 'Não sei'];
 
 Finder keyOf(String word) => find.widgetWithText(ChoiceTarget, word);
 
+/// How many lines [word]'s label takes inside its key.
+int linesOf(WidgetTester tester, String word) => tester
+    .renderObject<RenderParagraph>(
+      find.descendant(of: keyOf(word), matching: find.text(word)),
+    )
+    .getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: word.length),
+    )
+    .length;
+
 void main() {
+  // The app's own typeface: whether a word breaks depends on its glyphs.
+  setUpAll(loadFonts);
+
   testWidgets('offers Não, Sim and Não sei side by side under the question, '
       'none chosen, each a 56 dp key', (tester) async {
     await pumpIn(
@@ -102,6 +116,53 @@ void main() {
     expect(heights.single, greaterThanOrEqualTo(56));
     final tops = {for (final w in words) tester.getTopLeft(keyOf(w)).dy};
     expect(tops, hasLength(1), reason: 'one row');
+  });
+
+  testWidgets('at 200 % text on a 360-wide phone, a chosen one-word key '
+      'keeps its word on one line, its check moving above it', (tester) async {
+    await pumpIn(
+      tester,
+      AnswerChoice(
+        question: question,
+        value: ChecklistAnswer.ok,
+        onChanged: (_) {},
+      ),
+      textScale: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(linesOf(tester, 'Não'), 1);
+    final check = find.descendant(
+      of: keyOf('Não'),
+      matching: find.byIcon(Icons.check_rounded),
+    );
+    expect(check, findsOneWidget, reason: 'never colour alone');
+    final word = find.descendant(of: keyOf('Não'), matching: find.text('Não'));
+    expect(
+      tester.getBottomLeft(check).dy,
+      lessThanOrEqualTo(tester.getTopLeft(word).dy),
+    );
+  });
+
+  testWidgets('where the word fits beside it, the check stays before it', (
+    tester,
+  ) async {
+    await pumpIn(
+      tester,
+      AnswerChoice(
+        question: question,
+        value: ChecklistAnswer.ok,
+        onChanged: (_) {},
+      ),
+    );
+
+    final check = find.descendant(
+      of: keyOf('Não'),
+      matching: find.byIcon(Icons.check_rounded),
+    );
+    final word = find.descendant(of: keyOf('Não'), matching: find.text('Não'));
+    expect(tester.getCenter(check).dy, closeTo(tester.getCenter(word).dy, 1));
+    expect(tester.getTopRight(check).dx, lessThan(tester.getTopLeft(word).dx));
   });
 
   testWidgets('reads as a group named by its question, each answer a radio '

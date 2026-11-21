@@ -52,22 +52,33 @@ class AnswerChoice extends StatelessWidget {
           const SizedBox(height: Space.sm),
           // Stretched to the tallest, so a word that wraps in a narrow
           // window leaves the keys level.
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, a) in options.indexed) ...[
-                  if (i > 0) const SizedBox(width: Space.sm),
-                  Expanded(
-                    child: _AnswerKey(
-                      answer: a,
-                      selected: a == value,
-                      onTap: onChanged == null ? null : () => onChanged(a),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+          // Each key's width is known here, outside the row that levels
+          // them, so a key can tell whether its check fits beside its word.
+          LayoutBuilder(
+            builder: (context, box) {
+              final room =
+                  (box.maxWidth - Space.sm * (options.length - 1)) /
+                      options.length -
+                  _AnswerKey.inset;
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, a) in options.indexed) ...[
+                      if (i > 0) const SizedBox(width: Space.sm),
+                      Expanded(
+                        child: _AnswerKey(
+                          answer: a,
+                          selected: a == value,
+                          room: room,
+                          onTap: onChanged == null ? null : () => onChanged(a),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -79,17 +90,42 @@ class AnswerChoice extends StatelessWidget {
 /// the action colour with a check before its word. Without [onTap] (a
 /// send running) it waits: the outline tone at 32% fill and its words at
 /// 60%, a chosen key keeping its check and its stroke in the action
-/// colour.
+/// colour. Where the check and the word do not fit side by side in
+/// [room] (a narrow phone at large text), the check stands above the word,
+/// so the word never breaks and the choice keeps its glyph.
 class _AnswerKey extends StatelessWidget {
   const _AnswerKey({
     required this.answer,
     required this.selected,
+    required this.room,
     required this.onTap,
   });
 
   final ChecklistAnswer answer;
   final bool selected;
+
+  /// The width inside the key's padding and stroke.
+  final double room;
   final VoidCallback? onTap;
+
+  static const _stroke = 1.5;
+  static const _check = 20.0;
+
+  /// What the key's padding and stroke take of its width.
+  static const inset = 2 * (Space.sm + _stroke);
+
+  /// Whether the check fits before the word on one line.
+  bool _fitsBeside(BuildContext context, TextStyle? style) {
+    final words = TextPainter(
+      text: TextSpan(text: answer.word, style: style),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+    )..layout();
+    final width = words.width;
+    words.dispose();
+    return _check + Space.xs + width <= room;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +136,8 @@ class _AnswerKey extends StatelessWidget {
         : selected
         ? p.onAction
         : p.text;
+    final style = Theme.of(context).textTheme.labelLarge?.copyWith(color: ink);
+    final word = Text(answer.word, textAlign: TextAlign.center, style: style);
     return ChoiceTarget(
       label: answer.word,
       selected: selected,
@@ -123,26 +161,28 @@ class _AnswerKey extends StatelessWidget {
           // The same width chosen or not: choosing moves nothing.
           border: Border.all(
             color: selected ? p.action : p.outline,
-            width: 1.5,
+            width: _stroke,
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (selected) ...[
-              Icon(Icons.check_rounded, size: 20, color: ink),
-              const SizedBox(width: Space.xs),
+        child: switch (selected && !_fitsBeside(context, style)) {
+          true => Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_rounded, size: _check, color: ink),
+              word,
             ],
-            Flexible(
-              child: Text(
-                answer.word,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelLarge
-                    ?.copyWith(color: ink),
-              ),
-            ),
-          ],
-        ),
+          ),
+          false => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (selected) ...[
+                Icon(Icons.check_rounded, size: _check, color: ink),
+                const SizedBox(width: Space.xs),
+              ],
+              Flexible(child: word),
+            ],
+          ),
+        },
       ),
     );
   }
