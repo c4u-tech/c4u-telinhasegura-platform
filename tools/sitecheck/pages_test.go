@@ -419,13 +419,34 @@ func TestCurationPagePublishesTheCriteria(t *testing.T) {
 		"fica fora das telinhas até a equipe decidir",
 		// The same words as the curators' question.
 		"ataque de propósito, mesmo de brincadeira",
+		"assistem a ele até o fim",
+		"confirma essa faixa ou escolhe uma faixa maior, nunca uma menor",
+		"contra a lei, mesmo sem violência",
+		"de um jeito que a história para para mostrar",
+		"de onde vêm os bebês",
+		"outra droga",
 	} {
 		if !strings.Contains(p.Text, want) {
 			t.Errorf("/curadoria does not say %q", want)
 		}
 	}
+	if strings.Contains(p.Text, "a curadoria diz a partir de que faixa") {
+		t.Error("/curadoria still says the curators pick the band")
+	}
 	if !contains(pages["/participe"].Hrefs, "/curadoria") {
 		t.Error("/participe does not link /curadoria")
+	}
+}
+
+// The privacy policy names what is kept about an unfinished review.
+func TestPrivacyPolicyNamesTheUnfinishedReview(t *testing.T) {
+	p := mustPages(t)["/privacidade"]
+	for _, want := range []string{
+		"quando cada revisão começou", "revisão que você deixou pela metade", "se o vídeo já tocou até o fim",
+	} {
+		if !strings.Contains(p.Text, want) {
+			t.Errorf("/privacidade does not say %q", want)
+		}
 	}
 }
 
