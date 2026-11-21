@@ -67,7 +67,7 @@ class AppServices {
        familySessions = FamilySessionApi(client) {
     familyModel = FamilyModel(auth: auth, api: family, status: client.status);
     // Any call refused for a suspension re-reads the session; the router
-    // then takes the person home (suspension screens).
+    // then takes the person home.
     client.onSuspended = () => unawaited(familyModel.accountSuspended());
     // A new session, or none, was never elevated.
     client.status.addListener(elevation.forget);

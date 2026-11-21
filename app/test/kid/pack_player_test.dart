@@ -117,7 +117,7 @@ void main() {
     expect(current(h).youtubeId, 'yt-v1');
     expect(find.byKey(FakePlayback.viewKey), findsOneWidget);
     expect(progress(1, 3), findsOneWidget);
-    // No YouTube logo in the player (fullscreen design).
+    // No YouTube logo in the player.
     expect(find.byType(SvgPicture), findsNothing);
   });
 

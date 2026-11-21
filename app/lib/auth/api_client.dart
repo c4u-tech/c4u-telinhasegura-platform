@@ -41,7 +41,7 @@ class ApiClient {
 
   /// Called on every `403 account_suspended`, before the error is thrown:
   /// the account was suspended, so the app re-reads the session and goes
-  /// to the suspended home (suspension screens). A team grant's
+  /// to the suspended home. A team grant's
   /// `409 account_suspended` is a field error and does not call it.
   void Function()? onSuspended;
 

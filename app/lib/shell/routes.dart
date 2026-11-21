@@ -486,7 +486,7 @@ abstract final class Routes {
   /// Hidden from guardians; the server still answers `not_owner`.
   static const ownerOnly = {invitations, deleteFamily};
 
-  /// Where a suspended account may go (suspension screens): its
+  /// Where a suspended account may go: its
   /// home, its data and its erasure, and, for the family's owner, the two
   /// steps the erasure asks of them. Anything else goes home.
   static const suspendedMay = {home, accountData, accountDelete};

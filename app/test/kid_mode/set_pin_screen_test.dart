@@ -79,7 +79,8 @@ bool padEnabled(WidgetTester tester) =>
     tester.widget<PinPad>(find.byType(PinPad)).enabled;
 
 /// Every PIN screen reads in one order: [lead] (the intro line or the
-/// title), then the error note right above the pad (fix round, item 7).
+/// title), then the error note right above the pad, where the eye already
+/// is when a PIN is refused.
 void expectNoteAbovePad(WidgetTester tester, Finder lead) {
   final note = tester.getRect(find.byType(ErrorNote));
   expect(tester.getRect(lead).bottom, lessThanOrEqualTo(note.top));

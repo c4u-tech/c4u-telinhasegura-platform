@@ -68,7 +68,7 @@ void expectOnlyTheVideo(WidgetTester tester) {
 }
 
 void main() {
-  group('the single player on a phone turned sideways (fullscreen design)', () {
+  group('the single player on a phone turned sideways', () {
     testWidgets('only the video shows: no strip, mark, exit or keys', (
       tester,
     ) async {
@@ -212,7 +212,7 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
-  group('a pacotinho on a phone turned sideways (fullscreen design)', () {
+  group('a pacotinho on a phone turned sideways', () {
     testWidgets('its video shows alone: no progress, no keys', (tester) async {
       final modes = modesAsked(tester);
       await pack.inPack(tester, size: sideways);

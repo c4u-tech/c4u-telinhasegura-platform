@@ -165,9 +165,7 @@ void main() {
 
   for (final disc in [KidSizes.avatar, ProfilePickerScreen.avatar]) {
     testWidgets('a ${disc.toInt()} dp avatar keeps the animal clear inside '
-        'its ring, ink between them: no ear reaches it (fix round, item 2)', (
-      tester,
-    ) async {
+        'its ring, ink between them: no ear reaches it', (tester) async {
       // On the child's ink, where the ring is drawn.
       await tester.pumpWidget(
         Theme(
@@ -207,8 +205,7 @@ void main() {
 
   for (final size in [const Size(390, 844), const Size(1440, 900)]) {
     testWidgets('at ${size.width.toInt()} px the exit\'s ring keeps 16 dp '
-        'from the top and the side, level with the avatar (fix round, item '
-        '4)', (tester) async {
+        'from the top and the side, level with the avatar', (tester) async {
       await kidHome(tester, size: size);
       final control = find.byType(HoldToExit);
       final box = tester.getRect(control);

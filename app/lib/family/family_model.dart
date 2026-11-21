@@ -91,9 +91,9 @@ class FamilyModel extends ChangeNotifier {
   /// the server still decides.
   Set<PlatformRole>? get roles => _roles;
 
-  /// Whether the account is suspended, as its session was last read
-  /// (suspension screens): the home becomes the suspended
-  /// home and the router keeps to its routes. False until read.
+  /// Whether the account is suspended, as its session was last read: the
+  /// home becomes the suspended home and the router keeps to its routes.
+  /// False until read.
   bool get suspended => _status == AccountStatus.suspended;
 
   /// Whether nothing read so far says the account's email still waits
@@ -153,7 +153,7 @@ class FamilyModel extends ChangeNotifier {
     if (_state is! FamilyReady) _set(const FamilyLoading());
     try {
       // Every read reads the session, so a suspension or a reinstatement
-      // shows on the next one (suspension screens).
+      // shows on the next one.
       final session = await _auth.currentSession();
       if (account != _account) return;
       _email = session.email;
@@ -236,7 +236,7 @@ class FamilyModel extends ChangeNotifier {
   /// dropped once the state left the first use or the account changed,
   /// and a failure keeps the plain first use.
   /// A suspended account's session cannot read them, so nothing
-  /// is asked (suspension screens).
+  /// is asked.
   Future<void> _readInvitations() async {
     if (suspended) return;
     final account = _account;

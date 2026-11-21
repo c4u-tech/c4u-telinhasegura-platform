@@ -1,7 +1,7 @@
 import 'screentime_api.dart';
 
-/// PT-BR words for a child's screen time, as the guardian reads it
-/// (screen-time screens). Minutes read in words
+/// PT-BR words for a child's screen time, as the guardian reads it.
+/// Minutes read in words
 /// ("1 h 10 min"); a watched time rounds down to the minute.
 abstract final class ScreenTimeWords {
   /// "0 min", "45 min", "1 h", "1 h 10 min".

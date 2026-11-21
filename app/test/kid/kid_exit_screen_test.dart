@@ -68,7 +68,7 @@ Finder get closing => find.byWidgetPredicate(
 );
 
 /// The quiet "Voltar" sits centred on the child side, its label centred
-/// in its own target (fix round, item 3).
+/// in its own target, as the mark and the pad above it are.
 void expectCentredBack(WidgetTester tester, double width) {
   final button = tester.getRect(
     find.ancestor(of: find.text('Voltar'), matching: find.byType(TextButton)),
@@ -99,7 +99,7 @@ void main() {
   });
 
   testWidgets('the title and "Voltar" are centred, as the mark and the '
-      'pad are (fix round, item 3)', (tester) async {
+      'pad are', (tester) async {
     await exitGate(tester);
 
     expect(
