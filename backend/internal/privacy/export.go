@@ -106,7 +106,7 @@ type Review struct {
 	ChecklistVersion *string         `json:"checklist_version"` // null before the list
 	Checklist        json.RawMessage `json:"checklist"`         // the answers, or a rejection's questions
 	ReviewedAt       time.Time       `json:"reviewed_at"`
-	ComputedBand     *string         `json:"computed_band"` // the band the answers add up to, on an approval
+	ComputedBand     *string         `json:"computed_band"` // the band the answers allow, on an approval
 	BandReason       *string         `json:"band_reason"`   // why the chosen band differs from it
 	BeganAt          *time.Time      `json:"began_at"`      // null before the review time was kept
 }

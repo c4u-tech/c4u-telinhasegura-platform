@@ -21,7 +21,7 @@ type HeldVideo struct {
 	Doubts       []Review       // the held round's doubts, with their answers and notes
 	Reports      ReportSummary  // since the latest reopen
 	HeldReason   string         // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
-	ComputedBand family.AgeBand // the youngest band the round's answers and the length allow
+	ComputedBand family.AgeBand // the youngest band a doubt may be published in
 	Audit        *HeldAudit     // the audit that held the video; nil unless HeldByAudit
 }
 

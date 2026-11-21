@@ -2,7 +2,7 @@
 -- the answers and, when the curator chose another, why; a review keeps when
 -- the curator began it; a curator's unfinished review is saved as a draft.
 
--- computed_band is the band the answers add up to, set only on an approval.
+-- computed_band is the band the answers allow, set only on an approval.
 -- band_reason explains a chosen band that differs from it, so it needs a
 -- computed band to differ from. Reviews written before this keep all three
 -- columns empty. began_at feeds the measures of how long a review takes,

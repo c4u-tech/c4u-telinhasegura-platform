@@ -34,7 +34,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		Rejections   []reviewOut `json:"rejections"`
 		Doubts       []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
 		HeldReason   string      `json:"held_reason"`
-		ComputedBand string      `json:"computed_band"`   // the youngest band a moderator may publish it in
+		ComputedBand string      `json:"computed_band"`   // the youngest band a doubt may be published in
 		Reports      reports     `json:"reports"`         // since the latest reopen, never who reported
 		Audit        *heldAudit  `json:"audit,omitempty"` // the audit that held the video, never who audited
 	}

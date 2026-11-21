@@ -29,7 +29,8 @@ func (s *Service) CountReportsSince(ctx context.Context, since time.Time) (int, 
 // ReviewMeasuresSince reads the reviews made at or after since: how long
 // approvals took, how many reviews were doubts, how often the stated band
 // was older than the computed one, and how often two approvals of one
-// video round computed different bands.
+// video round computed different bands. The window filters reviews, so a
+// round whose approvals straddle its edge counts only its reviews inside it.
 func (s *Service) ReviewMeasuresSince(ctx context.Context, since time.Time) (staff.ReviewMeasures, error) {
 	var m staff.ReviewMeasures
 	err := s.d.Pool.QueryRow(ctx, `
