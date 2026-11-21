@@ -11,6 +11,8 @@ import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
 import 'package:telinha_segura/curation/words.dart' show differenceReminder;
+import 'package:telinha_segura/family/family.dart' show AgeBand;
+import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/family/profile_fields.dart'
     show ChoiceTarget, SelectableRow, underTwoAdvice;
 import 'package:telinha_segura/legal/legal_links.dart';
@@ -20,6 +22,7 @@ import '../access/harness.dart';
 import '../family/fixtures.dart';
 import '../kid/fake_player.dart';
 import 'appoint_screen_test.dart' show tapOn;
+import 'queue_screen_test.dart' show goTo;
 import 'fixtures.dart';
 
 const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
@@ -32,6 +35,7 @@ const paid = 'Aparece promoção paga?';
 const hits = 'Alguém bate de propósito?';
 const sad = 'Algum personagem fica triste?';
 const fast = 'Tem ritmo agitado?';
+const dating = 'Tem namoro entre os personagens?';
 const others = 'O canal tem outros vídeos que você recusaria?';
 
 /// Every question of the fixture answered "Não".
@@ -44,6 +48,7 @@ const allNos = {
   'c15': 'ok',
   'c12': 'ok',
   'c22': 'ok',
+  'c35': 'ok',
   'c23': 'ok',
   'c24': 'ok',
 };
@@ -53,13 +58,21 @@ Future<Harness> approving(
   FutureOr<http.Response> Function(http.Request)? review,
   FutureOr<http.Response> Function()? checklist,
   FutureOr<http.Response> Function(String id)? video,
+  FutureOr<http.Response> Function()? draft,
+  FutureOr<http.Response> Function()? ended,
   String initial = '/curadoria/v1/aprovar',
   Size size = const Size(390, 844),
 }) async {
   final h =
       Harness(
           signedIn: true,
-          api: curatorApi(review: review, checklist: checklist, video: video),
+          api: curatorApi(
+            review: review,
+            checklist: checklist,
+            video: video,
+            draft: draft,
+            ended: ended,
+          ),
         )
         ..family = ownerFamily
         ..roles = ['curator'];
@@ -161,12 +174,23 @@ Future<void> approve(WidgetTester tester, {bool settle = true}) async {
 List<String> posts(Harness h) =>
     h.actions.where((c) => c.startsWith('POST ')).toList();
 
+/// The draft's saves, each with what it sent.
+List<String> draftSaves(Harness h) =>
+    h.actions.where((c) => c.startsWith('PUT ')).toList();
+
+/// A draft read's answer: [draft] kept from before.
+http.Response kept(Map<String, Object?> draft) => json(200, {'draft': draft});
+
 Map<String, dynamic> sent(Harness h) =>
     jsonDecode(posts(h).single.split(' ').skip(2).join(' '))
         as Map<String, dynamic>;
 
-int videoReads(Harness h) =>
-    h.actions.where((a) => a.startsWith('GET /v1/curation/videos/')).length;
+/// The reads of the video itself, not of its draft.
+int videoReads(Harness h) => h.actions
+    .where(
+      (a) => a.startsWith('GET /v1/curation/videos/') && !a.endsWith('/draft'),
+    )
+    .length;
 
 /// The video named under the display title as the review names it: its
 /// title in title-medium, then "Canal · 4 min" muted, both above [below].
@@ -360,6 +384,23 @@ void main() {
 
       expect(window(), findsOneWidget);
       expect(h.adultPlayer.opened.last.youtubeId, 'yt-v1');
+    });
+
+    testWidgets('the player\'s end in the flow is reported to the draft', (
+      tester,
+    ) async {
+      final h = await fromReview(tester);
+      final flow = h.adultPlayer.opened.last;
+      final before = posts(h).length;
+
+      flow.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(posts(h).skip(before), [
+        'POST /v1/curation/videos/v1/draft/ended',
+      ]);
+      expect(flow.closed, isFalse);
+      expect(window(), findsOneWidget);
     });
   });
 
@@ -565,15 +606,147 @@ void main() {
       expect(h.location(tester), '/curadoria/v1');
     });
 
-    testWidgets('leaving the flow drops its answers', (tester) async {
-      await approving(tester, initial: '/curadoria/v1');
-      await tapOn(tester, find.text(flowTitle));
+    testWidgets('coming back to a video restores the answers, theme, band '
+        'and note', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: {'c25': 'ok', 'c03': 'ok'},
+            theme: 'musica',
+            band: '5-8',
+          ),
+        ),
+      );
+
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+      expect(primary(tester).onPressed, isNotNull);
+      await tapPrimary(tester);
+      await clearSteps(tester);
+
+      expect(chosen(tester, 'Música'), isTrue);
+      expect(chosen(tester, '5 a 8 anos'), isTrue);
+    });
+
+    testWidgets('coming back to a doubt restores its note', (tester) async {
+      final h = await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: {'c25': 'ok', 'c03': 'ok', 'c04': 'ok', 'c07': 'doubt'},
+            note: 'A tristeza pesa.',
+          ),
+        ),
+      );
+
+      expect(draftSaves(h), isEmpty, reason: 'restoring is not a change');
+      await tapPrimary(tester);
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+
+      expect(primary(tester).label, teamLabel);
+      expect(find.text('A tristeza pesa.'), findsOneWidget);
+    });
+
+    testWidgets('a draft that failed to read is read again before the first '
+        'write, which keeps what it held', (tester) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        draft: () => fail
+            ? problem(503, 'unavailable')
+            : kept(draftJson(answers: {'c04': 'ok', 'c07': 'ok'})),
+      );
+      int reads() => h.actions
+          .where((c) => c == 'GET /v1/curation/videos/v1/draft')
+          .length;
+      final before = reads();
+
       await answer(tester, tie, 'Não');
+      expect(reads(), before + 1);
+      expect(draftSaves(h), isEmpty, reason: 'the kept draft is still unread');
 
-      await tapOn(tester, find.byTooltip('Voltar').last);
-      await tapOn(tester, find.text(flowTitle));
+      fail = false;
+      await answer(tester, paid, 'Não');
+      expect(reads(), before + 2);
+      expect(draftSaves(h), [
+        'PUT /v1/curation/videos/v1/draft '
+            '{"checklist_version":"2026-11-11",'
+            '"answers":{"c25":"ok","c03":"ok","c04":"ok","c07":"ok"}}',
+      ]);
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+    });
 
-      expect(picked(tester, tie, 'Não'), isFalse);
+    testWidgets('a late draft read with the same note leaves the cursor '
+        'where it was', (tester) async {
+      Completer<http.Response>? held;
+      await approving(
+        tester,
+        draft: () => held?.future ?? Future.value(problem(503, 'unavailable')),
+      );
+      await start(tester);
+      await noneOfThis(tester);
+      await answer(tester, sad, 'Não sei');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+
+      held = Completer<http.Response>();
+      final field = find.widgetWithText(TextField, doubtNoteLabel);
+      await tester.enterText(field, 'Pesa?');
+      await tester.pump();
+      final note = tester.widget<TextField>(field).controller!;
+      note.selection = const TextSelection.collapsed(offset: 2);
+      held.complete(kept(draftJson(answers: {'c25': 'ok'}, note: 'Pesa?')));
+      await tester.pumpAndSettle();
+
+      expect(note.text, 'Pesa?');
+      expect(note.selection, const TextSelection.collapsed(offset: 2));
+    });
+
+    testWidgets('each answer is written to the draft', (tester) async {
+      final h = await approving(tester);
+
+      await answer(tester, tie, 'Não');
+      await answer(tester, paid, 'Sim');
+
+      expect(
+        draftSaves(h),
+        contains(
+          'PUT /v1/curation/videos/v1/draft '
+          '{"checklist_version":"2026-11-11",'
+          '"answers":{"c25":"ok","c03":"appears"}}',
+        ),
+      );
+    });
+
+    testWidgets('the shortcut, the theme, the band and the note are written '
+        'to the draft', (tester) async {
+      final h = await approving(tester);
+      await start(tester);
+      await noneOfThis(tester);
+      expect(draftSaves(h).last, contains('"c04":"ok","c07":"ok"'));
+      await answer(tester, sad, 'Não sei');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+      await tester.enterText(
+        find.widgetWithText(TextField, doubtNoteLabel),
+        'Pesa?',
+      );
+      await tester.pumpAndSettle();
+      expect(draftSaves(h).last, endsWith('"note":"Pesa?"}'));
+
+      await tapOn(tester, change('Violência e medo'));
+      await answer(tester, sad, 'Não');
+      await tapPrimary(tester);
+      await choose(tester, 'Música');
+      expect(draftSaves(h).last, contains('"theme":"musica"'));
+      await choose(tester, '9 a 12 anos');
+      expect(
+        draftSaves(h).last,
+        contains('"theme":"musica","min_age_band":"9-12"'),
+      );
     });
   });
 
@@ -657,30 +830,34 @@ void main() {
       expect(find.text(underTwoAdvice), findsNothing);
     });
 
-    testWidgets('a fast pace disables "2 a 4 anos" and says why; answered '
-        'again from the review, it takes back a "2 a 4 anos" chosen', (
-      tester,
-    ) async {
+    testWidgets('a Sim that allows from 9 a 12 keeps the younger bands out '
+        'and says why; answered again from the review, it takes back a band '
+        'chosen', (tester) async {
       await approving(tester);
       await start(tester);
       await clearSteps(tester, to: 4);
       await noneOfThis(tester);
-      await answer(tester, fast, 'Sim');
+      await answer(tester, dating, 'Sim');
       await tapPrimary(tester);
 
-      expect(find.text(fastPaceLine), findsOneWidget);
       expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+      expect(tester.widget<SelectableRow>(row('5 a 8 anos')).onTap, isNull);
+      expect(find.text(answersBandLine(AgeBand.from9To12)), findsOneWidget);
+      expect(
+        answersBandLine(AgeBand.from9To12),
+        'Pelas respostas, este vídeo serve a partir de 9 a 12 anos.',
+      );
       await choose(tester, 'Música');
-      await choose(tester, '5 a 8 anos');
+      await choose(tester, '9 a 12 anos');
       await tapPrimary(tester);
       expect(primary(tester).label, approveLabel);
 
       await tapOn(tester, change('Ritmo e canal'));
-      await answer(tester, fast, 'Não');
+      await answer(tester, dating, 'Não');
       await tapPrimary(tester);
       expect(find.text(reviewTitle), findsOneWidget);
       await tapOn(tester, change(topicTitle));
-      expect(find.text(fastPaceLine), findsNothing);
+      expect(find.textContaining('Pelas respostas'), findsNothing);
       await choose(tester, '2 a 4 anos');
       await tapPrimary(tester);
       expect(find.text(reviewTitle), findsOneWidget);
@@ -690,6 +867,7 @@ void main() {
       await tapPrimary(tester);
       expect(row('Música'), findsOneWidget, reason: 'the band is asked again');
       expect(chosen(tester, '2 a 4 anos'), isFalse);
+      expect(find.text(answersBandLine(AgeBand.from5To8)), findsOneWidget);
       expect(primary(tester).onPressed, isNull);
     });
   });
@@ -762,7 +940,7 @@ void main() {
       await clearSteps(tester, to: 6);
 
       expect(find.text(tooLongForYoungestLine), findsOneWidget);
-      expect(find.text(fastPaceLine), findsNothing);
+      expect(find.textContaining('Pelas respostas'), findsNothing);
       expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
     });
 
@@ -776,7 +954,7 @@ void main() {
       await clearSteps(tester, from: 6, to: 6);
 
       expect(find.text(tooLongForYoungestLine), findsOneWidget);
-      expect(find.text(fastPaceLine), findsOneWidget);
+      expect(find.text(answersBandLine(AgeBand.from5To8)), findsOneWidget);
       expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
     });
   });
@@ -1073,11 +1251,20 @@ void main() {
       expect(Uri.parse(h.location(tester)).path, '/curadoria/v1/recusar');
     });
 
-    testWidgets('checklist_outdated reads the list again and starts over, '
-        'saying why', (tester) async {
+    testWidgets('checklist_outdated reads the list and the draft again and '
+        'keeps the unchanged answers, saying why', (tester) async {
+      var outdated = false;
+      var readsAfter = 0;
       final h = await approving(
         tester,
-        review: (_) => problem(409, 'checklist_outdated'),
+        review: (_) {
+          outdated = true;
+          return problem(409, 'checklist_outdated');
+        },
+        // The server keeps only the answers to questions left unchanged.
+        draft: () => outdated && ++readsAfter > 0
+            ? kept(draftJson(answers: {'c25': 'ok', 'c03': 'ok'}))
+            : json(200, {'draft': null}),
       );
 
       await approve(tester);
@@ -1095,13 +1282,168 @@ void main() {
         h.actions.where((a) => a == 'GET /v1/curation/checklist'),
         hasLength(2),
       );
+      expect(readsAfter, 1);
       expect(find.text(checkedByApp), findsOneWidget);
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+      await tapPrimary(tester);
       expect(
-        picked(tester, tie, 'Não'),
+        picked(tester, hits, 'Não'),
         isFalse,
-        reason: 'a new list unanswered',
+        reason: 'a changed question unanswered',
       );
       expect(primary(tester).onPressed, isNull);
+    });
+
+    testWidgets('not_watched says the video must play to its end and keeps '
+        'the answers', (tester) async {
+      var refuse = true;
+      final h = await approving(
+        tester,
+        review: (_) => refuse
+            ? problem(409, 'not_watched')
+            : json(201, {'video_state': 'pending'}),
+      );
+
+      await approve(tester);
+
+      expect(
+        find.widgetWithText(
+          ErrorNote,
+          Copy.forError(const ApiError(status: 409, code: 'not_watched')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(reviewTitle), findsOneWidget);
+      expect(find.text(nb('Música · 5 a 8 anos')), findsOneWidget);
+      refuse = false;
+      await tapPrimary(tester);
+      expect(posts(h), hasLength(2));
+      expect(
+        jsonDecode(posts(h).last.split(' ').skip(2).join(' '))['answers'],
+        allNos,
+      );
+    });
+
+    testWidgets('an end report that failed is sent again before approving', (
+      tester,
+    ) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        ended: () => fail
+            ? problem(503, 'unavailable')
+            : json(200, {'draft': draftJson(ended: true)}),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+      fail = false;
+
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end reported is not sent again', (tester) async {
+      final h = await approving(tester);
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+    });
+
+    testWidgets('an end the video screen failed to report is sent again '
+        'before approving', (tester) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => fail
+            ? problem(503, 'unavailable')
+            : json(200, {'draft': draftJson(ended: true)}),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+      fail = false;
+
+      await tapOn(tester, find.text('Revisar vídeo'));
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end another account saw is never sent for the next '
+        'one', (tester) async {
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => problem(503, 'unavailable'),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+
+      await h.services.client.forgetSession();
+      await tester.pumpAndSettle();
+      h.email = 'bia@example.com';
+      h.services.client.rememberSession(csrfToken: 'csrf-b');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+    });
+
+    testWidgets('an end the video screen reported is not sent again', (
+      tester,
+    ) async {
+      final h = await approving(tester, initial: '/curadoria/v1');
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text('Revisar vídeo'));
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
     });
 
     testWidgets('checklist_outdated whose new list fails to read offers to '

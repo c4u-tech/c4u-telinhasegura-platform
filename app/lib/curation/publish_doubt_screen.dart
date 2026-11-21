@@ -15,7 +15,7 @@ import '../family/widgets.dart' show FamilyPlaceholder;
 import '../shell/routes.dart';
 import '../shell/services.dart';
 import '../staff/challenge.dart';
-import 'approve_screen.dart' show fastPaceLine, tooLongForYoungestLine;
+import 'approve_screen.dart' show answersBandLine, tooLongForYoungestLine;
 import 'curation.dart';
 import 'held_video_screen.dart' show doubtsHeading, heldGone;
 import 'role_gate.dart';
@@ -35,10 +35,10 @@ String publishedFromDoubt(String title) =>
 /// `/moderacao/retidos/:id/publicar`: a moderator or an admin settles a
 /// curator's doubt by publishing: one theme of six, a band of three and a
 /// reason of 3 to 200 characters, through [ReauthWrite]. A video no
-/// longer held by a doubt goes back to the list. "2 a 4 anos" is not
-/// offered for a video longer than the youngest band allows, nor for one a
-/// doubt found fast-paced; the server holds the rule for every review of
-/// the round, so its refusal takes the band away too.
+/// longer held by a doubt goes back to the list. The bands younger than
+/// the round's answers allow are not offered, nor "2 a 4 anos" for a video
+/// longer than the youngest band allows; the server holds the rule, so a
+/// band it refuses goes away with every younger one.
 class PublishDoubtScreen extends StatefulWidget {
   const PublishDoubtScreen({super.key, required this.id, this.held});
 
@@ -61,8 +61,8 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
   AgeBand? _band;
   String? _fieldError;
 
-  /// The server refused "2 a 4 anos" for this video.
-  bool _youngestRefused = false;
+  /// The band the server last refused for this video, if any.
+  AgeBand? _refused;
 
   @override
   void initState() {
@@ -128,18 +128,33 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
         .map((d) => d.minAgeBand)
         .where((b) => b != null && b != AgeBand.unknown)
         .firstOrNull;
-    if (_upTo4Barred(held) && _band == AgeBand.upTo4) _band = null;
+    if (_barred(held).contains(_band)) _band = null;
   }
 
   static bool _tooLong(HeldVideo held) =>
       held.video.duration > defaultYoungestMax;
 
-  static bool _fast(HeldVideo held) => held.doubts.any(
-    (d) => d.answers?[fastPaceItem] == ChecklistAnswer.appears,
-  );
+  /// The youngest band the round's answers allow, as the server computed
+  /// it; null when it does not say.
+  static AgeBand? _computed(HeldVideo held) => switch (held.computedBand) {
+    final b? when b != AgeBand.unknown => b,
+    _ => null,
+  };
 
-  bool _upTo4Barred(HeldVideo held) =>
-      _youngestRefused || _tooLong(held) || _fast(held);
+  /// The bands not offered: those younger than the round's answers allow,
+  /// "2 a 4 anos" for a video too long for it, and the band the server
+  /// refused with every younger one.
+  Set<AgeBand> _barred(HeldVideo held) {
+    final from = _computed(held);
+    return {
+      for (final b in AgeBand.values)
+        if (b != AgeBand.unknown &&
+            (from != null && b.index < from.index ||
+                b == AgeBand.upTo4 && _tooLong(held) ||
+                _refused != null && b.index <= _refused!.index))
+          b,
+    };
+  }
 
   bool _handle(ApiError e) {
     if (takeLostRole(context, e)) return true;
@@ -149,8 +164,8 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
     }
     if (e.code == 'checklist_band') {
       setState(() {
-        _youngestRefused = true;
-        if (_band == AgeBand.upTo4) _band = null;
+        _refused = _band;
+        _band = null;
       });
       return false;
     }
@@ -238,12 +253,12 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: band,
-        disabled: _upTo4Barred(held) ? const {AgeBand.upTo4} : const {},
+        disabled: _barred(held),
         onChanged: idle ? (b) => setState(() => _band = b) : null,
       ),
-      if (_fast(held)) ...[
+      if (_computed(held) case final from? when from != AgeBand.upTo4) ...[
         const SizedBox(height: Space.sm),
-        Text(fastPaceLine, style: text.bodyMedium),
+        Text(answersBandLine(from), style: text.bodyMedium),
       ],
       if (_tooLong(held)) ...[
         const SizedBox(height: Space.sm),

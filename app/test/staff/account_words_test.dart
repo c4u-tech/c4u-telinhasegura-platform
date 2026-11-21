@@ -46,6 +46,18 @@ void main() {
     });
   });
 
+  test('minutes and percent read as figures, an absent one as too few '
+      'cases', () {
+    expect(AccountWords.minutes(360, suppressedBelow: 5), '6 min');
+    expect(AccountWords.minutes(390, suppressedBelow: 5), '7 min');
+    expect(AccountWords.minutes(60, suppressedBelow: 5), '1 min');
+    expect(AccountWords.minutes(30, suppressedBelow: 5), 'menos de 1 min');
+    expect(AccountWords.minutes(null, suppressedBelow: 5), 'menos de 5 casos');
+    expect(AccountWords.percent(18, suppressedBelow: 5), '18%');
+    expect(AccountWords.percent(0, suppressedBelow: 5), '0%');
+    expect(AccountWords.percent(null, suppressedBelow: 5), 'menos de 5 casos');
+  });
+
   test('a moment reads "3 de março, 14:20", the year only when not this '
       'one\'s', () {
     expect(

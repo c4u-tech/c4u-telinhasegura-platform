@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	queuePage = 50  // videos per queue page
-	maxReason = 500 // runes in a rejection's or a doubt's note
+	queuePage     = 50  // videos per queue page
+	maxReason     = 500 // runes in a rejection's or a doubt's note
+	maxBandReason = 200 // runes in why an approval states an older band than its answers
 )
 
 type Decision string
@@ -31,7 +32,8 @@ const (
 // list, or a rejection with the questions it failed. An approval whose
 // answers make it a doubt may leave both the theme and the band out: the
 // moderator who decides it chooses them. Note is the curator's own words:
-// a rejection's, or a doubt's.
+// a rejection's, or a doubt's. BandReason, optional, is why a plain
+// approval states a band older than its answers call for.
 type ReviewInput struct {
 	Decision         Decision
 	Theme            string
@@ -40,6 +42,7 @@ type ReviewInput struct {
 	Answers          map[string]Answer // an approval's, every question
 	FailedItems      []string          // a rejection's
 	Note             string
+	BandReason       string
 }
 
 // Review is one review as curators see it: the displayed role at review
@@ -53,6 +56,9 @@ type Review struct {
 	ChecklistVersion string            // "" for a review written before the list
 	Answers          map[string]Answer // an approval's or a doubt's; nil otherwise
 	FailedItems      []string          // a rejection's; nil otherwise
+	ComputedBand     family.AgeBand    // the band a plain approval's answers allow; "" otherwise
+	BandReason       string            // why a plain approval states an older band; "" if none
+	BeganAt          *time.Time        // when the reviewer's draft began; nil for a review without one
 	ReviewedAt       time.Time
 }
 
@@ -109,7 +115,11 @@ func (s *Service) Queue(ctx context.Context, curatorID string, offset int) ([]Qu
 // Review stores a curator's review and applies its effect in the same
 // transaction. The video row lock comes first, so the reviews
 // of one video run one at a time: the approval count sees every earlier
-// review, and two last approvals publish once.
+// review, and two last approvals publish once. A plain approval needs the
+// player to have reached the video's end for this reviewer in this round,
+// as their draft records; a rejection or a doubt does not, since holding
+// a video needs no full viewing. The review keeps when its draft began
+// and consumes the draft.
 func (s *Service) Review(ctx context.Context, curatorID, videoID string, in ReviewInput) (Review, State, error) {
 	if !validID(videoID) {
 		return Review{}, "", ErrNotFound
@@ -120,66 +130,48 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 	var state State
 	var event audit.Event
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		var st string
-		var round int
-		var due *time.Time
-		var seconds int
-		err := tx.QueryRow(ctx, `SELECT state, round, review_due_at, duration_seconds FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
-			Scan(&st, &round, &due, &seconds)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
+		v, err := lockVideo(ctx, tx, videoID)
 		if err != nil {
 			return err
 		}
+		round := v.round
 		// The review is judged once the length is known: it decides which
-		// questions the video was asked.
-		length := time.Duration(seconds) * time.Second
-		e, err := prepare(in, length > s.d.LongFrom)
+		// questions the video was asked, and whether the youngest band can
+		// take it.
+		length := time.Duration(v.seconds) * time.Second
+		e, err := prepare(in, length > s.d.LongFrom, length > s.d.FamilyYoungestMaxDuration)
 		if err != nil {
 			return err
-		}
-		// A video too long for the youngest band cannot go to it; a doubt
-		// with no band leaves that to the moderator.
-		if e.decision != Reject && length > s.d.FamilyYoungestMaxDuration && in.MinAgeBand == family.AgeUpTo4 {
-			return ErrChecklistBand
 		}
 		rv = Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,
-			ChecklistVersion: ChecklistVersion, Answers: e.answers, FailedItems: e.failed, ReviewedAt: now}
-		state = State(st)
-		var own, reviewed bool
-		if err := tx.QueryRow(ctx, `SELECT
-			EXISTS (SELECT 1 FROM video_suggestions WHERE video_id = $1::uuid AND account_id = $2::uuid),
-			EXISTS (SELECT 1 FROM video_reviews WHERE video_id = $1::uuid AND round = $3 AND curator_id = $2::uuid)`,
-			videoID, curatorID, round).Scan(&own, &reviewed); err != nil {
-			return err
-		}
-		revisitDue := state == Approved && due != nil && !due.After(now)
-		switch {
-		case own:
-			return ErrOwnSuggestion
-		case state != Pending && !revisitDue:
-			return ErrNotReviewable
-		case reviewed:
-			return ErrAlreadyReviewed
-		}
-		// FOR SHARE: a removal waits for this review, and no review lands
-		// for a curator removed meanwhile.
-		var role string
-		err = tx.QueryRow(ctx, `SELECT display_role FROM platform_roles WHERE account_id = $1::uuid AND role = 'curator' FOR SHARE`,
-			curatorID).Scan(&role)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotCurator
-		}
+			ChecklistVersion: ChecklistVersion, Answers: e.answers, FailedItems: e.failed, ComputedBand: e.computed,
+			BandReason: e.bandReason, ReviewedAt: now}
+		state = v.state
+		role, err := reviewerMay(ctx, tx, curatorID, videoID, v, now)
 		if err != nil {
 			return err
 		}
-		rv.DisplayRole = DisplayRole(role)
+		rv.DisplayRole = role
+		var began, ended *time.Time
+		err = tx.QueryRow(ctx, `SELECT began_at, played_to_end_at FROM review_drafts
+			WHERE curator_id = $1::uuid AND video_id = $2::uuid AND round = $3 FOR UPDATE`, curatorID, videoID, round).
+			Scan(&began, &ended)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if e.decision == Approve && ended == nil {
+			return ErrNotWatched
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
-			min_age_band, reason, reviewed_at, checklist_version, checklist) VALUES ($1::uuid, $2, $3::uuid, $4, $5,
-			nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb)`,
-			videoID, round, curatorID, role, string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
-			ChecklistVersion, string(e.checklist)); err != nil {
+			min_age_band, reason, reviewed_at, checklist_version, checklist, computed_band, band_reason, began_at) VALUES
+			($1::uuid, $2, $3::uuid, $4, $5, nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10,
+			$11::text::jsonb, nullif($12::text, ''), nullif($13::text, ''), $14)`,
+			videoID, round, curatorID, string(role), string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
+			ChecklistVersion, string(e.checklist), string(e.computed), e.bandReason, began); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM review_drafts WHERE curator_id = $1::uuid AND video_id = $2::uuid`,
+			curatorID, videoID); err != nil {
 			return err
 		}
 		// A rejection or a doubt holds the video at once, pending or in a
@@ -212,6 +204,61 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 	return rv, state, nil
 }
 
+// lockedVideo is what a review, or a draft of one, reads of the video
+// under its row lock.
+type lockedVideo struct {
+	state          State
+	round, seconds int
+	due            *time.Time
+}
+
+// lockVideo takes the video row lock. Everything that writes a review or
+// a draft of one takes it first, so they run one at a time per video and
+// never deadlock.
+func lockVideo(ctx context.Context, tx pgx.Tx, videoID string) (lockedVideo, error) {
+	var v lockedVideo
+	var st string
+	err := tx.QueryRow(ctx, `SELECT state, round, review_due_at, duration_seconds FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
+		Scan(&st, &v.round, &v.due, &v.seconds)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return v, ErrNotFound
+	}
+	v.state = State(st)
+	return v, err
+}
+
+// reviewerMay checks that curatorID may review the locked video now: not
+// their own suggestion, a video awaiting a review, not reviewed by them
+// this round, and the curator role still held. It returns the role's
+// displayed role.
+func reviewerMay(ctx context.Context, tx pgx.Tx, curatorID, videoID string, v lockedVideo, now time.Time) (DisplayRole, error) {
+	var own, reviewed bool
+	if err := tx.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM video_suggestions WHERE video_id = $1::uuid AND account_id = $2::uuid),
+		EXISTS (SELECT 1 FROM video_reviews WHERE video_id = $1::uuid AND round = $3 AND curator_id = $2::uuid)`,
+		videoID, curatorID, v.round).Scan(&own, &reviewed); err != nil {
+		return "", err
+	}
+	revisitDue := v.state == Approved && v.due != nil && !v.due.After(now)
+	switch {
+	case own:
+		return "", ErrOwnSuggestion
+	case v.state != Pending && !revisitDue:
+		return "", ErrNotReviewable
+	case reviewed:
+		return "", ErrAlreadyReviewed
+	}
+	// FOR SHARE: a removal waits for this review, and no review lands
+	// for a curator removed meanwhile.
+	var role string
+	err := tx.QueryRow(ctx, `SELECT display_role FROM platform_roles WHERE account_id = $1::uuid AND role = 'curator' FOR SHARE`,
+		curatorID).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotCurator
+	}
+	return DisplayRole(role), err
+}
+
 type approval struct {
 	theme string
 	band  family.AgeBand
@@ -224,7 +271,7 @@ type approval struct {
 // holds the video at once, and a held video takes no review. Publishing
 // moves the round on, so the next round is the revisit.
 // It returns whether the video was published and whether its reports
-// then held it.
+// then held it. The closed round's drafts go with it.
 func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID string, round int, now time.Time) (bool, bool, error) {
 	reached, err := s.approvalsReached(ctx, tx, videoLedger, videoID, round)
 	if err != nil || !reached {
@@ -257,6 +304,9 @@ func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID stri
 	if _, err = tx.Exec(ctx, `UPDATE videos SET state = 'approved', round = round + 1, theme = $2, min_age_band = $3,
 		published_round = round, last_reviewed_at = $4, review_due_at = $5, updated_at = $4 WHERE id = $1::uuid`,
 		videoID, theme, string(band), now, now.Add(s.d.RevisitAfter)); err != nil {
+		return false, false, err
+	}
+	if err := closeDrafts(ctx, tx, videoID); err != nil {
 		return false, false, err
 	}
 	// Reports made while the video waited were stored but not acted on:
@@ -297,14 +347,22 @@ type entry struct {
 	checklist []byte            // the answers, or the failed questions
 	failed    []string          // a rejection's questions, in the list's order
 	answers   map[string]Answer // an approval's or a doubt's, as stored
+	// A plain approval's: the band its answers allow, and why it states an
+	// older one, if it says.
+	computed   family.AgeBand
+	bandReason string
 }
 
-// prepare checks a review of a video, long or not, and turns it into its
-// ledger entry. A refused review stores nothing. A long video is asked the
-// long-video questions and must answer them all; a short one is not, so
-// its rejection cannot cite them, and the answers to them an app built
-// before them still sends are dropped unjudged, as if never sent.
-func prepare(in ReviewInput, long bool) (entry, error) {
+// prepare checks a review of a video, long or not, over the youngest
+// band's ceiling or not, and turns it into its ledger entry. A refused
+// review stores nothing. A long video is asked the long-video questions
+// and must answer them all; a short one is not, so its rejection cannot
+// cite them, and the answers to them an app built before them still sends
+// are dropped unjudged, as if never sent. A stated band may not be younger
+// than the one the answers and the length allow: a band question's yes
+// allows from its own band up. An older one may say why, and only an
+// older one in a plain approval may.
+func prepare(in ReviewInput, long, overYoungest bool) (entry, error) {
 	if in.Decision != Approve && in.Decision != Reject {
 		return entry{}, ErrValidation
 	}
@@ -314,8 +372,12 @@ func prepare(in ReviewInput, long bool) (entry, error) {
 	if utf8.RuneCountInString(in.Note) > maxReason {
 		return entry{}, ErrValidation
 	}
+	bandReason := strings.TrimSpace(in.BandReason)
+	if utf8.RuneCountInString(bandReason) > maxBandReason {
+		return entry{}, ErrValidation
+	}
 	if in.Decision == Reject {
-		if in.Theme != "" || in.MinAgeBand != "" || in.Answers != nil {
+		if in.Theme != "" || in.MinAgeBand != "" || in.Answers != nil || bandReason != "" {
 			return entry{}, ErrValidation
 		}
 		items, err := failedItems(in.FailedItems)
@@ -352,20 +414,21 @@ func prepare(in ReviewInput, long bool) (entry, error) {
 			delete(answers, id)
 		}
 	}
-	doubt, err := judge(answers, in.MinAgeBand)
+	computed := bandFrom(ChecklistVersion, answers, overYoungest)
+	doubt, err := judge(answers, in.MinAgeBand, computed)
 	if err != nil {
 		return entry{}, err
 	}
 	// A note travels only with a doubt, and a plain approval names its
-	// theme and its band.
-	if !doubt && (in.Note != "" || !named) {
+	// theme and its band. A band reason explains only an older band.
+	if !doubt && (in.Note != "" || !named) || bandReason != "" && (doubt || bandRank(in.MinAgeBand) <= bandRank(computed)) {
 		return entry{}, ErrValidation
 	}
 	list, err := json.Marshal(answers)
 	if doubt {
 		return entry{decision: Doubt, reason: in.Note, checklist: list, answers: answers}, err
 	}
-	return entry{decision: Approve, checklist: list, answers: answers}, err
+	return entry{decision: Approve, checklist: list, answers: answers, computed: computed, bandReason: bandReason}, err
 }
 
 // VideoDetail reads a video, its current round's reviews and its
@@ -409,7 +472,8 @@ func provenance(ctx context.Context, q querier, v Video) (*Provenance, error) {
 // of them.
 func reviewsOf(ctx context.Context, q querier, videoID string, round int, decision Decision) ([]Review, error) {
 	rows, err := q.Query(ctx, `SELECT display_role, decision, coalesce(theme, ''), coalesce(min_age_band, ''),
-		coalesce(reason, ''), reviewed_at, coalesce(checklist_version, ''), checklist FROM video_reviews
+		coalesce(reason, ''), reviewed_at, coalesce(checklist_version, ''), checklist, coalesce(computed_band, ''),
+		coalesce(band_reason, ''), began_at FROM video_reviews
 		WHERE video_id = $1::uuid AND round = $2 AND ($3::text = '' OR decision = $3::text) ORDER BY reviewed_at, id`,
 		videoID, round, string(decision))
 	if err != nil {
@@ -417,11 +481,17 @@ func reviewsOf(ctx context.Context, q querier, videoID string, round int, decisi
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (Review, error) {
 		var x Review
-		var role, dec, band string
+		var role, dec, band, computed string
 		var list []byte
-		if err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt, &x.ChecklistVersion, &list); err != nil {
+		if err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt, &x.ChecklistVersion, &list, &computed,
+			&x.BandReason, &x.BeganAt); err != nil {
 			return x, err
 		}
+		if x.BeganAt != nil {
+			at := x.BeganAt.UTC()
+			x.BeganAt = &at
+		}
+		x.ComputedBand = family.AgeBand(computed)
 		x.DisplayRole, x.Decision, x.MinAgeBand, x.ReviewedAt = DisplayRole(role), Decision(dec), family.AgeBand(band), x.ReviewedAt.UTC()
 		switch {
 		case list == nil: // written before the list

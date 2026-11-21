@@ -13,19 +13,23 @@ import 'adult_player.dart';
 /// one video loaded without playing, links out of
 /// it opened in the browser, another video playing in place stopped and
 /// the video loaded again, a failure shown as the error note in the
-/// window's place. The player goes when the screen does.
+/// window's place, the video's end told to whoever asked. The player
+/// goes when the screen does.
 mixin AdultWindow<T extends StatefulWidget> on State<T> {
   KidPlayback? _playback;
   StreamSubscription<PlayerEvent>? _events;
   String? _youtubeId;
+  VoidCallback? _onEnded;
   bool _failed = false;
 
   /// The open player, if any.
   KidPlayback? get playback => _playback;
 
-  /// Loads [youtubeId], waiting.
-  void openPlayer(String youtubeId) {
+  /// Loads [youtubeId], waiting; [onEnded] runs each time it plays to its
+  /// end.
+  void openPlayer(String youtubeId, {VoidCallback? onEnded}) {
     _youtubeId = youtubeId;
+    _onEnded = onEnded;
     final playback = AppScope.of(context).adultPlayer.open(youtubeId);
     _playback = playback;
     _events = playback.events.listen((e) => _on(playback, e));
@@ -41,10 +45,14 @@ mixin AdultWindow<T extends StatefulWidget> on State<T> {
     switch (outcome) {
       case AdultPlayerOutcome.playing:
         return;
+      case AdultPlayerOutcome.ended:
+        _onEnded?.call();
       case AdultPlayerOutcome.stopped:
         // Not the video on this screen: it loads again, waiting.
         await closePlayer();
-        if (mounted) setState(() => openPlayer(_youtubeId!));
+        if (mounted) {
+          setState(() => openPlayer(_youtubeId!, onEnded: _onEnded));
+        }
       case AdultPlayerOutcome.failed:
         await closePlayer();
         if (mounted) setState(() => _failed = true);

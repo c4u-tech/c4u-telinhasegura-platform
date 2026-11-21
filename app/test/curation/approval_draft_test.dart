@@ -32,7 +32,18 @@ const list = Checklist(
       id: 'ritmo',
       title: 'Ritmo e canal',
       items: [
-        ChecklistItem(id: 'c22', text: 'Agitado?', rule: ChecklistRule.band),
+        ChecklistItem(
+          id: 'c22',
+          text: 'Agitado?',
+          rule: ChecklistRule.band,
+          minBand: AgeBand.from5To8,
+        ),
+        ChecklistItem(
+          id: 'c35',
+          text: 'Namoro?',
+          rule: ChecklistRule.band,
+          minBand: AgeBand.from9To12,
+        ),
         ChecklistItem(
           id: 'c23',
           text: 'Falta fim?',
@@ -139,6 +150,7 @@ void main() {
       'c04': ChecklistAnswer.ok,
       'c07': ChecklistAnswer.ok,
       'c22': ChecklistAnswer.ok,
+      'c35': ChecklistAnswer.ok,
       'c23': ChecklistAnswer.doubt,
     });
     expect(d.marked(group(0)), [(item('c03'), ChecklistAnswer.appears)]);
@@ -287,11 +299,134 @@ void main() {
   test('a fast pace takes back "2 a 4 anos" and keeps any other band', () {
     final d = atLastStep()..band = AgeBand.upTo4;
     d.answer(item('c22'), ChecklistAnswer.appears);
-    expect(d.youngestBarred, isTrue);
+    expect(d.barredBands, {AgeBand.upTo4});
     expect(d.band, isNull);
     d.band = AgeBand.from5To8;
     d.answer(item('c22'), ChecklistAnswer.appears);
     expect(d.band, AgeBand.from5To8);
+  });
+
+  test('the computed band is the oldest a Sim allows, and the length bars '
+      'the youngest', () {
+    final d = atLastStep();
+    expect(d.answersBand, AgeBand.upTo4);
+    expect(d.computedBand, AgeBand.upTo4);
+    expect(d.barredBands, isEmpty);
+    d.answer(item('c22'), ChecklistAnswer.appears);
+    expect(d.computedBand, AgeBand.from5To8);
+    expect(d.barredBands, {AgeBand.upTo4});
+    d.band = AgeBand.from5To8;
+    d.answer(item('c35'), ChecklistAnswer.appears);
+    expect(d.computedBand, AgeBand.from9To12);
+    expect(d.barredBands, {AgeBand.upTo4, AgeBand.from5To8});
+    expect(d.band, isNull, reason: 'the band chosen is now barred');
+
+    final long = ApprovalDraft(list, length: const Duration(minutes: 61));
+    expect(long.answersBand, AgeBand.upTo4);
+    expect(long.computedBand, AgeBand.from5To8);
+  });
+
+  test('a band question an older server did not qualify bars the youngest '
+      'only', () {
+    const old = ChecklistItem(id: 'c22', text: '?', rule: ChecklistRule.band);
+    expect(old.allowsFrom, AgeBand.from5To8);
+    expect(item('c35').allowsFrom, AgeBand.from9To12);
+  });
+
+  test('a band question with a band this build does not know bars the '
+      'youngest only', () {
+    final newer = ChecklistItem.fromJson({
+      'id': 'c40',
+      'text': '?',
+      'rule': 'band',
+      'min_band': '13-17',
+    });
+    expect(newer.minBand, AgeBand.unknown);
+    expect(newer.allowsFrom, AgeBand.from5To8);
+  });
+
+  test('a draft whose band this build does not know asks the band '
+      'again', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {},
+          minAgeBand: AgeBand.unknown,
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.band, isNull);
+  });
+
+  test('a draft whose theme this build does not know asks the theme '
+      'again', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {},
+          theme: VideoTheme.unknown,
+          minAgeBand: AgeBand.from5To8,
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.theme, isNull);
+    expect(d.snapshot.theme, isNull);
+    expect(d.band, AgeBand.from5To8);
+  });
+
+  test('a draft answer this build does not know asks the question '
+      'again', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {
+            'c04': ChecklistAnswer.unknown,
+            'c07': ChecklistAnswer.ok,
+          },
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.answers, {'c07': ChecklistAnswer.ok});
+    expect(d.answerOf(item('c04')), isNull);
+  });
+
+  test('a draft restores the answers of this list, the theme, the band and '
+      'the note', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {'c04': ChecklistAnswer.ok, 'c99': ChecklistAnswer.ok},
+          theme: VideoTheme.bichos,
+          minAgeBand: AgeBand.from5To8,
+          note: 'n',
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.answers, {'c04': ChecklistAnswer.ok});
+    expect(d.theme, VideoTheme.bichos);
+    expect(d.band, AgeBand.from5To8);
+    expect(d.note, 'n');
+    final kept = d.snapshot;
+    expect(kept.answers, {'c04': ChecklistAnswer.ok});
+    expect(kept.theme, VideoTheme.bichos);
+    expect(kept.band, AgeBand.from5To8);
+    expect(kept.note, 'n');
+
+    final barred = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {'c35': ChecklistAnswer.appears},
+          minAgeBand: AgeBand.from5To8,
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(barred.answers, {'c35': ChecklistAnswer.appears});
+    expect(barred.band, isNull, reason: 'a restored band now barred');
   });
 
   test('a long video asks its own step before the theme and band; a short '
@@ -340,16 +475,14 @@ void main() {
       'does; up to 60 minutes it does not', () {
     final long = ApprovalDraft(list, length: const Duration(minutes: 61));
     expect(long.tooLongForYoungest, isTrue);
-    expect(long.youngestBarred, isFalse, reason: 'the pace is not marked');
+    expect(long.computedBand, AgeBand.from5To8);
+    expect(long.answersBand, AgeBand.upTo4, reason: 'the pace is not marked');
     long.band = AgeBand.upTo4;
     long.answer(item('c25'), ChecklistAnswer.ok);
     expect(long.band, isNull);
     expect(
-      ApprovalDraft(
-        list,
-        length: const Duration(minutes: 60),
-      ).tooLongForYoungest,
-      isFalse,
+      ApprovalDraft(list, length: const Duration(minutes: 60)).computedBand,
+      AgeBand.upTo4,
     );
   });
 

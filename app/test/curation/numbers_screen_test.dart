@@ -37,7 +37,7 @@ void main() {
 
     final rows = tester.widgetList<FigureRow>(find.byType(FigureRow));
     expect(
-      [for (final r in rows) (r.label, r.figure)],
+      [for (final r in rows.take(7)) (r.label, r.figure)],
       [
         ('Contas', '1.240'),
         ('Famílias', '412'),
@@ -54,6 +54,35 @@ void main() {
     // The numbers alone: the admin's doors are Equipe's.
     expect(find.byType(DoorRow), findsNothing);
     expect(find.text('Números da plataforma'), findsWidgets);
+  });
+
+  testWidgets('the four review measures follow the seven numbers, in '
+      'order', (tester) async {
+    await admin(
+      tester,
+      metrics: () => json(200, {
+        ...metricsJson,
+        'approval_median_seconds_30d': 720,
+        'doubt_percent_30d': 18,
+        'older_band_percent_30d': null,
+        'split_band_percent_30d': 4,
+      }),
+    );
+
+    final rows = tester.widgetList<FigureRow>(find.byType(FigureRow));
+    expect(rows, hasLength(11));
+    expect(
+      [for (final r in rows.skip(7)) (r.label, r.figure)],
+      [
+        ('Tempo mediano de uma aprovação (30 dias)', '12 min'),
+        ('Revisões que viraram dúvida (30 dias)', '18%'),
+        (
+          'Aprovações com idade maior que a das respostas (30 dias)',
+          'menos de 5 casos',
+        ),
+        ('Vídeos cujas respostas levam a idades diferentes (30 dias)', '4%'),
+      ],
+    );
   });
 
   testWidgets('while the numbers load, the placeholder stands in their '
@@ -82,7 +111,7 @@ void main() {
     await tester.tap(find.text('Tentar de novo'));
     await tester.pumpAndSettle();
     expect(find.byType(ErrorNote), findsNothing);
-    expect(find.byType(FigureRow), findsNWidgets(7));
+    expect(find.byType(FigureRow), findsNWidgets(11));
     expect(h.actions.where((c) => c == 'GET /v1/admin/metrics'), hasLength(3));
   });
 

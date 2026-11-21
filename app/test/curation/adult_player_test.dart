@@ -42,14 +42,17 @@ void main() {
       expect(playback.closed, isTrue);
     });
 
-    test('playing, pausing and ending are YouTube\'s own business', () async {
-      for (final event in const [
-        PlayerPlaying(),
-        PlayerPaused(),
-        PlayerEnded(),
-      ]) {
+    test('playing and pausing are YouTube\'s own business', () async {
+      for (final event in const [PlayerPlaying(), PlayerPaused()]) {
         expect(await follow(event), AdultPlayerOutcome.playing);
       }
+      expect(playback.calls, isEmpty);
+    });
+
+    test('the end is reported, the player kept', () async {
+      expect(await follow(const PlayerEnded()), AdultPlayerOutcome.ended);
+
+      expect(playback.closed, isFalse);
       expect(playback.calls, isEmpty);
     });
   });

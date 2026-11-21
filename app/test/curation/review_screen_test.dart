@@ -29,6 +29,9 @@ Future<Harness> review(
   WidgetTester tester, {
   FutureOr<http.Response> Function(String id)? video,
   FutureOr<http.Response> Function(http.Request)? queue,
+  FutureOr<http.Response> Function()? draft,
+  FutureOr<http.Response> Function(http.Request)? saveDraft,
+  FutureOr<http.Response> Function()? ended,
   String initial = '/curadoria/v1',
 }) async {
   final h =
@@ -37,6 +40,9 @@ Future<Harness> review(
           api: curatorApi(
             video: video ?? (_) => detailOf(babyShark),
             queue: queue,
+            draft: draft,
+            saveDraft: saveDraft,
+            ended: ended,
           ),
         )
         ..family = ownerFamily
@@ -322,6 +328,77 @@ void main() {
       );
     });
   }
+
+  testWidgets('entering a review with no draft begins one', (tester) async {
+    final h = await review(tester);
+
+    final drafts = h.actions.where((c) => c.contains('/draft')).toList();
+    expect(drafts, [
+      'GET /v1/curation/videos/v1/draft',
+      'PUT /v1/curation/videos/v1/draft {}',
+    ]);
+    expect(
+      h.actions.indexOf('GET /v1/curation/videos/v1'),
+      lessThan(h.actions.indexOf('GET /v1/curation/videos/v1/draft')),
+      reason: 'after the video read',
+    );
+  });
+
+  testWidgets('entering a review with a draft does not begin another', (
+    tester,
+  ) async {
+    final h = await review(
+      tester,
+      draft: () => json(200, {
+        'draft': draftJson(answers: {'c04': 'ok'}),
+      }),
+    );
+
+    expect(h.actions, contains('GET /v1/curation/videos/v1/draft'));
+    expect(h.actions.where((c) => c.startsWith('PUT ')), isEmpty);
+  });
+
+  testWidgets('the player\'s end is reported to the draft', (tester) async {
+    final h = await review(tester);
+
+    player(h)!.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    expect(
+      h.actions.where((c) => c == 'POST /v1/curation/videos/v1/draft/ended'),
+      hasLength(1),
+    );
+    expect(player(h)!.closed, isFalse);
+    expect(h.adultPlayer.opened, hasLength(1));
+    expect(window, findsOneWidget);
+  });
+
+  testWidgets('an end report that fails says nothing here', (tester) async {
+    final h = await review(tester, ended: () => problem(503, 'unavailable'));
+
+    player(h)!.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    expect(
+      h.actions.where((c) => c == 'POST /v1/curation/videos/v1/draft/ended'),
+      hasLength(1),
+    );
+    expect(find.byType(ErrorNote), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(window, findsOneWidget);
+  });
+
+  testWidgets('a draft that cannot begin leaves the review usable', (
+    tester,
+  ) async {
+    await review(tester, saveDraft: (_) => problem(403, 'own_suggestion'));
+
+    expect(find.byType(ErrorNote), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(window, findsOneWidget);
+    expect(find.widgetWithText(DoorRow, 'Revisar vídeo'), findsOneWidget);
+    expect(find.widgetWithText(DoorRow, 'Recusar'), findsOneWidget);
+  });
 
   testWidgets('not_curator goes home with a notice', (tester) async {
     final h = await review(tester, video: (_) => problem(403, 'not_curator'));

@@ -130,3 +130,48 @@ func TestExportCarriesTheCuratorTermsAndTheAnswers(t *testing.T) {
 		t.Fatalf("declarations after the erasure: %d", n)
 	}
 }
+
+func TestExportCarriesTheDraftsAndTheReviewTimes(t *testing.T) {
+	f := newFixture(t)
+	ana, bia, video := curationRows(f)
+	f.exec(`INSERT INTO review_drafts (curator_id, video_id, round, checklist_version, answers, questions, began_at, played_to_end_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, 3, '2026-10-20', '{"c04":"ok"}', '{"c04":"Texto da pergunta."}', $3, $3, $3),
+		       ($4::uuid, $2::uuid, 3, '2026-10-20', '{"c04":"no"}', '{}', $3, NULL, $3)`, ana, video, f.now, bia)
+	f.exec(`INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme, min_age_band, computed_band, band_reason, reviewed_at, began_at)
+		VALUES ($1::uuid, 2, $2::uuid, 'pedagogo', 'approve', 'bichos', '9-12', '5-8', 'Mais velho.', $3, $3)`, video, ana, f.now)
+
+	js := f.exportJSON(ana)
+	for _, want := range []string{
+		`"review_drafts":[{"youtube_id":`,
+		`"answers":{"c04":"ok"}`,
+		`"began_at":"2026-10-04T12:00:00Z","played_to_end_at":"2026-10-04T12:00:00Z"`,
+		`"computed_band":"5-8","band_reason":"Mais velho."`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("missing %s in %s", want, js)
+		}
+	}
+	if strings.Contains(js, `"questions"`) || strings.Contains(js, "Texto da pergunta") {
+		t.Fatal("the export carries the question list")
+	}
+	if strings.Contains(js, bia) || strings.Contains(js, `"no"`) {
+		t.Fatal("the export carries another curator's draft")
+	}
+}
+
+func TestErasureTakesTheDrafts(t *testing.T) {
+	f := newFixture(t)
+	ana, _, video := curationRows(f)
+	f.exec(`INSERT INTO review_drafts (curator_id, video_id, round, checklist_version, began_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, 3, '2026-10-20', $3, $3)`, ana, video, f.now)
+
+	if err := f.svc.DeleteAccount(ctx, ana, nil); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT count(*) FROM review_drafts WHERE curator_id = $1::uuid`, ana); n != 0 {
+		t.Fatalf("drafts after the erasure: %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM videos`); n != 1 {
+		t.Fatal("the erasure removed a video")
+	}
+}

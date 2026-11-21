@@ -37,6 +37,11 @@ func (s *Server) adminMetrics(w http.ResponseWriter, r *http.Request) {
 		"published_videos": m.PublishedVideos,
 		"published_packs":  m.PublishedPacks,
 		"reports_7d":       m.Reports7d,
-		"suppressed_below": staff.SuppressedBelow,
+
+		"approval_median_seconds_30d": m.ApprovalMedianSeconds30d,
+		"doubt_percent_30d":           m.DoubtPercent30d,
+		"older_band_percent_30d":      m.OlderBandPercent30d,
+		"split_band_percent_30d":      m.SplitBandPercent30d,
+		"suppressed_below":            staff.SuppressedBelow,
 	})
 }

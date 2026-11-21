@@ -40,6 +40,7 @@ type Account struct {
 	CuratorDeclarations []CuratorDeclaration `json:"curator_declarations"`
 	Suggestions         []Suggestion         `json:"suggestions"`
 	Reviews             []Review             `json:"reviews"`
+	ReviewDrafts        []ReviewDraft        `json:"review_drafts"`
 	PackReviews         []PackReview         `json:"pack_reviews"`
 	PackCompositions    []PackComposition    `json:"pack_compositions"`
 }
@@ -105,6 +106,25 @@ type Review struct {
 	ChecklistVersion *string         `json:"checklist_version"` // null before the list
 	Checklist        json.RawMessage `json:"checklist"`         // the answers, or a rejection's questions
 	ReviewedAt       time.Time       `json:"reviewed_at"`
+	ComputedBand     *string         `json:"computed_band"` // the band the answers allow, on an approval
+	BandReason       *string         `json:"band_reason"`   // why the chosen band differs from it
+	BeganAt          *time.Time      `json:"began_at"`      // null before the review time was kept
+}
+
+// ReviewDraft is a review the account has begun and not finished. The
+// question texts it also keeps are the list's, not the person's, so
+// they stay out.
+type ReviewDraft struct {
+	YouTubeID        string          `json:"youtube_id"`
+	VideoTitle       string          `json:"video_title"`
+	Round            int             `json:"round"`
+	ChecklistVersion string          `json:"checklist_version"`
+	Answers          json.RawMessage `json:"answers"`
+	Theme            *string         `json:"theme"`
+	MinAgeBand       *string         `json:"min_age_band"`
+	Note             *string         `json:"note"`
+	BeganAt          time.Time       `json:"began_at"`
+	PlayedToEndAt    *time.Time      `json:"played_to_end_at"`
 }
 
 // PackReview is one of the account's pack reviews.
@@ -554,7 +574,8 @@ func readCuration(ctx context.Context, tx pgx.Tx, a *Account) error {
 	}
 
 	rows, err = tx.Query(ctx, `SELECT v.youtube_id, v.title, r.round, r.display_role, r.decision, r.theme,
-			r.min_age_band, r.reason, r.checklist_version, r.checklist, r.reviewed_at
+			r.min_age_band, r.reason, r.checklist_version, r.checklist, r.reviewed_at,
+			r.computed_band, r.band_reason, r.began_at
 		FROM video_reviews r JOIN videos v ON v.id = r.video_id
 		WHERE r.curator_id = $1::uuid ORDER BY r.reviewed_at, r.id`, a.ID)
 	if err != nil {
@@ -564,8 +585,28 @@ func readCuration(ctx context.Context, tx pgx.Tx, a *Account) error {
 		var x Review
 		var list []byte
 		err := r.Scan(&x.YouTubeID, &x.VideoTitle, &x.Round, &x.DisplayRole, &x.Decision, &x.Theme,
-			&x.MinAgeBand, &x.Reason, &x.ChecklistVersion, &list, &x.ReviewedAt)
+			&x.MinAgeBand, &x.Reason, &x.ChecklistVersion, &list, &x.ReviewedAt,
+			&x.ComputedBand, &x.BandReason, &x.BeganAt)
 		x.Checklist, x.ReviewedAt = list, x.ReviewedAt.UTC()
+		x.BeganAt = utcOrNil(x.BeganAt)
+		return x, err
+	}); err != nil {
+		return err
+	}
+
+	rows, err = tx.Query(ctx, `SELECT v.youtube_id, v.title, d.round, d.checklist_version, d.answers, d.theme,
+			d.min_age_band, d.note, d.began_at, d.played_to_end_at
+		FROM review_drafts d JOIN videos v ON v.id = d.video_id
+		WHERE d.curator_id = $1::uuid ORDER BY d.began_at, v.youtube_id, d.round`, a.ID)
+	if err != nil {
+		return err
+	}
+	if a.ReviewDrafts, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (ReviewDraft, error) {
+		var x ReviewDraft
+		var answers []byte
+		err := r.Scan(&x.YouTubeID, &x.VideoTitle, &x.Round, &x.ChecklistVersion, &answers, &x.Theme,
+			&x.MinAgeBand, &x.Note, &x.BeganAt, &x.PlayedToEndAt)
+		x.Answers, x.BeganAt, x.PlayedToEndAt = answers, x.BeganAt.UTC(), utcOrNil(x.PlayedToEndAt)
 		return x, err
 	}); err != nil {
 		return err
@@ -699,4 +740,13 @@ func readScreenTime(ctx context.Context, tx pgx.Tx, f *Family) error {
 		return x, err
 	})
 	return err
+}
+
+// utcOrNil puts a time that may be absent in UTC, like the rest of the export.
+func utcOrNil(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	u := t.UTC()
+	return &u
 }

@@ -191,3 +191,25 @@ func TestAHeldVideoAlwaysHasAReason(t *testing.T) {
 		t.Fatal("a held video without a reason was stored")
 	}
 }
+
+func TestHeldVideosCarryTheBandTheAnswersAllow(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	slapstick := f.video(ytID)
+	f.review(c, slapstick, approveWith("", "", map[string]curation.Answer{"c13": curation.AnswerDoubt, "c33": curation.AnswerAppears}))
+	plain := f.video("plaindoubt1")
+	f.review(c, plain, approveWith("", "", map[string]curation.Answer{"c13": curation.AnswerDoubt}))
+	held, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(held) != 2 {
+		t.Fatalf("held %+v %v", held, err)
+	}
+	for _, h := range held {
+		want := family.AgeUpTo4
+		if h.Video.ID == slapstick {
+			want = family.Age5To8
+		}
+		if h.ComputedBand != want {
+			t.Errorf("%s: computed %q, want %q", h.Video.YouTubeID, h.ComputedBand, want)
+		}
+	}
+}

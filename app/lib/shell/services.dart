@@ -10,6 +10,7 @@ import '../auth/provider_authenticator.dart';
 import '../auth/provider_sign_in.dart';
 import '../curation/curation_api.dart';
 import '../curation/family_catalog_api.dart';
+import '../curation/unheard_ends.dart';
 import '../family/family_api.dart';
 import '../family/family_model.dart';
 import '../family/family_session_api.dart';
@@ -87,6 +88,9 @@ class AppServices {
   final ChildApi child;
   final PrivacyApi privacy;
   final CurationApi curation;
+
+  /// The videos whose end the server has not heard from this session.
+  late final unheardEnds = UnheardEnds(session: client.status);
 
   /// The team and moderation routes, for an admin or a
   /// moderator.

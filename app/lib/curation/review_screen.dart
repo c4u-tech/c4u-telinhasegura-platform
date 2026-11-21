@@ -14,7 +14,9 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'adult_window.dart';
 import 'curation.dart';
+import 'curation_api.dart';
 import 'queue_screen.dart' show leaveForQueue;
+import 'unheard_ends.dart';
 import 'video_heading.dart';
 import 'words.dart';
 
@@ -34,7 +36,10 @@ const playerFailed =
 /// square-edged 16:9 window at the column's width, loaded without
 /// playing, with YouTube's own controls and nothing of ours over it;
 /// then the doors "Revisar vídeo" and "Recusar". The player pauses
-/// beneath a decision and goes when the curator leaves.
+/// beneath a decision and goes when the curator leaves. Entering begins
+/// the curator's draft of the review, unless one is already kept, and
+/// the video's end is told to it, since an approval needs the video
+/// watched to its end; the screen works the same without a draft.
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key, required this.id});
 
@@ -49,6 +54,8 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
   VideoDetail? _detail;
   bool _failed = false;
   GoRouter? _router;
+  late final CurationApi _api;
+  late final UnheardEnds _ends;
   bool _away = false;
 
   @override
@@ -56,6 +63,8 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    _api = AppScope.of(context).curation;
+    _ends = AppScope.of(context).unheardEnds;
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _router = GoRouter.of(context)..routerDelegate.addListener(_where);
@@ -84,12 +93,28 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
       final detail = await AppScope.of(context).curation.video(widget.id);
       if (!mounted) return;
       setState(() => _detail = detail);
-      openPlayer(detail.video.youtubeId);
+      openPlayer(detail.video.youtubeId, onEnded: _ended);
+      unawaited(_begin());
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
       setState(() => _failed = true);
     }
   }
+
+  /// Begins the draft when none is kept. A draft that cannot be read or
+  /// begun changes nothing here: the review goes on without it.
+  Future<void> _begin() async {
+    final api = AppScope.of(context).curation;
+    try {
+      if (await api.draft(widget.id) == null) await api.saveDraft(widget.id);
+    } on Object {
+      // Without a draft, the review is the one it always was.
+    }
+  }
+
+  /// Tells the draft the video played to its end. A failure says nothing
+  /// here: it is kept, and the approval sends it again.
+  void _ended() => unawaited(_ends.report(_api, widget.id));
 
   @override
   Widget build(BuildContext context) => FieldLayout(
