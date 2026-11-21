@@ -30,6 +30,10 @@ type DoubtDecision struct {
 // moderator saw the reports filed while the video was held.
 // Any other held video keeps the reopen and remove of moderation. No one
 // decides a round they reviewed in, as the doubter or beside them.
+// Publishing needs the video to have played to its end for the moderator
+// in this round, as ModeratorWatched records: a curator was unsure, so the
+// one who settles it for publication watches it whole, and the video is
+// still seen to the end by two people. Removing needs no viewing.
 func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string, d DoubtDecision) error {
 	reason, err := staff.CheckReason(m.Reason)
 	if err != nil {
@@ -79,9 +83,20 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 			if bandRank(d.MinAgeBand) < bandRank(band) {
 				return ErrChecklistBand
 			}
+			// FOR SHARE: losing the role the viewing hangs off waits for
+			// this decision, and none lands on a viewing removed meanwhile.
+			var viewed bool
+			err = tx.QueryRow(ctx, `SELECT true FROM moderator_views
+				WHERE moderator_id = $1::uuid AND video_id = $2::uuid AND round = $3 FOR SHARE`, m.ActorID, videoID, round).Scan(&viewed)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotWatched
+			}
+			if err != nil {
+				return err
+			}
 		}
-		// Either way the round is over, and the drafts of it with it.
-		if err := closeDrafts(ctx, tx, videoID); err != nil {
+		// Either way the round is over, and its drafts and viewings with it.
+		if err := closeRound(ctx, tx, videoID); err != nil {
 			return err
 		}
 		if d.Decision == Reject {
@@ -100,6 +115,41 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 		SubjectKind: audit.SubjectVideo, SubjectID: strings.ToLower(videoID), Reason: reason,
 		Metadata: map[string]string{"decision": string(d.Decision)}})
 	return nil
+}
+
+// ModeratorWatched records that the player reached a held video's end for
+// the moderator, in the video's current round and under the role their
+// route matched. The first time counts. It takes the video row lock first,
+// as every write of a round does.
+func (s *Service) ModeratorWatched(ctx context.Context, m Moderation, videoID string) error {
+	if !validID(videoID) {
+		return ErrNotFound
+	}
+	now := s.now()
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		v, err := lockVideo(ctx, tx, videoID)
+		if err != nil {
+			return err
+		}
+		if v.state != Held {
+			return ErrStateConflict
+		}
+		// FOR SHARE: a revoke waits for this write, and no viewing lands
+		// for a role removed meanwhile.
+		var held bool
+		err = tx.QueryRow(ctx, `SELECT true FROM platform_roles WHERE account_id = $1::uuid AND role = $2 FOR SHARE`,
+			m.ActorID, string(m.ActorRole)).Scan(&held)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return staff.ErrNotModerator
+		}
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO moderator_views (moderator_id, role, video_id, round, played_to_end_at)
+			VALUES ($1::uuid, $2, $3::uuid, $4, $5) ON CONFLICT (moderator_id, video_id, round) DO NOTHING`,
+			m.ActorID, string(m.ActorRole), videoID, v.round, now)
+		return err
+	})
 }
 
 // errUnknownList is a review stored under a list the code does not know.

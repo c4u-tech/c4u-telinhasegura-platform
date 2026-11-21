@@ -106,3 +106,19 @@ func (s *Server) decideDoubt(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// moderatorEnded records that a held video played to its end for the
+// caller, under the role their route matched.
+func (s *Server) moderatorEnded(w http.ResponseWriter, r *http.Request) {
+	role, ok := actorRole(r)
+	if !ok {
+		s.fail(w, errors.New("httpapi: moderation route without withRole"))
+		return
+	}
+	m := curation.Moderation{ActorID: current(r).AccountID, ActorRole: role}
+	if err := s.Curation.ModeratorWatched(r.Context(), m, r.PathValue("id")); err != nil {
+		s.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

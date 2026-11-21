@@ -48,6 +48,7 @@ func TestDecideDoubtPublishes(t *testing.T) {
 	v := f.doubted(ytID)
 	f.now = f.now.Add(time.Hour)
 	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "  Ninguém se arrisca no vídeo.  "}
+	f.moderatorWatched(m, v)
 	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "natureza", MinAgeBand: family.AgeUpTo4}); err != nil {
 		t.Fatal(err)
 	}
@@ -148,6 +149,7 @@ func TestDecideDoubtRestartsTheReportCount(t *testing.T) {
 	}
 	f.now = f.now.Add(time.Hour)
 	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Os avisos não se confirmam."}
+	f.moderatorWatched(m, v)
 	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}); err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +181,7 @@ func TestNoOneDecidesADoubtInTheirOwnRound(t *testing.T) {
 	publish := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}
 	for _, who := range []string{doubter, approver} {
 		m := curation.Moderation{ActorID: who, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+		f.moderatorWatched(m, v)
 		for _, d := range []curation.DoubtDecision{publish, {Decision: curation.Reject}} {
 			if err := f.svc.DecideDoubt(ctx, m, v, d); !errors.Is(err, curation.ErrOwnReview) {
 				t.Errorf("deciding an own round: %v", err)
@@ -189,6 +192,7 @@ func TestNoOneDecidesADoubtInTheirOwnRound(t *testing.T) {
 		t.Fatalf("the doubt moved: %s %s", st, why)
 	}
 	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	f.moderatorWatched(m, v)
 	if err := f.svc.DecideDoubt(ctx, m, v, publish); err != nil {
 		t.Fatal(err)
 	}
@@ -205,6 +209,7 @@ func TestDecideDoubtRaisedInARevisit(t *testing.T) {
 	}
 	f.now = f.now.Add(time.Hour)
 	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Sem risco no vídeo."}
+	f.moderatorWatched(m, v)
 	if err := f.svc.DecideDoubt(ctx, m, v, curation.DoubtDecision{Decision: curation.Approve, Theme: "musica", MinAgeBand: family.AgeUpTo4}); err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +230,7 @@ func TestDecideDoubtGivesASixtyMinuteVideoTheYoungestBand(t *testing.T) {
 	v := f.doubted(ytID)
 	f.exec(`UPDATE videos SET duration_seconds = $2 WHERE id = $1::uuid`, v, int((60 * time.Minute).Seconds()))
 	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	f.moderatorWatched(m, v)
 	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
 	if err := f.svc.DecideDoubt(ctx, m, v, young); err != nil {
 		t.Fatalf("2 to 4: %v", err)
@@ -256,6 +262,7 @@ func TestDecideDoubtKeepsALongOrFastVideoFromTheYoungestBand(t *testing.T) {
 			mod := f.account("mia@example.com")
 			v := held(f)
 			m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+			f.moderatorWatched(m, v)
 			young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
 			if err := f.svc.DecideDoubt(ctx, m, v, young); !errors.Is(err, curation.ErrChecklistBand) {
 				t.Fatalf("2 to 4: %v", err)
@@ -288,6 +295,7 @@ func TestDecideDoubtRefusesABandYoungerThanTheRoundsAnswers(t *testing.T) {
 		t.Fatalf("doubt: %s", state)
 	}
 	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	f.moderatorWatched(m, v)
 	d := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}
 	if err := f.svc.DecideDoubt(ctx, m, v, d); !errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("5 to 8: %v", err)
@@ -326,6 +334,7 @@ func TestDecideDoubtReadsEachReviewUnderItsOwnList(t *testing.T) {
 	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
 	// c35 was not a band question under that list: only the pace counts.
 	v := f.heldDoubt(ytID, "2026-11-11", map[string]string{"c22": "appears", "c35": "appears"})
+	f.moderatorWatched(m, v)
 	if err := f.svc.DecideDoubt(ctx, m, v, young); !errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("2 to 4: %v", err)
 	}
@@ -338,11 +347,13 @@ func TestDecideDoubtReadsEachReviewUnderItsOwnList(t *testing.T) {
 		t.Fatalf("published %+v", got)
 	}
 	first := f.heldDoubt("firstlist01", "2026-10-20", map[string]string{"c01": "ok", "c22": "appears"})
+	f.moderatorWatched(m, first)
 	if err := f.svc.DecideDoubt(ctx, m, first, young); !errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("2 to 4 under the first list: %v", err)
 	}
 	// Under a former list too, not knowing the pace bars as a fast one.
 	unsure := f.heldDoubt("unsurepace1", "2026-11-11", map[string]string{"c22": "doubt"})
+	f.moderatorWatched(m, unsure)
 	if err := f.svc.DecideDoubt(ctx, m, unsure, young); !errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("2 to 4 over an unsure pace: %v", err)
 	}
@@ -358,6 +369,7 @@ func TestDecideDoubtRefusesABandAnUnsureAnswerBars(t *testing.T) {
 		t.Fatalf("doubt: %s", state)
 	}
 	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	f.moderatorWatched(m, v)
 	d := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}
 	if err := f.svc.DecideDoubt(ctx, m, v, d); !errors.Is(err, curation.ErrChecklistBand) {
 		t.Fatalf("5 to 8: %v", err)
@@ -376,6 +388,7 @@ func TestDecideDoubtRefusesToReadAnUnknownList(t *testing.T) {
 	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
 	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
 	v := f.heldDoubt(ytID, "2099-01-01", map[string]string{"c22": "appears"})
+	f.moderatorWatched(m, v)
 	// The held list still loads, with no band for that video.
 	held, err := f.svc.HeldVideos(ctx)
 	if err != nil || len(held) != 1 || held[0].Video.ID != v || held[0].ComputedBand != "" {
@@ -389,6 +402,7 @@ func TestDecideDoubtRefusesToReadAnUnknownList(t *testing.T) {
 	}
 	// A review stored before there was any list bars nothing.
 	before := f.heldDoubt("beforelist1", "", map[string]string{"c22": "appears"})
+	f.moderatorWatched(m, before)
 	if err := f.svc.DecideDoubt(ctx, m, before, young); err != nil {
 		t.Fatalf("before any list: %v", err)
 	}

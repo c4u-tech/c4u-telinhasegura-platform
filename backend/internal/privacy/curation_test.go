@@ -175,3 +175,32 @@ func TestErasureTakesTheDrafts(t *testing.T) {
 		t.Fatal("the erasure removed a video")
 	}
 }
+
+// A moderator's viewing of a held video is theirs: the export carries it,
+// never another's, and the erasure takes it.
+func TestExportCarriesTheModeratorViewsAndErasureTakesThem(t *testing.T) {
+	f := newFixture(t)
+	ana, bia, video := curationRows(f)
+	f.exec(`INSERT INTO platform_roles (account_id, role, granted_at) VALUES ($1::uuid, 'moderator', $2)`, bia, f.now)
+	f.exec(`INSERT INTO moderator_views (moderator_id, role, video_id, round, played_to_end_at)
+		VALUES ($1::uuid, 'admin', $3::uuid, 1, $4), ($2::uuid, 'moderator', $3::uuid, 2, $4)`, ana, bia, video, f.now)
+
+	js := f.exportJSON(ana)
+	want := `"moderator_views":[{"youtube_id":"dQw4w9WgXcQ","video_title":"Baby Shark","round":1,"played_to_end_at":"2026-10-04T12:00:00Z"}]`
+	if !strings.Contains(js, want) {
+		t.Fatalf("missing %s in %s", want, js)
+	}
+	if strings.Contains(js, `"round":2`) {
+		t.Fatal("the export carries another moderator's viewing")
+	}
+
+	if err := f.svc.DeleteAccount(ctx, ana, nil); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.count(`SELECT count(*) FROM moderator_views WHERE moderator_id = $1::uuid`, ana); n != 0 {
+		t.Fatalf("viewings after the erasure: %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM moderator_views`); n != 1 {
+		t.Fatal("the erasure took another moderator's viewing")
+	}
+}

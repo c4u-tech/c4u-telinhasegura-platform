@@ -271,7 +271,7 @@ type approval struct {
 // holds the video at once, and a held video takes no review. Publishing
 // moves the round on, so the next round is the revisit.
 // It returns whether the video was published and whether its reports
-// then held it. The closed round's drafts go with it.
+// then held it. The closed round's drafts and viewings go with it.
 func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID string, round int, now time.Time) (bool, bool, error) {
 	reached, err := s.approvalsReached(ctx, tx, videoLedger, videoID, round)
 	if err != nil || !reached {
@@ -306,7 +306,7 @@ func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID stri
 		videoID, theme, string(band), now, now.Add(s.d.RevisitAfter)); err != nil {
 		return false, false, err
 	}
-	if err := closeDrafts(ctx, tx, videoID); err != nil {
+	if err := closeRound(ctx, tx, videoID); err != nil {
 		return false, false, err
 	}
 	// Reports made while the video waited were stored but not acted on:
