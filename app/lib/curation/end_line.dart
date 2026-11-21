@@ -51,21 +51,26 @@ class EndLine extends StatelessWidget {
             check,
             height(playedToEnd, box.maxWidth - check - Space.xs),
           ].reduce((a, b) => a > b ? a : b);
+          // The words stay right under the window; the room kept for the
+          // longer sentence lies below them.
           return ConstrainedBox(
             constraints: BoxConstraints(minHeight: tallest),
-            child: Row(
-              children: [
-                if (ended) ...[
-                  Icon(Icons.check_rounded, size: check, color: p.text),
-                  const SizedBox(width: Space.xs),
-                ],
-                Flexible(
-                  child: Text(
-                    words,
-                    style: style?.copyWith(color: ended ? p.text : p.muted),
+            child: Align(
+              alignment: AlignmentDirectional.topStart,
+              child: Row(
+                children: [
+                  if (ended) ...[
+                    Icon(Icons.check_rounded, size: check, color: p.text),
+                    const SizedBox(width: Space.xs),
+                  ],
+                  Flexible(
+                    child: Text(
+                      words,
+                      style: style?.copyWith(color: ended ? p.text : p.muted),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
