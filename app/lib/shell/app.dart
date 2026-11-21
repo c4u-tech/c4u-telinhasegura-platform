@@ -11,6 +11,7 @@ import '../parental/app_mode.dart';
 import 'router.dart';
 import 'services.dart';
 import 'splash.dart';
+import 'start_failed.dart';
 import 'system_bars.dart';
 
 class TelinhaSeguraApp extends StatefulWidget {
@@ -38,8 +39,10 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
   /// between two known ones keeps it.
   bool _childHolds = false;
 
-  /// The mode's start-up read failed: the splash offers a retry.
-  final _restoreFailed = ValueNotifier(false);
+  /// The mode's start-up read: how many tries failed, and whether one
+  /// is under way. Once one failed, its screen offers to try again and
+  /// stands, busy while a try runs, until the mode is known.
+  final _restoring = ValueNotifier((failures: 0, trying: true));
 
   /// A link the platform pushed while the splash stood in for the router.
   /// iOS delivers the link that launched the app this way, right after the
@@ -83,11 +86,13 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
   }
 
   Future<void> _restoreMode() async {
-    _restoreFailed.value = false;
+    final failures = _restoring.value.failures;
+    _restoring.value = (failures: failures, trying: true);
     try {
       await widget.services.appMode.restore();
+      if (mounted) _restoring.value = (failures: 0, trying: false);
     } on Object {
-      if (mounted) _restoreFailed.value = true;
+      if (mounted) _restoring.value = (failures: failures + 1, trying: false);
     }
   }
 
@@ -96,7 +101,7 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
     WidgetsBinding.instance.removeObserver(this);
     widget.services.appMode.removeListener(_releaseHeldLink);
     _router.dispose();
-    _restoreFailed.dispose();
+    _restoring.dispose();
     super.dispose();
   }
 
@@ -123,21 +128,29 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
       builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: barsOver(Theme.of(context).brightness),
         child: ListenableBuilder(
-          listenable: Listenable.merge([
-            widget.services.appMode,
-            _restoreFailed,
-          ]),
+          listenable: Listenable.merge([widget.services.appMode, _restoring]),
           builder: (context, _) {
-            final mode = widget.services.appMode.mode;
+            final appMode = widget.services.appMode;
+            final mode = appMode.mode;
+            final restore = _restoring.value;
+            final failed = mode == null && restore.failures > 0;
             if (mode != null) {
               _childHolds = mode is SharedKid || mode is LinkedDevice;
+            } else if (failed) {
+              _childHolds = appMode.childMayHold;
             }
             return ModeBars(
               hidden: _childHolds,
               child: Opening(
                 ready: mode != null,
-                failed: _restoreFailed.value,
-                onRetry: _restoreMode,
+                failure: failed
+                    ? StartFailed(
+                        onRetry: _restoreMode,
+                        busy: restore.trying,
+                        child: appMode.childMayHold,
+                        attempt: restore.failures,
+                      )
+                    : null,
                 child: child!,
               ),
             );

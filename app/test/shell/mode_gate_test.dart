@@ -3,16 +3,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/entry_screen.dart';
+import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_client.dart';
+import 'package:telinha_segura/design/busy_ring.dart';
+import 'package:telinha_segura/design/field_layout.dart';
+import 'package:telinha_segura/design/tevi.dart';
+import 'package:telinha_segura/design/wordmark.dart';
 import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/kid/kid_home_screen.dart';
+import 'package:telinha_segura/kid/shelves.dart';
 import 'package:telinha_segura/kid_mode/pin_gate_screen.dart';
 import 'package:telinha_segura/kid_mode/redeem_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/parental/kid_mode_mark.dart';
 import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/splash.dart';
+import 'package:telinha_segura/shell/start_failed.dart';
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
@@ -191,26 +199,87 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('a failed restore offers "Tentar de novo", which restores '
-        'again', (tester) async {
+    testWidgets('a failed restore stands as a task screen: the band with '
+        'the mascot and the wordmark, a title, the note and the retry', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
       final h = Harness(kind: ClientKind.mobile, signedIn: true)
-        ..sessionFailure = 500
-        ..family = ownerFamily;
+        ..sessionFailure = 500;
       await h.pump(tester);
 
       expect(h.services.appMode.mode, isNull);
-      expect(find.byType(Splash), findsOneWidget);
-      expect(find.byType(FamilyHomeScreen), findsNothing);
+      expect(find.byKey(FieldLayout.fieldKey), findsOneWidget);
+      expect(find.byType(Tevi), findsOneWidget, reason: 'one mascot');
+      expect(find.byType(Wordmark), findsOneWidget);
+      expect(find.text(StartFailed.title), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.text(StartFailed.title))
+            .flagsCollection
+            .isHeader,
+        isTrue,
+      );
+      expect(find.text(Copy.genericRetry), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Tentar de novo'), findsOne);
+      // Nowhere to go back to.
+      expect(find.byTooltip(FieldLayout.backWord), findsNothing);
+      expect(find.byType(ShelvesFailed), findsNothing);
+      semantics.dispose();
+    });
+
+    testWidgets('"Tentar de novo" reads again, busy while it does, and '
+        'leaves for the first screen once it answers', (tester) async {
+      final h =
+          Harness(
+              kind: ClientKind.mobile,
+              signedIn: true,
+              sessionDelay: const Duration(seconds: 1),
+            )
+            ..sessionFailure = 500
+            ..family = ownerFamily;
+      await tester.pumpWidget(h.app());
+      // The session's restore, then the mode's read, each one delay.
+      for (var i = 0; i < 2; i++) {
+        await tester.pump(const Duration(seconds: 1));
+      }
+      await tester.pumpAndSettle();
+      expect(find.text(StartFailed.title), findsOneWidget);
+      final reads = h.calls.where((c) => c == 'GET /v1/session').length;
 
       h.sessionFailure = null;
       await tester.tap(find.widgetWithText(FilledButton, 'Tentar de novo'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
+      expect(
+        h.calls.where((c) => c == 'GET /v1/session').length,
+        greaterThan(reads),
+      );
+      // The screen stays while the read runs; its retry turns busy.
+      expect(find.text(StartFailed.title), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(BusyRing),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
       expect(h.services.appMode.mode, const Guardian());
+      expect(find.text(StartFailed.title), findsNothing);
       expect(find.byType(FamilyHomeScreen), findsOneWidget);
+      // The home's own reads wait out the same delay.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
     });
 
-    testWidgets('a retry that fails again keeps the splash and the retry', (
+    testWidgets('a retry that fails again keeps the screen and says so once', (
       tester,
     ) async {
       final h = Harness(kind: ClientKind.mobile, signedIn: true)
@@ -221,7 +290,41 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.services.appMode.mode, isNull);
-      expect(find.widgetWithText(FilledButton, 'Tentar de novo'), findsOne);
+      expect(find.text(StartFailed.title), findsOneWidget);
+      expect(find.text(Copy.genericRetry), findsOneWidget);
+      expect(find.byType(ErrorNote), findsOneWidget);
+      final retry = find.widgetWithText(FilledButton, 'Tentar de novo');
+      expect(retry, findsOne);
+      expect(tester.widget<FilledButton>(retry).onPressed, isNotNull);
+    });
+
+    testWidgets('on a device handed to a child, a failed restore stays in '
+        "the child's world, and its retry leads to the child home", (
+      tester,
+    ) async {
+      final h = Harness(
+        kind: ClientKind.mobile,
+        signedIn: true,
+        api: childApi,
+        kidModeMark: MemoryKidModeMark({'a'}),
+      )..sessionFailure = 500;
+      await h.pump(tester);
+
+      expect(h.services.appMode.mode, isNull);
+      expect(find.byType(ShelvesFailed), findsOneWidget);
+      expect(find.byType(Tevi), findsOneWidget, reason: 'one mascot');
+      expect(find.byKey(FieldLayout.fieldKey), findsNothing);
+      expect(find.text(StartFailed.title), findsNothing);
+      expect(find.byType(ErrorNote), findsNothing);
+
+      h
+        ..sessionFailure = null
+        ..kidMode = {'minor_id': 'm1'};
+      await tester.tap(find.widgetWithText(FilledButton, 'Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(h.services.appMode.mode, const SharedKid('m1'));
+      expect(find.byType(KidHomeScreen), findsOneWidget);
     });
   });
 

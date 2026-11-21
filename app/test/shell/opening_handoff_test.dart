@@ -118,8 +118,7 @@ Future<void> pumpOpening(WidgetTester tester, Widget home) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: buildTheme(Brightness.light),
-      builder: (context, child) =>
-          Opening(ready: true, failed: false, onRetry: () {}, child: child!),
+      builder: (context, child) => Opening(ready: true, child: child!),
       home: Scaffold(body: home),
     ),
   );

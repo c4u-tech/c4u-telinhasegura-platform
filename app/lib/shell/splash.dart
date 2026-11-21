@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../access/copy.dart';
-import '../access/widgets.dart';
 import '../design/band_transition.dart';
 import '../design/theme.dart';
 import '../design/tevi.dart';
@@ -10,16 +8,12 @@ import '../design/tokens.dart';
 import 'system_bars.dart';
 
 /// Shown while the app does not yet know who it is in front of:
-/// the plain ground, nothing to read
-/// or press. Only a failed read of the mode says so and offers
-/// "Tentar de novo", which calls [onRetry].
+/// the plain ground, nothing to read or press.
 ///
 /// At the app's start it is the opening instead: [mascot], the ink ground
 /// of the launch screen with the mascot standing on it.
 class Splash extends StatelessWidget {
-  const Splash({super.key, this.onRetry, this.mascot});
-
-  final VoidCallback? onRetry;
+  const Splash({super.key, this.mascot});
 
   /// The opening's scene: the launch screen's ink ground and the mascot
   /// placed on it, which it draws itself, so it can lift the ground away.
@@ -27,43 +21,18 @@ class Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final retry = onRetry;
-    if (retry == null) {
-      if (mascot case final mascot?) {
-        return Semantics(
-          label: 'Carregando',
-          child: AnnotatedRegion<SystemUiOverlayStyle>(
-            value: barsOver(Brightness.dark),
-            child: mascot,
-          ),
-        );
-      }
+    if (mascot case final mascot?) {
       return Semantics(
         label: 'Carregando',
-        child: ColoredBox(color: context.palette.ground),
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: barsOver(Brightness.dark),
+          child: mascot,
+        ),
       );
     }
-    return Material(
-      color: context.palette.ground,
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(Space.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const ErrorNote(Copy.genericRetry),
-                  const SizedBox(height: Space.lg),
-                  PrimaryButton(label: 'Tentar de novo', onPressed: retry),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return Semantics(
+      label: 'Carregando',
+      child: ColoredBox(color: context.palette.ground),
     );
   }
 }
@@ -93,7 +62,8 @@ enum _Stage {
 /// ground lifts away with the mascot. A mode known early waits for the
 /// assembly; a mode
 /// that takes longer leaves the mascot searching until it is known; a
-/// failed read ([failed]) shows the note and its retry, [onRetry].
+/// failed read gives way, the same way, to [failure], the screen that
+/// says so and offers to try again, which stands until the mode is known.
 ///
 /// It plays once, as the process starts: a retry, a return from the
 /// background or a later wait for the mode shows [Splash] as before.
@@ -103,15 +73,18 @@ class Opening extends StatefulWidget {
   const Opening({
     super.key,
     required this.ready,
-    required this.failed,
-    required this.onRetry,
     required this.child,
+    this.failure,
   });
 
   final bool ready;
-  final bool failed;
-  final VoidCallback onRetry;
   final Widget child;
+
+  /// The screen of a failed read, while the mode is not known.
+  final Widget? failure;
+
+  /// Whether there is a screen to show: the mode's, or the failure's.
+  bool get _known => ready || failure != null;
 
   /// The side of the mascot's box on the launch screen, so the body the
   /// opening starts from lands on the one it showed. Every launch screen
@@ -158,7 +131,7 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(Opening old) {
     super.didUpdateWidget(old);
-    if (widget.ready != old.ready || widget.failed != old.failed) _advance();
+    if (widget._known != old._known) _advance();
   }
 
   void _moved(AnimationStatus status) {
@@ -181,9 +154,7 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   /// Moves on from waiting once the mode is known or its read failed.
   void _advance() {
     if (_stage != _Stage.waiting) return;
-    if (widget.failed) {
-      _end();
-    } else if (widget.ready) {
+    if (widget._known) {
       if (_still) {
         _end();
       } else {
@@ -234,8 +205,8 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final cover = switch (_stage) {
-      _Stage.done when widget.ready => null,
-      _Stage.done => Splash(onRetry: widget.failed ? widget.onRetry : null),
+      _Stage.done when widget._known => null,
+      _Stage.done => const Splash(),
       // Lifting, the first screen is read; the ground is on its way.
       _ => ExcludeSemantics(
         excluding: _stage == _Stage.lifting,
@@ -260,13 +231,16 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
         handoff: _handoff,
         child: ExcludeFocus(
           excluding: hidden,
-          child: ExcludeSemantics(excluding: hidden, child: widget.child),
+          child: ExcludeSemantics(
+            excluding: hidden,
+            child: widget.ready ? widget.child : widget.failure ?? widget.child,
+          ),
         ),
       ),
     );
     if (cover == null) return screen;
     final kept = KeyedSubtree(key: _cover, child: cover);
-    if (!widget.ready) return kept;
+    if (!widget._known) return kept;
     return Stack(fit: StackFit.expand, children: [screen, kept]);
   }
 
@@ -332,7 +306,7 @@ class _OpeningState extends State<Opening> with TickerProviderStateMixin {
                   assembly: assembly,
                   look: shown,
                   eases: false,
-                  searching: _stage == _Stage.waiting && !widget.ready,
+                  searching: _stage == _Stage.waiting && !widget._known,
                 ),
                 if (night > 0)
                   Opacity(

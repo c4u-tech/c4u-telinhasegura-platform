@@ -3403,6 +3403,52 @@ void main() {
     expect(title.top, lessThan(640));
     expect(find.text(promiseLine), findsOneWidget, reason: 'still said');
   });
+  // The start's failed read, as a guardian and as a child holding a
+  // device handed over.
+  final startFailures = <String, Harness Function()>{
+    'guardian': () =>
+        Harness(kind: ClientKind.mobile, signedIn: true)..sessionFailure = 503,
+    'child': () => Harness(
+      kind: ClientKind.mobile,
+      signedIn: true,
+      kidModeMark: MemoryKidModeMark({'a'}),
+    )..sessionFailure = 503,
+  };
+  for (final MapEntry(key: who, value: make) in startFailures.entries) {
+    for (final brightness in Brightness.values) {
+      testWidgets('the failed start ($who, ${brightness.name}): labelled '
+          'controls with 48 dp targets and readable text', (tester) async {
+        tester.platformDispatcher.platformBrightnessTestValue = brightness;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+        final semantics = tester.ensureSemantics();
+        await make().pump(tester);
+
+        expect(find.text('Tentar de novo'), findsOneWidget);
+        await meetsGuidelines(tester);
+        semantics.dispose();
+      });
+    }
+
+    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+      testWidgets('the failed start ($who) at 200% text, '
+          '${size.width.toInt()} wide: no overflow, the retry reachable', (
+        tester,
+      ) async {
+        await make().pump(tester, size: size, textScale: 2);
+
+        expect(tester.takeException(), isNull);
+        final retry = find.widgetWithText(FilledButton, 'Tentar de novo');
+        expect(retry, findsOneWidget);
+        await tester.ensureVisible(retry);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        if (who == 'guardian' && size.width == 360) {
+          expectWholeWords(tester, 'Sem conexão agora', 360 - 2 * Space.xl);
+        }
+      });
+    }
+  }
+
   for (final MapEntry(key: title, value: open) in longTitles.entries) {
     testWidgets('"$title" at 200% text, 360 wide: the display title breaks '
         'only between words', (tester) async {

@@ -127,8 +127,36 @@ class AppModeModel extends ChangeNotifier {
   ///   refused credential falls back to the guardian mode.
   /// - Otherwise a signed-in session's `kid_mode` decides. A failed read
   ///   leaves the mode unknown and rethrows, so the shell can retry rather
-  ///   than open the guardian area to a child.
+  ///   than open the guardian area to a child; [childMayHold] then says
+  ///   whose screen the retry stands on.
   Future<void> restore() async {
+    _childMayHold = false;
+    try {
+      await _restore();
+    } on Object {
+      _childMayHold = await _handedOver();
+      rethrow;
+    }
+  }
+
+  bool _childMayHold = false;
+
+  /// After a failed [restore]: whether the device may be in a child's
+  /// hands, being handed over and not taken back, so what it shows while
+  /// it cannot tell stays a child's.
+  bool get childMayHold => _childMayHold;
+
+  /// Whether the device was handed over and not taken back; a mark that
+  /// cannot be read says it was, as a sign-in's gate does.
+  Future<bool> _handedOver() async {
+    try {
+      return (await _mark.read()).isNotEmpty;
+    } on Object {
+      return true;
+    }
+  }
+
+  Future<void> _restore() async {
     if (await _child.isLinked()) {
       try {
         _set(LinkedDevice((await _child.profile()).id));

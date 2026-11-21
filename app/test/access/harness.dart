@@ -299,8 +299,11 @@ class Harness {
     await tester.pumpWidget(app(initial: initial));
     await tester.pumpAndSettle();
     // A child screen lets no touch through just after it appears; any
-    // other screen's clock is left where it stands.
-    if (find.byType(Scaffold).evaluate().isNotEmpty &&
+    // other screen's clock is left where it stands. A screen outside the
+    // router (the start's failed read) has no location.
+    final screen = find.byType(Scaffold);
+    if (screen.evaluate().isNotEmpty &&
+        GoRouter.maybeOf(tester.element(screen.first)) != null &&
         waitsForGuard(location(tester))) {
       await tester.pump(TapGuard.window);
     }

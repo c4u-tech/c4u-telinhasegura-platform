@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../curation/kid_catalog.dart';
+import '../design/busy_ring.dart';
 import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
@@ -374,11 +375,18 @@ class _HollowPainter extends CustomPainter {
 }
 
 /// The catalogue did not come: the mascot's crest raised over the hollow
-/// screen, a line for the adult and one way to try again.
+/// screen, a line for the adult and one way to try again, which waits
+/// while [busy] (the try under way) instead of taking a second press.
 class ShelvesFailed extends StatelessWidget {
-  const ShelvesFailed({super.key, required this.onRetry, this.scale = 1});
+  const ShelvesFailed({
+    super.key,
+    required this.onRetry,
+    this.scale = 1,
+    this.busy = false,
+  });
 
   final VoidCallback onRetry;
+  final bool busy;
 
   /// The picture's scale, as the empty shelf's.
   final double scale;
@@ -408,8 +416,9 @@ class ShelvesFailed extends StatelessWidget {
         child: SizedBox(
           width: ShelfPicture.screen.width * scale,
           child: PressSink(
+            enabled: !busy,
             child: FilledButton(
-              onPressed: onRetry,
+              onPressed: busy ? null : onRetry,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(KidSizes.target),
                 shape: RoundedRectangleBorder(
@@ -418,7 +427,18 @@ class ShelvesFailed extends StatelessWidget {
                   ),
                 ),
               ),
-              child: const Text(retry),
+              child: busy
+                  ? Semantics(
+                      label: retry,
+                      child: SizedBox.square(
+                        dimension: 22,
+                        child: BusyRing(
+                          strokeWidth: 2.5,
+                          color: context.palette.text,
+                        ),
+                      ),
+                    )
+                  : const Text(retry),
             ),
           ),
         ),

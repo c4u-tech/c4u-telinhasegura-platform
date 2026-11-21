@@ -175,6 +175,27 @@ void main() {
     await signIn(m.client);
     await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
     expect(m.model.mode, isNull);
+    expect(m.model.childMayHold, isFalse);
+  });
+
+  test('a failed session read on a device handed to a child says a child '
+      'may hold it', () async {
+    final m = setUpModel((_) => problem(500, 'internal'), marked: 'a1');
+    await signIn(m.client);
+    await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
+    expect(m.model.mode, isNull);
+    expect(m.model.childMayHold, isTrue);
+  });
+
+  test('a failed session read with an unreadable mark fails closed: a child '
+      'may hold the device', () async {
+    final m = setUpModel(
+      (_) => problem(500, 'internal'),
+      markOverride: ThrowingMark(),
+    );
+    await signIn(m.client);
+    await expectLater(m.model.restore(), throwsA(isA<ApiError>()));
+    expect(m.model.childMayHold, isTrue);
   });
 
   test('hand-over and unlock move between the modes', () async {
