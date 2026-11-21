@@ -773,7 +773,7 @@ Future<void> toConsent(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField), 'Nina');
   await tester.pumpAndSettle();
   await tapOn(tester, find.byKey(const ValueKey(Avatar.owl)));
-  await tapOn(tester, find.text('9 a 12 anos'));
+  await tapOn(tester, find.text('9\u00A0a\u00A012\u00A0anos'));
   await tapOn(tester, find.text('Continuar'));
 }
 
@@ -1881,7 +1881,7 @@ final curatorScreens =
           await toTopic(tester);
           await approving.choose(tester, 'Música');
           await forOlder(tester);
-          await approving.choose(tester, '9 a 12 anos');
+          await approving.choose(tester, '9\u00A0a\u00A012\u00A0anos');
           await tester.enterText(reasonField(), 'a' * 190);
           await tester.pumpAndSettle();
           // The older bands in full view, not half under the window.

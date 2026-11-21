@@ -123,9 +123,10 @@ const differenceReminder =
     'deficiência diferente da sua.';
 
 abstract final class CurationWords {
-  /// The dot between words on a line ("Canal · 4 min"), glued to the
-  /// word before it so that at 200 % text it never opens a line.
-  static const dot = '$_nbsp· ';
+  /// The dot between two facts on a line ("Canal · 4 min"), glued to
+  /// both neighbours so that at 200 % text it neither opens nor ends a
+  /// line, the line breaking between words.
+  static const dot = '$_nbsp·$_nbsp';
 
   /// [parts] joined by [dot].
   static String joined(Iterable<String> parts) => parts.join(dot);

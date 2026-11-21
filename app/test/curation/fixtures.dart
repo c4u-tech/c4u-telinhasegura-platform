@@ -8,16 +8,20 @@ import '../access/harness.dart';
 import '../staff/accounts_api_test.dart' show sheetJson;
 import 'curation_api_test.dart' show pendingJson;
 
-/// [line] as the curation screens print it: a non-breaking space before
-/// each dot and inside each duration, so neither breaks at 200 % text.
+/// [line] as the curation screens print it: a non-breaking space on each
+/// side of each dot, inside each duration and inside each age band, so
+/// none breaks at 200 % text.
 String nb(String line) => line
-    .replaceAll(' · ', '\u00A0· ')
+    .replaceAll(' · ', '\u00A0·\u00A0')
     .replaceAllMapped(RegExp(r'(\d+) (h|min)\b'), (m) => '${m[1]}\u00A0${m[2]}')
-    .replaceAllMapped(RegExp(r'(\u00A0h) (\d)'), (m) => '${m[1]}\u00A0${m[2]}');
+    .replaceAllMapped(RegExp(r'(\u00A0h) (\d)'), (m) => '${m[1]}\u00A0${m[2]}')
+    .replaceAllMapped(
+      RegExp(r'(\d+) a (\d+) anos'),
+      (m) => '${m[1]}\u00A0a\u00A0${m[2]}\u00A0anos',
+    );
 
-/// [line] as a row's short meta line prints it: [nb], with each dot
-/// glued to the word after it too.
-String nbt(String line) => nb(line).replaceAll('\u00A0· ', '\u00A0·\u00A0');
+/// [line] as a row's short meta line prints it: the same as [nb].
+String nbt(String line) => nb(line);
 
 /// One of the guardian's suggestions as the wire carries it, suggested
 /// [daysAgo] calendar days before the test's clock.

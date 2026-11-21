@@ -143,7 +143,10 @@ void main() {
       findsOneWidget,
     );
     expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
+      isTrue,
+    );
     await tester.enterText(
       find.widgetWithText(TextField, 'Motivo'),
       'Sem risco no vídeo.',
@@ -162,7 +165,10 @@ void main() {
     await doubtHeld(tester, initial: '/moderacao/retidos/v1/publicar');
 
     expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
+      isTrue,
+    );
   });
 
   testWidgets('"Publicar" asks a theme, a band and a reason, publishes once '
@@ -173,7 +179,7 @@ void main() {
     expect(h.location(tester), '/moderacao/retidos/v1/publicar');
     expect(find.text(publishLead), findsOneWidget);
     await tapOn(tester, row('Natureza'));
-    await tapOn(tester, row('2 a 4 anos'));
+    await tapOn(tester, row('2\u00A0a\u00A04\u00A0anos'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Motivo'),
       '  Sem risco no vídeo. ',
@@ -210,9 +216,12 @@ void main() {
       ),
     );
 
-    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
     expect(
-      tester.widget<SelectableRow>(row('2 a 4 anos')).selected,
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).onTap,
+      isNull,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).selected,
       isFalse,
       reason: 'the curator\'s choice is not kept',
     );
@@ -233,11 +242,20 @@ void main() {
       ),
     );
 
-    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).onTap, isNull);
-    expect(tester.widget<SelectableRow>(row('9 a 12 anos')).onTap, isNotNull);
     expect(
-      tester.widget<SelectableRow>(row('5 a 8 anos')).selected,
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).onTap,
+      isNull,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).onTap,
+      isNull,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('9\u00A0a\u00A012\u00A0anos')).onTap,
+      isNotNull,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
       isFalse,
       reason: 'the curator\'s choice is not kept',
     );
@@ -273,7 +291,7 @@ void main() {
 
     expect(
       roundBandStatement(AgeBand.from9To12),
-      'Pelas respostas da rodada, este vídeo serve a partir de 9 a 12 anos',
+      'Pelas respostas da rodada, este vídeo serve a partir de 9\u00A0a\u00A012\u00A0anos',
     );
     final statement = find.text(roundBandStatement(AgeBand.from9To12));
     expect(statement, findsOneWidget);
@@ -295,7 +313,9 @@ void main() {
     expect(y(fast).dy < y(dating).dy, isTrue);
     expect(y(dating).dy < y(find.text('Tema')).dy, isTrue);
     expect(
-      find.text('Pelas respostas, este vídeo serve a partir de 9 a 12 anos.'),
+      find.text(
+        'Pelas respostas, este vídeo serve a partir de 9\u00A0a\u00A012\u00A0anos.',
+      ),
       findsNothing,
     );
   });
@@ -340,7 +360,10 @@ void main() {
       ),
     );
 
-    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNotNull);
+    expect(
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).onTap,
+      isNotNull,
+    );
     expect(find.text(roundBandStatement(AgeBand.upTo4)), findsOneWidget);
     expect(find.textContaining('respondeu'), findsNothing);
   });
@@ -354,7 +377,7 @@ void main() {
       settle: (_) => problem(422, 'checklist_band'),
     );
 
-    await tapOn(tester, row('2 a 4 anos'));
+    await tapOn(tester, row('2\u00A0a\u00A04\u00A0anos'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Motivo'),
       'Motivo válido.',
@@ -366,8 +389,14 @@ void main() {
       find.text(Copy.forError(ApiError(status: 422, code: 'checklist_band'))),
       findsOneWidget,
     );
-    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).selected, isFalse);
-    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+    expect(
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).selected,
+      isFalse,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).onTap,
+      isNull,
+    );
   });
 
   testWidgets('checklist_band on "5 a 8 anos" takes it and every younger '
@@ -379,7 +408,10 @@ void main() {
     );
 
     // The doubt's own choice, "5 a 8 anos", starts chosen.
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
+      isTrue,
+    );
     await tester.enterText(
       find.widgetWithText(TextField, 'Motivo'),
       'Motivo válido.',
@@ -387,10 +419,22 @@ void main() {
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isFalse);
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).onTap, isNull);
-    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
-    expect(tester.widget<SelectableRow>(row('9 a 12 anos')).onTap, isNotNull);
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
+      isFalse,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).onTap,
+      isNull,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('2\u00A0a\u00A04\u00A0anos')).onTap,
+      isNull,
+    );
+    expect(
+      tester.widget<SelectableRow>(row('9\u00A0a\u00A012\u00A0anos')).onTap,
+      isNotNull,
+    );
   });
 
   testWidgets('reason_required marks the reason', (tester) async {
@@ -401,7 +445,7 @@ void main() {
     );
 
     await tapOn(tester, row('Música'));
-    await tapOn(tester, row('5 a 8 anos'));
+    await tapOn(tester, row('5\u00A0a\u00A08\u00A0anos'));
     await tester.enterText(find.widgetWithText(TextField, 'Motivo'), 'ok');
     await tester.pump();
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
@@ -442,7 +486,7 @@ void main() {
     );
 
     await tapOn(tester, row('Música'));
-    await tapOn(tester, row('5 a 8 anos'));
+    await tapOn(tester, row('5\u00A0a\u00A08\u00A0anos'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Motivo'),
       'Motivo válido.',
@@ -462,7 +506,7 @@ void main() {
     );
 
     await tapOn(tester, row('Música'));
-    await tapOn(tester, row('5 a 8 anos'));
+    await tapOn(tester, row('5\u00A0a\u00A08\u00A0anos'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Motivo'),
       'Motivo válido.',
@@ -533,7 +577,10 @@ void main() {
     await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
 
     expect(tester.widget<SelectableRow>(row('Bichos')).selected, isFalse);
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isFalse);
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
+      isFalse,
+    );
   });
 
   testWidgets('a video held by a doubt says under the window whether it '
@@ -654,7 +701,10 @@ void main() {
       findsNothing,
     );
     expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
-    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    expect(
+      tester.widget<SelectableRow>(row('5\u00A0a\u00A08\u00A0anos')).selected,
+      isTrue,
+    );
     expect(find.text('Sem risco no vídeo.'), findsOneWidget);
   });
 }

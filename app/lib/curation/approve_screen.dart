@@ -98,7 +98,8 @@ const teamLabel = 'Enviar para a equipe';
 
 /// When the video's length, not an answer, rules out the youngest band.
 const tooLongForYoungestLine =
-    'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.';
+    'Vídeos com mais de 60 minutos não vão para a faixa de '
+    '2\u00A0a\u00A04\u00A0anos.';
 
 /// The done state's notices.
 const approved = 'Sua aprovação foi registrada.';

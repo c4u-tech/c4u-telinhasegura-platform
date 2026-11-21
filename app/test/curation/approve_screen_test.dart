@@ -35,7 +35,11 @@ import 'fixtures.dart';
 
 const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
 const allThemes = [...themes, 'Natureza'];
-const bands = ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos'];
+const bands = [
+  '2\u00A0a\u00A04\u00A0anos',
+  '5\u00A0a\u00A08\u00A0anos',
+  '9\u00A0a\u00A012\u00A0anos',
+];
 
 /// The fixture's questions.
 const tie = 'Você tem vínculo com este canal?';
@@ -279,7 +283,7 @@ void main() {
   test('the length line names the 60-minute bar of the youngest band', () {
     expect(
       tooLongForYoungestLine,
-      'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.',
+      'Vídeos com mais de 60 minutos não vão para a faixa de 2\u00A0a\u00A04\u00A0anos.',
     );
   });
 
@@ -1006,7 +1010,7 @@ void main() {
       await clearSteps(tester);
 
       expect(chosen(tester, 'Música'), isTrue);
-      expect(chosen(tester, '5 a 8 anos'), isTrue);
+      expect(chosen(tester, '5\u00A0a\u00A08\u00A0anos'), isTrue);
     });
 
     testWidgets('coming back to a doubt restores its note', (tester) async {
@@ -1151,7 +1155,7 @@ void main() {
       await choose(tester, 'Música');
       expect(draftSaves(h).last, contains('"theme":"musica"'));
       await forOlder(tester);
-      await choose(tester, '9 a 12 anos');
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
       expect(
         draftSaves(h).last,
         contains('"theme":"musica","min_age_band":"9-12"'),
@@ -1175,7 +1179,7 @@ void main() {
       expect(statement, findsOneWidget);
       expect(
         bandStatement(AgeBand.from5To8),
-        'Pelas respostas, este vídeo serve a partir de 5 a 8 anos',
+        'Pelas respostas, este vídeo serve a partir de 5\u00A0a\u00A08\u00A0anos',
       );
       expect(tester.getSemantics(statement), isSemantics(isHeader: true));
       expect(
@@ -1213,7 +1217,7 @@ void main() {
       final h = await approving(tester);
       await toTopic(tester);
 
-      expect(primary(tester).label, 'Confirmar 2 a 4 anos');
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
       expect(primary(tester).onPressed, isNull);
       expect(themeHint, 'Escolha um tema acima.');
       expect(find.text(themeHint), findsOneWidget);
@@ -1246,7 +1250,7 @@ void main() {
       expect(find.text(bandStatement(AgeBand.from5To8)), findsOneWidget);
       expect(bandAnswer(fast, 'Sim'), findsOneWidget);
       expect(bandAnswer(dating, 'Sim'), findsNothing);
-      expect(primary(tester).label, 'Confirmar 5 a 8 anos');
+      expect(primary(tester).label, 'Confirmar 5\u00A0a\u00A08\u00A0anos');
       await tapOn(tester, changeAnswer(fast));
 
       expect(find.text('Etapa 5 de 5'), findsOneWidget);
@@ -1285,7 +1289,7 @@ void main() {
 
       expect(find.text(bandStatement(AgeBand.from9To12)), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, olderLabel), findsNothing);
-      expect(primary(tester).label, 'Confirmar 9 a 12 anos');
+      expect(primary(tester).label, 'Confirmar 9\u00A0a\u00A012\u00A0anos');
     });
 
     testWidgets('"É para mais velhos" shows only the older bands, none chosen '
@@ -1299,19 +1303,19 @@ void main() {
 
       expect(find.widgetWithText(OutlinedButton, olderLabel), findsNothing);
       expect(find.text('A partir de'), findsOneWidget);
-      expect(row('2 a 4 anos'), findsNothing);
-      expect(chosen(tester, '5 a 8 anos'), isFalse);
-      expect(chosen(tester, '9 a 12 anos'), isFalse);
+      expect(row('2\u00A0a\u00A04\u00A0anos'), findsNothing);
+      expect(chosen(tester, '5\u00A0a\u00A08\u00A0anos'), isFalse);
+      expect(chosen(tester, '9\u00A0a\u00A012\u00A0anos'), isFalse);
       expect(reasonField(), findsOneWidget);
       expect(primary(tester).label, continueLabel);
       expect(primary(tester).onPressed, isNull);
       expect(find.text(olderBandHint), findsOneWidget);
       expect(
-        find.widgetWithText(QuietAction, 'Ficar com 2 a 4 anos'),
+        find.widgetWithText(QuietAction, 'Ficar com 2\u00A0a\u00A04\u00A0anos'),
         findsOneWidget,
       );
 
-      await choose(tester, '9 a 12 anos');
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
       expect(primary(tester).onPressed, isNull);
       expect(olderReasonHint, 'Escreva por que é para mais velhos.');
       expect(find.text(olderReasonHint), findsOneWidget);
@@ -1345,8 +1349,8 @@ void main() {
       await tapPrimary(tester);
       await forOlder(tester);
 
-      expect(row('5 a 8 anos'), findsNothing);
-      expect(chosen(tester, '9 a 12 anos'), isTrue);
+      expect(row('5\u00A0a\u00A08\u00A0anos'), findsNothing);
+      expect(chosen(tester, '9\u00A0a\u00A012\u00A0anos'), isTrue);
       expect(find.text(themeHint), findsOneWidget, reason: 'no theme yet');
     });
 
@@ -1354,16 +1358,16 @@ void main() {
       await approving(tester);
       await toTopic(tester);
       await forOlder(tester);
-      await choose(tester, '5 a 8 anos');
+      await choose(tester, '5\u00A0a\u00A08\u00A0anos');
 
       await tapOn(
         tester,
-        find.widgetWithText(QuietAction, 'Ficar com 2 a 4 anos'),
+        find.widgetWithText(QuietAction, 'Ficar com 2\u00A0a\u00A04\u00A0anos'),
       );
 
-      expect(row('5 a 8 anos'), findsNothing);
+      expect(row('5\u00A0a\u00A08\u00A0anos'), findsNothing);
       expect(reasonField(), findsNothing);
-      expect(primary(tester).label, 'Confirmar 2 a 4 anos');
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
       expect(find.widgetWithText(OutlinedButton, olderLabel), findsOneWidget);
     });
 
@@ -1407,7 +1411,7 @@ void main() {
 
       expect(find.text(bandStatement(AgeBand.upTo4)), findsOneWidget);
       expect(chosen(tester, 'Música'), isTrue);
-      expect(primary(tester).label, 'Confirmar 2 a 4 anos');
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
     });
 
     testWidgets('coming back to an older band kept in the draft opens it, '
@@ -1424,7 +1428,7 @@ void main() {
         ),
       );
 
-      expect(chosen(tester, '9 a 12 anos'), isTrue);
+      expect(chosen(tester, '9\u00A0a\u00A012\u00A0anos'), isTrue);
       expect(tester.widget<TextField>(reasonField()).controller!.text, isEmpty);
       expect(find.text(olderReasonHint), findsOneWidget);
     });
@@ -1479,7 +1483,7 @@ void main() {
       await approving(tester);
       await toTopic(tester);
       await forOlder(tester);
-      await choose(tester, '5 a 8 anos');
+      await choose(tester, '5\u00A0a\u00A08\u00A0anos');
 
       expect(find.text(underTwoAdvice), findsNothing);
     });
@@ -1556,7 +1560,7 @@ void main() {
         tester.getTopLeft(find.text(tooLongForYoungestLine)).dy,
         lessThan(tester.getTopLeft(find.text(curationRule)).dy),
       );
-      expect(primary(tester).label, 'Confirmar 5 a 8 anos');
+      expect(primary(tester).label, 'Confirmar 5\u00A0a\u00A08\u00A0anos');
     });
 
     testWidgets('past 60 minutes with a fast pace lists the answer, not the '
@@ -1826,7 +1830,7 @@ void main() {
       expect(find.text(approvalRefused), findsOneWidget);
       expect(find.byType(ErrorNote), findsNothing);
       expect(chosen(tester, 'Música'), isFalse);
-      expect(primary(tester).label, 'Confirmar 2 a 4 anos');
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
       expect(primary(tester).onPressed, isNull);
       await choose(tester, 'Bichos');
       expect(find.text(approvalRefused), findsNothing);
@@ -1852,7 +1856,7 @@ void main() {
       await toTopic(tester);
       await choose(tester, 'Música');
       await forOlder(tester);
-      await choose(tester, '9 a 12 anos');
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
       await tester.enterText(reasonField(), 'Usa ironia.');
       await tester.pumpAndSettle();
       await tapPrimary(tester);
@@ -1861,7 +1865,7 @@ void main() {
       expect(find.text(approvalRefused), findsOneWidget);
       await choose(tester, 'Música');
       await forOlder(tester);
-      await choose(tester, '9 a 12 anos');
+      await choose(tester, '9\u00A0a\u00A012\u00A0anos');
       expect(
         tester.widget<TextField>(reasonField()).controller!.text,
         'Usa ironia.',
@@ -1887,7 +1891,7 @@ void main() {
       );
       expect(chosen(tester, 'Música'), isTrue);
       expect(find.text(bandStatement(AgeBand.upTo4)), findsOneWidget);
-      expect(primary(tester).label, 'Confirmar 2 a 4 anos');
+      expect(primary(tester).label, 'Confirmar 2\u00A0a\u00A04\u00A0anos');
     });
 
     testWidgets('checklist_refuses opens the refusal', (tester) async {
