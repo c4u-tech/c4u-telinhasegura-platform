@@ -83,7 +83,7 @@ func TestReviewWithTheChecklistOverHTTP(t *testing.T) {
 		t.Fatalf("refused reviews were stored: %d", n)
 	}
 
-	got := decodeReview(t, a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...))
+	got := decodeReview(t, a.approve(c1, v.ID, approval("bichos", "5-8")))
 	if got.VideoState != "pending" || got.Review.Decision != "approve" || got.Review.ChecklistVersion == nil ||
 		*got.Review.ChecklistVersion != curation.ChecklistVersion || len(got.Review.Answers) != 31 || got.Review.FailedItems != nil {
 		t.Fatalf("approval %+v", got)
@@ -184,13 +184,13 @@ func TestReviewCarriesTheComputedBandOverHTTP(t *testing.T) {
 		r.problemCode() != "checklist_band" {
 		t.Fatalf("a younger band: %d %q", r.Code, r.problemCode())
 	}
-	got := decodeReview(t, a.do(http.MethodPost, reviews(v.ID), approvalWith("bichos", "9-12", story), bearer(c1)...))
+	got := decodeReview(t, a.approve(c1, v.ID, approvalWith("bichos", "9-12", story)))
 	if got.Review.ComputedBand == nil || *got.Review.ComputedBand != "9-12" || got.Review.BandReason != nil {
 		t.Fatalf("approval %+v", got.Review)
 	}
 	older := approval("bichos", "9-12")
 	older["band_reason"] = "Mais velho."
-	got = decodeReview(t, a.do(http.MethodPost, reviews(other.ID), older, bearer(c1)...))
+	got = decodeReview(t, a.approve(c1, other.ID, older))
 	if got.Review.ComputedBand == nil || *got.Review.ComputedBand != "ate-4" || got.Review.BandReason == nil ||
 		*got.Review.BandReason != "Mais velho." {
 		t.Fatalf("an older band %+v", got.Review)
@@ -215,5 +215,32 @@ func TestHeldDoubtServesItsComputedBandOverHTTP(t *testing.T) {
 	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
 	if len(held.Videos) != 1 || held.Videos[0].ComputedBand != "5-8" {
 		t.Fatalf("held %+v", held)
+	}
+}
+
+// A build that knows neither the drafts nor the band reason sends the
+// bodies it always sent: it can still refuse and doubt, but not approve.
+func TestAnOldBuildCanStillRefuseAndDoubt(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	gui := a.familyOwner("gui@example.com")
+	reviews := func(id string) string { return "/v1/curation/videos/" + id + "/reviews" }
+
+	rejected := a.suggest(gui, ytID)
+	if got := decodeReview(t, a.do(http.MethodPost, reviews(rejected.ID), rejection("Tem propaganda.", "c15"), bearer(c1)...)); got.VideoState != "held" {
+		t.Fatalf("rejection %+v", got)
+	}
+	doubted := a.suggest(gui, "bbbbbbbbbbb")
+	doubt := approvalWith("", "", map[string]string{"c24": "appears"})
+	delete(doubt, "theme")
+	delete(doubt, "min_age_band")
+	if got := decodeReview(t, a.do(http.MethodPost, reviews(doubted.ID), doubt, bearer(c1)...)); got.VideoState != "held" {
+		t.Fatalf("doubt %+v", got)
+	}
+	approved := a.suggest(gui, "ccccccccccc")
+	if r := a.do(http.MethodPost, reviews(approved.ID), approval("bichos", "5-8"), bearer(c1)...); r.Code != http.StatusConflict ||
+		r.problemCode() != "not_watched" {
+		t.Fatalf("an approval without the end: %d %s", r.Code, r.Body)
 	}
 }

@@ -152,6 +152,7 @@ var curationProblems = []struct {
 	{curation.ErrChecklistRefuses, http.StatusUnprocessableEntity, "checklist_refuses"},
 	{curation.ErrChecklistBand, http.StatusUnprocessableEntity, "checklist_band"},
 	{curation.ErrConflictOfInterest, http.StatusConflict, "conflict_of_interest"},
+	{curation.ErrNotWatched, http.StatusConflict, "not_watched"},
 }
 
 // privacyProblems maps the privacy module's sentinels to their status

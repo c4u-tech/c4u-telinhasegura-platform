@@ -77,6 +77,23 @@ func approval(theme, band string) map[string]any {
 		"checklist_version": curation.ChecklistVersion, "answers": cleanAnswers()}
 }
 
+// watched records, as the player does, that tok's reviewer reached the
+// video's end; it must succeed.
+func (a *api) watched(tok mobileTokens, videoID string) {
+	a.t.Helper()
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+videoID+"/draft/ended", nil, bearer(tok)...); r.Code != http.StatusOK {
+		a.t.Fatalf("ended %s: %d %s", videoID, r.Code, r.Body)
+	}
+}
+
+// approve posts tok's review of the video after the player reached its
+// end, as an approval needs.
+func (a *api) approve(tok mobileTokens, videoID string, body map[string]any) resp {
+	a.t.Helper()
+	a.watched(tok, videoID)
+	return a.do(http.MethodPost, "/v1/curation/videos/"+videoID+"/reviews", body, bearer(tok)...)
+}
+
 // rejection refuses for items, with note.
 func rejection(note string, items ...string) map[string]any {
 	return map[string]any{"decision": "reject", "checklist_version": curation.ChecklistVersion,
@@ -185,7 +202,7 @@ func TestReviewOverHTTP(t *testing.T) {
 	if r := a.do(http.MethodPost, reviews, approval("carros", "5-8"), bearer(c1)...); r.Code != http.StatusUnprocessableEntity || r.problemCode() != "validation" {
 		t.Fatalf("bad theme: %d %q", r.Code, r.problemCode())
 	}
-	r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...)
+	r := a.approve(c1, v.ID, approval("bichos", "5-8"))
 	var out struct {
 		Review struct {
 			DisplayRole string `json:"display_role"`
@@ -203,7 +220,7 @@ func TestReviewOverHTTP(t *testing.T) {
 		t.Fatalf("again: %d %q", r.Code, r.problemCode())
 	}
 	a.now = a.now.Add(time.Minute)
-	r = a.do(http.MethodPost, reviews, approval("musica", "9-12"), bearer(c2)...)
+	r = a.approve(c2, v.ID, approval("musica", "9-12"))
 	_ = json.Unmarshal(r.Body.Bytes(), &out)
 	if r.Code != http.StatusCreated || out.VideoState != "approved" {
 		t.Fatalf("second approval: %d %s", r.Code, r.Body)
@@ -271,7 +288,7 @@ func TestHeldVideosOverHTTP(t *testing.T) {
 	gui := a.familyOwner("gui@example.com")
 	v := a.suggest(gui, ytID)
 	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
-	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...)
+	a.approve(c1, v.ID, approval("bichos", "5-8"))
 	r := a.do(http.MethodPost, reviews, rejection("Tem propaganda no meio.", "c15"), bearer(c2)...)
 	if r.Code != http.StatusCreated || !strings.Contains(r.Body.String(), `"video_state":"held"`) {
 		t.Fatalf("rejection: %d %s", r.Code, r.Body)
@@ -324,8 +341,8 @@ func TestCurationAuditCarriesIDsOnly(t *testing.T) {
 	c2 := a.curator(admin, "c2@example.com", "mae-pai")
 	gui := a.familyOwner("gui@example.com")
 	published := a.suggest(gui, "aaaaaaaaaaa")
-	a.do(http.MethodPost, "/v1/curation/videos/"+published.ID+"/reviews", approval("bichos", "5-8"), bearer(c1)...)
-	a.do(http.MethodPost, "/v1/curation/videos/"+published.ID+"/reviews", approval("bichos", "5-8"), bearer(c2)...)
+	a.approve(c1, published.ID, approval("bichos", "5-8"))
+	a.approve(c2, published.ID, approval("bichos", "5-8"))
 	held := a.suggest(gui, "bbbbbbbbbbb")
 	a.do(http.MethodPost, "/v1/curation/videos/"+held.ID+"/reviews", rejection("Não.", "c04"), bearer(c1)...)
 	why := map[string]any{"reason": "Motivo válido."}

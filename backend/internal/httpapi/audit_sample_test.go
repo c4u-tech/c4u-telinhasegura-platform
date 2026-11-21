@@ -16,9 +16,8 @@ func TestApprovalAuditOverHTTP(t *testing.T) {
 	c1 := a.curator(admin, "c1@example.com", "mae-pai")
 	c2 := a.curator(admin, "c2@example.com", "pedagogo")
 	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
-	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
-	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...)
-	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+	a.approve(c1, v.ID, approval("bichos", "5-8"))
+	if r := a.approve(c2, v.ID, approval("bichos", "5-8")); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
 		t.Fatalf("publish: %d %s", r.Code, r.Body)
 	}
 
@@ -104,9 +103,8 @@ func TestNoOneJudgesTheirOwnRoundOverHTTP(t *testing.T) {
 	}
 	c2 := a.curator(admin, "c2@example.com", "pedagogo")
 	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
-	reviews := "/v1/curation/videos/" + v.ID + "/reviews"
-	a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(both)...)
-	if r := a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c2)...); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
+	a.approve(both, v.ID, approval("bichos", "5-8"))
+	if r := a.approve(c2, v.ID, approval("bichos", "5-8")); !strings.Contains(r.Body.String(), `"video_state":"approved"`) {
 		t.Fatalf("publish: %d %s", r.Code, r.Body)
 	}
 	if r := a.do(http.MethodGet, "/v1/moderation/audit-sample", nil, bearer(both)...); r.Code != http.StatusOK || strings.TrimSpace(r.Body.String()) != `{"videos":[]}` {

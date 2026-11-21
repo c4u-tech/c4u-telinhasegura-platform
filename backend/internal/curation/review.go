@@ -58,6 +58,7 @@ type Review struct {
 	FailedItems      []string          // a rejection's; nil otherwise
 	ComputedBand     family.AgeBand    // the band a plain approval's answers allow; "" otherwise
 	BandReason       string            // why a plain approval states an older band; "" if none
+	BeganAt          *time.Time        // when the reviewer's draft began; nil for a review without one
 	ReviewedAt       time.Time
 }
 
@@ -114,7 +115,11 @@ func (s *Service) Queue(ctx context.Context, curatorID string, offset int) ([]Qu
 // Review stores a curator's review and applies its effect in the same
 // transaction. The video row lock comes first, so the reviews
 // of one video run one at a time: the approval count sees every earlier
-// review, and two last approvals publish once.
+// review, and two last approvals publish once. A plain approval needs the
+// player to have reached the video's end for this reviewer in this round,
+// as their draft records; a rejection or a doubt does not, since holding
+// a video needs no full viewing. The review keeps when its draft began
+// and consumes the draft.
 func (s *Service) Review(ctx context.Context, curatorID, videoID string, in ReviewInput) (Review, State, error) {
 	if !validID(videoID) {
 		return Review{}, "", ErrNotFound
@@ -147,12 +152,26 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 			return err
 		}
 		rv.DisplayRole = role
+		var began, ended *time.Time
+		err = tx.QueryRow(ctx, `SELECT began_at, played_to_end_at FROM review_drafts
+			WHERE curator_id = $1::uuid AND video_id = $2::uuid AND round = $3 FOR UPDATE`, curatorID, videoID, round).
+			Scan(&began, &ended)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if e.decision == Approve && ended == nil {
+			return ErrNotWatched
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
-			min_age_band, reason, reviewed_at, checklist_version, checklist, computed_band, band_reason) VALUES ($1::uuid, $2,
-			$3::uuid, $4, $5, nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb,
-			nullif($12::text, ''), nullif($13::text, ''))`,
+			min_age_band, reason, reviewed_at, checklist_version, checklist, computed_band, band_reason, began_at) VALUES
+			($1::uuid, $2, $3::uuid, $4, $5, nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10,
+			$11::text::jsonb, nullif($12::text, ''), nullif($13::text, ''), $14)`,
 			videoID, round, curatorID, string(role), string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
-			ChecklistVersion, string(e.checklist), string(e.computed), e.bandReason); err != nil {
+			ChecklistVersion, string(e.checklist), string(e.computed), e.bandReason, began); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM review_drafts WHERE curator_id = $1::uuid AND video_id = $2::uuid`,
+			curatorID, videoID); err != nil {
 			return err
 		}
 		// A rejection or a doubt holds the video at once, pending or in a
@@ -454,7 +473,7 @@ func provenance(ctx context.Context, q querier, v Video) (*Provenance, error) {
 func reviewsOf(ctx context.Context, q querier, videoID string, round int, decision Decision) ([]Review, error) {
 	rows, err := q.Query(ctx, `SELECT display_role, decision, coalesce(theme, ''), coalesce(min_age_band, ''),
 		coalesce(reason, ''), reviewed_at, coalesce(checklist_version, ''), checklist, coalesce(computed_band, ''),
-		coalesce(band_reason, '') FROM video_reviews
+		coalesce(band_reason, ''), began_at FROM video_reviews
 		WHERE video_id = $1::uuid AND round = $2 AND ($3::text = '' OR decision = $3::text) ORDER BY reviewed_at, id`,
 		videoID, round, string(decision))
 	if err != nil {
@@ -465,8 +484,12 @@ func reviewsOf(ctx context.Context, q querier, videoID string, round int, decisi
 		var role, dec, band, computed string
 		var list []byte
 		if err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt, &x.ChecklistVersion, &list, &computed,
-			&x.BandReason); err != nil {
+			&x.BandReason, &x.BeganAt); err != nil {
 			return x, err
+		}
+		if x.BeganAt != nil {
+			at := x.BeganAt.UTC()
+			x.BeganAt = &at
 		}
 		x.ComputedBand = family.AgeBand(computed)
 		x.DisplayRole, x.Decision, x.MinAgeBand, x.ReviewedAt = DisplayRole(role), Decision(dec), family.AgeBand(band), x.ReviewedAt.UTC()

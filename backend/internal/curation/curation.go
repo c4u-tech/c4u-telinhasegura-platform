@@ -82,6 +82,7 @@ var (
 	ErrDeclarationRequired = errors.New("curation: the curator has not accepted the current curator terms")
 	ErrDeclarationOutdated = errors.New("curation: the curator terms version is not the current one")
 	ErrConflictOfInterest  = errors.New("curation: the curator has a tie to the channel")
+	ErrNotWatched          = errors.New("curation: the video did not play to its end for this reviewer")
 
 	ErrThumbnailUnavailable = errors.New("curation: the thumbnail could not be fetched")
 

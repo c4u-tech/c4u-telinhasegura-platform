@@ -20,6 +20,7 @@ func TestApprovalStoresEveryAnswer(t *testing.T) {
 	f := newFixture(t)
 	c := f.curator("c1@example.com", curation.MaePai)
 	v := f.video(ytID)
+	f.watched(c, v)
 	f.now = f.now.Add(time.Minute)
 	r, state, err := f.svc.Review(ctx, c, v, approve("bichos", family.Age5To8))
 	if err != nil || state != curation.Pending {
@@ -293,6 +294,7 @@ func TestALongVideoIsApprovedWithItsLongAnswers(t *testing.T) {
 			v := f.longVideo(ytID, tc.length)
 			in := approve("bichos", tc.band)
 			in.Answers = tc.answers
+			f.watched(c, v)
 			f.now = f.now.Add(time.Minute)
 			r, state, err := f.svc.Review(ctx, c, v, in)
 			if err != nil || state != curation.Pending || r.Decision != curation.Approve || !maps.Equal(r.Answers, tc.answers) {
@@ -348,6 +350,7 @@ func TestAShortVideoDropsTheLongAnswers(t *testing.T) {
 			f := newFixture(t)
 			c := f.curator("c1@example.com", curation.MaePai)
 			v := f.longVideo(ytID, tc.length)
+			f.watched(c, v)
 			f.now = f.now.Add(time.Minute)
 			r, _, err := f.svc.Review(ctx, c, v, tc.in)
 			if !errors.Is(err, tc.want) {
@@ -441,6 +444,7 @@ func TestAnApprovalStoresTheComputedBandBesideTheStated(t *testing.T) {
 	f := newFixture(t)
 	c := f.curator("c1@example.com", curation.MaePai)
 	v := f.video(ytID)
+	f.watched(c, v)
 	f.now = f.now.Add(time.Minute)
 	r, _, err := f.svc.Review(ctx, c, v, approveWith("bichos", family.Age9To12, map[string]curation.Answer{"c35": curation.AnswerAppears}))
 	if err != nil || r.ComputedBand != family.Age9To12 || r.BandReason != "" {
@@ -506,6 +510,7 @@ func TestAnOlderStatedBandIsAcceptedWithItsReason(t *testing.T) {
 	if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
 		t.Fatalf("refused reviews were stored: %d rows", n)
 	}
+	f.watched(c, v)
 	f.now = f.now.Add(time.Minute)
 	r, _, err := f.svc.Review(ctx, c, v, withReason(approve("bichos", family.Age9To12), "  Fala rápida demais.  "))
 	if err != nil || r.ComputedBand != family.AgeUpTo4 || r.BandReason != "Fala rápida demais." {
