@@ -228,6 +228,35 @@ func TestHeldDoubtServesItsComputedBandOverHTTP(t *testing.T) {
 	}
 }
 
+// The held doubt says which answers of the round bar a younger band,
+// worded as the list asks them and by the role of who gave them.
+func TestHeldDoubtServesTheAnswersBehindItsBandOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	mod := a.moderator(admin, "mia@example.com")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	doubt := approvalWith("", "", map[string]string{"c13": "doubt", "c34": "appears"})
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+v.ID+"/reviews", doubt, bearer(c1)...); r.Code != http.StatusCreated {
+		t.Fatalf("doubt: %d %s", r.Code, r.Body)
+	}
+	type bandAnswer struct {
+		Text        string `json:"text"`
+		Answer      string `json:"answer"`
+		DisplayRole string `json:"display_role"`
+	}
+	var held struct {
+		Videos []struct {
+			BandAnswers []bandAnswer `json:"band_answers"`
+		} `json:"videos"`
+	}
+	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+	want := bandAnswer{"Para acompanhar o vídeo é preciso ler o que está escrito na tela?", "appears", "mae-pai"}
+	if len(held.Videos) != 1 || len(held.Videos[0].BandAnswers) != 1 || held.Videos[0].BandAnswers[0] != want {
+		t.Fatalf("held %+v", held)
+	}
+}
+
 // A build that knows neither the drafts nor the band reason sends the
 // bodies it always sent: it can still refuse and doubt, but not approve.
 func TestAnOldBuildCanStillRefuseAndDoubt(t *testing.T) {

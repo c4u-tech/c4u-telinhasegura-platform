@@ -29,14 +29,20 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		Reason    string    `json:"reason"`
 		AuditedAt time.Time `json:"audited_at"`
 	}
+	type bandAnswer struct {
+		Text        string `json:"text"`
+		Answer      string `json:"answer"`
+		DisplayRole string `json:"display_role"`
+	}
 	type item struct {
-		Video        videoOut    `json:"video"`
-		Rejections   []reviewOut `json:"rejections"`
-		Doubts       []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
-		HeldReason   string      `json:"held_reason"`
-		ComputedBand string      `json:"computed_band"`   // the youngest band a doubt may be published in
-		Reports      reports     `json:"reports"`         // since the latest reopen, never who reported
-		Audit        *heldAudit  `json:"audit,omitempty"` // the audit that held the video, never who audited
+		Video        videoOut     `json:"video"`
+		Rejections   []reviewOut  `json:"rejections"`
+		Doubts       []reviewOut  `json:"doubts"` // a curator's doubt, with the answers and the note
+		HeldReason   string       `json:"held_reason"`
+		ComputedBand string       `json:"computed_band"`   // the youngest band a doubt may be published in
+		BandAnswers  []bandAnswer `json:"band_answers"`    // the round's answers behind it, by displayed role
+		Reports      reports      `json:"reports"`         // since the latest reopen, never who reported
+		Audit        *heldAudit   `json:"audit,omitempty"` // the audit that held the video, never who audited
 	}
 	out := make([]item, 0, len(list))
 	for _, h := range list {
@@ -48,8 +54,12 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		if h.Audit != nil {
 			audit = &heldAudit{string(h.Audit.Verdict), h.Audit.Reason, h.Audit.AuditedAt.UTC()}
 		}
+		answers := make([]bandAnswer, 0, len(h.BandAnswers))
+		for _, b := range h.BandAnswers {
+			answers = append(answers, bandAnswer{b.Text, string(b.Answer), string(b.DisplayRole)})
+		}
 		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason,
-			string(h.ComputedBand), reports{by, h.Reports.Notes}, audit})
+			string(h.ComputedBand), answers, reports{by, h.Reports.Notes}, audit})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"videos": out})
 }

@@ -22,6 +22,7 @@ type HeldVideo struct {
 	Reports      ReportSummary  // since the latest reopen
 	HeldReason   string         // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
 	ComputedBand family.AgeBand // the youngest band a doubt may be published in; empty under a list the code does not know
+	BandAnswers  []BandAnswer   // the round's answers that bar a younger band; none under a list the code does not know
 	Audit        *HeldAudit     // the audit that held the video; nil unless HeldByAudit
 }
 
@@ -59,13 +60,14 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 		}
 		// A round stored under a list the code does not know has no band
 		// here, so the rest of the list still loads; deciding it is refused.
-		out[i].ComputedBand, err = s.roundBand(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round,
-			out[i].Video.DurationSeconds)
-		if errors.Is(err, errUnknownList) {
-			out[i].ComputedBand, err = "", nil
-		}
-		if err != nil {
+		reviews, err := roundAnswers(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round)
+		switch {
+		case errors.Is(err, errUnknownList):
+		case err != nil:
 			return nil, err
+		default:
+			out[i].ComputedBand = s.bandOf(reviews, out[i].Video.DurationSeconds)
+			out[i].BandAnswers = bandAnswers(reviews)
 		}
 		if out[i].Reports, err = reportsOf(ctx, s.d.Pool, out[i].Video.ID); err != nil {
 			return nil, err
