@@ -593,6 +593,7 @@ class HeldVideo {
     this.reports = const ReportSummary(),
     this.audit,
     this.computedBand,
+    this.bandAnswers = const [],
   });
 
   factory HeldVideo.fromJson(Map<String, dynamic> j) => HeldVideo(
@@ -614,6 +615,10 @@ class HeldVideo {
       final String b when b.isNotEmpty => AgeBand.parse(b),
       _ => null,
     },
+    bandAnswers: [
+      for (final b in j['band_answers'] as List<dynamic>? ?? const [])
+        BandAnswer.fromJson(b as Map<String, dynamic>),
+    ],
   );
 
   final Video video;
@@ -630,6 +635,31 @@ class HeldVideo {
   /// The youngest band the round's answers and the video's length allow
   /// it to be published in; null from a server that does not say.
   final AgeBand? computedBand;
+
+  /// The round's answers behind [computedBand], in the list's order; none
+  /// from a server that does not say.
+  final List<BandAnswer> bandAnswers;
+}
+
+/// An answer of a round that bars a younger band: the question as the
+/// list asked it, the answer ("Sim" or "Não sei") and the displayed role of
+/// who gave it, never who.
+class BandAnswer {
+  const BandAnswer({
+    required this.text,
+    required this.answer,
+    required this.displayRole,
+  });
+
+  factory BandAnswer.fromJson(Map<String, dynamic> j) => BandAnswer(
+    text: j['text'] as String,
+    answer: ChecklistAnswer.parse(j['answer']),
+    displayRole: DisplayRole.parse(j['display_role']),
+  );
+
+  final String text;
+  final ChecklistAnswer answer;
+  final DisplayRole displayRole;
 }
 
 /// A curator's own unfinished review of a video, as the server keeps it:

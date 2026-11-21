@@ -344,7 +344,8 @@ const auditJson = <String, Object?>{
 
 /// One held video as the wire carries it: [video] with its [rejections],
 /// [reason], reports by reason with their [notes], and the band the
-/// round's answers allow from, [computedBand].
+/// round's answers allow from, [computedBand], with the answers behind it,
+/// [bandAnswers].
 Map<String, Object?> heldOf(
   Map<String, Object?> video, {
   List<Map<String, Object?>> rejections = const [],
@@ -354,6 +355,7 @@ Map<String, Object?> heldOf(
   List<Map<String, Object?>> doubts = const [],
   Map<String, Object?>? audit,
   String? computedBand,
+  List<Map<String, Object?>>? bandAnswers,
 }) => {
   'video': {...video, 'state': 'held'},
   'rejections': rejections,
@@ -362,6 +364,7 @@ Map<String, Object?> heldOf(
   'held_reason': ?reason,
   'reports': {'by_reason': reports, 'notes': notes},
   'computed_band': ?computedBand,
+  'band_answers': ?bandAnswers,
 };
 
 /// The held videos' list.

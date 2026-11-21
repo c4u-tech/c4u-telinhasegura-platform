@@ -17,6 +17,7 @@ import '../staff/challenge.dart';
 import 'adult_window.dart';
 import 'audit_video_screen.dart' show marksFailed;
 import 'curation.dart';
+import 'end_line.dart';
 import 'role_gate.dart';
 import 'video_heading.dart';
 import 'words.dart';
@@ -64,7 +65,8 @@ String reportLine(ReportReason reason, int n) => CurationWords.joined([
 /// `/moderacao/retidos/:id`: the held video's title and why it is held;
 /// each refusal by displayed role with its reason; the reports by reason
 /// with their counts, then, under their own heading, the families' notes
-/// quoted, never who; the player, as on the review; then the primary
+/// quoted, never who; the player, as on the review, and, for a doubt, the
+/// line that says whether it played to its end; then the primary
 /// "Reabrir para revisão" and, quiet in clay at the foot, "Remover de
 /// vez". Both confirm full screen with
 /// "Motivo", sent with the write; only the removal goes through
@@ -89,6 +91,10 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
 
   /// The write running is the removal, whose action shows the progress.
   bool _removing = false;
+
+  /// Whether the video played to its end here, or on this device before
+  /// the server heard it: publishing a doubt waits on it.
+  bool _playedToEnd = false;
 
   @override
   void didChangeDependencies() {
@@ -116,12 +122,18 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
       if (!mounted) return;
       final held = all.where((h) => h.video.id == widget.id).firstOrNull;
       if (held == null) return _leave(heldGone);
-      setState(() => _held = held);
-      // Publishing a doubt needs the video's end, so the player reports it.
       final ends = scope.moderatorEnds;
+      setState(() {
+        _held = held;
+        _playedToEnd = _playedToEnd || ends.holds(held.video.id);
+      });
+      // Publishing a doubt needs the video's end, so the player reports it.
       openPlayer(
         held.video.youtubeId,
-        onEnded: () => unawaited(ends.report(held.video.id)),
+        onEnded: () {
+          if (mounted) setState(() => _playedToEnd = true);
+          unawaited(ends.report(held.video.id));
+        },
       );
       if (held.heldReason == HeldReason.doubt) unawaited(_readMarks());
     } on Object catch (e) {
@@ -301,6 +313,11 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         ..._section(notesHeading, [for (final n in notes) '“$n”']),
       const SizedBox(height: Space.xl),
       playerWindow(failed: heldPlayerFailed),
+      // Only a doubt's publication waits on the video's end.
+      if (held.heldReason == HeldReason.doubt) ...[
+        const SizedBox(height: Space.md),
+        EndLine(ended: _playedToEnd),
+      ],
       const SizedBox(height: Space.xl),
       if (_write.message case final message?) ...[
         ErrorNote(message),

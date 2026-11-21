@@ -2358,6 +2358,24 @@ final adminScreens =
         adminApi(held: () => heldList([longHeld])),
         null,
       ),
+      'held video, a doubt': (
+        '/moderacao/retidos/v1',
+        adminApi(held: () => heldList([_heldDoubt])),
+        null,
+      ),
+      'held video, a doubt played to its end': (
+        '/moderacao/retidos/v1',
+        adminApi(held: () => heldList([_heldDoubt])),
+        (tester, h) async {
+          h.adultPlayer.current!.emit(const PlayerEnded());
+          await tester.pumpAndSettle();
+        },
+      ),
+      'publish a doubt': (
+        '/moderacao/retidos/v1/publicar',
+        adminApi(held: () => heldList([_heldDoubt])),
+        null,
+      ),
       'held video, player failed': (
         '/moderacao/retidos/v1',
         adminApi(held: () => heldList([longHeld])),
@@ -2479,6 +2497,27 @@ final longSheet = <String, Object?>{
 
 /// A held video at its bounds: a 100-character title, a 500-character
 /// refusal and note, every report reason.
+/// A doubt whose round's answers bar the younger bands, with long
+/// questions.
+final _heldDoubt = heldOf(
+  queuedJson('v1', List.filled(10, 'Bichos').join(' ')),
+  reason: 'doubt',
+  doubts: [doubtJson],
+  computedBand: '9-12',
+  bandAnswers: [
+    {
+      'text': List.filled(20, 'personagem').join(' '),
+      'answer': 'doubt',
+      'display_role': 'psicologo',
+    },
+    {
+      'text': 'Tem ritmo agitado?',
+      'answer': 'appears',
+      'display_role': 'mae-pai',
+    },
+  ],
+);
+
 final longHeld = heldOf(
   queuedJson('v1', List.filled(15, 'Bichos').join(' ').substring(0, 100)),
   rejections: [

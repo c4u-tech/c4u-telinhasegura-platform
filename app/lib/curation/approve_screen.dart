@@ -19,13 +19,17 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'adult_window.dart';
 import 'answer_choice.dart';
+import 'band_answer_row.dart';
 import 'approval_draft.dart';
 import 'curation.dart';
 import 'curation_api.dart';
 import 'draft_writer.dart';
+import 'end_line.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'unheard_ends.dart';
 import 'words.dart';
+
+export 'end_line.dart' show notPlayedToEnd, playedToEnd;
 
 /// "Antes de começar": what the app checked when the video was suggested.
 const checkedByApp =
@@ -80,10 +84,6 @@ const _reasonCountFrom = 160;
 /// Under "Aprovar" until the video has played to its end here.
 const watchHint = 'Para aprovar, deixe o vídeo tocar até o fim.';
 
-/// The line under the window: whether the video has played to its end.
-const notPlayedToEnd = 'Ainda não tocou até o fim';
-const playedToEnd = 'Tocou até o fim';
-
 /// The review: its title, a step with nothing marked, the action back to
 /// a step, and the line of the theme and band.
 const reviewTitle = 'Confira antes de enviar';
@@ -95,10 +95,6 @@ const topicTitle = 'Tema e idade';
 const approveLabel = 'Aprovar';
 const refuseLabel = 'Recusar';
 const teamLabel = 'Enviar para a equipe';
-
-/// The band the answers give, said as a line: the moderator's screen.
-String answersBandLine(AgeBand from) =>
-    'Pelas respostas, este vídeo serve a partir de ${from.label}.';
 
 /// When the video's length, not an answer, rules out the youngest band.
 const tooLongForYoungestLine =
@@ -555,7 +551,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         child: playerWindow(failed: flowPlayerFailed),
       ),
       const SizedBox(height: Space.md),
-      _EndLine(ended: _playedToEnd),
+      EndLine(ended: _playedToEnd),
     ],
   );
 
@@ -709,7 +705,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       ),
       const SizedBox(height: Space.xs),
       for (final (item, a) in moved)
-        _BandAnswer(
+        BandAnswerRow(
           question: item.text,
           word: a.word,
           onChange: _idle
@@ -975,105 +971,6 @@ class _SummaryLine extends StatelessWidget {
             semanticsLabel: '$changeLabel: $title',
             inline: true,
             onPressed: onChange,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// An answer that moved the band: the question, then "— Sim" or "— Não
-/// sei" in weight, and "mudar", named by the question, back to its page.
-class _BandAnswer extends StatelessWidget {
-  const _BandAnswer({
-    required this.question,
-    required this.word,
-    required this.onChange,
-  });
-
-  final String question;
-  final String word;
-  final VoidCallback? onChange;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final answer = Text.rich(
-      TextSpan(
-        text: '$question ',
-        children: [
-          TextSpan(
-            // Kept on one line with its dash.
-            text: '—\u00A0$word'.replaceAll(' ', '\u00A0'),
-            // The answer in the weight of an action's label.
-            style: TextStyle(
-              fontWeight: text.labelLarge?.fontWeight,
-              fontVariations: text.labelLarge?.fontVariations,
-            ),
-          ),
-        ],
-      ),
-      semanticsLabel: '$question — $word',
-      style: text.bodyLarge,
-    );
-    final change = QuietAction(
-      label: changeLabel,
-      semanticsLabel: '$changeLabel: $question',
-      inline: true,
-      onPressed: onChange,
-    );
-    // At large text a column beside the question would leave it a word or
-    // two a line: "mudar" goes under it.
-    final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Space.sm),
-      child: large
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [answer, change],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: answer),
-                const SizedBox(width: Space.sm),
-                change,
-              ],
-            ),
-    );
-  }
-}
-
-/// Under the window: "Ainda não tocou até o fim", muted, or the check and
-/// "Tocou até o fim" in the text colour, so the state is in words and
-/// glyph, never in colour alone. Read as one label, announced when it
-/// changes.
-class _EndLine extends StatelessWidget {
-  const _EndLine({required this.ended});
-
-  final bool ended;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final words = ended ? playedToEnd : notPlayedToEnd;
-    return Semantics(
-      container: true,
-      liveRegion: true,
-      label: words,
-      excludeSemantics: true,
-      child: Row(
-        children: [
-          if (ended) ...[
-            Icon(Icons.check_rounded, size: 20, color: p.text),
-            const SizedBox(width: Space.xs),
-          ],
-          Flexible(
-            child: Text(
-              words,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: ended ? p.text : p.muted),
-            ),
           ),
         ],
       ),

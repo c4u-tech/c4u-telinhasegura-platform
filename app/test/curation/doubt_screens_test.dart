@@ -8,17 +8,20 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/approve_screen.dart'
-    show answersBandLine, tooLongForYoungestLine;
+    show notPlayedToEnd, playedToEnd, tooLongForYoungestLine;
 import 'package:telinha_segura/curation/audit_video_screen.dart'
     show marksFailed;
 import 'package:telinha_segura/curation/held_video_screen.dart';
 import 'package:telinha_segura/curation/publish_doubt_screen.dart';
+import 'package:telinha_segura/curation/curation.dart' show VideoTheme;
+import 'package:telinha_segura/curation/words.dart' show VideoThemeLabel;
 import 'package:telinha_segura/family/family.dart' show AgeBand;
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
 import 'package:telinha_segura/kid/kid_player.dart' show PlayerEnded;
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
+import '../kid/fake_player.dart';
 import 'appoint_screen_test.dart' show tapOn;
 import 'fixtures.dart';
 import 'held_video_screen_test.dart' show confirming, writes;
@@ -238,12 +241,94 @@ void main() {
       isFalse,
       reason: 'the curator\'s choice is not kept',
     );
-    expect(find.text(answersBandLine(AgeBand.from9To12)), findsOneWidget);
+    expect(find.text(roundBandStatement(AgeBand.from9To12)), findsOneWidget);
     expect(find.text(tooLongForYoungestLine), findsNothing);
   });
 
-  testWidgets('"Publicar" over a round whose answers allow every band says '
-      'nothing of them', (tester) async {
+  testWidgets('"Publicar" states the band the round\'s answers give and the '
+      'answers behind it, by who gave them, above the themes, with no way to '
+      'change them', (tester) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      held: heldOf(
+        queuedJson('v1', 'Baby Shark'),
+        reason: 'doubt',
+        doubts: [doubtJson],
+        computedBand: '9-12',
+        bandAnswers: [
+          {
+            'text': 'Tem ritmo agitado?',
+            'answer': 'doubt',
+            'display_role': 'mae-pai',
+          },
+          {
+            'text': 'Tem namoro entre os personagens?',
+            'answer': 'appears',
+            'display_role': 'pedagogo',
+          },
+        ],
+      ),
+    );
+
+    expect(
+      roundBandStatement(AgeBand.from9To12),
+      'Pelas respostas da rodada, este vídeo serve a partir de 9 a 12 anos',
+    );
+    final statement = find.text(roundBandStatement(AgeBand.from9To12));
+    expect(statement, findsOneWidget);
+    final fast = find.text(
+      'Tem ritmo agitado? —\u00A0Não\u00A0sei',
+      findRichText: true,
+    );
+    final dating = find.text(
+      'Tem namoro entre os personagens? —\u00A0Sim',
+      findRichText: true,
+    );
+    expect(fast, findsOneWidget);
+    expect(dating, findsOneWidget);
+    expect(find.text('Mãe ou pai respondeu'), findsOneWidget);
+    expect(find.text('Pedagogo(a) respondeu'), findsOneWidget);
+    expect(find.text('mudar'), findsNothing);
+    final y = tester.getTopLeft;
+    expect(y(statement).dy < y(fast).dy, isTrue);
+    expect(y(fast).dy < y(dating).dy, isTrue);
+    expect(y(dating).dy < y(find.text('Tema')).dy, isTrue);
+    expect(
+      find.text('Pelas respostas, este vídeo serve a partir de 9 a 12 anos.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('"Publicar" shows each theme with its meaning', (tester) async {
+    await doubtHeld(tester, initial: '/moderacao/retidos/v1/publicar');
+
+    for (final t in VideoTheme.values) {
+      if (t == VideoTheme.unknown) continue;
+      expect(find.text(t.definition!), findsOneWidget, reason: t.label);
+    }
+  });
+
+  testWidgets('"Publicar" over a long video whose answers bar nothing says '
+      'the length does', (tester) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      held: heldOf(
+        queuedJson('v1', 'Baby Shark', seconds: 61 * 60),
+        reason: 'doubt',
+        doubts: [doubtJson],
+        computedBand: '5-8',
+        bandAnswers: const [],
+      ),
+    );
+
+    expect(find.text(roundBandStatement(AgeBand.from5To8)), findsOneWidget);
+    expect(find.text(tooLongForYoungestLine), findsOneWidget);
+  });
+
+  testWidgets('"Publicar" over a round whose answers allow every band states '
+      'it, with no answer under it', (tester) async {
     await doubtHeld(
       tester,
       initial: '/moderacao/retidos/v1/publicar',
@@ -256,7 +341,8 @@ void main() {
     );
 
     expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNotNull);
-    expect(find.textContaining('Pelas respostas'), findsNothing);
+    expect(find.text(roundBandStatement(AgeBand.upTo4)), findsOneWidget);
+    expect(find.textContaining('respondeu'), findsNothing);
   });
 
   testWidgets('checklist_band says why and takes "2 a 4 anos" away', (
@@ -450,6 +536,35 @@ void main() {
     expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isFalse);
   });
 
+  testWidgets('a video held by a doubt says under the window whether it '
+      'played to its end', (tester) async {
+    final h = await doubtHeld(tester);
+    final line = find.text(notPlayedToEnd);
+    expect(line, findsOneWidget);
+    expect(
+      tester.getTopLeft(line).dy,
+      greaterThan(tester.getBottomLeft(find.byKey(FakePlayback.viewKey)).dy),
+    );
+
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    expect(find.text(playedToEnd), findsOneWidget);
+    expect(find.text(notPlayedToEnd), findsNothing);
+  });
+
+  testWidgets('a video held for another reason has no such line', (
+    tester,
+  ) async {
+    await doubtHeld(
+      tester,
+      held: heldOf(queuedJson('v1', 'Baby Shark'), reason: 'reports'),
+    );
+
+    expect(find.text(notPlayedToEnd), findsNothing);
+    expect(find.text(playedToEnd), findsNothing);
+  });
+
   testWidgets('the held screen tells the server when the video played to '
       'its end', (tester) async {
     final h = await doubtHeld(tester);
@@ -526,11 +641,17 @@ void main() {
 
     expect(writePaths(h), ['POST /v1/moderation/videos/v1/decide']);
     expect(h.location(tester), '/moderacao/retidos/v1/publicar');
+    expect(find.text(publishNotWatched), findsOneWidget);
+    expect(
+      publishNotWatched,
+      'Para publicar, o vídeo precisa tocar até o fim. Volte, assista até o '
+      'fim e publique de novo.',
+    );
     expect(
       find.text(
         Copy.forError(const ApiError(status: 409, code: 'not_watched')),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
     expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
