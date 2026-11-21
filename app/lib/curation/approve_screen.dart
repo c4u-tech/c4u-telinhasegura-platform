@@ -248,7 +248,9 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       _keptRead = true;
       if (kept != null) {
         setState(() => d.restoreBeneath(kept));
-        _note.text = d.note ?? '';
+        // Set only when it changed: setting it moves the cursor of a
+        // curator typing in it.
+        if (_note.text != (d.note ?? '')) _note.text = d.note ?? '';
       }
       _write(d);
     } on Exception {

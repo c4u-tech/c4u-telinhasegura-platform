@@ -679,6 +679,32 @@ void main() {
       expect(picked(tester, paid, 'Não'), isTrue);
     });
 
+    testWidgets('a late draft read with the same note leaves the cursor '
+        'where it was', (tester) async {
+      Completer<http.Response>? held;
+      await approving(
+        tester,
+        draft: () => held?.future ?? Future.value(problem(503, 'unavailable')),
+      );
+      await start(tester);
+      await noneOfThis(tester);
+      await answer(tester, sad, 'Não sei');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+
+      held = Completer<http.Response>();
+      final field = find.widgetWithText(TextField, doubtNoteLabel);
+      await tester.enterText(field, 'Pesa?');
+      await tester.pump();
+      final note = tester.widget<TextField>(field).controller!;
+      note.selection = const TextSelection.collapsed(offset: 2);
+      held.complete(kept(draftJson(answers: {'c25': 'ok'}, note: 'Pesa?')));
+      await tester.pumpAndSettle();
+
+      expect(note.text, 'Pesa?');
+      expect(note.selection, const TextSelection.collapsed(offset: 2));
+    });
+
     testWidgets('each answer is written to the draft', (tester) async {
       final h = await approving(tester);
 
