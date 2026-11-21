@@ -1,6 +1,7 @@
 package curation_test
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -273,5 +274,71 @@ func TestDecideDoubtKeepsALongOrFastVideoFromTheYoungestBand(t *testing.T) {
 				t.Fatalf("published %+v", got)
 			}
 		})
+	}
+}
+
+// A moderator is held to the band the round's answers allow, whichever
+// band that is.
+func TestDecideDoubtRefusesABandYoungerThanTheRoundsAnswers(t *testing.T) {
+	f := newFixture(t)
+	mod := f.account("mia@example.com")
+	c := f.curator("d@example.com", curation.MaePai)
+	v := f.video(ytID)
+	if state := f.review(c, v, approveWith("", "", map[string]curation.Answer{"c13": curation.AnswerDoubt, "c35": curation.AnswerAppears})); state != curation.Held {
+		t.Fatalf("doubt: %s", state)
+	}
+	m := curation.Moderation{ActorID: mod, ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	d := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.Age5To8}
+	if err := f.svc.DecideDoubt(ctx, m, v, d); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("5 to 8: %v", err)
+	}
+	if st, why := f.state(v); st != "held" || why != curation.HeldByDoubt || f.audited(audit.VideoDoubtDecided) != 0 {
+		t.Fatalf("the refusal moved the video: %s %s", st, why)
+	}
+	d.MinAgeBand = family.Age9To12
+	if err := f.svc.DecideDoubt(ctx, m, v, d); err != nil {
+		t.Fatalf("9 to 12: %v", err)
+	}
+	if got := f.detail(v).Video; got.State != curation.Approved || got.MinAgeBand != family.Age9To12 {
+		t.Fatalf("published %+v", got)
+	}
+}
+
+// heldDoubt inserts a video held by a doubt stored under list version with
+// answers, as a review from before the current list would be.
+func (f *fixture) heldDoubt(youtubeID, version string, answers map[string]string) string {
+	f.t.Helper()
+	v := f.video(youtubeID)
+	f.exec(`UPDATE videos SET state = 'held', held_reason = 'doubt' WHERE id = $1::uuid`, v)
+	list, err := json.Marshal(answers)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	f.exec(`INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, reason, reviewed_at,
+		checklist_version, checklist) VALUES ($1::uuid, 1, NULL, 'pedagogo', 'doubt', 'Não sei.', $2, $3, $4::text::jsonb)`,
+		v, f.now, version, string(list))
+	return v
+}
+
+func TestDecideDoubtReadsEachReviewUnderItsOwnList(t *testing.T) {
+	f := newFixture(t)
+	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
+	// c35 was not a band question under that list: only the pace counts.
+	v := f.heldDoubt(ytID, "2026-11-11", map[string]string{"c22": "appears", "c35": "appears"})
+	if err := f.svc.DecideDoubt(ctx, m, v, young); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("2 to 4: %v", err)
+	}
+	five := young
+	five.MinAgeBand = family.Age5To8
+	if err := f.svc.DecideDoubt(ctx, m, v, five); err != nil {
+		t.Fatalf("5 to 8: %v", err)
+	}
+	if got := f.detail(v).Video; got.State != curation.Approved || got.MinAgeBand != family.Age5To8 {
+		t.Fatalf("published %+v", got)
+	}
+	first := f.heldDoubt("firstlist01", "2026-10-20", map[string]string{"c01": "ok", "c22": "appears"})
+	if err := f.svc.DecideDoubt(ctx, m, first, young); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("2 to 4 under the first list: %v", err)
 	}
 }

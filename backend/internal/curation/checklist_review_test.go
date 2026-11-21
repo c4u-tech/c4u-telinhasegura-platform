@@ -185,6 +185,9 @@ func TestReviewsUnderTheFormerListStayReadable(t *testing.T) {
 	if rejection.Reason != "Não: Tem começo, meio e fim claros?" || !slices.Equal(rejection.FailedItems, []string{"c23"}) {
 		t.Fatalf("former rejection %+v", rejection)
 	}
+	if doubt.ComputedBand != "" || rejection.ComputedBand != "" {
+		t.Fatalf("former rows computed %q %q", doubt.ComputedBand, rejection.ComputedBand)
+	}
 }
 
 // The flow skips the theme and the band when the answers send the video
@@ -420,5 +423,121 @@ func TestARejectionOfAShortVideoCitesNoLongQuestion(t *testing.T) {
 				t.Fatalf("%d rows stored, want %d", n, tc.stored)
 			}
 		})
+	}
+}
+
+// storedBand reads the computed band and the reason of video v's one
+// review, "" for NULL.
+func (f *fixture) storedBand(v string) (computed, stated, reason string) {
+	f.t.Helper()
+	if err := f.pool.QueryRow(ctx, `SELECT coalesce(computed_band, ''), coalesce(min_age_band, ''), coalesce(band_reason, '')
+		FROM video_reviews WHERE video_id = $1::uuid`, v).Scan(&computed, &stated, &reason); err != nil {
+		f.t.Fatal(err)
+	}
+	return computed, stated, reason
+}
+
+func TestAnApprovalStoresTheComputedBandBesideTheStated(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	f.now = f.now.Add(time.Minute)
+	r, _, err := f.svc.Review(ctx, c, v, approveWith("bichos", family.Age9To12, map[string]curation.Answer{"c35": curation.AnswerAppears}))
+	if err != nil || r.ComputedBand != family.Age9To12 || r.BandReason != "" {
+		t.Fatalf("approval %+v %v", r, err)
+	}
+	if computed, stated, reason := f.storedBand(v); computed != "9-12" || stated != "9-12" || reason != "" {
+		t.Fatalf("stored %q %q %q", computed, stated, reason)
+	}
+	if got := f.detail(v).Reviews[0].ComputedBand; got != family.Age9To12 {
+		t.Fatalf("detail computed %q", got)
+	}
+	clean := f.video("cleanvideo1")
+	f.review(c, clean, approve("bichos", family.Age5To8))
+	if computed, _, _ := f.storedBand(clean); computed != "ate-4" {
+		t.Fatalf("a clean approval computed %q", computed)
+	}
+}
+
+func TestAStatedBandYoungerThanTheComputedIsRefused(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	long := f.longVideo("longvideo01", 61*time.Minute)
+	appears := curation.AnswerAppears
+	longYoung := approve("bichos", family.AgeUpTo4)
+	longYoung.Answers = cleanLong()
+	for name, tc := range map[string]struct {
+		video string
+		in    curation.ReviewInput
+	}{
+		"a story for 9 to 12 stated 5 to 8": {v, approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c35": appears})},
+		"a strange figure stated 2 to 4":    {v, approveWith("bichos", family.AgeUpTo4, map[string]curation.Answer{"c32": appears})},
+		"the oldest bar wins":               {v, approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c22": appears, "c36": appears})},
+		"too long for 2 to 4":               {long, longYoung},
+	} {
+		if _, _, err := f.svc.Review(ctx, c, tc.video, tc.in); !errors.Is(err, curation.ErrChecklistBand) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+		t.Fatalf("refused reviews were stored: %d rows", n)
+	}
+}
+
+func TestAnOlderStatedBandIsAcceptedWithItsReason(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	withReason := func(in curation.ReviewInput, reason string) curation.ReviewInput {
+		in.BandReason = reason
+		return in
+	}
+	doubt := approveWith("", "", map[string]curation.Answer{"c24": curation.AnswerAppears})
+	for name, in := range map[string]curation.ReviewInput{
+		"a reason on the computed band": withReason(approve("bichos", family.AgeUpTo4), "Igual."),
+		"a reason of 201 runes":         withReason(approve("bichos", family.Age9To12), strings.Repeat("é", 201)),
+		"a reason on a doubt":           withReason(doubt, "Mais velho."),
+	} {
+		if _, _, err := f.svc.Review(ctx, c, v, in); !errors.Is(err, curation.ErrValidation) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
+		t.Fatalf("refused reviews were stored: %d rows", n)
+	}
+	f.now = f.now.Add(time.Minute)
+	r, _, err := f.svc.Review(ctx, c, v, withReason(approve("bichos", family.Age9To12), "  Fala rápida demais.  "))
+	if err != nil || r.ComputedBand != family.AgeUpTo4 || r.BandReason != "Fala rápida demais." {
+		t.Fatalf("approval %+v %v", r, err)
+	}
+	if computed, _, reason := f.storedBand(v); computed != "ate-4" || reason != "Fala rápida demais." {
+		t.Fatalf("stored %q %q", computed, reason)
+	}
+	if got := f.detail(v).Reviews[0].BandReason; got != "Fala rápida demais." {
+		t.Fatalf("detail reason %q", got)
+	}
+	bare := f.video("noreasonvid")
+	f.review(c, bare, approve("bichos", family.Age9To12))
+	if computed, _, reason := f.storedBand(bare); computed != "ate-4" || reason != "" {
+		t.Fatalf("without a reason: %q %q", computed, reason)
+	}
+}
+
+func TestADoubtStoresNoComputedBand(t *testing.T) {
+	f := newFixture(t)
+	c := f.curator("c1@example.com", curation.MaePai)
+	v := f.video(ytID)
+	changed := map[string]curation.Answer{"c13": curation.AnswerDoubt, "c35": curation.AnswerAppears}
+	if _, _, err := f.svc.Review(ctx, c, v, approveWith("bichos", family.Age5To8, changed)); !errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("a named band on a doubt: %v", err)
+	}
+	f.now = f.now.Add(time.Minute)
+	r, state, err := f.svc.Review(ctx, c, v, approveWith("", "", changed))
+	if err != nil || state != curation.Held || r.Decision != curation.Doubt || r.ComputedBand != "" {
+		t.Fatalf("doubt %+v %s %v", r, state, err)
+	}
+	if computed, _, reason := f.storedBand(v); computed != "" || reason != "" {
+		t.Fatalf("a doubt stored %q %q", computed, reason)
 	}
 }

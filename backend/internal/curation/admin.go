@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/family"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/audit"
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/staff"
 	"github.com/jackc/pgx/v5"
@@ -15,12 +16,13 @@ import (
 // HeldVideo is a held video with its held round's rejections and
 // doubts, and why it is held.
 type HeldVideo struct {
-	Video      Video
-	Rejections []Review
-	Doubts     []Review      // the held round's doubts, with their answers and notes
-	Reports    ReportSummary // since the latest reopen
-	HeldReason string        // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
-	Audit      *HeldAudit    // the audit that held the video; nil unless HeldByAudit
+	Video        Video
+	Rejections   []Review
+	Doubts       []Review       // the held round's doubts, with their answers and notes
+	Reports      ReportSummary  // since the latest reopen
+	HeldReason   string         // HeldByReview, HeldByReports, HeldByUnavailable, HeldByDoubt or HeldByAudit
+	ComputedBand family.AgeBand // the youngest band the round's answers and the length allow
+	Audit        *HeldAudit     // the audit that held the video; nil unless HeldByAudit
 }
 
 // HeldAudit is the audit of the published round that held a video, so
@@ -32,7 +34,8 @@ type HeldAudit struct {
 }
 
 // HeldVideos lists the held videos, the longest held first, each with
-// the rejections of the round that held it (videos.round).
+// the rejections and doubts of the round that held it (videos.round) and
+// the band that round's answers allow.
 func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 	rows, err := s.d.Pool.Query(ctx, `SELECT `+videoCols+`, v.held_reason FROM videos v WHERE v.state = 'held' ORDER BY v.updated_at, v.id`)
 	if err != nil {
@@ -52,6 +55,10 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 			return nil, err
 		}
 		if out[i].Doubts, err = reviewsOf(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round, Doubt); err != nil {
+			return nil, err
+		}
+		if out[i].ComputedBand, err = s.roundBand(ctx, s.d.Pool, out[i].Video.ID, out[i].Video.Round,
+			out[i].Video.DurationSeconds); err != nil {
 			return nil, err
 		}
 		if out[i].Reports, err = reportsOf(ctx, s.d.Pool, out[i].Video.ID); err != nil {

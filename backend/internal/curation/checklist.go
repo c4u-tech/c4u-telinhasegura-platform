@@ -32,7 +32,7 @@ type Rule string
 const (
 	RuleRefuses  Rule = "refuses"  // the video cannot be approved
 	RuleDoubt    Rule = "doubt"    // the video goes to a moderator
-	RuleBand     Rule = "band"     // the youngest band is not allowed
+	RuleBand     Rule = "band"     // only the question's MinBand and older are allowed
 	RuleConflict Rule = "conflict" // the curator may not review this video
 	RuleNotes    Rule = "notes"    // recorded for the team, never changes the outcome
 )
@@ -130,22 +130,72 @@ func Checklist() []ChecklistGroup {
 	return out
 }
 
+// formerBandRules are the band questions of every former list, each with
+// the youngest band a yes still allowed, so a review keeps the meaning it
+// was stored with. A list without an entry, or a review written before any
+// list, bars no band.
+var formerBandRules = map[string]map[string]family.AgeBand{
+	"2026-10-20": {"c22": family.Age5To8},
+	"2026-10-21": {"c22": family.Age5To8},
+	"2026-11-11": {"c22": family.Age5To8},
+}
+
+// currentBandRules are the current list's band questions and their bands.
+var currentBandRules = func() map[string]family.AgeBand {
+	out := map[string]family.AgeBand{}
+	for _, it := range checklistItem {
+		if it.Rule == RuleBand {
+			out[it.ID] = it.MinBand
+		}
+	}
+	return out
+}()
+
+// bandRules are the band questions of the list version names, each with
+// the youngest band a yes allows.
+func bandRules(version string) map[string]family.AgeBand {
+	if version == ChecklistVersion {
+		return currentBandRules
+	}
+	return formerBandRules[version]
+}
+
+// bandFrom is the youngest band a review's answers allow, read under the
+// list the review was stored with: the oldest band among the band
+// questions answered yes, and at least the band above the youngest for a
+// video too long for it. Curators and moderators are held to this one
+// rule.
+func bandFrom(version string, answers map[string]Answer, overYoungest bool) family.AgeBand {
+	band := family.AgeUpTo4
+	if overYoungest {
+		band = family.Age5To8
+	}
+	for id, min := range bandRules(version) {
+		if answers[id] == AnswerAppears && bandRank(min) > bandRank(band) {
+			band = min
+		}
+	}
+	return band
+}
+
 // judge reads a complete answer set against the current list. A missing,
 // unknown or malformed answer is ErrValidation, and so is "I don't know"
 // on the tie to the channel: the curator knows whether they have one. A
 // tie comes first, since such a curator must not judge the video at all;
-// then an answer that refuses the video; then the pace that rules out the
-// youngest band. It reports whether the review is a doubt: an explicit
+// then an answer that refuses the video; then a stated band younger than
+// computed, the band the answers and the length allow (a band question's
+// yes allows from its own band up). A doubt that states no band is not
+// judged on it. It reports whether the review is a doubt: an explicit
 // "doubt", or a yes on a question that asks for a moderator. The questions
 // asked of a long video only are checked when present; whether they must be
 // is the video's length, which the caller knows.
-func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
+func judge(answers map[string]Answer, stated, computed family.AgeBand) (bool, error) {
 	for _, id := range checklistOrder {
 		if _, ok := answers[id]; !ok && !checklistItem[id].LongOnly {
 			return false, ErrValidation
 		}
 	}
-	var conflict, refuses, fast, doubt bool
+	var conflict, refuses, doubt bool
 	for id, a := range answers {
 		item, ok := checklistItem[id]
 		if !ok || a != AnswerOK && a != AnswerAppears && a != AnswerDoubt {
@@ -168,8 +218,6 @@ func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
 			conflict = true
 		case RuleRefuses:
 			refuses = true
-		case RuleBand:
-			fast = true
 		case RuleDoubt:
 			doubt = true
 		}
@@ -179,7 +227,7 @@ func judge(answers map[string]Answer, band family.AgeBand) (bool, error) {
 		return false, ErrConflictOfInterest
 	case refuses:
 		return false, ErrChecklistRefuses
-	case fast && band == family.AgeUpTo4:
+	case stated != "" && bandRank(stated) < bandRank(computed):
 		return false, ErrChecklistBand
 	}
 	return doubt, nil

@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	queuePage = 50  // videos per queue page
-	maxReason = 500 // runes in a rejection's or a doubt's note
+	queuePage     = 50  // videos per queue page
+	maxReason     = 500 // runes in a rejection's or a doubt's note
+	maxBandReason = 200 // runes in why an approval states an older band than its answers
 )
 
 type Decision string
@@ -31,7 +32,8 @@ const (
 // list, or a rejection with the questions it failed. An approval whose
 // answers make it a doubt may leave both the theme and the band out: the
 // moderator who decides it chooses them. Note is the curator's own words:
-// a rejection's, or a doubt's.
+// a rejection's, or a doubt's. BandReason, optional, is why a plain
+// approval states a band older than its answers call for.
 type ReviewInput struct {
 	Decision         Decision
 	Theme            string
@@ -40,6 +42,7 @@ type ReviewInput struct {
 	Answers          map[string]Answer // an approval's, every question
 	FailedItems      []string          // a rejection's
 	Note             string
+	BandReason       string
 }
 
 // Review is one review as curators see it: the displayed role at review
@@ -53,6 +56,8 @@ type Review struct {
 	ChecklistVersion string            // "" for a review written before the list
 	Answers          map[string]Answer // an approval's or a doubt's; nil otherwise
 	FailedItems      []string          // a rejection's; nil otherwise
+	ComputedBand     family.AgeBand    // the band a plain approval's answers allow; "" otherwise
+	BandReason       string            // why a plain approval states an older band; "" if none
 	ReviewedAt       time.Time
 }
 
@@ -133,19 +138,16 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 			return err
 		}
 		// The review is judged once the length is known: it decides which
-		// questions the video was asked.
+		// questions the video was asked, and whether the youngest band can
+		// take it.
 		length := time.Duration(seconds) * time.Second
-		e, err := prepare(in, length > s.d.LongFrom)
+		e, err := prepare(in, length > s.d.LongFrom, length > s.d.FamilyYoungestMaxDuration)
 		if err != nil {
 			return err
 		}
-		// A video too long for the youngest band cannot go to it; a doubt
-		// with no band leaves that to the moderator.
-		if e.decision != Reject && length > s.d.FamilyYoungestMaxDuration && in.MinAgeBand == family.AgeUpTo4 {
-			return ErrChecklistBand
-		}
 		rv = Review{Decision: e.decision, Theme: in.Theme, MinAgeBand: in.MinAgeBand, Reason: e.reason,
-			ChecklistVersion: ChecklistVersion, Answers: e.answers, FailedItems: e.failed, ReviewedAt: now}
+			ChecklistVersion: ChecklistVersion, Answers: e.answers, FailedItems: e.failed, ComputedBand: e.computed,
+			BandReason: e.bandReason, ReviewedAt: now}
 		state = State(st)
 		var own, reviewed bool
 		if err := tx.QueryRow(ctx, `SELECT
@@ -176,10 +178,11 @@ func (s *Service) Review(ctx context.Context, curatorID, videoID string, in Revi
 		}
 		rv.DisplayRole = DisplayRole(role)
 		if _, err := tx.Exec(ctx, `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, theme,
-			min_age_band, reason, reviewed_at, checklist_version, checklist) VALUES ($1::uuid, $2, $3::uuid, $4, $5,
-			nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb)`,
+			min_age_band, reason, reviewed_at, checklist_version, checklist, computed_band, band_reason) VALUES ($1::uuid, $2,
+			$3::uuid, $4, $5, nullif($6::text, ''), nullif($7::text, ''), nullif($8::text, ''), $9, $10, $11::text::jsonb,
+			nullif($12::text, ''), nullif($13::text, ''))`,
 			videoID, round, curatorID, role, string(e.decision), in.Theme, string(in.MinAgeBand), e.reason, now,
-			ChecklistVersion, string(e.checklist)); err != nil {
+			ChecklistVersion, string(e.checklist), string(e.computed), e.bandReason); err != nil {
 			return err
 		}
 		// A rejection or a doubt holds the video at once, pending or in a
@@ -297,14 +300,22 @@ type entry struct {
 	checklist []byte            // the answers, or the failed questions
 	failed    []string          // a rejection's questions, in the list's order
 	answers   map[string]Answer // an approval's or a doubt's, as stored
+	// A plain approval's: the band its answers allow, and why it states an
+	// older one, if it says.
+	computed   family.AgeBand
+	bandReason string
 }
 
-// prepare checks a review of a video, long or not, and turns it into its
-// ledger entry. A refused review stores nothing. A long video is asked the
-// long-video questions and must answer them all; a short one is not, so
-// its rejection cannot cite them, and the answers to them an app built
-// before them still sends are dropped unjudged, as if never sent.
-func prepare(in ReviewInput, long bool) (entry, error) {
+// prepare checks a review of a video, long or not, over the youngest
+// band's ceiling or not, and turns it into its ledger entry. A refused
+// review stores nothing. A long video is asked the long-video questions
+// and must answer them all; a short one is not, so its rejection cannot
+// cite them, and the answers to them an app built before them still sends
+// are dropped unjudged, as if never sent. A stated band may not be younger
+// than the one the answers and the length allow: a band question's yes
+// allows from its own band up. An older one may say why, and only an
+// older one in a plain approval may.
+func prepare(in ReviewInput, long, overYoungest bool) (entry, error) {
 	if in.Decision != Approve && in.Decision != Reject {
 		return entry{}, ErrValidation
 	}
@@ -314,8 +325,12 @@ func prepare(in ReviewInput, long bool) (entry, error) {
 	if utf8.RuneCountInString(in.Note) > maxReason {
 		return entry{}, ErrValidation
 	}
+	bandReason := strings.TrimSpace(in.BandReason)
+	if utf8.RuneCountInString(bandReason) > maxBandReason {
+		return entry{}, ErrValidation
+	}
 	if in.Decision == Reject {
-		if in.Theme != "" || in.MinAgeBand != "" || in.Answers != nil {
+		if in.Theme != "" || in.MinAgeBand != "" || in.Answers != nil || bandReason != "" {
 			return entry{}, ErrValidation
 		}
 		items, err := failedItems(in.FailedItems)
@@ -352,20 +367,21 @@ func prepare(in ReviewInput, long bool) (entry, error) {
 			delete(answers, id)
 		}
 	}
-	doubt, err := judge(answers, in.MinAgeBand)
+	computed := bandFrom(ChecklistVersion, answers, overYoungest)
+	doubt, err := judge(answers, in.MinAgeBand, computed)
 	if err != nil {
 		return entry{}, err
 	}
 	// A note travels only with a doubt, and a plain approval names its
-	// theme and its band.
-	if !doubt && (in.Note != "" || !named) {
+	// theme and its band. A band reason explains only an older band.
+	if !doubt && (in.Note != "" || !named) || bandReason != "" && (doubt || bandRank(in.MinAgeBand) <= bandRank(computed)) {
 		return entry{}, ErrValidation
 	}
 	list, err := json.Marshal(answers)
 	if doubt {
 		return entry{decision: Doubt, reason: in.Note, checklist: list, answers: answers}, err
 	}
-	return entry{decision: Approve, checklist: list, answers: answers}, err
+	return entry{decision: Approve, checklist: list, answers: answers, computed: computed, bandReason: bandReason}, err
 }
 
 // VideoDetail reads a video, its current round's reviews and its
@@ -409,7 +425,8 @@ func provenance(ctx context.Context, q querier, v Video) (*Provenance, error) {
 // of them.
 func reviewsOf(ctx context.Context, q querier, videoID string, round int, decision Decision) ([]Review, error) {
 	rows, err := q.Query(ctx, `SELECT display_role, decision, coalesce(theme, ''), coalesce(min_age_band, ''),
-		coalesce(reason, ''), reviewed_at, coalesce(checklist_version, ''), checklist FROM video_reviews
+		coalesce(reason, ''), reviewed_at, coalesce(checklist_version, ''), checklist, coalesce(computed_band, ''),
+		coalesce(band_reason, '') FROM video_reviews
 		WHERE video_id = $1::uuid AND round = $2 AND ($3::text = '' OR decision = $3::text) ORDER BY reviewed_at, id`,
 		videoID, round, string(decision))
 	if err != nil {
@@ -417,11 +434,13 @@ func reviewsOf(ctx context.Context, q querier, videoID string, round int, decisi
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (Review, error) {
 		var x Review
-		var role, dec, band string
+		var role, dec, band, computed string
 		var list []byte
-		if err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt, &x.ChecklistVersion, &list); err != nil {
+		if err := r.Scan(&role, &dec, &x.Theme, &band, &x.Reason, &x.ReviewedAt, &x.ChecklistVersion, &list, &computed,
+			&x.BandReason); err != nil {
 			return x, err
 		}
+		x.ComputedBand = family.AgeBand(computed)
 		x.DisplayRole, x.Decision, x.MinAgeBand, x.ReviewedAt = DisplayRole(role), Decision(dec), family.AgeBand(band), x.ReviewedAt.UTC()
 		switch {
 		case list == nil: // written before the list

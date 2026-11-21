@@ -30,12 +30,13 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		AuditedAt time.Time `json:"audited_at"`
 	}
 	type item struct {
-		Video      videoOut    `json:"video"`
-		Rejections []reviewOut `json:"rejections"`
-		Doubts     []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
-		HeldReason string      `json:"held_reason"`
-		Reports    reports     `json:"reports"`         // since the latest reopen, never who reported
-		Audit      *heldAudit  `json:"audit,omitempty"` // the audit that held the video, never who audited
+		Video        videoOut    `json:"video"`
+		Rejections   []reviewOut `json:"rejections"`
+		Doubts       []reviewOut `json:"doubts"` // a curator's doubt, with the answers and the note
+		HeldReason   string      `json:"held_reason"`
+		ComputedBand string      `json:"computed_band"`   // the youngest band a moderator may publish it in
+		Reports      reports     `json:"reports"`         // since the latest reopen, never who reported
+		Audit        *heldAudit  `json:"audit,omitempty"` // the audit that held the video, never who audited
 	}
 	out := make([]item, 0, len(list))
 	for _, h := range list {
@@ -48,7 +49,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 			audit = &heldAudit{string(h.Audit.Verdict), h.Audit.Reason, h.Audit.AuditedAt.UTC()}
 		}
 		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason,
-			reports{by, h.Reports.Notes}, audit})
+			string(h.ComputedBand), reports{by, h.Reports.Notes}, audit})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"videos": out})
 }

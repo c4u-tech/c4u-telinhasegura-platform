@@ -44,6 +44,8 @@ type reviewOut struct {
 	ChecklistVersion *string           `json:"checklist_version"` // null before the list
 	Answers          map[string]string `json:"answers"`           // an approval's or a doubt's
 	FailedItems      []string          `json:"failed_items"`      // a rejection's
+	ComputedBand     *string           `json:"computed_band"`     // a plain approval's
+	BandReason       *string           `json:"band_reason"`       // null when none was given
 	ReviewedAt       time.Time         `json:"reviewed_at"`
 }
 
@@ -57,7 +59,8 @@ func reviewBody(x curation.Review) reviewOut {
 	}
 	return reviewOut{DisplayRole: string(x.DisplayRole), Decision: string(x.Decision), Theme: orNull(x.Theme),
 		MinAgeBand: orNull(string(x.MinAgeBand)), Reason: orNull(x.Reason), ChecklistVersion: orNull(x.ChecklistVersion),
-		Answers: answers, FailedItems: x.FailedItems, ReviewedAt: x.ReviewedAt.UTC()}
+		Answers: answers, FailedItems: x.FailedItems, ComputedBand: orNull(string(x.ComputedBand)),
+		BandReason: orNull(x.BandReason), ReviewedAt: x.ReviewedAt.UTC()}
 }
 
 func reviewsBody(xs []curation.Review) []reviewOut {
@@ -242,6 +245,7 @@ func (s *Server) review(w http.ResponseWriter, r *http.Request) {
 		Answers          map[string]string `json:"answers"`
 		FailedItems      []string          `json:"failed_items"`
 		Note             string            `json:"note"`
+		BandReason       string            `json:"band_reason"` // optional: apps built before it send none
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)
@@ -256,7 +260,8 @@ func (s *Server) review(w http.ResponseWriter, r *http.Request) {
 	}
 	rv, state, err := s.Curation.Review(r.Context(), current(r).AccountID, r.PathValue("id"), curation.ReviewInput{
 		Decision: curation.Decision(in.Decision), Theme: in.Theme, MinAgeBand: family.AgeBand(in.MinAgeBand),
-		ChecklistVersion: in.ChecklistVersion, Answers: answers, FailedItems: in.FailedItems, Note: in.Note})
+		ChecklistVersion: in.ChecklistVersion, Answers: answers, FailedItems: in.FailedItems, Note: in.Note,
+		BandReason: in.BandReason})
 	if err != nil {
 		s.fail(w, err)
 		return

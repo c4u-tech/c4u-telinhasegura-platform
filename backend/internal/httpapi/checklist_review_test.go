@@ -18,6 +18,8 @@ type reviewResp struct {
 		ChecklistVersion *string           `json:"checklist_version"`
 		Answers          map[string]string `json:"answers"`
 		FailedItems      []string          `json:"failed_items"`
+		ComputedBand     *string           `json:"computed_band"`
+		BandReason       *string           `json:"band_reason"`
 	} `json:"review"`
 	VideoState string `json:"video_state"`
 }
@@ -165,5 +167,53 @@ func TestADoubtWithoutThemeOrBandOverHTTP(t *testing.T) {
 	}
 	if raw.Review.Theme != nil || raw.Review.MinAgeBand != nil {
 		t.Fatalf("theme %v band %v", raw.Review.Theme, raw.Review.MinAgeBand)
+	}
+}
+
+func TestReviewCarriesTheComputedBandOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	gui := a.familyOwner("gui@example.com")
+	v := a.suggest(gui, ytID)
+	other := a.suggest(gui, "bbbbbbbbbbb")
+	reviews := func(id string) string { return "/v1/curation/videos/" + id + "/reviews" }
+
+	story := map[string]string{"c35": "appears"}
+	if r := a.do(http.MethodPost, reviews(v.ID), approvalWith("bichos", "5-8", story), bearer(c1)...); r.Code != http.StatusUnprocessableEntity ||
+		r.problemCode() != "checklist_band" {
+		t.Fatalf("a younger band: %d %q", r.Code, r.problemCode())
+	}
+	got := decodeReview(t, a.do(http.MethodPost, reviews(v.ID), approvalWith("bichos", "9-12", story), bearer(c1)...))
+	if got.Review.ComputedBand == nil || *got.Review.ComputedBand != "9-12" || got.Review.BandReason != nil {
+		t.Fatalf("approval %+v", got.Review)
+	}
+	older := approval("bichos", "9-12")
+	older["band_reason"] = "Mais velho."
+	got = decodeReview(t, a.do(http.MethodPost, reviews(other.ID), older, bearer(c1)...))
+	if got.Review.ComputedBand == nil || *got.Review.ComputedBand != "ate-4" || got.Review.BandReason == nil ||
+		*got.Review.BandReason != "Mais velho." {
+		t.Fatalf("an older band %+v", got.Review)
+	}
+}
+
+func TestHeldDoubtServesItsComputedBandOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	mod := a.moderator(admin, "mia@example.com")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	doubt := approvalWith("bichos", "5-8", map[string]string{"c13": "doubt", "c34": "appears"})
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+v.ID+"/reviews", doubt, bearer(c1)...); r.Code != http.StatusCreated {
+		t.Fatalf("doubt: %d %s", r.Code, r.Body)
+	}
+	var held struct {
+		Videos []struct {
+			ComputedBand string `json:"computed_band"`
+		} `json:"videos"`
+	}
+	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+	if len(held.Videos) != 1 || held.Videos[0].ComputedBand != "5-8" {
+		t.Fatalf("held %+v", held)
 	}
 }

@@ -2,6 +2,7 @@ package curation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -52,9 +53,9 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		var st string
 		var held *string
-		var round int
-		err := tx.QueryRow(ctx, `SELECT state, held_reason, round FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
-			Scan(&st, &held, &round)
+		var round, seconds int
+		err := tx.QueryRow(ctx, `SELECT state, held_reason, round, duration_seconds FROM videos WHERE id = $1::uuid FOR UPDATE`, videoID).
+			Scan(&st, &held, &round, &seconds)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -67,9 +68,15 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 		if err := notReviewedBy(ctx, tx, videoID, round, m.ActorID); err != nil {
 			return err
 		}
-		if d.Decision == Approve && d.MinAgeBand == family.AgeUpTo4 {
-			if err := s.youngestFits(ctx, tx, videoID, round); err != nil {
+		// A moderator is held to the rule the curators follow: no band
+		// younger than the round's answers and the length allow.
+		if d.Decision == Approve {
+			band, err := s.roundBand(ctx, tx, videoID, round, seconds)
+			if err != nil {
 				return err
+			}
+			if bandRank(d.MinAgeBand) < bandRank(band) {
+				return ErrChecklistBand
 			}
 		}
 		if d.Decision == Reject {
@@ -90,22 +97,38 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 	return nil
 }
 
-// youngestFits holds a moderator to the rule the curators follow: a video
-// longer than the youngest band's ceiling, or one a reviewer of the round
-// found fast-paced, is not for that band. Rejections store their answers
-// as a list, so they never match the pace answer.
-func (s *Service) youngestFits(ctx context.Context, tx pgx.Tx, videoID string, round int) error {
-	var seconds int
-	var fast bool
-	err := tx.QueryRow(ctx, `SELECT v.duration_seconds,
-			EXISTS (SELECT 1 FROM video_reviews r WHERE r.video_id = v.id AND r.round = $2
-				AND jsonb_typeof(r.checklist) = 'object' AND r.checklist->>'c22' = 'appears')
-		FROM videos v WHERE v.id = $1::uuid`, videoID, round).Scan(&seconds, &fast)
+// roundBand is the youngest band a round's answers allow for a video of
+// that many seconds: the oldest any of its reviews allows. Each review is
+// read under the list it was stored with, where a band question's yes
+// allows from its own band up. Rejections store their answers as a list,
+// so they bar nothing.
+func (s *Service) roundBand(ctx context.Context, q querier, videoID string, round, seconds int) (family.AgeBand, error) {
+	over := time.Duration(seconds)*time.Second > s.d.FamilyYoungestMaxDuration
+	rows, err := q.Query(ctx, `SELECT coalesce(checklist_version, ''), checklist FROM video_reviews
+		WHERE video_id = $1::uuid AND round = $2 AND jsonb_typeof(checklist) = 'object'`, videoID, round)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if fast || time.Duration(seconds)*time.Second > s.d.FamilyYoungestMaxDuration {
-		return ErrChecklistBand
+	bands, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (family.AgeBand, error) {
+		var version string
+		var list []byte
+		if err := r.Scan(&version, &list); err != nil {
+			return "", err
+		}
+		var answers map[string]Answer
+		if err := json.Unmarshal(list, &answers); err != nil {
+			return "", err
+		}
+		return bandFrom(version, answers, over), nil
+	})
+	if err != nil {
+		return "", err
 	}
-	return nil
+	band := bandFrom("", nil, over)
+	for _, b := range bands {
+		if bandRank(b) > bandRank(band) {
+			band = b
+		}
+	}
+	return band, nil
 }
