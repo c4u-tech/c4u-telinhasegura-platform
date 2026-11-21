@@ -645,6 +645,29 @@ void main() {
       );
     });
 
+    testWidgets('at its end the window shows the same video waiting again, '
+        'nothing playing, and each end is told once', (tester) async {
+      final h = await unwatched(tester);
+      final player = h.adultPlayer.opened.last;
+      final opened = h.adultPlayer.opened.length;
+      int ends() => h.actions.where((a) => a.contains('/draft/ended')).length;
+
+      player.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(player.calls, ['cue']);
+      expect(h.adultPlayer.opened, hasLength(opened), reason: 'not reopened');
+      expect(ends(), 1);
+
+      player
+        ..emit(const PlayerPlaying())
+        ..emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(player.calls, ['cue', 'cue']);
+      expect(ends(), 2);
+    });
+
     testWidgets('the line is one label, announced as a live region', (
       tester,
     ) async {
