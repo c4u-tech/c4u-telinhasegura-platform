@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -105,7 +106,9 @@ func (s *Service) DecideDoubt(ctx context.Context, m Moderation, videoID string,
 // that many seconds: the oldest any of its reviews allows. Each review is
 // read under the list it was stored with, where a band question's yes
 // allows from its own band up. Rejections store their answers as a list,
-// so they bar nothing.
+// so they bar nothing. A review under a list the code does not know is an
+// error: reading it as barring nothing would let a band through that its
+// answers ruled out.
 func (s *Service) roundBand(ctx context.Context, q querier, videoID string, round, seconds int) (family.AgeBand, error) {
 	over := time.Duration(seconds)*time.Second > s.d.FamilyYoungestMaxDuration
 	rows, err := q.Query(ctx, `SELECT coalesce(checklist_version, ''), checklist FROM video_reviews
@@ -122,6 +125,9 @@ func (s *Service) roundBand(ctx context.Context, q querier, videoID string, roun
 		var answers map[string]Answer
 		if err := json.Unmarshal(list, &answers); err != nil {
 			return "", err
+		}
+		if !knownList(version) {
+			return "", fmt.Errorf("curation: a review of video %s is stored under unknown list %q", videoID, version)
 		}
 		return bandFrom(version, answers, over), nil
 	})

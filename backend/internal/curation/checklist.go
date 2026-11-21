@@ -132,8 +132,9 @@ func Checklist() []ChecklistGroup {
 
 // formerBandRules are the band questions of every former list, each with
 // the youngest band a yes still allowed, so a review keeps the meaning it
-// was stored with. A list without an entry, or a review written before any
-// list, bars no band.
+// was stored with. A review written before any list bars no band; one
+// stored under a list missing here stops a moderator's decision, so when
+// the current list changes its band questions must be added here first.
 var formerBandRules = map[string]map[string]family.AgeBand{
 	"2026-10-20": {"c22": family.Age5To8},
 	"2026-10-21": {"c22": family.Age5To8},
@@ -158,6 +159,13 @@ func bandRules(version string) map[string]family.AgeBand {
 		return currentBandRules
 	}
 	return formerBandRules[version]
+}
+
+// knownList reports whether a review stored under version can be read for
+// its band: the current list, a former one, or none at all.
+func knownList(version string) bool {
+	_, former := formerBandRules[version]
+	return version == "" || version == ChecklistVersion || former
 }
 
 // bandFrom is the youngest band a review's answers allow, read under the

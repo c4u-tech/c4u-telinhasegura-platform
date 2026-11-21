@@ -342,3 +342,21 @@ func TestDecideDoubtReadsEachReviewUnderItsOwnList(t *testing.T) {
 		t.Fatalf("2 to 4 under the first list: %v", err)
 	}
 }
+
+func TestDecideDoubtRefusesToReadAnUnknownList(t *testing.T) {
+	f := newFixture(t)
+	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator, Reason: "Motivo válido."}
+	young := curation.DoubtDecision{Decision: curation.Approve, Theme: "bichos", MinAgeBand: family.AgeUpTo4}
+	v := f.heldDoubt(ytID, "2099-01-01", map[string]string{"c22": "appears"})
+	if err := f.svc.DecideDoubt(ctx, m, v, young); err == nil || errors.Is(err, curation.ErrChecklistBand) {
+		t.Fatalf("decided under an unknown list: %v", err)
+	}
+	if st, why := f.state(v); st != "held" || why != curation.HeldByDoubt || f.audited(audit.VideoDoubtDecided) != 0 {
+		t.Fatalf("the refusal moved the video: %s %s", st, why)
+	}
+	// A review stored before there was any list bars nothing.
+	before := f.heldDoubt("beforelist1", "", map[string]string{"c22": "appears"})
+	if err := f.svc.DecideDoubt(ctx, m, before, young); err != nil {
+		t.Fatalf("before any list: %v", err)
+	}
+}
