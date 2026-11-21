@@ -15,10 +15,11 @@ type checklistResp struct {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 		Items []struct {
-			ID       string `json:"id"`
-			Text     string `json:"text"`
-			Rule     string `json:"rule"`
-			LongOnly *bool  `json:"long_only"`
+			ID       string  `json:"id"`
+			Text     string  `json:"text"`
+			Rule     string  `json:"rule"`
+			LongOnly *bool   `json:"long_only"`
+			MinBand  *string `json:"min_band"`
 		} `json:"items"`
 	} `json:"groups"`
 }
@@ -72,6 +73,20 @@ func TestChecklistOverHTTP(t *testing.T) {
 				t.Fatalf("%s long_only %v", it.ID, it.LongOnly)
 			}
 		}
+	}
+	minBands := map[string]string{}
+	for _, g := range body.Groups {
+		for _, it := range g.Items {
+			if it.MinBand != nil {
+				minBands[it.ID] = *it.MinBand
+			}
+		}
+	}
+	if len(minBands) != 6 || minBands["c22"] != "5-8" || minBands["c35"] != "9-12" {
+		t.Fatalf("min bands %v", minBands)
+	}
+	if c04 := body.Groups[1].Items[0]; c04.ID != "c04" || c04.MinBand != nil {
+		t.Fatalf("c04 %+v", c04)
 	}
 	if c28 := long.Items[2]; c28.ID != "c28" || c28.Rule != "notes" {
 		t.Fatalf("c28 %+v", c28)
