@@ -22,6 +22,7 @@ import '../access/harness.dart';
 import '../family/fixtures.dart';
 import '../kid/fake_player.dart';
 import 'appoint_screen_test.dart' show tapOn;
+import 'queue_screen_test.dart' show goTo;
 import 'fixtures.dart';
 
 const themes = ['Bichos', 'Música', 'Histórias', 'Aprender', 'Brincar'];
@@ -1369,6 +1370,35 @@ void main() {
         ],
       );
       expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end another account saw is never sent for the next '
+        'one', (tester) async {
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => problem(503, 'unavailable'),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+
+      await h.services.client.forgetSession();
+      await tester.pumpAndSettle();
+      h.email = 'bia@example.com';
+      h.services.client.rememberSession(csrfToken: 'csrf-b');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
     });
 
     testWidgets('an end the video screen reported is not sent again', (

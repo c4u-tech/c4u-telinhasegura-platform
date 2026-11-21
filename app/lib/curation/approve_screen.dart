@@ -24,6 +24,7 @@ import 'curation.dart';
 import 'curation_api.dart';
 import 'draft_writer.dart';
 import 'queue_screen.dart' show leaveForQueue;
+import 'unheard_ends.dart';
 import 'video_heading.dart';
 import 'words.dart';
 
@@ -156,6 +157,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   /// A read of the kept draft in flight before the first write.
   bool _rereading = false;
   late final CurationApi _api;
+  late final UnheardEnds _ends;
   late final _writer = DraftWriter<_Kept>(
     (k) => _api.saveDraft(
       widget.id,
@@ -180,6 +182,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     if (_started) return;
     _started = true;
     _api = AppScope.of(context).curation;
+    _ends = AppScope.of(context).unheardEnds;
     _note.addListener(_noteChanged);
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
@@ -213,8 +216,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   /// Tells the draft the video played to its end, which an approval
   /// needs; a report that fails is kept for the approval to send again.
-  void _ended() =>
-      unawaited(AppScope.of(context).unheardEnds.report(_api, widget.id));
+  void _ended() => unawaited(_ends.report(_api, widget.id));
 
   /// The questions depend on the video's length, so the answers start
   /// once both the list and the video are read, from the draft the server
@@ -368,9 +370,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   Future<void> _submit(ApprovalDraft d) async {
     final team = d.outcome == ApprovalOutcome.team;
     final note = _note.text.trim();
-    final ends = AppScope.of(context).unheardEnds;
     final ok = await _send.run(() async {
-      await ends.resend(_api, widget.id);
+      await _ends.resend(_api, widget.id);
       await _api.approve(
         widget.id,
         theme: team ? null : d.theme,

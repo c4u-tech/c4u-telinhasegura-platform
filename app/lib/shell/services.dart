@@ -89,8 +89,8 @@ class AppServices {
   final PrivacyApi privacy;
   final CurationApi curation;
 
-  /// The videos whose end the server has not heard from this device.
-  final unheardEnds = UnheardEnds();
+  /// The videos whose end the server has not heard from this session.
+  late final unheardEnds = UnheardEnds(session: client.status);
 
   /// The team and moderation routes, for an admin or a
   /// moderator.

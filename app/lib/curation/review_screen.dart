@@ -14,7 +14,9 @@ import '../shell/routes.dart';
 import '../shell/services.dart';
 import 'adult_window.dart';
 import 'curation.dart';
+import 'curation_api.dart';
 import 'queue_screen.dart' show leaveForQueue;
+import 'unheard_ends.dart';
 import 'video_heading.dart';
 import 'words.dart';
 
@@ -52,6 +54,8 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
   VideoDetail? _detail;
   bool _failed = false;
   GoRouter? _router;
+  late final CurationApi _api;
+  late final UnheardEnds _ends;
   bool _away = false;
 
   @override
@@ -59,6 +63,8 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    _api = AppScope.of(context).curation;
+    _ends = AppScope.of(context).unheardEnds;
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _router = GoRouter.of(context)..routerDelegate.addListener(_where);
@@ -108,10 +114,7 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
 
   /// Tells the draft the video played to its end. A failure says nothing
   /// here: it is kept, and the approval sends it again.
-  void _ended() {
-    final services = AppScope.of(context);
-    unawaited(services.unheardEnds.report(services.curation, widget.id));
-  }
+  void _ended() => unawaited(_ends.report(_api, widget.id));
 
   @override
   Widget build(BuildContext context) => FieldLayout(
