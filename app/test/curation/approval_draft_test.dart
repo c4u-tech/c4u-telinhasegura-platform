@@ -359,6 +359,40 @@ void main() {
     expect(d.band, isNull);
   });
 
+  test('a draft whose theme this build does not know asks the theme '
+      'again', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {},
+          theme: VideoTheme.unknown,
+          minAgeBand: AgeBand.from5To8,
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.theme, isNull);
+    expect(d.snapshot.theme, isNull);
+    expect(d.band, AgeBand.from5To8);
+  });
+
+  test('a draft answer this build does not know asks the question '
+      'again', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {
+            'c04': ChecklistAnswer.unknown,
+            'c07': ChecklistAnswer.ok,
+          },
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.answers, {'c07': ChecklistAnswer.ok});
+    expect(d.answerOf(item('c04')), isNull);
+  });
+
   test('a draft restores the answers of this list, the theme, the band and '
       'the note', () {
     final d = ApprovalDraft(list, length: short)

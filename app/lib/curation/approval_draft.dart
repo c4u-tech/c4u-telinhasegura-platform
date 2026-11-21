@@ -67,15 +67,30 @@ class ApprovalDraft {
   }
 
   /// Picks up a review kept from before: the answers to this list's
-  /// questions only, the theme, the band unless the answers bar it or this
-  /// build does not know it, and the note.
+  /// questions only, the theme, the band unless the answers bar it, and the
+  /// note. An answer, theme or band this build does not know is asked
+  /// again, since the server would refuse every later save that sent it.
   void restore(ReviewDraft d) {
     for (final i in checklist.items) {
-      if (d.answers[i.id] case final a?) _answers[i.id] = a;
+      if (d.answers[i.id] case final a? when a != ChecklistAnswer.unknown) {
+        _answers[i.id] = a;
+      }
     }
-    theme = d.theme;
+    theme = d.theme == VideoTheme.unknown ? null : d.theme;
     band = d.minAgeBand == AgeBand.unknown ? null : d.minAgeBand;
     note = d.note;
+    _dropBarredBand();
+  }
+
+  /// Picks up a review kept from before beneath what was given here since,
+  /// which wins: for a draft read only after the curator began answering.
+  void restoreBeneath(ReviewDraft d) {
+    final given = snapshot;
+    restore(d);
+    _answers.addAll(given.answers);
+    theme = given.theme ?? theme;
+    band = given.band ?? band;
+    note = given.note ?? note;
     _dropBarredBand();
   }
 

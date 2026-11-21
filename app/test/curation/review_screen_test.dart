@@ -31,6 +31,7 @@ Future<Harness> review(
   FutureOr<http.Response> Function(http.Request)? queue,
   FutureOr<http.Response> Function()? draft,
   FutureOr<http.Response> Function(http.Request)? saveDraft,
+  FutureOr<http.Response> Function()? ended,
   String initial = '/curadoria/v1',
 }) async {
   final h =
@@ -41,6 +42,7 @@ Future<Harness> review(
             queue: queue,
             draft: draft,
             saveDraft: saveDraft,
+            ended: ended,
           ),
         )
         ..family = ownerFamily
@@ -368,6 +370,21 @@ void main() {
     );
     expect(player(h)!.closed, isFalse);
     expect(h.adultPlayer.opened, hasLength(1));
+    expect(window, findsOneWidget);
+  });
+
+  testWidgets('an end report that fails says nothing here', (tester) async {
+    final h = await review(tester, ended: () => problem(503, 'unavailable'));
+
+    player(h)!.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    expect(
+      h.actions.where((c) => c == 'POST /v1/curation/videos/v1/draft/ended'),
+      hasLength(1),
+    );
+    expect(find.byType(ErrorNote), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
     expect(window, findsOneWidget);
   });
 

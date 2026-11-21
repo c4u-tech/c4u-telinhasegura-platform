@@ -148,6 +148,13 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   /// The draft the server kept, read with the list; null with none.
   ReviewDraft? _kept;
+
+  /// Whether the kept draft was read, with a draft or with none. Until it
+  /// is, nothing is written: a write would replace what it holds.
+  bool _keptRead = false;
+
+  /// A read of the kept draft in flight before the first write.
+  bool _rereading = false;
   late final CurationApi _api;
   late final _writer = DraftWriter<_Kept>(
     (k) => _api.saveDraft(
@@ -162,10 +169,6 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   bool _checklistFailed = false;
   bool _refused = false;
   String? _done;
-
-  /// True while the last report of the video's end failed: the server
-  /// would refuse the approval as not watched.
-  bool _endUnreported = false;
 
   /// Keeps the one player's view across pages: each page is built anew,
   /// and a view built anew would load the video again.
@@ -209,15 +212,9 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   }
 
   /// Tells the draft the video played to its end, which an approval
-  /// needs; whether it was heard is kept for the approval.
-  Future<void> _ended() async {
-    try {
-      await _api.draftEnded(widget.id);
-      _endUnreported = false;
-    } on Object {
-      _endUnreported = true;
-    }
-  }
+  /// needs; a report that fails is kept for the approval to send again.
+  void _ended() =>
+      unawaited(AppScope.of(context).unheardEnds.report(_api, widget.id));
 
   /// The questions depend on the video's length, so the answers start
   /// once both the list and the video are read, from the draft the server
@@ -233,8 +230,33 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   }
 
   /// Hands the server the review as it stands; it never says when it
-  /// could not, since the next change writes it all again.
+  /// could not, since the next change writes it all again. While the kept
+  /// draft is unread, it is read first and picked up beneath the changes
+  /// made here; a read that fails again writes nothing.
   void _keep(ApprovalDraft d) {
+    if (_keptRead) return _write(d);
+    if (!_rereading) unawaited(_rereadThenKeep(d));
+  }
+
+  Future<void> _rereadThenKeep(ApprovalDraft d) async {
+    _rereading = true;
+    try {
+      final kept = await _api.draft(widget.id);
+      if (!mounted || d != _draft) return;
+      _keptRead = true;
+      if (kept != null) {
+        setState(() => d.restoreBeneath(kept));
+        _note.text = d.note ?? '';
+      }
+      _write(d);
+    } on Exception {
+      // Still unread: the next change tries again.
+    } finally {
+      _rereading = false;
+    }
+  }
+
+  void _write(ApprovalDraft d) {
     final s = d.snapshot;
     _writer.write((
       version: d.checklist.version,
@@ -265,17 +287,20 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   /// page with the answers the server kept, those to questions left
   /// unchanged. The old answers go first, so a failed read offers to try
   /// again rather than the outdated list. A draft that fails to read
-  /// counts as none.
+  /// counts as none, and is read again before anything is written.
   Future<void> _readChecklist() async {
     if (!mounted) return;
     setState(() {
       _list = null;
       _draft = null;
       _checklistFailed = false;
+      _keptRead = false;
     });
-    final kept = _api
-        .draft(widget.id)
-        .then<ReviewDraft?>((d) => d, onError: (Object _) => null);
+    var read = false;
+    final kept = _api.draft(widget.id).then<ReviewDraft?>((d) {
+      read = true;
+      return d;
+    }, onError: (Object _) => null);
     try {
       final list = await _api.checklist();
       final draft = await kept;
@@ -283,6 +308,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       setState(() {
         _list = list;
         _kept = draft;
+        _keptRead = read;
         _startDraft();
       });
     } on Object catch (e) {
@@ -336,13 +362,15 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   /// Sends the answers: an approval with its theme and band, or, for the
   /// team, without them and with the optional note.
   ///
-  /// An end report that failed is sent once more first, since the server
-  /// refuses an approval it never heard the end of.
+  /// An end report that failed, here or on the video's screen, is sent
+  /// once more first, since the server refuses an approval it never heard
+  /// the end of.
   Future<void> _submit(ApprovalDraft d) async {
     final team = d.outcome == ApprovalOutcome.team;
     final note = _note.text.trim();
+    final ends = AppScope.of(context).unheardEnds;
     final ok = await _send.run(() async {
-      if (_endUnreported) await _ended();
+      await ends.resend(_api, widget.id);
       await _api.approve(
         widget.id,
         theme: team ? null : d.theme,

@@ -106,9 +106,12 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
     }
   }
 
-  /// Tells the draft the video played to its end; a failure is let go,
-  /// as the draft's own are.
-  void _ended() => AppScope.of(context).curation.draftEnded(widget.id).ignore();
+  /// Tells the draft the video played to its end. A failure says nothing
+  /// here: it is kept, and the approval sends it again.
+  void _ended() {
+    final services = AppScope.of(context);
+    unawaited(services.unheardEnds.report(services.curation, widget.id));
+  }
 
   @override
   Widget build(BuildContext context) => FieldLayout(

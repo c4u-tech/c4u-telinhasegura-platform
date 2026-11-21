@@ -648,6 +648,36 @@ void main() {
       expect(find.text('A tristeza pesa.'), findsOneWidget);
     });
 
+    testWidgets('a draft that failed to read is read again before the first '
+        'write, which keeps what it held', (tester) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        draft: () => fail
+            ? problem(503, 'unavailable')
+            : kept(draftJson(answers: {'c04': 'ok', 'c07': 'ok'})),
+      );
+      int reads() => h.actions
+          .where((c) => c == 'GET /v1/curation/videos/v1/draft')
+          .length;
+      final before = reads();
+
+      await answer(tester, tie, 'Não');
+      expect(reads(), before + 1);
+      expect(draftSaves(h), isEmpty, reason: 'the kept draft is still unread');
+
+      fail = false;
+      await answer(tester, paid, 'Não');
+      expect(reads(), before + 2);
+      expect(draftSaves(h), [
+        'PUT /v1/curation/videos/v1/draft '
+            '{"checklist_version":"2026-11-11",'
+            '"answers":{"c25":"ok","c03":"ok","c04":"ok","c07":"ok"}}',
+      ]);
+      expect(picked(tester, tie, 'Não'), isTrue);
+      expect(picked(tester, paid, 'Não'), isTrue);
+    });
+
     testWidgets('each answer is written to the draft', (tester) async {
       final h = await approving(tester);
 
@@ -1301,6 +1331,54 @@ void main() {
       h.adultPlayer.opened.last.emit(const PlayerEnded());
       await tester.pumpAndSettle();
 
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+    });
+
+    testWidgets('an end the video screen failed to report is sent again '
+        'before approving', (tester) async {
+      var fail = true;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => fail
+            ? problem(503, 'unavailable')
+            : json(200, {'draft': draftJson(ended: true)}),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+      fail = false;
+
+      await tapOn(tester, find.text('Revisar vídeo'));
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end the video screen reported is not sent again', (
+      tester,
+    ) async {
+      final h = await approving(tester, initial: '/curadoria/v1');
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text('Revisar vídeo'));
       await approve(tester);
 
       expect(
