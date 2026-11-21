@@ -167,7 +167,11 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
 
   /// Tells the draft the video played to its end. A failure says nothing
   /// here: it is kept, and the approval sends it again.
-  void _ended() => unawaited(_ends.report(widget.id));
+  void _ended() {
+    if (_detail case final detail?) {
+      unawaited(_ends.report(widget.id, detail.video.round));
+    }
+  }
 
   @override
   Widget build(BuildContext context) => FieldLayout(

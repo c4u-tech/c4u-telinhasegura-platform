@@ -19,6 +19,7 @@ import 'audit_video_screen.dart' show marksFailed;
 import 'curation.dart';
 import 'end_line.dart';
 import 'role_gate.dart';
+import 'unheard_ends.dart';
 import 'video_heading.dart';
 import 'words.dart';
 
@@ -114,8 +115,19 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
 
   @override
   void dispose() {
+    _ends?.removeListener(_forgotten);
     _write.dispose();
     super.dispose();
+  }
+
+  UnheardEnds? _ends;
+
+  /// The server refused a publication for want of the end in this round:
+  /// the line and "Publicar" say so again.
+  void _forgotten() {
+    final v = _held?.video;
+    if (v == null || _ends?.forgotten != (v.id, v.round)) return;
+    if (mounted) setState(() => _playedToEnd = false);
   }
 
   Future<void> _read() async {
@@ -128,17 +140,20 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
       final held = all.where((h) => h.video.id == widget.id).firstOrNull;
       if (held == null) return _leave(heldGone);
       final ends = scope.moderatorEnds;
+      _ends ??= ends..addListener(_forgotten);
       setState(() {
         _held = held;
         _playedToEnd =
-            _playedToEnd || held.playedToEnd || ends.seen(held.video.id);
+            _playedToEnd ||
+            held.playedToEnd ||
+            ends.seen(held.video.id, held.video.round);
       });
       // Publishing a doubt needs the video's end, so the player reports it.
       openPlayer(
         held.video.youtubeId,
         onEnded: () {
           if (mounted) setState(() => _playedToEnd = true);
-          unawaited(ends.report(held.video.id));
+          unawaited(ends.report(held.video.id, held.video.round));
         },
       );
       if (held.heldReason == HeldReason.doubt) unawaited(_readMarks());

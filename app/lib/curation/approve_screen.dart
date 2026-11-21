@@ -255,12 +255,15 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   /// needs; a report that fails is kept for the approval to send again.
   void _ended() {
     if (mounted) setState(() => _playedToEnd = true);
-    unawaited(_ends.report(widget.id));
+    if (_video case final video?) {
+      unawaited(_ends.report(widget.id, video.round));
+    }
   }
 
   /// Picks up an end the kept draft or this device already knows of.
   void _knowEnd(ReviewDraft? kept) {
-    if (kept?.playedToEndAt != null || _ends.seen(widget.id)) {
+    if (kept?.playedToEndAt != null ||
+        (_video != null && _ends.seen(widget.id, _video!.round))) {
       _playedToEnd = true;
     }
   }
@@ -437,7 +440,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     final team = d.outcome == ApprovalOutcome.team;
     final note = _note.text.trim();
     final ok = await _send.run(() async {
-      await _ends.resend(widget.id);
+      await _ends.resend(widget.id, _video!.round);
       await _api.approve(
         widget.id,
         theme: team ? null : d.theme,
@@ -480,6 +483,12 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         return false;
       case 'checklist_outdated':
         unawaited(_readChecklist());
+        return false;
+      // The server heard no end in this round: the line and "Aprovar"
+      // say so again, and the end seen here is forgotten.
+      case 'not_watched':
+        setState(() => _playedToEnd = false);
+        if (_video case final video?) _ends.forget(widget.id, video.round);
         return false;
     }
     return false;

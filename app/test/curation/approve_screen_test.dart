@@ -1965,12 +1965,107 @@ void main() {
       );
       expect(find.text(reviewTitle), findsOneWidget);
       expect(find.text(nb('Música · 2 a 4 anos')), findsOneWidget);
+      // The server has no end for this round: the line says so, and
+      // "Aprovar" waits for the player's end again.
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      expect(primary(tester).onPressed, isNull);
       refuse = false;
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
       await tapPrimary(tester);
-      expect(posts(h), hasLength(2));
+      expect(posts(h).where((p) => p.contains('/reviews')), hasLength(2));
       expect(
         jsonDecode(posts(h).last.split(' ').skip(2).join(' '))['answers'],
         allNos,
+      );
+    });
+
+    testWidgets('an end report still on its way is awaited before approving', (
+      tester,
+    ) async {
+      final landing = Completer<http.Response>();
+      final h = await approving(
+        tester,
+        draft: () => kept(draftJson()),
+        ended: () => landing.future,
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pump();
+
+      await toReview(tester);
+      await tapPrimary(tester, settle: false);
+      await tester.pump();
+      expect(posts(h).where((p) => p.contains('/reviews')), isEmpty);
+
+      landing.complete(json(200, {'draft': draftJson(ended: true)}));
+      await tester.pumpAndSettle();
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
+      );
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('an end seen in one round does not count when the video '
+        'comes back in the next: the line says so and "Aprovar" waits', (
+      tester,
+    ) async {
+      var round = 1;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+        video: (id) => detailOf({
+          ...queuedJson(id, 'Baby Shark', channel: 'Canal Baby Shark'),
+          'round': round,
+        }),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      round = 2;
+      goTo(tester, '/curadoria');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      await toReview(tester);
+      expect(primary(tester).onPressed, isNull);
+    });
+
+    testWidgets('an end report that failed in one round is not sent in the '
+        'next', (tester) async {
+      var round = 1;
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        ended: () => problem(503, 'unavailable'),
+        video: (id) => detailOf({
+          ...queuedJson(id, 'Baby Shark', channel: 'Canal Baby Shark'),
+          'round': round,
+        }),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
+
+      round = 2;
+      goTo(tester, '/curadoria');
+      await tester.pumpAndSettle();
+      goTo(tester, '/curadoria/v1/aprovar');
+      await tester.pumpAndSettle();
+      await approve(tester);
+
+      expect(
+        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
+        [
+          'POST /v1/curation/videos/v1/draft/ended',
+          'POST /v1/curation/videos/v1/reviews',
+        ],
       );
     });
 
@@ -2049,9 +2144,12 @@ void main() {
 
     testWidgets('an end another account saw is never sent for the next '
         'one', (tester) async {
+      // Neither the draft nor the video has an end of its own: only what
+      // the first account saw could say it played.
       final h = await approving(
         tester,
         initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
         ended: () => problem(503, 'unavailable'),
       );
       h.adultPlayer.opened.last.emit(const PlayerEnded());
@@ -2065,15 +2163,11 @@ void main() {
       await tester.pumpAndSettle();
       goTo(tester, '/curadoria/v1/aprovar');
       await tester.pumpAndSettle();
-      await approve(tester);
 
-      expect(
-        [for (final p in posts(h)) p.split(' ').take(2).join(' ')],
-        [
-          'POST /v1/curation/videos/v1/draft/ended',
-          'POST /v1/curation/videos/v1/reviews',
-        ],
-      );
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      await toReview(tester);
+      expect(primary(tester).onPressed, isNull);
+      expect(posts(h), ['POST /v1/curation/videos/v1/draft/ended']);
     });
 
     testWidgets('an end the video screen reported is not sent again', (

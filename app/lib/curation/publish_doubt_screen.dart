@@ -186,6 +186,15 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       });
       return false;
     }
+    // The server heard no end in this round: the end seen on the held
+    // screen is forgotten, so it says so and "Publicar" waits there again.
+    if (e.code == 'not_watched') {
+      if (_held case final held?) {
+        AppScope.of(context).moderatorEnds
+            .forget(held.video.id, held.video.round);
+      }
+      return false;
+    }
     if (e.code != 'reason_required') return false;
     setState(() => _fieldError = publishReasonInvalid);
     return true;
@@ -200,7 +209,7 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
     final ends = scope.moderatorEnds;
     final ok = await _write.write(
       () async {
-        await ends.resend(v.id);
+        await ends.resend(v.id, v.round);
         await api.decideDoubt(
           v.id,
           publish: true,

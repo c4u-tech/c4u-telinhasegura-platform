@@ -643,7 +643,13 @@ void main() {
   testWidgets('an end another account saw is never sent for the next one', (
     tester,
   ) async {
-    final h = await doubtHeld(tester, settle: endedThen(() => true));
+    // The list has no end for the video: only what the first account saw
+    // could say it played.
+    final h = await doubtHeld(
+      tester,
+      held: unwatched,
+      settle: endedThen(() => true),
+    );
     h.adultPlayer.opened.last.emit(const PlayerEnded());
     await tester.pumpAndSettle();
     expect(writes(h), [endedPath]);
@@ -655,9 +661,10 @@ void main() {
     await tester.pumpAndSettle();
     goTo(tester, '/moderacao/retidos/v1');
     await tester.pumpAndSettle();
-    await publishFromHeld(tester);
 
-    expect(writePaths(h), [endedPath, 'POST /v1/moderation/videos/v1/decide']);
+    expect(find.text(notPlayedToEnd), findsOneWidget);
+    expect(publishButton(tester).onPressed, isNull);
+    expect(writes(h), [endedPath]);
   });
 
   testWidgets('a publication refused for a video not watched to the end '
@@ -758,5 +765,94 @@ void main() {
     await tester.enterText(field, 'a' * 250);
     await tester.pump();
     expect(tester.widget<TextField>(field).controller!.text, hasLength(200));
+  });
+
+  /// [doubted] in [round], as the held list carries it, played to its end
+  /// for the reader when [ended].
+  Map<String, Object?> inRound(int round, {bool ended = false}) => {
+    ...doubted,
+    'video': {...doubted['video']! as Map<String, Object?>, 'round': round},
+    'played_to_end': ended,
+  };
+
+  Future<Harness> heldInRounds(
+    WidgetTester tester,
+    Map<String, Object?> Function() held, {
+    FutureOr<http.Response> Function(http.Request)? settle,
+  }) async {
+    final h =
+        Harness(
+            signedIn: true,
+            api: adminApi(held: () => heldList([held()]), settle: settle),
+          )
+          ..family = ownerFamily
+          ..roles = ['admin'];
+    await h.pump(tester, initial: '/moderacao/retidos/v1');
+    return h;
+  }
+
+  Future<void> again(WidgetTester tester) async {
+    goTo(tester, '/moderacao/retidos');
+    await tester.pumpAndSettle();
+    goTo(tester, '/moderacao/retidos/v1');
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('an end seen in one round does not count when the video is '
+      'held again in the next: the line says so and "Publicar" waits', (
+    tester,
+  ) async {
+    var round = 1;
+    final h = await heldInRounds(tester, () => inRound(round));
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    expect(find.text(playedToEnd), findsOneWidget);
+
+    round = 2;
+    await again(tester);
+
+    expect(find.text(notPlayedToEnd), findsOneWidget);
+    expect(publishButton(tester).onPressed, isNull);
+  });
+
+  testWidgets('an end report that failed in one round is not sent in the '
+      'next', (tester) async {
+    var round = 1;
+    final h = await heldInRounds(
+      tester,
+      () => inRound(round, ended: round == 2),
+      settle: endedThen(() => true),
+    );
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    expect(writes(h), [endedPath]);
+
+    round = 2;
+    await again(tester);
+    await publishFromHeld(tester);
+
+    expect(writePaths(h), [endedPath, 'POST /v1/moderation/videos/v1/decide']);
+  });
+
+  testWidgets('a publication refused for a video not watched to the end '
+      'forgets the end seen here: back on the video, the line says so and '
+      '"Publicar" waits', (tester) async {
+    final h = await doubtHeld(
+      tester,
+      held: unwatched,
+      settle: (req) => req.url.path.endsWith('/decide')
+          ? problem(409, 'not_watched')
+          : http.Response('', 204),
+    );
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    await publishFromHeld(tester);
+    expect(find.text(publishNotWatched), findsOneWidget);
+
+    goTo(tester, '/moderacao/retidos/v1');
+    await tester.pumpAndSettle();
+
+    expect(find.text(notPlayedToEnd), findsOneWidget);
+    expect(publishButton(tester).onPressed, isNull);
   });
 }
