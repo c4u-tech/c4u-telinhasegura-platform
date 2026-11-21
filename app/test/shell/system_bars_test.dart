@@ -23,6 +23,7 @@ import '../kid/kid_home_screen_test.dart' show kidHome;
 import '../kid/player_fullscreen_screen_test.dart'
     show barsShown, immersive, modesAsked, sideways, upright;
 import '../kid/player_screen_test.dart' show watching;
+import '../kid/profile_picker_screen_test.dart' show linkedExit, toPicker;
 import '../kid_mode/hand_over_screen_test.dart' show handOver, pumpUntil, tapOn;
 
 SystemUiOverlayStyle? navigationBarStyle(WidgetTester tester) {
@@ -150,6 +151,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(modes, [barsShown, immersive]);
+    });
+
+    testWidgets('a sign-out while the mode is on brings them back', (
+      tester,
+    ) async {
+      final modes = modesAsked(tester);
+      final h = await kidHome(tester);
+      expect(modes.last, immersive);
+
+      await h.services.auth.signOut();
+      await tester.pumpAndSettle();
+
+      expect(h.services.appMode.mode, const Guardian());
+      expect(modes.last, barsShown);
+    });
+
+    testWidgets('a linked device found unlinked brings them back', (
+      tester,
+    ) async {
+      final modes = modesAsked(tester);
+      final h = await linkedExit(
+        tester,
+        profiles: (_) => problem(401, 'unauthenticated'),
+      );
+      expect(modes.last, immersive);
+
+      await toPicker(tester);
+
+      expect(h.services.appMode.mode, const Guardian());
+      expect(modes.last, barsShown);
     });
 
     testWidgets('on iOS the mode leaves the bars to the screens', (
