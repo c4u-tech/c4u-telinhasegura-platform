@@ -9,8 +9,14 @@ import 'package:telinha_segura/auth/token_store.dart';
 class MemoryTokenStore implements TokenStore {
   Tokens? tokens;
 
+  /// While set, reading the store fails, as a locked keychain does.
+  bool unreadable = false;
+
   @override
-  Future<Tokens?> read() async => tokens;
+  Future<Tokens?> read() async {
+    if (unreadable) throw StateError('storage');
+    return tokens;
+  }
 
   @override
   Future<void> write(Tokens t) async => tokens = t;

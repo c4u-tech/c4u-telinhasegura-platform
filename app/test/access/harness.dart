@@ -109,7 +109,7 @@ class Harness {
   }) : player = player ?? FakeKidPlayer(),
        adultPlayer = adultPlayer ?? FakeKidPlayer() {
     _api = api ?? (_) => http.Response('', 204);
-    final store = MemoryTokenStore();
+    final store = tokenStore;
     if (signedIn && kind == ClientKind.mobile) {
       store.tokens = const Tokens(access: 'a', refresh: 'r');
     }
@@ -165,6 +165,9 @@ class Harness {
   }
 
   final ClientKind kind;
+
+  /// Where a mobile client keeps its session.
+  final tokenStore = MemoryTokenStore();
 
   /// The device's IANA zone.
   final String timeZone;
@@ -299,8 +302,11 @@ class Harness {
     await tester.pumpWidget(app(initial: initial));
     await tester.pumpAndSettle();
     // A child screen lets no touch through just after it appears; any
-    // other screen's clock is left where it stands.
-    if (find.byType(Scaffold).evaluate().isNotEmpty &&
+    // other screen's clock is left where it stands. A screen outside the
+    // router (the start's failed read) has no location.
+    final screen = find.byType(Scaffold);
+    if (screen.evaluate().isNotEmpty &&
+        GoRouter.maybeOf(tester.element(screen.first)) != null &&
         waitsForGuard(location(tester))) {
       await tester.pump(TapGuard.window);
     }

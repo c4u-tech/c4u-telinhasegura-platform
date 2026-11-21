@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telinha_segura/auth/api_client.dart';
+import 'package:telinha_segura/design/field_layout.dart';
 import 'package:telinha_segura/design/tevi.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/access/email_sign_in_screen.dart';
@@ -10,6 +11,7 @@ import 'package:telinha_segura/family/family_home_screen.dart';
 import 'package:telinha_segura/parental/app_mode.dart';
 import 'package:telinha_segura/shell/routes.dart';
 import 'package:telinha_segura/shell/splash.dart';
+import 'package:telinha_segura/shell/start_failed.dart';
 
 import '../access/harness.dart';
 import '../design/pump.dart';
@@ -289,31 +291,39 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a failed read shows the note and its retry once the '
-      'mascot is assembled; the retry plays no second opening', (tester) async {
+  testWidgets('a failed read gives way, once the mascot is assembled, to '
+      'its screen, the mascot landing on its band; the retry plays no second '
+      'opening', (tester) async {
+    final semantics = tester.ensureSemantics();
     final h = guardian()..sessionFailure = 500;
     await start(tester, h);
 
-    final now = await at(tester, 0, 500);
-    expect(find.text('Tentar de novo'), findsNothing);
-    expect(find.byType(Tevi), findsOneWidget);
+    var now = await at(tester, 0, 500);
+    expect(find.byType(Splash), findsOneWidget, reason: 'still assembling');
+    expect(
+      find.bySemanticsLabel('Tentar de novo'),
+      findsNothing,
+      reason: 'the screen beneath is not read yet',
+    );
 
-    await at(tester, now, 1100);
-    expect(find.text('Tentar de novo'), findsOneWidget);
-    expect(find.byType(Tevi), findsNothing);
+    now = await at(tester, now, 1100);
+    expect(find.byType(Splash), findsOneWidget, reason: 'giving way');
+    await at(tester, now, 1600);
+    expect(find.byType(Splash), findsNothing);
+    expect(find.text(StartFailed.title), findsOneWidget);
+    expect(find.byKey(FieldLayout.fieldKey), findsOneWidget);
+    expect(find.byType(Tevi), findsOneWidget, reason: 'landed on the band');
+    expect(find.bySemanticsLabel('Tentar de novo'), findsOneWidget);
 
     h.sessionFailure = null;
     await tester.tap(find.widgetWithText(FilledButton, 'Tentar de novo'));
     await tester.pump();
-    expect(
-      find.descendant(of: find.byType(Splash), matching: find.byType(Tevi)),
-      findsNothing,
-      reason: 'no second assembly',
-    );
+    expect(find.byType(Splash), findsNothing, reason: 'no second assembly');
     await tester.pumpAndSettle();
     expect(h.services.appMode.mode, const Guardian());
-    expect(find.byType(Splash), findsNothing);
+    expect(find.text(StartFailed.title), findsNothing);
     expect(find.byType(FamilyHomeScreen), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('under reduced motion the whole mascot stands still and the '
