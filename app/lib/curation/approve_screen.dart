@@ -25,7 +25,6 @@ import 'curation_api.dart';
 import 'draft_writer.dart';
 import 'queue_screen.dart' show leaveForQueue;
 import 'unheard_ends.dart';
-import 'video_heading.dart';
 import 'words.dart';
 
 /// "Antes de começar": what the app checked when the video was suggested.
@@ -44,9 +43,6 @@ const chooseTopic = 'Escolher tema e idade';
 /// review.
 const seeSummary = 'Ver resumo';
 
-/// The flow's title on every page, whatever the answers lead to.
-const flowTitle = 'Revisar vídeo';
-
 /// A step's shortcut, and the line that parts it from the questions.
 const noneHappens = 'Nada disso acontece no vídeo';
 const orOneByOne = 'ou responda uma a uma';
@@ -54,6 +50,13 @@ const orOneByOne = 'ou responda uma a uma';
 /// Under a page's primary until it can go on.
 const stepHint = 'Responda todas as perguntas desta etapa.';
 const approveHint = 'Escolha um tema e uma idade acima.';
+
+/// Under "Aprovar" until the video has played to its end here.
+const watchHint = 'Para aprovar, deixe o vídeo tocar até o fim.';
+
+/// The line under the window: whether the video has played to its end.
+const notPlayedToEnd = 'Ainda não tocou até o fim';
+const playedToEnd = 'Tocou até o fim';
 
 /// The review: its title, a step with nothing marked, the action back to
 /// a step, and the line of the theme and band.
@@ -123,10 +126,12 @@ String stepLabel(int step, int of) => 'Etapa $step de $of';
 /// on screen or from the system, goes one page back. Every change is kept
 /// by the server as the curator's draft, so leaving and coming back picks
 /// up the answers, theme, band and note where they were. The bands the
-/// answers rule out are not offered. The video plays at the top of the
-/// first page and of every step, in one player for the whole flow, so
-/// going from step to step never reloads it; it goes when the flow does.
-/// An approval needs the player to have reached the video's end here.
+/// answers rule out are not offered. The video's window stays in view on
+/// every page, pinned above the questions on a phone and in a pane of its
+/// own on a large window, in one player for the whole flow, so going from
+/// page to page never reloads it; it goes when the flow does. A line under
+/// it says whether the video has played to its end, which "Aprovar" waits
+/// for; a refusal and a doubt do not.
 class ApproveScreen extends StatefulWidget {
   const ApproveScreen({super.key, required this.id, this.video});
 
@@ -172,6 +177,11 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   bool _refused = false;
   String? _done;
 
+  /// Whether the video played to its end for this curator: told by the
+  /// player here, by the kept draft, or by an end seen on the video's
+  /// screen that the server has not heard yet. Once true it stays.
+  bool _playedToEnd = false;
+
   /// Keeps the one player's view across pages: each page is built anew,
   /// and a view built anew would load the video again.
   final _window = GlobalKey();
@@ -216,7 +226,17 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   /// Tells the draft the video played to its end, which an approval
   /// needs; a report that fails is kept for the approval to send again.
-  void _ended() => unawaited(_ends.report(widget.id));
+  void _ended() {
+    if (mounted) setState(() => _playedToEnd = true);
+    unawaited(_ends.report(widget.id));
+  }
+
+  /// Picks up an end the kept draft or this device already knows of.
+  void _knowEnd(ReviewDraft? kept) {
+    if (kept?.playedToEndAt != null || _ends.holds(widget.id)) {
+      _playedToEnd = true;
+    }
+  }
 
   /// The questions depend on the video's length, so the answers start
   /// once both the list and the video are read, from the draft the server
@@ -226,6 +246,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     if ((_list, _video) case (final list?, final video?)) {
       final d = ApprovalDraft(list, length: video.duration);
       if (_kept case final kept?) d.restore(kept);
+      _knowEnd(_kept);
       _draft = d;
       _note.text = d.note ?? '';
     }
@@ -247,7 +268,10 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       if (!mounted || d != _draft) return;
       _keptRead = true;
       if (kept != null) {
-        setState(() => d.restoreBeneath(kept));
+        setState(() {
+          d.restoreBeneath(kept);
+          _knowEnd(kept);
+        });
         // Set only when it changed: setting it moves the cursor of a
         // curator typing in it.
         if (_note.text != (d.note ?? '')) _note.text = d.note ?? '';
@@ -438,25 +462,22 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       builder: (context, _) => FieldLayout(
         // A new page opens at its top, not where the last one was scrolled.
         key: ValueKey<Object?>(_done ?? _draft?.page),
-        title: flowTitle,
+        // The window stands for the video: no title over the questions.
+        title: null,
+        // Decided, the player is gone and nothing is left to watch.
+        watch: _done == null && _video != null ? _watch() : null,
         onBack: _back,
-        children: [
-          if (_video case final video?) ...[
-            VideoHeading(video),
+        children: switch (_done) {
+          final done? => [
+            Notice(done),
             const SizedBox(height: Space.xl),
+            PrimaryButton(
+              label: 'Voltar para a fila',
+              onPressed: () => context.go(Routes.curation),
+            ),
           ],
-          ...(switch (_done) {
-            final done? => [
-              Notice(done),
-              const SizedBox(height: Space.xl),
-              PrimaryButton(
-                label: 'Voltar para a fila',
-                onPressed: () => context.go(Routes.curation),
-              ),
-            ],
-            null => _form(),
-          }),
-        ],
+          null => _form(),
+        },
       ),
     ),
   );
@@ -478,14 +499,19 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     return d.page == d.topicPage ? _topic(d) : _review(d);
   }
 
-  /// The video, at the top of the first page and of every step.
-  List<Widget> _player() => [
-    KeyedSubtree(
-      key: _window,
-      child: playerWindow(failed: flowPlayerFailed),
-    ),
-    const SizedBox(height: Space.xl),
-  ];
+  /// The video's window and, under it, whether it played to its end.
+  Widget _watch() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      KeyedSubtree(
+        key: _window,
+        child: playerWindow(failed: flowPlayerFailed),
+      ),
+      const SizedBox(height: Space.md),
+      _EndLine(ended: _playedToEnd),
+    ],
+  );
 
   Widget _line(String words) => Semantics(
     liveRegion: true,
@@ -533,7 +559,6 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   List<Widget> _before(ApprovalDraft d, ChecklistGroup g) {
     final text = Theme.of(context).textTheme;
     return [
-      ..._player(),
       Semantics(header: true, child: Text(g.title, style: text.titleMedium)),
       const SizedBox(height: Space.md),
       Text(
@@ -565,7 +590,6 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     final step = d.page;
     final of = d.stepCount;
     return [
-      ..._player(),
       // Announced as the page changes: "Etapa 2 de 5, Linguagem e respeito".
       Semantics(
         container: true,
@@ -727,9 +751,13 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           ApprovalOutcome.refuse => refuseLabel,
           ApprovalOutcome.team => teamLabel,
         },
-        onPressed: outcome == ApprovalOutcome.refuse
-            ? () => _toRefusal(d)
-            : () => _submit(d),
+        onPressed: switch (outcome) {
+          ApprovalOutcome.refuse => () => _toRefusal(d),
+          // The server takes no approval of a video not played to its end.
+          ApprovalOutcome.approve when !_playedToEnd => null,
+          _ => () => _submit(d),
+        },
+        hint: outcome == ApprovalOutcome.approve ? watchHint : null,
       ),
     ];
   }
@@ -788,6 +816,43 @@ class _SummaryLine extends StatelessWidget {
             semanticsLabel: '$changeLabel: $title',
             inline: true,
             onPressed: onChange,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Under the window: "Ainda não tocou até o fim", muted, or the check and
+/// "Tocou até o fim" in the text colour, so the state is in words and
+/// glyph, never in colour alone. Read as one label, announced when it
+/// changes.
+class _EndLine extends StatelessWidget {
+  const _EndLine({required this.ended});
+
+  final bool ended;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final words = ended ? playedToEnd : notPlayedToEnd;
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: words,
+      excludeSemantics: true,
+      child: Row(
+        children: [
+          if (ended) ...[
+            Icon(Icons.check_rounded, size: 20, color: p.text),
+            const SizedBox(width: Space.xs),
+          ],
+          Flexible(
+            child: Text(
+              words,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: ended ? p.text : p.muted),
+            ),
           ),
         ],
       ),

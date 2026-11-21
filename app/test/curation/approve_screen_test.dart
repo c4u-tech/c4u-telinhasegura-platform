@@ -7,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/design/display_title.dart';
+import 'package:telinha_segura/design/theme.dart';
+import 'package:telinha_segura/shell/list_detail.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
@@ -62,6 +65,7 @@ Future<Harness> approving(
   FutureOr<http.Response> Function()? ended,
   String initial = '/curadoria/v1/aprovar',
   Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   final h =
       Harness(
@@ -70,13 +74,15 @@ Future<Harness> approving(
             review: review,
             checklist: checklist,
             video: video,
-            draft: draft,
+            // Unless a test says otherwise, the video already played to its
+            // end, so "Aprovar" does not wait.
+            draft: draft ?? () => kept(draftJson(ended: true)),
             ended: ended,
           ),
         )
         ..family = ownerFamily
         ..roles = ['curator'];
-  await h.pump(tester, initial: initial, size: size);
+  await h.pump(tester, initial: initial, size: size, textScale: textScale);
   return h;
 }
 
@@ -192,6 +198,28 @@ int videoReads(Harness h) => h.actions
     )
     .length;
 
+/// The review's door into the flow.
+const reviewDoor = 'Revisar vídeo';
+
+/// The flow's player.
+Finder window() => find.byKey(FakePlayback.viewKey);
+
+/// The line under the window.
+Finder endLine(String words) => find.text(words);
+
+/// No page title and no video name: the window stands for the video.
+void expectUntitled(WidgetTester tester) {
+  expect(find.byType(DisplayTitle), findsNothing);
+  expect(find.text('Baby Shark'), findsNothing);
+  expect(find.text(nb('Canal Baby Shark · 4 min')), findsNothing);
+}
+
+/// Drags the page's content [dy] up.
+Future<void> scrollContent(WidgetTester tester, double dy) async {
+  await tester.drag(find.byType(Scrollable).last, Offset(0, -dy));
+  await tester.pumpAndSettle();
+}
+
 /// The video named under the display title as the review names it: its
 /// title in title-medium, then "Canal · 4 min" muted, both above [below].
 void expectNamed(WidgetTester tester, Finder below) {
@@ -259,41 +287,48 @@ void main() {
       expect(posts(h), isEmpty);
     });
 
-    testWidgets('names the video it approves under the title, as the review '
-        'does, through to the done state', (tester) async {
+    testWidgets('shows no page title and no video name: the window is what '
+        'the flow is about, through to the done state', (tester) async {
       await approving(tester);
 
-      expectNamed(tester, find.text(checkedByApp));
-      await approve(tester);
-      expectNamed(tester, find.text(approved));
+      expectUntitled(tester);
+      await start(tester);
+      expectUntitled(tester);
+      await clearSteps(tester);
+      await choose(tester, 'Música');
+      await choose(tester, '5 a 8 anos');
+      await tapPrimary(tester);
+      expectUntitled(tester);
+      await tapPrimary(tester);
+      expect(find.text(approved), findsOneWidget);
+      expectUntitled(tester);
     });
 
-    testWidgets('opened from the review, it names the video without reading '
-        'it again', (tester) async {
+    testWidgets('opened from the review, it does not read the video again', (
+      tester,
+    ) async {
       final h = await approving(tester, initial: '/curadoria/v1');
 
-      await tapOn(tester, find.text(flowTitle));
+      await tapOn(tester, find.text(reviewDoor));
 
       expect(h.location(tester), '/curadoria/v1/aprovar');
-      expectNamed(tester, find.text(checkedByApp));
+      expect(window(), findsOneWidget);
       expect(videoReads(h), 1);
     });
   });
 
   group('the video', () {
-    Finder window() => find.byKey(FakePlayback.viewKey);
-
     /// Opens the flow from the review, whose own player stays beneath:
     /// the flow's player is the one opened after it.
     Future<Harness> fromReview(WidgetTester tester) async {
       final h = await approving(tester, initial: '/curadoria/v1');
       expect(h.adultPlayer.opened, hasLength(1));
-      await tapOn(tester, find.text(flowTitle));
+      await tapOn(tester, find.text(reviewDoor));
       return h;
     }
 
     testWidgets('plays at the top of "Antes de começar" and of each step, '
-        'under the video\'s name, without playing on its own', (tester) async {
+        'its line under it, without playing on its own', (tester) async {
       final h = await fromReview(tester);
 
       expect(h.adultPlayer.opened, hasLength(2));
@@ -302,8 +337,8 @@ void main() {
       expect(flow.calls, isEmpty, reason: 'no autoplay');
       expect(window(), findsOneWidget);
       final below = [
-        find.text('Baby Shark'),
         window(),
+        endLine(playedToEnd),
         find.text('Antes de começar'),
       ];
       final tops = [for (final f in below) tester.getTopLeft(f).dy];
@@ -346,19 +381,20 @@ void main() {
       expect(flow.closed, isFalse);
     });
 
-    testWidgets('the theme and band and the review show no player', (
+    testWidgets('the theme and band and the review keep the same player', (
       tester,
     ) async {
       final h = await fromReview(tester);
+      final view = tester.element(window());
       await toTopic(tester);
 
       expect(find.text('Tema'), findsOneWidget);
-      expect(window(), findsNothing);
+      expect(tester.element(window()), same(view));
       await choose(tester, 'Música');
       await choose(tester, '5 a 8 anos');
       await tapPrimary(tester);
       expect(find.text(reviewTitle), findsOneWidget);
-      expect(window(), findsNothing);
+      expect(tester.element(window()), same(view));
       expect(h.adultPlayer.opened, hasLength(2));
     });
 
@@ -404,15 +440,217 @@ void main() {
     });
   });
 
-  group('the title', () {
-    void expectTitle(WidgetTester tester) {
-      expect(find.text(flowTitle), findsOneWidget);
-      expect(find.text('Aprovar'), findsNothing);
-    }
+  group('the window stays', () {
+    /// Where the window's top stands, and whether the whole of it is on
+    /// screen.
+    double top(WidgetTester tester) => tester.getTopLeft(window()).dy;
 
-    testWidgets('says "Revisar vídeo" on every page, whatever the answers '
-        'lead to', (tester) async {
-      expect(flowTitle, 'Revisar vídeo');
+    testWidgets('on a phone it stays under the band while the page scrolls '
+        'beneath it, on every page of the flow', (tester) async {
+      await approving(tester);
+
+      Future<void> expectPinned() async {
+        final before = top(tester);
+        await scrollContent(tester, 300);
+        expect(top(tester), before, reason: 'the window did not move');
+        // Nothing of the page is drawn over the window: what lies at its
+        // centre is the window.
+        final centre = tester.getCenter(window());
+        expect(
+          tester
+              .hitTestOnBinding(centre)
+              .path
+              .any((e) => e.target == tester.renderObject(window())),
+          isTrue,
+        );
+        await scrollContent(tester, -300);
+      }
+
+      await expectPinned();
+      await start(tester);
+      await expectPinned();
+      await clearSteps(tester);
+      expect(find.text('Tema'), findsOneWidget);
+      await expectPinned();
+      await choose(tester, 'Música');
+      await choose(tester, '5 a 8 anos');
+      await tapPrimary(tester);
+      expect(find.text(reviewTitle), findsOneWidget);
+      await expectPinned();
+    });
+
+    testWidgets('at 360 × 640 and 200 % text it scrolls with the page, '
+        'since it would leave less than half the height', (tester) async {
+      await approving(tester, size: const Size(360, 640), textScale: 2);
+      final before = top(tester);
+
+      await scrollContent(tester, 200);
+
+      expect(top(tester), lessThan(before));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('at 1280 × 800 it has its own pane, the list steps aside, '
+        'and the questions scroll beside it', (tester) async {
+      await approving(tester, size: const Size(1280, 800));
+
+      expect(find.byKey(ListDetail.listKey), findsNothing);
+      final question = find.text(tie);
+      final windowBox = tester.getRect(window());
+      expect(windowBox.right, lessThan(tester.getTopLeft(question).dx));
+      expect(
+        tester.getTopLeft(endLine(playedToEnd)).dy,
+        greaterThan(windowBox.bottom),
+      );
+      final divider = tester.getRect(find.byType(VerticalDivider));
+      expect(divider.left, greaterThan(windowBox.right));
+      expect(divider.right, lessThan(tester.getTopLeft(question).dx));
+
+      await start(tester);
+      final before = top(tester);
+      await scrollContent(tester, 300);
+      expect(top(tester), before);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the video\'s end', () {
+    /// The review's primary, "Aprovar" once every answer is "Não".
+    Future<Harness> unwatched(WidgetTester tester, {Size? size}) => approving(
+      tester,
+      draft: () => kept(draftJson()),
+      size: size ?? const Size(390, 844),
+    );
+
+    testWidgets('the line says the video has not played to its end, muted, '
+        'until the player reports the end, then says it has, with the '
+        'check', (tester) async {
+      final h = await unwatched(tester);
+
+      expect(notPlayedToEnd, 'Ainda não tocou até o fim');
+      expect(playedToEnd, 'Tocou até o fim');
+      expect(endLine(notPlayedToEnd), findsOneWidget);
+      expect(endLine(playedToEnd), findsNothing);
+      final palette = tester.element(endLine(notPlayedToEnd)).palette;
+      expect(
+        tester.widget<Text>(endLine(notPlayedToEnd)).style?.color,
+        palette.muted,
+      );
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
+
+      await start(tester);
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Etapa 1 de 5'), findsOneWidget, reason: 'same page');
+      expect(endLine(notPlayedToEnd), findsNothing);
+      expect(endLine(playedToEnd), findsOneWidget);
+      expect(
+        tester.widget<Text>(endLine(playedToEnd)).style?.color,
+        palette.text,
+      );
+      final check = find.byIcon(Icons.check_rounded);
+      expect(check, findsOneWidget);
+      expect(
+        tester.getCenter(check).dy,
+        closeTo(tester.getCenter(endLine(playedToEnd)).dy, 2),
+      );
+    });
+
+    testWidgets('the line is one label, announced as a live region', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await unwatched(tester);
+
+      expect(
+        tester.getSemantics(endLine(notPlayedToEnd)),
+        isSemantics(label: notPlayedToEnd, isLiveRegion: true),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('a draft whose end was already recorded says so from the '
+        'start', (tester) async {
+      await approving(tester, draft: () => kept(draftJson(ended: true)));
+
+      expect(endLine(playedToEnd), findsOneWidget);
+      expect(endLine(notPlayedToEnd), findsNothing);
+    });
+
+    testWidgets('an end the review\'s player saw but failed to report says '
+        'so too', (tester) async {
+      final h = await approving(
+        tester,
+        initial: '/curadoria/v1',
+        draft: () => kept(draftJson()),
+        ended: () => problem(503, 'unavailable'),
+      );
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      await tapOn(tester, find.text(reviewDoor));
+
+      expect(endLine(playedToEnd), findsOneWidget);
+    });
+
+    testWidgets('"Aprovar" waits, with its hint, until the video plays to its '
+        'end; then it sends', (tester) async {
+      final h = await unwatched(tester);
+      await toReview(tester);
+
+      expect(primary(tester).label, approveLabel);
+      expect(primary(tester).onPressed, isNull);
+      expect(watchHint, 'Para aprovar, deixe o vídeo tocar até o fim.');
+      expect(
+        tester.widget<SubmitHint>(find.byType(SubmitHint)).visible,
+        isTrue,
+      );
+      expect(find.text(watchHint), findsOneWidget);
+
+      h.adultPlayer.opened.last.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(primary(tester).onPressed, isNotNull);
+      expect(
+        tester.widget<SubmitHint>(find.byType(SubmitHint)).visible,
+        isFalse,
+      );
+      await tapPrimary(tester);
+      expect(find.text(approved), findsOneWidget);
+    });
+
+    testWidgets('a doubt is sent without waiting for the end', (tester) async {
+      final h = await unwatched(tester);
+      await toTeam(tester);
+
+      expect(primary(tester).label, teamLabel);
+      expect(primary(tester).onPressed, isNotNull);
+      expect(find.text(watchHint), findsNothing);
+      await tapPrimary(tester);
+      expect(posts(h), hasLength(1));
+    });
+
+    testWidgets('a refusal does not wait for the end', (tester) async {
+      await unwatched(tester);
+      await start(tester);
+      await answer(tester, hits, 'Sim');
+      await answer(tester, sad, 'Não');
+      await tapPrimary(tester);
+      await clearSteps(tester, from: 2);
+
+      expect(primary(tester).label, refuseLabel);
+      expect(primary(tester).onPressed, isNotNull);
+      expect(find.text(watchHint), findsNothing);
+    });
+  });
+
+  group('the title', () {
+    void expectTitle(WidgetTester tester) => expectUntitled(tester);
+
+    testWidgets('no page shows a title, whatever the answers lead to', (
+      tester,
+    ) async {
       final h = await approving(
         tester,
         review: (_) => json(201, {'video_state': 'held'}),
@@ -1263,8 +1501,8 @@ void main() {
         },
         // The server keeps only the answers to questions left unchanged.
         draft: () => outdated && ++readsAfter > 0
-            ? kept(draftJson(answers: {'c25': 'ok', 'c03': 'ok'}))
-            : json(200, {'draft': null}),
+            ? kept(draftJson(answers: {'c25': 'ok', 'c03': 'ok'}, ended: true))
+            : kept(draftJson(ended: true)),
       );
 
       await approve(tester);

@@ -41,6 +41,10 @@ class UnheardEnds {
     }
   }
 
+  /// Whether [videoId] played to its end here while the server has not
+  /// heard it yet.
+  bool holds(String videoId) => _videos.contains(videoId);
+
   /// Reports the end of [videoId] once more when the last report failed.
   Future<void> resend(String videoId) async {
     if (_videos.contains(videoId)) await report(videoId);

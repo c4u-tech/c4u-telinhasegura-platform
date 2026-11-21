@@ -1818,19 +1818,36 @@ final curatorScreens =
         curatorApi(),
         (tester, _) => start(tester),
       ),
-      'approve, review': (
+      'approve, a step, played to its end': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, h) async {
+          await start(tester);
+          h.adultPlayer.current!.emit(const PlayerEnded());
+          await tester.pumpAndSettle();
+        },
+      ),
+      'approve, review waiting for the end': (
         '/curadoria/v1/aprovar',
         curatorApi(),
         (tester, _) => toReview(tester),
       ),
+      'approve, review': (
+        '/curadoria/v1/aprovar',
+        curatorApi(draft: _playedToEnd),
+        (tester, _) => toReview(tester),
+      ),
       'approve, refused': (
         '/curadoria/v1/aprovar',
-        curatorApi(review: (_) => problem(422, 'validation')),
+        curatorApi(
+          review: (_) => problem(422, 'validation'),
+          draft: _playedToEnd,
+        ),
         (tester, _) => approve(tester),
       ),
       'approve, done': (
         '/curadoria/v1/aprovar',
-        curatorApi(),
+        curatorApi(draft: _playedToEnd),
         (tester, _) => approve(tester),
       ),
       'refuse': ('/curadoria/v1/recusar', curatorApi(), null),
@@ -1931,6 +1948,9 @@ final curatorScreens =
       'pack approve': ('/pacotinhos/p1/aprovar', packApi(), null),
       'pack refuse': ('/pacotinhos/p1/recusar', packApi(), null),
     };
+
+/// A curator's draft whose video already played to its end.
+http.Response _playedToEnd() => json(200, {'draft': draftJson(ended: true)});
 
 FutureOr<http.Response> _bichos(http.Request req) => composing.approvedOf(
   'bichos',
