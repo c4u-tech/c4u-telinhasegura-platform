@@ -2,7 +2,8 @@ import 'dart:async';
 
 /// Writes a value through [save] one at a time: a value written while one
 /// is in flight waits, and a newer one replaces it; a failed write is
-/// dropped, since the next change writes again.
+/// dropped, since the next change writes again. An error that is not an
+/// exception is a mistake in the app and goes through.
 class DraftWriter<T> {
   DraftWriter(this._save);
 
@@ -24,18 +25,21 @@ class DraftWriter<T> {
 
   Future<void> _run() async {
     _running = true;
-    while (_waiting) {
-      final value = _next as T;
-      _waiting = false;
-      _next = null;
-      try {
-        await _save(value);
-      } on Object {
-        // Dropped: the next change writes the whole draft again.
+    try {
+      while (_waiting) {
+        final value = _next as T;
+        _waiting = false;
+        _next = null;
+        try {
+          await _save(value);
+        } on Exception {
+          // Dropped: the next change writes the whole draft again.
+        }
       }
+    } finally {
+      _running = false;
+      _idle?.complete();
+      _idle = null;
     }
-    _running = false;
-    _idle?.complete();
-    _idle = null;
   }
 }

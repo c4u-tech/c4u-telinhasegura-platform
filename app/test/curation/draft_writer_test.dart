@@ -51,6 +51,20 @@ void main() {
     expect(saved, [1, 2]);
   });
 
+  test('the writer lets a programming error through', () async {
+    final errors = <Object>[];
+    late DraftWriter<int> writer;
+    await runZonedGuarded(() async {
+      writer = DraftWriter<int>((_) async => throw StateError('broken'));
+      writer.write(1);
+      await writer.idle;
+    }, (e, _) => errors.add(e));
+    await pumpEventQueue();
+
+    expect(errors, [isA<StateError>()]);
+    await writer.idle;
+  });
+
   test('an idle writer is idle at once', () async {
     final writer = DraftWriter<int>((_) async {});
     await writer.idle;
