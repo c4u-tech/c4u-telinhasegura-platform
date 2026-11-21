@@ -216,7 +216,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   /// Tells the draft the video played to its end, which an approval
   /// needs; a report that fails is kept for the approval to send again.
-  void _ended() => unawaited(_ends.report(_api, widget.id));
+  void _ended() => unawaited(_ends.report(widget.id));
 
   /// The questions depend on the video's length, so the answers start
   /// once both the list and the video are read, from the draft the server
@@ -373,7 +373,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     final team = d.outcome == ApprovalOutcome.team;
     final note = _note.text.trim();
     final ok = await _send.run(() async {
-      await _ends.resend(_api, widget.id);
+      await _ends.resend(widget.id);
       await _api.approve(
         widget.id,
         theme: team ? null : d.theme,

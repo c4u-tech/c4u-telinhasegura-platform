@@ -271,7 +271,7 @@ type approval struct {
 // holds the video at once, and a held video takes no review. Publishing
 // moves the round on, so the next round is the revisit.
 // It returns whether the video was published and whether its reports
-// then held it. The closed round's drafts go with it.
+// then held it. The closed round's drafts and viewings go with it.
 func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID string, round int, now time.Time) (bool, bool, error) {
 	reached, err := s.approvalsReached(ctx, tx, videoLedger, videoID, round)
 	if err != nil || !reached {
@@ -306,7 +306,7 @@ func (s *Service) publishIfComplete(ctx context.Context, tx pgx.Tx, videoID stri
 		videoID, theme, string(band), now, now.Add(s.d.RevisitAfter)); err != nil {
 		return false, false, err
 	}
-	if err := closeDrafts(ctx, tx, videoID); err != nil {
+	if err := closeRound(ctx, tx, videoID); err != nil {
 		return false, false, err
 	}
 	// Reports made while the video waited were stored but not acted on:
@@ -359,8 +359,8 @@ type entry struct {
 // and must answer them all; a short one is not, so its rejection cannot
 // cite them, and the answers to them an app built before them still sends
 // are dropped unjudged, as if never sent. A stated band may not be younger
-// than the one the answers and the length allow: a band question's yes
-// allows from its own band up. An older one may say why, and only an
+// than the one the answers and the length allow: a band question's yes or
+// "I don't know" allows from its own band up. An older one may say why, and only an
 // older one in a plain approval may.
 func prepare(in ReviewInput, long, overYoungest bool) (entry, error) {
 	if in.Decision != Approve && in.Decision != Reject {

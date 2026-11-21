@@ -174,18 +174,23 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
     return true;
   }
 
+  /// An end report the held screen failed to send is sent once more
+  /// first, since the server refuses a publication it never heard the end
+  /// of.
   Future<void> _publish(Video v, VideoTheme theme, AgeBand band) async {
-    final api = AppScope.of(context).staff;
-    final ok = await _write.write(
-      () => api.decideDoubt(
+    final scope = AppScope.of(context);
+    final api = scope.staff;
+    final ends = scope.moderatorEnds;
+    final ok = await _write.write(() async {
+      await ends.resend(v.id);
+      await api.decideDoubt(
         v.id,
         publish: true,
         theme: theme,
         minAgeBand: band,
         reason: _reason.text.trim(),
-      ),
-      handle: _handle,
-    );
+      );
+    }, handle: _handle);
     if (ok && mounted) {
       context.go(Routes.heldVideos, extra: publishedFromDoubt(v.title));
     }

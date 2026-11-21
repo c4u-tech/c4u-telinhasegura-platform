@@ -117,7 +117,12 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
       final held = all.where((h) => h.video.id == widget.id).firstOrNull;
       if (held == null) return _leave(heldGone);
       setState(() => _held = held);
-      openPlayer(held.video.youtubeId);
+      // Publishing a doubt needs the video's end, so the player reports it.
+      final ends = scope.moderatorEnds;
+      openPlayer(
+        held.video.youtubeId,
+        onEnded: () => unawaited(ends.report(held.video.id)),
+      );
       if (held.heldReason == HeldReason.doubt) unawaited(_readMarks());
     } on Object catch (e) {
       if (!mounted ||

@@ -15,12 +15,14 @@ import 'package:telinha_segura/curation/held_video_screen.dart';
 import 'package:telinha_segura/curation/publish_doubt_screen.dart';
 import 'package:telinha_segura/family/family.dart' show AgeBand;
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
+import 'package:telinha_segura/kid/kid_player.dart' show PlayerEnded;
 
 import '../access/harness.dart';
 import '../family/fixtures.dart';
 import 'appoint_screen_test.dart' show tapOn;
 import 'fixtures.dart';
 import 'held_video_screen_test.dart' show confirming, writes;
+import 'queue_screen_test.dart' show goTo;
 
 final doubted = heldOf(
   queuedJson('v1', 'Baby Shark', channel: 'Canal Baby Shark'),
@@ -51,6 +53,34 @@ Future<Harness> doubtHeld(
 }
 
 Finder row(String label) => find.widgetWithText(SelectableRow, label);
+
+const endedPath = 'POST /v1/moderation/videos/v1/ended';
+
+/// The writes by method and path, without their bodies.
+List<String> writePaths(Harness h) => [
+  for (final w in writes(h)) w.split(' ').take(2).join(' '),
+];
+
+/// From the held screen, "Publicar" with the curator's theme and band and
+/// a reason.
+Future<void> publishFromHeld(WidgetTester tester) async {
+  await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
+  await tester.enterText(
+    find.widgetWithText(TextField, 'Motivo'),
+    'Sem risco no vídeo.',
+  );
+  await tester.pump();
+  await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
+}
+
+/// A scripted end report: [fail] answers 503 while it returns true; every
+/// other moderation write answers 204.
+FutureOr<http.Response> Function(http.Request) endedThen(
+  bool Function() fail,
+) =>
+    (req) => req.url.path.endsWith('/ended') && fail()
+    ? problem(503, 'unavailable')
+    : http.Response('', 204);
 
 void main() {
   testWidgets('a doubt shows why, who doubted with the note, and what was '
@@ -418,5 +448,92 @@ void main() {
 
     expect(tester.widget<SelectableRow>(row('Bichos')).selected, isFalse);
     expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isFalse);
+  });
+
+  testWidgets('the held screen tells the server when the video played to '
+      'its end', (tester) async {
+    final h = await doubtHeld(tester);
+    expect(writes(h), isEmpty);
+
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    expect(writes(h), [endedPath]);
+  });
+
+  testWidgets('an end report that failed is sent again before publishing', (
+    tester,
+  ) async {
+    var fail = true;
+    final h = await doubtHeld(tester, settle: endedThen(() => fail));
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    expect(writes(h), [endedPath]);
+    fail = false;
+
+    await publishFromHeld(tester);
+
+    expect(writePaths(h), [
+      endedPath,
+      endedPath,
+      'POST /v1/moderation/videos/v1/decide',
+    ]);
+    expect(find.text(publishedFromDoubt('Baby Shark')), findsOneWidget);
+  });
+
+  testWidgets('an end reported is not sent again before publishing', (
+    tester,
+  ) async {
+    final h = await doubtHeld(tester);
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+
+    await publishFromHeld(tester);
+
+    expect(writePaths(h), [endedPath, 'POST /v1/moderation/videos/v1/decide']);
+  });
+
+  testWidgets('an end another account saw is never sent for the next one', (
+    tester,
+  ) async {
+    final h = await doubtHeld(tester, settle: endedThen(() => true));
+    h.adultPlayer.opened.last.emit(const PlayerEnded());
+    await tester.pumpAndSettle();
+    expect(writes(h), [endedPath]);
+
+    await h.services.client.forgetSession();
+    await tester.pumpAndSettle();
+    h.email = 'bia@example.com';
+    h.services.client.rememberSession(csrfToken: 'csrf-b');
+    await tester.pumpAndSettle();
+    goTo(tester, '/moderacao/retidos/v1');
+    await tester.pumpAndSettle();
+    await publishFromHeld(tester);
+
+    expect(writePaths(h), [endedPath, 'POST /v1/moderation/videos/v1/decide']);
+  });
+
+  testWidgets('a publication refused for a video not watched to the end '
+      'says so and keeps what was chosen', (tester) async {
+    final h = await doubtHeld(
+      tester,
+      settle: (req) => req.url.path.endsWith('/decide')
+          ? problem(409, 'not_watched')
+          : http.Response('', 204),
+    );
+
+    await publishFromHeld(tester);
+
+    expect(writePaths(h), ['POST /v1/moderation/videos/v1/decide']);
+    expect(h.location(tester), '/moderacao/retidos/v1/publicar');
+    expect(
+      find.text(
+        Copy.forError(const ApiError(status: 409, code: 'not_watched')),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<SelectableRow>(row('Bichos')).selected, isTrue);
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    expect(find.text('Sem risco no vídeo.'), findsOneWidget);
   });
 }
