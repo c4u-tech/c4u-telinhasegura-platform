@@ -61,10 +61,13 @@ class _FamilyRootScreenState extends State<FamilyRootScreen> {
           const SizedBox(height: Space.xxl),
           _foot(family),
         ],
-        // The same start as Início's; a family started here goes on to
-        // its first steps.
-        NoFamily() => [
-          FamilyStart(onStarted: () => context.go(Routes.firstRun)),
+        // The same as Início's, invitations included; a family started
+        // here goes on to its first steps, one joined shows its doors.
+        NoFamily(:final invitations) => [
+          FamilyStart(
+            invitations: invitations,
+            onStarted: () => context.go(Routes.firstRun),
+          ),
         ],
         _ => familyPending(_model),
       },

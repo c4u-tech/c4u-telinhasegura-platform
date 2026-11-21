@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/design/address.dart';
 import 'package:telinha_segura/design/display_title.dart';
 import 'package:telinha_segura/design/tokens.dart';
 import 'package:telinha_segura/family/family_start.dart';
@@ -12,6 +13,7 @@ import 'package:telinha_segura/family/inicio.dart';
 import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/shell/guardian_shell.dart';
 
+import '../access/a11y_test.dart' show invitationsFor;
 import '../access/harness.dart';
 import '../family/fixtures.dart';
 import 'guardian_shell_test.dart' show labels, selected, wide;
@@ -149,6 +151,43 @@ void main() {
       expect(title(tester), 'Sua família');
       expect(find.byType(FamilyStart), findsOneWidget);
       expect(find.text('Começar minha família'), findsOneWidget);
+    });
+
+    testWidgets('with an invitation waiting, lists it to accept, as Início '
+        'does', (tester) async {
+      final h = Harness(
+        signedIn: true,
+        api: invitationsFor(['carla@example.com']),
+      )..family = null;
+      await h.pump(tester, initial: '/familia');
+
+      expect(h.location(tester), '/familia');
+      expect(find.text(addressBreaks('carla@example.com')), findsOneWidget);
+      expect(find.text('Entrar na família'), findsOneWidget);
+      expect(find.text('Tenho um convite'), findsNothing);
+    });
+
+    testWidgets('accepting the invitation there opens the family', (
+      tester,
+    ) async {
+      late final Harness h;
+      h = Harness(
+        signedIn: true,
+        api: (req) {
+          if (req.method == 'POST' && req.url.path.contains('/invitations')) {
+            h.family = ownerFamily;
+            return json(200, ownerFamily);
+          }
+          return invitationsFor(['carla@example.com'])(req);
+        },
+      )..family = null;
+      await h.pump(tester, initial: '/familia');
+
+      await tester.tap(find.text('Entrar na família'));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/familia');
+      expect(find.widgetWithText(DoorRow, 'Crianças'), findsOneWidget);
     });
 
     testWidgets('on a wide window, alone beside the rail', (tester) async {
