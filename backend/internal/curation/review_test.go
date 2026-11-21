@@ -38,15 +38,49 @@ func cleanLong() map[string]curation.Answer {
 	return out
 }
 
+// olderReason is the reason approve gives a band older than its answers
+// allow, as an approval stating one must.
+const olderReason = "Para crianças mais velhas."
+
+// rank orders the bands, youngest first.
+var rank = map[family.AgeBand]int{family.AgeUpTo4: 1, family.Age5To8: 2, family.Age9To12: 3}
+
+// reasonFor is olderReason when the answers make a plain approval and band
+// is older than the youngest they allow (a band question's yes or "I don't
+// know" allows from its own band up), "" otherwise: a doubt gives none.
+func reasonFor(band family.AgeBand, answers map[string]curation.Answer) string {
+	allowed := family.AgeUpTo4
+	for _, g := range curation.Checklist() {
+		for _, it := range g.Items {
+			a := answers[it.ID]
+			if it.Rule != curation.RuleNotes && a == curation.AnswerDoubt || it.Rule == curation.RuleDoubt && a == curation.AnswerAppears {
+				return ""
+			}
+			if it.Rule == curation.RuleBand && (a == curation.AnswerAppears || a == curation.AnswerDoubt) &&
+				rank[it.MinBand] > rank[allowed] {
+				allowed = it.MinBand
+			}
+		}
+	}
+	if rank[band] > rank[allowed] {
+		return olderReason
+	}
+	return ""
+}
+
+// approve approves with clean answers, giving olderReason when band is
+// older than they allow.
 func approve(theme string, band family.AgeBand) curation.ReviewInput {
+	answers := clean()
 	return curation.ReviewInput{Decision: curation.Approve, Theme: theme, MinAgeBand: band,
-		ChecklistVersion: curation.ChecklistVersion, Answers: clean()}
+		ChecklistVersion: curation.ChecklistVersion, Answers: answers, BandReason: reasonFor(band, answers)}
 }
 
 // approveWith is approve with the given answers changed.
 func approveWith(theme string, band family.AgeBand, changed map[string]curation.Answer) curation.ReviewInput {
 	in := approve(theme, band)
 	maps.Copy(in.Answers, changed)
+	in.BandReason = reasonFor(band, in.Answers)
 	return in
 }
 

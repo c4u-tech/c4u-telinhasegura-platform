@@ -245,7 +245,7 @@ func (s *Server) review(w http.ResponseWriter, r *http.Request) {
 		Answers          map[string]string `json:"answers"`
 		FailedItems      []string          `json:"failed_items"`
 		Note             string            `json:"note"`
-		BandReason       string            `json:"band_reason"` // optional: apps built before it send none
+		BandReason       string            `json:"band_reason"` // required with a band older than the answers give
 	}
 	if err := decode(w, r, &in); err != nil {
 		s.fail(w, err)

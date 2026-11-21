@@ -499,9 +499,13 @@ func TestAnOlderStatedBandIsAcceptedWithItsReason(t *testing.T) {
 	}
 	doubt := approveWith("", "", map[string]curation.Answer{"c24": curation.AnswerAppears})
 	for name, in := range map[string]curation.ReviewInput{
-		"a reason on the computed band": withReason(approve("bichos", family.AgeUpTo4), "Igual."),
-		"a reason of 201 runes":         withReason(approve("bichos", family.Age9To12), strings.Repeat("é", 201)),
-		"a reason on a doubt":           withReason(doubt, "Mais velho."),
+		"a reason on the computed band":     withReason(approve("bichos", family.AgeUpTo4), "Igual."),
+		"a reason of 201 runes":             withReason(approve("bichos", family.Age9To12), strings.Repeat("é", 201)),
+		"a reason on a doubt":               withReason(doubt, "Mais velho."),
+		"an older band without a reason":    withReason(approve("bichos", family.Age9To12), ""),
+		"an older band with a blank reason": withReason(approve("bichos", family.Age5To8), "   "),
+		"an older band than a Sim gives, without a reason": withReason(
+			approveWith("bichos", family.Age9To12, map[string]curation.Answer{"c22": curation.AnswerAppears}), ""),
 	} {
 		if _, _, err := f.svc.Review(ctx, c, v, in); !errors.Is(err, curation.ErrValidation) {
 			t.Errorf("%s: %v", name, err)
@@ -522,10 +526,10 @@ func TestAnOlderStatedBandIsAcceptedWithItsReason(t *testing.T) {
 	if got := f.detail(v).Reviews[0].BandReason; got != "Fala rápida demais." {
 		t.Fatalf("detail reason %q", got)
 	}
-	bare := f.video("noreasonvid")
-	f.review(c, bare, approve("bichos", family.Age9To12))
-	if computed, _, reason := f.storedBand(bare); computed != "ate-4" || reason != "" {
-		t.Fatalf("without a reason: %q %q", computed, reason)
+	same := f.video("noreasonvid")
+	f.review(c, same, withReason(approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c22": curation.AnswerAppears}), ""))
+	if computed, _, reason := f.storedBand(same); computed != "5-8" || reason != "" {
+		t.Fatalf("the computed band needs no reason: %q %q", computed, reason)
 	}
 }
 

@@ -40,7 +40,7 @@ func decodeReview(t *testing.T, r resp) reviewResp {
 func approvalWith(theme, band string, changed map[string]string) map[string]any {
 	body := approval(theme, band)
 	maps.Copy(body["answers"].(map[string]string), changed)
-	return body
+	return withReason(body)
 }
 
 func TestReviewWithTheChecklistOverHTTP(t *testing.T) {
@@ -189,6 +189,16 @@ func TestReviewCarriesTheComputedBandOverHTTP(t *testing.T) {
 		t.Fatalf("approval %+v", got.Review)
 	}
 	older := approval("bichos", "9-12")
+	delete(older, "band_reason")
+	for _, reason := range []any{nil, "  "} {
+		if reason != nil {
+			older["band_reason"] = reason
+		}
+		if r := a.do(http.MethodPost, reviews(other.ID), older, bearer(c1)...); r.Code != http.StatusUnprocessableEntity ||
+			r.problemCode() != "validation" {
+			t.Fatalf("an older band, reason %v: %d %q", reason, r.Code, r.problemCode())
+		}
+	}
 	older["band_reason"] = "Mais velho."
 	got = decodeReview(t, a.approve(c1, other.ID, older))
 	if got.Review.ComputedBand == nil || *got.Review.ComputedBand != "ate-4" || got.Review.BandReason == nil ||
