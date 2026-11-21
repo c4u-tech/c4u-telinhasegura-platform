@@ -290,8 +290,12 @@ class ChecklistItem {
 
 extension BandRule on ChecklistItem {
   /// The youngest band a Sim allows. A band question an older server did
-  /// not qualify bars the youngest only.
-  AgeBand get allowsFrom => minBand ?? AgeBand.from5To8;
+  /// not qualify bars the youngest only, and so does one with a band this
+  /// build does not know, which would otherwise bar every band.
+  AgeBand get allowsFrom => switch (minBand) {
+    null || AgeBand.unknown => AgeBand.from5To8,
+    final b => b,
+  };
 }
 
 class ChecklistGroup {

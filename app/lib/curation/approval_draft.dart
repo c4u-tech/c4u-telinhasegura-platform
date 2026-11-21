@@ -18,8 +18,9 @@ enum ApprovalOutcome {
 /// by page: page 0 is the list's first group ("Antes de começar"), pages 1
 /// to [stepCount] are the steps, one per remaining group, then the theme
 /// and band ([topicPage]), asked only when the video can be approved, and
-/// the review ([reviewPage]). It lives as long as the screen: leaving the
-/// flow drops it. The list is the one a video of [length] is asked: a
+/// the review ([reviewPage]). It lives as long as the screen; the server
+/// keeps a copy, which [restore] picks up on coming back to the video.
+/// The list is the one a video of [length] is asked: a
 /// short video has no long-video step and sends none of its answers.
 class ApprovalDraft {
   ApprovalDraft(Checklist list, {required this.length})
@@ -66,14 +67,14 @@ class ApprovalDraft {
   }
 
   /// Picks up a review kept from before: the answers to this list's
-  /// questions only, the theme, the band unless the answers bar it, and
-  /// the note.
+  /// questions only, the theme, the band unless the answers bar it or this
+  /// build does not know it, and the note.
   void restore(ReviewDraft d) {
     for (final i in checklist.items) {
       if (d.answers[i.id] case final a?) _answers[i.id] = a;
     }
     theme = d.theme;
-    band = d.minAgeBand;
+    band = d.minAgeBand == AgeBand.unknown ? null : d.minAgeBand;
     note = d.note;
     _dropBarredBand();
   }

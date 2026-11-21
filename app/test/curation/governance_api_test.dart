@@ -60,6 +60,7 @@ void main() {
       'c15',
       'c12',
       'c22',
+      'c35',
       'c23',
       'c24',
       'c26',
@@ -68,6 +69,7 @@ void main() {
     ]);
     expect(list.item('c25')!.rule, ChecklistRule.conflict);
     expect(list.item('c28')!.rule, ChecklistRule.notes);
+    expect(list.item('c35')!.minBand, AgeBand.from9To12);
     expect(list.item('c26')!.longOnly, isTrue);
     expect(list.item('c24')!.longOnly, isFalse);
     expect(list.longFrom, const Duration(minutes: 20));

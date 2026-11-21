@@ -8,11 +8,12 @@ import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
 import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/approve_screen.dart'
-    show fastPaceLine, tooLongForYoungestLine;
+    show answersBandLine, tooLongForYoungestLine;
 import 'package:telinha_segura/curation/audit_video_screen.dart'
     show marksFailed;
 import 'package:telinha_segura/curation/held_video_screen.dart';
 import 'package:telinha_segura/curation/publish_doubt_screen.dart';
+import 'package:telinha_segura/family/family.dart' show AgeBand;
 import 'package:telinha_segura/family/profile_fields.dart' show SelectableRow;
 
 import '../access/harness.dart';
@@ -183,35 +184,49 @@ void main() {
       reason: 'the curator\'s choice is not kept',
     );
     expect(find.text(tooLongForYoungestLine), findsOneWidget);
-    expect(find.text(fastPaceLine), findsNothing);
+    expect(find.textContaining('Pelas respostas'), findsNothing);
   });
 
-  testWidgets('"Publicar" keeps "2 a 4 anos" from a video a doubt found '
-      'fast-paced and says why', (tester) async {
+  testWidgets('"Publicar" keeps out the bands younger than the answers '
+      'allow and says why', (tester) async {
     await doubtHeld(
       tester,
       initial: '/moderacao/retidos/v1/publicar',
-      held: {
-        ...heldOf(
-          queuedJson('v1', 'Baby Shark'),
-          reason: 'doubt',
-          doubts: [
-            {
-              ...doubtJson,
-              'answers': {
-                ...doubtJson['answers']! as Map<String, Object?>,
-                'c22': 'appears',
-              },
-            },
-          ],
-        ),
-        'computed_band': '5-8',
-      },
+      held: heldOf(
+        queuedJson('v1', 'Baby Shark'),
+        reason: 'doubt',
+        doubts: [doubtJson],
+        computedBand: '9-12',
+      ),
     );
 
     expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
-    expect(find.text(fastPaceLine), findsOneWidget);
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).onTap, isNull);
+    expect(tester.widget<SelectableRow>(row('9 a 12 anos')).onTap, isNotNull);
+    expect(
+      tester.widget<SelectableRow>(row('5 a 8 anos')).selected,
+      isFalse,
+      reason: 'the curator\'s choice is not kept',
+    );
+    expect(find.text(answersBandLine(AgeBand.from9To12)), findsOneWidget);
     expect(find.text(tooLongForYoungestLine), findsNothing);
+  });
+
+  testWidgets('"Publicar" over a round whose answers allow every band says '
+      'nothing of them', (tester) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      held: heldOf(
+        queuedJson('v1', 'Baby Shark'),
+        reason: 'doubt',
+        doubts: [doubtJson],
+        computedBand: 'ate-4',
+      ),
+    );
+
+    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNotNull);
+    expect(find.textContaining('Pelas respostas'), findsNothing);
   });
 
   testWidgets('checklist_band says why and takes "2 a 4 anos" away', (
@@ -237,6 +252,29 @@ void main() {
     );
     expect(tester.widget<SelectableRow>(row('2 a 4 anos')).selected, isFalse);
     expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+  });
+
+  testWidgets('checklist_band on "5 a 8 anos" takes it and every younger '
+      'band away', (tester) async {
+    await doubtHeld(
+      tester,
+      initial: '/moderacao/retidos/v1/publicar',
+      settle: (_) => problem(422, 'checklist_band'),
+    );
+
+    // The doubt's own choice, "5 a 8 anos", starts chosen.
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isTrue);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Motivo'),
+      'Motivo válido.',
+    );
+    await tester.pump();
+    await tapOn(tester, find.widgetWithText(FilledButton, 'Publicar'));
+
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).selected, isFalse);
+    expect(tester.widget<SelectableRow>(row('5 a 8 anos')).onTap, isNull);
+    expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);
+    expect(tester.widget<SelectableRow>(row('9 a 12 anos')).onTap, isNotNull);
   });
 
   testWidgets('reason_required marks the reason', (tester) async {

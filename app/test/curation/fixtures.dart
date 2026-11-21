@@ -123,13 +123,14 @@ Map<String, Object?> draftJson({
   Map<String, String> answers = const {},
   String? theme,
   String? band,
+  String? note,
   bool ended = false,
 }) => {
   'checklist_version': answers.isEmpty ? '' : checklistJson['version'],
   'answers': answers,
   'theme': theme,
   'min_age_band': band,
-  'note': null,
+  'note': note,
   'began_at': '2026-11-20T10:00:00Z',
   'played_to_end_at': ended ? '2026-11-20T10:05:00Z' : null,
 };
@@ -168,6 +169,7 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
           },
           theme: sent['theme'] as String?,
           band: sent['min_age_band'] as String?,
+          note: sent['note'] as String?,
         ),
       });
     }
@@ -253,6 +255,12 @@ const checklistJson = <String, Object?>{
       'title': 'Ritmo e canal',
       'items': [
         {'id': 'c22', 'text': 'Tem ritmo agitado?', 'rule': 'band'},
+        {
+          'id': 'c35',
+          'text': 'Tem namoro entre os personagens?',
+          'rule': 'band',
+          'min_band': '9-12',
+        },
         {'id': 'c23', 'text': 'Falta começo, meio ou fim?', 'rule': 'refuses'},
         {
           'id': 'c24',
@@ -335,7 +343,8 @@ const auditJson = <String, Object?>{
 };
 
 /// One held video as the wire carries it: [video] with its [rejections],
-/// [reason] and reports by reason with their [notes].
+/// [reason], reports by reason with their [notes], and the band the
+/// round's answers allow from, [computedBand].
 Map<String, Object?> heldOf(
   Map<String, Object?> video, {
   List<Map<String, Object?>> rejections = const [],
@@ -344,6 +353,7 @@ Map<String, Object?> heldOf(
   List<String> notes = const [],
   List<Map<String, Object?>> doubts = const [],
   Map<String, Object?>? audit,
+  String? computedBand,
 }) => {
   'video': {...video, 'state': 'held'},
   'rejections': rejections,
@@ -351,6 +361,7 @@ Map<String, Object?> heldOf(
   'audit': ?audit,
   'held_reason': ?reason,
   'reports': {'by_reason': reports, 'notes': notes},
+  'computed_band': ?computedBand,
 };
 
 /// The held videos' list.

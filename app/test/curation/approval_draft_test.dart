@@ -333,6 +333,32 @@ void main() {
     expect(item('c35').allowsFrom, AgeBand.from9To12);
   });
 
+  test('a band question with a band this build does not know bars the '
+      'youngest only', () {
+    final newer = ChecklistItem.fromJson({
+      'id': 'c40',
+      'text': '?',
+      'rule': 'band',
+      'min_band': '13-17',
+    });
+    expect(newer.minBand, AgeBand.unknown);
+    expect(newer.allowsFrom, AgeBand.from5To8);
+  });
+
+  test('a draft whose band this build does not know asks the band '
+      'again', () {
+    final d = ApprovalDraft(list, length: short)
+      ..restore(
+        ReviewDraft(
+          version: '2026-10-21',
+          answers: const {},
+          minAgeBand: AgeBand.unknown,
+          beganAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+    expect(d.band, isNull);
+  });
+
   test('a draft restores the answers of this list, the theme, the band and '
       'the note', () {
     final d = ApprovalDraft(list, length: short)
