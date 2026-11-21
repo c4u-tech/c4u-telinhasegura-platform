@@ -22,6 +22,31 @@ Review review(
 );
 
 void main() {
+  test('each theme says in one line what belongs to it', () {
+    expect(
+      {for (final t in VideoTheme.values) t: t.definition},
+      {
+        VideoTheme.bichos:
+            'Animais de verdade ou desenhados: como são, onde vivem, o que '
+            'fazem.',
+        VideoTheme.musica:
+            'A canção está no centro: cantar, dançar, tocar. Clipe sobre bichos '
+            'fica aqui.',
+        VideoTheme.historias:
+            'Uma história contada, lida ou animada, com começo, meio e fim.',
+        VideoTheme.aprender:
+            'Ensina algo: letras, números, cores, palavras ou como uma coisa '
+            'funciona.',
+        VideoTheme.brincar:
+            'Uma brincadeira, um jogo ou algo para fazer com as mãos.',
+        VideoTheme.natureza:
+            'Plantas, água, céu, tempo e lugares do mundo, sem um bicho no '
+            'centro.',
+        VideoTheme.unknown: null,
+      },
+    );
+  });
+
   group('displayed roles, inclusive', () {
     test('each reads in PT-BR, never the wire value', () {
       expect(

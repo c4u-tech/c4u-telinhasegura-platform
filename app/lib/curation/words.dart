@@ -34,10 +34,30 @@ extension DisplayRoleLabel on DisplayRole {
   };
 }
 
-/// The themes by the names the child side gives them.
+/// The themes by the names the child side gives them, and what belongs to
+/// each, in one line, where a theme is chosen.
 extension VideoThemeLabel on VideoTheme {
   String get label =>
       this == VideoTheme.unknown ? 'Tema não informado' : themeName(this);
+
+  /// Null for a theme this build does not know.
+  String? get definition => switch (this) {
+    VideoTheme.bichos =>
+      'Animais de verdade ou desenhados: como são, onde vivem, o que fazem.',
+    VideoTheme.musica =>
+      'A canção está no centro: cantar, dançar, tocar. Clipe sobre bichos '
+          'fica aqui.',
+    VideoTheme.historias =>
+      'Uma história contada, lida ou animada, com começo, meio e fim.',
+    VideoTheme.aprender =>
+      'Ensina algo: letras, números, cores, palavras ou como uma coisa '
+          'funciona.',
+    VideoTheme.brincar =>
+      'Uma brincadeira, um jogo ou algo para fazer com as mãos.',
+    VideoTheme.natureza =>
+      'Plantas, água, céu, tempo e lugares do mundo, sem um bicho no centro.',
+    VideoTheme.unknown => null,
+  };
 }
 
 /// Where a video, or a guardian's suggestion, stands.
