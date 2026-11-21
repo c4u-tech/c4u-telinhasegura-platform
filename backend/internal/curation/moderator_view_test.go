@@ -185,3 +185,36 @@ func TestAModeratorViewingGoesWithTheRoundAndTheRole(t *testing.T) {
 		t.Fatalf("%d viewings outlived the role", n)
 	}
 }
+
+// The held list tells the one reading it whether the video played to its
+// end for them in its current round, so their screen can say so after a
+// reload; another moderator's viewing, or one from an earlier round, is
+// not theirs.
+func TestTheHeldListSaysWhetherTheVideoPlayedToItsEndForTheReader(t *testing.T) {
+	f := newFixture(t)
+	v := f.doubted(ytID)
+	m := curation.Moderation{ActorID: f.account("mia@example.com"), ActorRole: staff.Moderator}
+	other := f.account("bia@example.com")
+	played := func(reader string) bool {
+		t.Helper()
+		held, err := f.svc.HeldVideosFor(ctx, reader)
+		if err != nil || len(held) != 1 || held[0].Video.ID != v {
+			t.Fatalf("held %+v %v", held, err)
+		}
+		return held[0].PlayedToEnd
+	}
+	if played(m.ActorID) {
+		t.Fatal("played to its end before any viewing")
+	}
+	f.moderatorWatched(m, v)
+	if !played(m.ActorID) {
+		t.Fatal("the viewing is not the reader's")
+	}
+	if played(other) {
+		t.Fatal("another moderator's viewing counted for this one")
+	}
+	f.exec(`UPDATE videos SET round = round + 1 WHERE id = $1::uuid`, v)
+	if played(m.ActorID) {
+		t.Fatal("an earlier round's viewing counted")
+	}
+}

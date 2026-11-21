@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -230,16 +231,37 @@ type BandAnswer struct {
 // bandAnswers are the answers of reviews that bar a younger band, each
 // read under the list it was given to, in the current list's order and,
 // for one question, in the order they were given. A former list's band
-// question is worded as the current list words it.
+// question is worded as the current list words it; one the current list
+// no longer asks follows, worded as its own list asked it, since it still
+// raises the band.
 func bandAnswers(reviews []storedAnswers) []BandAnswer {
 	var out []BandAnswer
+	raises := func(a Answer) bool { return a == AnswerAppears || a == AnswerDoubt }
 	for _, id := range checklistOrder {
 		for _, r := range reviews {
 			if _, band := bandRules(r.version)[id]; !band {
 				continue
 			}
-			if a := r.answers[id]; a == AnswerAppears || a == AnswerDoubt {
+			if a := r.answers[id]; raises(a) {
 				out = append(out, BandAnswer{Text: checklistItem[id].Text, Answer: a, DisplayRole: r.role})
+			}
+		}
+	}
+	// The questions no longer asked, in the order the reviews first met them.
+	var gone []string
+	for _, r := range reviews {
+		for _, q := range formerBandQuestions[r.version] {
+			if _, asked := checklistItem[q.ID]; !asked && !slices.Contains(gone, q.ID) {
+				gone = append(gone, q.ID)
+			}
+		}
+	}
+	for _, id := range gone {
+		for _, r := range reviews {
+			for _, q := range formerBandQuestions[r.version] {
+				if q.ID == id && raises(r.answers[id]) {
+					out = append(out, BandAnswer{Text: q.Text, Answer: r.answers[id], DisplayRole: r.role})
+				}
 			}
 		}
 	}

@@ -24,6 +24,7 @@ type HeldVideo struct {
 	ComputedBand family.AgeBand // the youngest band a doubt may be published in; empty under a list the code does not know
 	BandAnswers  []BandAnswer   // the round's answers that bar a younger band; none under a list the code does not know
 	Audit        *HeldAudit     // the audit that held the video; nil unless HeldByAudit
+	PlayedToEnd  bool           // set by HeldVideosFor: the video played to its end for the reader in its current round
 }
 
 // HeldAudit is the audit of the published round that held a video, so
@@ -77,6 +78,29 @@ func (s *Service) HeldVideos(ctx context.Context) ([]HeldVideo, error) {
 				return nil, err
 			}
 		}
+	}
+	return out, nil
+}
+
+// HeldVideosFor is HeldVideos as reader sees it: each video says whether
+// it played to its end for them in its current round, so their screen
+// still knows after a reload what publishing a doubt waits on.
+func (s *Service) HeldVideosFor(ctx context.Context, reader string) ([]HeldVideo, error) {
+	out, err := s.HeldVideos(ctx)
+	if err != nil || len(out) == 0 {
+		return out, err
+	}
+	rows, err := s.d.Pool.Query(ctx, `SELECT mv.video_id::text FROM moderator_views mv
+		JOIN videos v ON v.id = mv.video_id AND v.round = mv.round WHERE mv.moderator_id = $1::uuid`, reader)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].PlayedToEnd = slices.ContainsFunc(ids, func(id string) bool { return strings.EqualFold(id, out[i].Video.ID) })
 	}
 	return out, nil
 }

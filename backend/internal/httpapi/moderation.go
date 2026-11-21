@@ -15,7 +15,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, curation.ErrValidation)
 		return
 	}
-	list, err := s.Curation.HeldVideos(r.Context())
+	list, err := s.Curation.HeldVideosFor(r.Context(), current(r).AccountID)
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -43,6 +43,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 		BandAnswers  []bandAnswer `json:"band_answers"`    // the round's answers behind it, by displayed role
 		Reports      reports      `json:"reports"`         // since the latest reopen, never who reported
 		Audit        *heldAudit   `json:"audit,omitempty"` // the audit that held the video, never who audited
+		PlayedToEnd  bool         `json:"played_to_end"`   // for the caller, in the video's current round
 	}
 	out := make([]item, 0, len(list))
 	for _, h := range list {
@@ -59,7 +60,7 @@ func (s *Server) heldVideos(w http.ResponseWriter, r *http.Request) {
 			answers = append(answers, bandAnswer{b.Text, string(b.Answer), string(b.DisplayRole)})
 		}
 		out = append(out, item{videoBody(h.Video), reviewsBody(h.Rejections), reviewsBody(h.Doubts), h.HeldReason,
-			string(h.ComputedBand), answers, reports{by, h.Reports.Notes}, audit})
+			string(h.ComputedBand), answers, reports{by, h.Reports.Notes}, audit, h.PlayedToEnd})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"videos": out})
 }

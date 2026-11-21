@@ -123,3 +123,34 @@ func TestModeratorEndedOverHTTP(t *testing.T) {
 		t.Fatalf("an unknown video: %d", r.Code)
 	}
 }
+
+// Each held video says whether it played to its end for the caller, so
+// the moderator's screen keeps it across a reload; another moderator's
+// viewing is not theirs.
+func TestHeldListServesWhetherTheVideoPlayedToItsEndForTheCaller(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	mia := a.moderator(admin, "mia@example.com")
+	bia := a.moderator(admin, "bia@example.com")
+	v := a.doubtedBy(admin, ytID)
+	played := func(mod mobileTokens) bool {
+		t.Helper()
+		var held struct {
+			Videos []struct {
+				PlayedToEnd *bool `json:"played_to_end"`
+			} `json:"videos"`
+		}
+		getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+		if len(held.Videos) != 1 || held.Videos[0].PlayedToEnd == nil {
+			t.Fatalf("held %+v", held)
+		}
+		return *held.Videos[0].PlayedToEnd
+	}
+	if played(mia) {
+		t.Fatal("played to its end before any viewing")
+	}
+	a.moderatorEnded(mia, v)
+	if !played(mia) || played(bia) {
+		t.Fatal("the viewing did not count for its moderator alone")
+	}
+}

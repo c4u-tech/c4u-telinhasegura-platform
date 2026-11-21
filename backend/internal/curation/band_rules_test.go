@@ -10,7 +10,7 @@ import (
 // Reviews stored under a list keep its band questions after a new list
 // replaces it, and a moderator's decision on an unknown list is refused.
 // So when the current list changes, the band questions it had must be
-// copied into formerBandRules first. This test pins them, so it starts
+// copied into formerBandQuestions first. This test pins them, so it starts
 // failing on the day the list changes without that copy.
 func TestTheBandQuestionsOfAStoredListOutliveIt(t *testing.T) {
 	want := map[string]family.AgeBand{
