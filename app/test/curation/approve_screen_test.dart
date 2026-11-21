@@ -11,6 +11,7 @@ import 'package:telinha_segura/auth/api_error.dart';
 import 'package:telinha_segura/curation/answer_choice.dart';
 import 'package:telinha_segura/curation/approve_screen.dart';
 import 'package:telinha_segura/curation/words.dart' show differenceReminder;
+import 'package:telinha_segura/kid/kid_player.dart';
 import 'package:telinha_segura/family/profile_fields.dart'
     show ChoiceTarget, SelectableRow, underTwoAdvice;
 import 'package:telinha_segura/legal/legal_links.dart';
@@ -165,8 +166,12 @@ Map<String, dynamic> sent(Harness h) =>
     jsonDecode(posts(h).single.split(' ').skip(2).join(' '))
         as Map<String, dynamic>;
 
-int videoReads(Harness h) =>
-    h.actions.where((a) => a.startsWith('GET /v1/curation/videos/')).length;
+/// The reads of the video itself, not of its draft.
+int videoReads(Harness h) => h.actions
+    .where(
+      (a) => a.startsWith('GET /v1/curation/videos/') && !a.endsWith('/draft'),
+    )
+    .length;
 
 /// The video named under the display title as the review names it: its
 /// title in title-medium, then "Canal · 4 min" muted, both above [below].
@@ -360,6 +365,23 @@ void main() {
 
       expect(window(), findsOneWidget);
       expect(h.adultPlayer.opened.last.youtubeId, 'yt-v1');
+    });
+
+    testWidgets('the player\'s end in the flow is reported to the draft', (
+      tester,
+    ) async {
+      final h = await fromReview(tester);
+      final flow = h.adultPlayer.opened.last;
+      final before = posts(h).length;
+
+      flow.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(posts(h).skip(before), [
+        'POST /v1/curation/videos/v1/draft/ended',
+      ]);
+      expect(flow.closed, isFalse);
+      expect(window(), findsOneWidget);
     });
   });
 

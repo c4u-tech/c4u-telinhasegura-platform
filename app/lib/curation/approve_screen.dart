@@ -143,6 +143,11 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   bool _refused = false;
   String? _done;
 
+  /// True while the last report of the video's end failed: the server
+  /// would refuse the approval as not watched.
+  // ignore: unused_field
+  bool _endUnreported = false;
+
   /// Keeps the one player's view across pages: each page is built anew,
   /// and a view built anew would load the video again.
   final _window = GlobalKey();
@@ -156,7 +161,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _video = widget.video;
     if (_video case final video?) {
-      openPlayer(video.youtubeId);
+      openPlayer(video.youtubeId, onEnded: _ended);
     } else {
       scheduleMicrotask(_readVideo);
     }
@@ -175,10 +180,21 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         _video = detail.video;
         _startDraft();
       });
-      openPlayer(detail.video.youtubeId);
+      openPlayer(detail.video.youtubeId, onEnded: _ended);
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
       setState(() => _checklistFailed = true);
+    }
+  }
+
+  /// Tells the draft the video played to its end, which an approval
+  /// needs; whether it was heard is kept for the approval.
+  Future<void> _ended() async {
+    try {
+      await AppScope.of(context).curation.draftEnded(widget.id);
+      _endUnreported = false;
+    } on Object {
+      _endUnreported = true;
     }
   }
 

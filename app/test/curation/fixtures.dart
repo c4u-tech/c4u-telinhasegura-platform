@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:clock/clock.dart';
 import 'package:http/http.dart' as http;
@@ -115,10 +116,30 @@ http.Response detailOf(
   List<Map<String, Object?>> reviews = const [],
 }) => json(200, {'video': video, 'reviews': reviews, 'provenance': null});
 
+/// A curator's unfinished review as the draft routes carry it under
+/// `draft`: begun at 10:00 on the test's day, with
+/// [answers] to the fixture's list, and played to its end when [ended].
+Map<String, Object?> draftJson({
+  Map<String, String> answers = const {},
+  String? theme,
+  String? band,
+  bool ended = false,
+}) => {
+  'checklist_version': answers.isEmpty ? '' : checklistJson['version'],
+  'answers': answers,
+  'theme': theme,
+  'min_age_band': band,
+  'note': null,
+  'began_at': '2026-11-20T10:00:00Z',
+  'played_to_end_at': ended ? '2026-11-20T10:05:00Z' : null,
+};
+
 /// The curator's routes: [queue] answers each queue read (an empty page
 /// by default), [video] the review's read of one video (the queued
 /// "Baby Shark" by default), [review] each review sent (a held video by
-/// default).
+/// default); and the review's draft: [draft] its read (none by default),
+/// [saveDraft] each save (what was sent, kept as a draft, by default),
+/// [ended] the player's end (a draft played to its end by default).
 FutureOr<http.Response> Function(http.Request) curatorApi({
   FutureOr<http.Response> Function(http.Request)? queue,
   FutureOr<http.Response> Function(String id)? video,
@@ -126,9 +147,36 @@ FutureOr<http.Response> Function(http.Request) curatorApi({
   FutureOr<http.Response> Function()? checklist,
   FutureOr<http.Response> Function()? declaration,
   FutureOr<http.Response> Function(http.Request)? accept,
+  FutureOr<http.Response> Function()? draft,
+  FutureOr<http.Response> Function(http.Request)? saveDraft,
+  FutureOr<http.Response> Function()? ended,
 }) => (req) {
   final path = req.url.path;
   const videos = '/v1/curation/videos/';
+  if (path.startsWith(videos) && path.endsWith('/draft')) {
+    if (req.method == 'GET') return draft?.call() ?? json(200, {'draft': null});
+    if (req.method == 'PUT') {
+      if (saveDraft != null) return saveDraft(req);
+      final sent = jsonDecode(req.body) as Map<String, dynamic>;
+      return json(200, {
+        'draft': draftJson(
+          answers: {
+            for (final e
+                in ((sent['answers'] ?? const {}) as Map<String, dynamic>)
+                    .entries)
+              e.key: e.value as String,
+          },
+          theme: sent['theme'] as String?,
+          band: sent['min_age_band'] as String?,
+        ),
+      });
+    }
+  }
+  if (req.method == 'POST' &&
+      path.startsWith(videos) &&
+      path.endsWith('/draft/ended')) {
+    return ended?.call() ?? json(200, {'draft': draftJson(ended: true)});
+  }
   if (req.method == 'GET' && path == '/v1/curation/checklist') {
     return checklist?.call() ?? json(200, checklistJson);
   }

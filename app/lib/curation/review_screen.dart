@@ -34,7 +34,10 @@ const playerFailed =
 /// square-edged 16:9 window at the column's width, loaded without
 /// playing, with YouTube's own controls and nothing of ours over it;
 /// then the doors "Revisar vídeo" and "Recusar". The player pauses
-/// beneath a decision and goes when the curator leaves.
+/// beneath a decision and goes when the curator leaves. Entering begins
+/// the curator's draft of the review, unless one is already kept, and
+/// the video's end is told to it, since an approval needs the video
+/// watched to its end; the screen works the same without a draft.
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key, required this.id});
 
@@ -84,12 +87,28 @@ class _ReviewScreenState extends State<ReviewScreen> with AdultWindow {
       final detail = await AppScope.of(context).curation.video(widget.id);
       if (!mounted) return;
       setState(() => _detail = detail);
-      openPlayer(detail.video.youtubeId);
+      openPlayer(detail.video.youtubeId, onEnded: _ended);
+      unawaited(_begin());
     } on Object catch (e) {
       if (!mounted || leaveForQueue(context, e)) return;
       setState(() => _failed = true);
     }
   }
+
+  /// Begins the draft when none is kept. A draft that cannot be read or
+  /// begun changes nothing here: the review goes on without it.
+  Future<void> _begin() async {
+    final api = AppScope.of(context).curation;
+    try {
+      if (await api.draft(widget.id) == null) await api.saveDraft(widget.id);
+    } on Object {
+      // Without a draft, the review is the one it always was.
+    }
+  }
+
+  /// Tells the draft the video played to its end; a failure is let go,
+  /// as the draft's own are.
+  void _ended() => AppScope.of(context).curation.draftEnded(widget.id).ignore();
 
   @override
   Widget build(BuildContext context) => FieldLayout(
