@@ -7,9 +7,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../design/theme.dart';
+import '../parental/app_mode.dart';
 import 'router.dart';
 import 'services.dart';
-import '../parental/app_mode.dart';
 import 'splash.dart';
 import 'system_bars.dart';
 
