@@ -127,12 +127,39 @@ class ApprovalDraft {
   })
   get snapshot => (answers: answers, theme: theme, band: band, note: note);
 
-  /// "Nada disso acontece no vídeo": every question of [g] answered "Não",
-  /// each still open to change.
+  /// The shortcut at the foot of a group: "Não" to every question of [g]
+  /// still open, never changing an answer given; each stays open to
+  /// change.
   void noneOf(ChecklistGroup g) {
     for (final i in g.items) {
-      _answers[i.id] = ChecklistAnswer.ok;
+      _answers.putIfAbsent(i.id, () => ChecklistAnswer.ok);
     }
+  }
+
+  /// How many questions of [g] are still open.
+  int openIn(ChecklistGroup g) =>
+      g.items.where((i) => !_answers.containsKey(i.id)).length;
+
+  /// The first group, in the list's order, with a question still open:
+  /// where a review in progress stopped. Null once every question is
+  /// answered.
+  ChecklistGroup? get stoppedAt =>
+      checklist.groups.where((g) => openIn(g) > 0).firstOrNull;
+
+  /// Coming back to a review in progress: the first page with an open
+  /// question; once every one is answered, the theme and band when the
+  /// answers approve, else the review. A tie to the channel stays on the
+  /// first page, which says so.
+  void resume() {
+    _returnTo = null;
+    final stopped = stoppedAt;
+    _page = conflict
+        ? 0
+        : stopped != null
+        ? checklist.groups.indexOf(stopped)
+        : outcome == ApprovalOutcome.approve
+        ? topicPage
+        : reviewPage;
   }
 
   bool answered(ChecklistGroup g) =>

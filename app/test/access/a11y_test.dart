@@ -41,6 +41,7 @@ import '../curation/approve_screen_test.dart'
         clearSteps,
         fast,
         forOlder,
+        hits,
         noneOfThis,
         reasonField,
         start,
@@ -1817,6 +1818,15 @@ final curatorScreens =
         null,
       ),
       'review, none yet': ('/curadoria/v1', curatorApi(), null),
+      'review, in progress': (
+        '/curadoria/v1',
+        curatorApi(
+          draft: () => json(200, {
+            'draft': draftJson(answers: {'c25': 'ok', 'c03': 'ok'}),
+          }),
+        ),
+        null,
+      ),
       'review, player failed': (
         '/curadoria/v1',
         curatorApi(),
@@ -1830,6 +1840,14 @@ final curatorScreens =
         '/curadoria/v1/aprovar',
         curatorApi(),
         (tester, _) => start(tester),
+      ),
+      'approve, a step partly answered': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) async {
+          await start(tester);
+          await answer(tester, hits, 'Não');
+        },
       ),
       'approve, a step, played to its end': (
         '/curadoria/v1/aprovar',

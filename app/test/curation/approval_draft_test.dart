@@ -128,6 +128,71 @@ void main() {
     expect(d.refusing, ['c04']);
   });
 
+  test('the shortcut answers Não only to the questions still open and '
+      'never changes an answer given', () {
+    final d = ApprovalDraft(list, length: short)
+      ..answer(item('c22'), ChecklistAnswer.appears);
+    expect(d.openIn(group(2)), 2);
+    d.noneOf(group(2));
+    expect(d.answerOf(item('c22')), ChecklistAnswer.appears);
+    expect(d.answerOf(item('c35')), ChecklistAnswer.ok);
+    expect(d.answerOf(item('c23')), ChecklistAnswer.ok);
+    expect(d.openIn(group(2)), 0);
+    expect(d.answerOf(item('c04')), isNull, reason: 'another group');
+  });
+
+  test('coming back opens on the first page with an open question, the '
+      'theme and band once all are answered, the review when they do not '
+      'approve', () {
+    ReviewDraft kept(Map<String, ChecklistAnswer> answers) => ReviewDraft(
+      version: '2026-10-21',
+      answers: answers,
+      beganAt: DateTime.utc(2026, 11, 20, 10),
+    );
+    const no = ChecklistAnswer.ok;
+    final none = ApprovalDraft(list, length: short)..resume();
+    expect(none.page, 0);
+    expect(none.stoppedAt, group(0));
+
+    final partway = ApprovalDraft(list, length: short)
+      ..restore(kept({'c25': no, 'c03': no, 'c04': no, 'c07': no, 'c22': no}))
+      ..resume();
+    expect(partway.page, 2);
+    expect(partway.stoppedAt, group(2));
+
+    final gap = ApprovalDraft(list, length: short)
+      ..restore(kept({'c25': no, 'c22': no, 'c35': no, 'c23': no}))
+      ..resume();
+    expect(gap.page, 0, reason: 'the first open question, in the order');
+
+    final all = {
+      'c25': no,
+      'c03': no,
+      'c04': no,
+      'c07': no,
+      'c22': no,
+      'c35': no,
+      'c23': no,
+    };
+    final done = ApprovalDraft(list, length: short)
+      ..restore(kept(all))
+      ..resume();
+    expect(done.stoppedAt, isNull);
+    expect(done.page, done.topicPage);
+
+    final refused = ApprovalDraft(list, length: short)
+      ..restore(kept({...all, 'c04': ChecklistAnswer.appears}))
+      ..resume();
+    expect(refused.page, refused.reviewPage);
+
+    // The long-only questions are open only on a long video.
+    final long = ApprovalDraft(list, length: const Duration(minutes: 25))
+      ..restore(kept(all))
+      ..resume();
+    expect(long.stoppedAt?.title, 'Vídeo longo');
+    expect(long.page, 3);
+  });
+
   test('the outcome: a Sim that refuses wins, then a Não sei or a Sim the '
       'team decides, else an approval', () {
     final d = ApprovalDraft(list, length: short);

@@ -43,9 +43,13 @@ const chooseTopic = 'Escolher tema e idade';
 /// review.
 const seeSummary = 'Ver resumo';
 
-/// A step's shortcut, and the line that parts it from the questions.
+/// The shortcut at the foot of a step: with nothing answered, then once
+/// some questions are, with the line that says how many it answers.
 const noneHappens = 'Nada disso acontece no vídeo';
-const orOneByOne = 'ou responda uma a uma';
+const restHappens = 'O resto não acontece no vídeo';
+String restLine(int n) => n == 1
+    ? 'Marca Não na 1 pergunta ainda sem resposta.'
+    : 'Marca Não nas $n perguntas ainda sem resposta.';
 
 /// Under a page's primary until it can go on.
 const stepHint = 'Responda todas as perguntas desta etapa.';
@@ -274,6 +278,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     if ((_list, _video) case (final list?, final video?)) {
       final d = ApprovalDraft(list, length: video.duration);
       if (_kept case final kept?) d.restore(kept);
+      // Coming back opens where the answers stopped.
+      d.resume();
       _knowEnd(_kept);
       _draft = d;
       _note.text = d.note ?? '';
@@ -349,9 +355,9 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   }
 
   /// The list and the draft are read on every arrival, and again when the
-  /// server says the list changed; a new list starts over on its first
-  /// page with the answers the server kept, those to questions left
-  /// unchanged. The old answers go first, so a failed read offers to try
+  /// server says the list changed; a new list starts over with the answers
+  /// the server kept, those to questions left unchanged, on the first page
+  /// with an open question. The old answers go first, so a failed read offers to try
   /// again rather than the outdated list. A draft that fails to read
   /// counts as none, and is read again before anything is written.
   Future<void> _readChecklist() async {
@@ -647,18 +653,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         ),
       ),
       const SizedBox(height: Space.xl),
-      OutlinedButton(
-        onPressed: _idle ? () => _change(d, () => d.noneOf(g)) : null,
-        child: const Text(noneHappens),
-      ),
-      const SizedBox(height: Space.md),
-      Text(
-        orOneByOne,
-        textAlign: TextAlign.center,
-        style: text.bodyMedium?.copyWith(color: context.palette.muted),
-      ),
-      const SizedBox(height: Space.xl),
       ..._questions(d, g),
+      ..._shortcut(d, g),
       ..._foot(
         label: d.nextIsTopic
             ? chooseTopic
@@ -668,6 +664,35 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         onPressed: d.canGoOn ? _forward : null,
         hint: stepHint,
       ),
+    ];
+  }
+
+  /// After a step's last question, the way to answer "Não" to the ones
+  /// still open, read only once the questions are: with none answered,
+  /// "Nada disso acontece no vídeo"; with some, "O resto…" and how many it
+  /// marks; with none open, nothing.
+  List<Widget> _shortcut(ApprovalDraft d, ChecklistGroup g) {
+    final open = d.openIn(g);
+    if (open == 0) return const [];
+    final none = open == g.items.length;
+    return [
+      const SizedBox(height: Space.xl),
+      OutlinedButton(
+        onPressed: _idle ? () => _change(d, () => d.noneOf(g)) : null,
+        child: Text(
+          none ? noneHappens : restHappens,
+          textAlign: TextAlign.center,
+        ),
+      ),
+      if (!none) ...[
+        const SizedBox(height: Space.sm),
+        Text(
+          restLine(open),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: context.palette.muted),
+        ),
+      ],
     ];
   }
 

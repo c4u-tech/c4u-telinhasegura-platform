@@ -127,8 +127,15 @@ bool picked(WidgetTester tester, String question, String word) =>
 Future<void> answer(WidgetTester tester, String question, String word) =>
     tapOn(tester, key(question, word));
 
-Future<void> noneOfThis(WidgetTester tester) =>
-    tapOn(tester, find.widgetWithText(OutlinedButton, noneHappens));
+/// The shortcut at the foot of a step, whichever way it reads.
+Finder shortcut() => find.byWidgetPredicate(
+  (w) =>
+      w is OutlinedButton &&
+      w.child is Text &&
+      {noneHappens, restHappens}.contains((w.child! as Text).data),
+);
+
+Future<void> noneOfThis(WidgetTester tester) => tapOn(tester, shortcut());
 
 /// The review's "mudar" of [title].
 Finder change(String title) => find.byWidgetPredicate(
@@ -777,19 +784,20 @@ void main() {
   });
 
   group('the steps', () {
-    testWidgets('a step says "Etapa n de 5" and its group, offers the '
-        'shortcut over "ou responda uma a uma", and goes on only once '
-        'every question is answered', (tester) async {
+    testWidgets('a step says "Etapa n de 5" and its group, lists its '
+        'questions before the shortcut, and goes on only once every question '
+        'is answered', (tester) async {
       await approving(tester);
       await start(tester);
 
       expect(find.text('Etapa 1 de 5'), findsOneWidget);
       expect(find.text('Violência e medo'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, noneHappens), findsOneWidget);
-      final shortcut = tester.getTopLeft(find.text(noneHappens)).dy;
-      final line = tester.getTopLeft(find.text(orOneByOne)).dy;
-      final question = tester.getTopLeft(find.text(hits)).dy;
-      expect(shortcut < line && line < question, isTrue);
+      expect(find.text('ou responda uma a uma'), findsNothing);
+      final last = tester.getBottomLeft(find.text(sad)).dy;
+      final foot = tester.getTopLeft(shortcut()).dy;
+      final next = tester.getTopLeft(find.byType(PrimaryButton)).dy;
+      expect(last < foot && foot < next, isTrue);
       expect(primary(tester).label, nextStep);
       expect(primary(tester).onPressed, isNull);
       await answer(tester, hits, 'Não');
@@ -800,6 +808,52 @@ void main() {
 
       expect(find.text('Etapa 2 de 5'), findsOneWidget);
       expect(find.text('Linguagem e respeito'), findsOneWidget);
+    });
+
+    testWidgets('once a question is answered the shortcut answers the rest, '
+        'says how many, never changes an answer given, and goes once none is '
+        'open', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+      expect(find.text('Etapa 5 de 5'), findsOneWidget);
+
+      await answer(tester, fast, 'Sim');
+      expect(find.widgetWithText(OutlinedButton, noneHappens), findsNothing);
+      expect(find.widgetWithText(OutlinedButton, restHappens), findsOneWidget);
+      expect(find.text(restLine(3)), findsOneWidget);
+      expect(restLine(3), 'Marca Não nas 3 perguntas ainda sem resposta.');
+      await answer(tester, dating, 'Não');
+      await answer(tester, others, 'Não');
+      expect(find.text(restLine(1)), findsOneWidget);
+      expect(restLine(1), 'Marca Não na 1 pergunta ainda sem resposta.');
+
+      await noneOfThis(tester);
+      expect(picked(tester, fast, 'Sim'), isTrue);
+      expect(picked(tester, 'Falta começo, meio ou fim?', 'Não'), isTrue);
+      expect(shortcut(), findsNothing);
+      expect(find.textContaining('ainda sem resposta'), findsNothing);
+      expect(primary(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('"Antes de começar" has no shortcut', (tester) async {
+      await approving(tester);
+
+      expect(find.text(checkedByApp), findsOneWidget);
+      expect(shortcut(), findsNothing);
+    });
+
+    testWidgets('while answering, no question says what its answer does to '
+        'the band', (tester) async {
+      await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 4);
+
+      await answer(tester, fast, 'Sim');
+      await answer(tester, dating, 'Não sei');
+
+      expect(find.textContaining('anos'), findsNothing);
+      expect(find.textContaining('a partir de'), findsNothing);
     });
 
     testWidgets('"Nada disso acontece no vídeo" answers Não to every '
@@ -941,6 +995,10 @@ void main() {
         ),
       );
 
+      // It opens where the answers stopped.
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       expect(picked(tester, tie, 'Não'), isTrue);
       expect(picked(tester, paid, 'Não'), isTrue);
       expect(primary(tester).onPressed, isNotNull);
@@ -963,12 +1021,40 @@ void main() {
       );
 
       expect(draftSaves(h), isEmpty, reason: 'restoring is not a change');
-      await tapPrimary(tester);
-      await tapPrimary(tester);
+      expect(find.text('Etapa 2 de 5'), findsOneWidget);
       await clearSteps(tester, from: 2);
 
       expect(primary(tester).label, teamLabel);
       expect(find.text('A tristeza pesa.'), findsOneWidget);
+    });
+
+    testWidgets('coming back with every question answered opens on the band '
+        'page', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(draftJson(answers: allNos, ended: true)),
+      );
+
+      expect(find.text(bandStatement(AgeBand.upTo4)), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Etapa 5 de 5'), findsOneWidget);
+    });
+
+    testWidgets('coming back opens on the first group with an open question, '
+        'in the list\'s order', (tester) async {
+      await approving(
+        tester,
+        draft: () => kept(
+          draftJson(
+            answers: {'c25': 'ok', 'c03': 'ok', 'c04': 'ok', 'c08': 'ok'},
+          ),
+        ),
+      );
+
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      expect(picked(tester, hits, 'Não'), isTrue);
+      expect(find.widgetWithText(OutlinedButton, restHappens), findsOneWidget);
     });
 
     testWidgets('a draft that failed to read is read again before the first '
@@ -1337,8 +1423,6 @@ void main() {
           ),
         ),
       );
-      await tapPrimary(tester);
-      await clearSteps(tester);
 
       expect(chosen(tester, '9 a 12 anos'), isTrue);
       expect(tester.widget<TextField>(reasonField()).controller!.text, isEmpty);
@@ -1849,7 +1933,10 @@ void main() {
         hasLength(2),
       );
       expect(readsAfter, 1);
-      expect(find.text(checkedByApp), findsOneWidget);
+      // The new list opens where its answers stop.
+      expect(find.text('Etapa 1 de 5'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       expect(picked(tester, tie, 'Não'), isTrue);
       expect(picked(tester, paid, 'Não'), isTrue);
       await tapPrimary(tester);
