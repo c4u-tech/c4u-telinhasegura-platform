@@ -2,7 +2,10 @@ package db_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/platform/db"
 )
@@ -53,25 +56,37 @@ func TestMigrationReviewContract(t *testing.T) {
 		t.Fatal("the seeded approval did not keep its new columns empty")
 	}
 
+	// refused checks that err is a check violation of the named constraint,
+	// so an unrelated failure cannot pass for it.
+	refused := func(name string, err error, constraint string) {
+		t.Helper()
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "23514" || pgErr.ConstraintName != constraint {
+			t.Errorf("%s: want check violation of %s, got %v", name, constraint, err)
+		}
+	}
+
 	const review = `INSERT INTO video_reviews (video_id, round, curator_id, display_role, decision, reviewed_at,
 		computed_band, band_reason) VALUES ($1::uuid, $2, $3::uuid, 'mae-pai', $4, now(), $5::text, $6::text)`
-	for name, args := range map[string][]any{
-		"a rejection with a computed band": {vid, 2, curator, "reject", "5-8", nil},
-		"a reason without a computed band": {vid, 2, curator, "approve", nil, "porque sim"},
-		"an approval with an unknown band": {vid, 2, curator, "approve", "13-15", nil},
+	for _, c := range []struct {
+		name       string
+		args       []any
+		constraint string
+	}{
+		{"a rejection with a computed band", []any{vid, 2, curator, "reject", "5-8", nil}, "video_reviews_computed_band"},
+		{"an approval with an unknown band", []any{vid, 2, curator, "approve", "13-15", nil}, "video_reviews_computed_band"},
+		{"a reason without a computed band", []any{vid, 2, curator, "approve", nil, "porque sim"}, "video_reviews_band_reason"},
 	} {
-		if _, err := pool.Exec(ctx, review, args...); err == nil {
-			t.Errorf("%s was accepted", name)
-		}
+		_, err := pool.Exec(ctx, review, c.args...)
+		refused(c.name, err, c.constraint)
 	}
 	exec(review, vid, 2, curator, "approve", "5-8", "Tem susto leve.")
 
 	const draft = `INSERT INTO review_drafts (curator_id, role, video_id, round, checklist_version, began_at, updated_at)
 		VALUES ($1::uuid, $2::text, $3::uuid, $4, '2026-10-20', now(), now())`
 	exec(draft, curator, "curator", vid, 2)
-	if _, err := pool.Exec(ctx, draft, curator, "admin", vid, 3); err == nil {
-		t.Error("a draft for another role was accepted")
-	}
+	_, err := pool.Exec(ctx, draft, curator, "admin", vid, 3)
+	refused("a draft for another role", err, "review_drafts_role_check")
 
 	// Losing the curator role removes the drafts with it.
 	exec(`DELETE FROM platform_roles WHERE account_id = $1::uuid AND role = 'curator'`, curator)
