@@ -78,6 +78,37 @@ void main() {
     expect(ChecklistAnswer.parse('maybe'), ChecklistAnswer.unknown);
   });
 
+  test('a band question carries the youngest band a yes allows', () {
+    final item = ChecklistItem.fromJson({
+      'id': 'c35',
+      'text': '?',
+      'rule': 'band',
+      'min_band': '9-12',
+    });
+    expect(item.minBand, AgeBand.from9To12);
+    expect(item.allowsFrom, AgeBand.from9To12);
+    final old = ChecklistItem.fromJson({
+      'id': 'c22',
+      'text': '?',
+      'rule': 'band',
+    });
+    expect(old.minBand, isNull);
+    expect(old.allowsFrom, AgeBand.from5To8);
+  });
+
+  test('a held video carries the band its answers allow from', () {
+    final held = HeldVideo.fromJson({
+      ...heldOf(pendingJson, reason: 'doubt'),
+      'computed_band': '5-8',
+    });
+    expect(held.computedBand, AgeBand.from5To8);
+    expect(
+      HeldVideo.fromJson(heldOf(pendingJson)).computedBand,
+      isNull,
+      reason: 'an older server sends none',
+    );
+  });
+
   test('a list without its limits reads 20 and 60 minutes', () {
     final list = Checklist.fromJson({'version': 'v', 'groups': <Object>[]});
     expect(list.longFrom, const Duration(minutes: 20));
@@ -215,6 +246,7 @@ void main() {
       'declaration_outdated',
       'already_audited',
       'own_review',
+      'not_watched',
     ]) {
       final words = Copy.forError(ApiError(status: 409, code: code));
       expect(words, isNot(Copy.genericRetry), reason: code);

@@ -379,4 +379,75 @@ void main() {
       'POST /v1/curation/videos/v1/reviews {"decision":"approve","checklist_version":"2026-10-21","answers":{"c07":"doubt"},"note":"Não sei."}',
     ]);
   });
+
+  test('the draft calls hit their contract paths', () async {
+    const draftJson = {
+      'checklist_version': '2026-10-21',
+      'answers': {'c04': 'ok', 'c22': 'appears'},
+      'theme': 'bichos',
+      'min_age_band': '5-8',
+      'note': 'n',
+      'began_at': '2026-11-20T10:00:00Z',
+      'played_to_end_at': '2026-11-20T10:05:00Z',
+    };
+    const fresh = {
+      'checklist_version': '',
+      'answers': <String, Object>{},
+      'theme': null,
+      'min_age_band': null,
+      'note': null,
+      'began_at': '2026-11-20T10:00:00Z',
+      'played_to_end_at': null,
+    };
+    var stored = false;
+    final t = build(
+      ClientKind.mobile,
+      (req) => switch ('${req.method} ${req.url.path}') {
+        'GET /v1/curation/videos/v1/draft' => json(200, {
+          'draft': stored ? draftJson : null,
+        }),
+        'PUT /v1/curation/videos/v1/draft' ||
+        'POST /v1/curation/videos/v1/draft/ended' => json(200, {
+          'draft': stored ? draftJson : fresh,
+        }),
+        _ => http.Response('', 204),
+      },
+    );
+    final api = CurationApi(t.client);
+    expect(await api.draft('v1'), isNull);
+    final empty = await api.saveDraft('v1');
+    expect(empty.answers, isEmpty);
+    expect(empty.theme, isNull);
+    expect(empty.minAgeBand, isNull);
+    expect(empty.note, isNull);
+    expect(empty.playedToEndAt, isNull);
+    expect(empty.beganAt, DateTime.utc(2026, 11, 20, 10));
+    stored = true;
+    final saved = await api.saveDraft(
+      'v1',
+      version: '2026-10-21',
+      answers: {'c04': ChecklistAnswer.ok},
+      theme: VideoTheme.bichos,
+      minAgeBand: AgeBand.from5To8,
+      note: 'n',
+    );
+    expect(saved.version, '2026-10-21');
+    expect(saved.answers, {
+      'c04': ChecklistAnswer.ok,
+      'c22': ChecklistAnswer.appears,
+    });
+    expect(saved.theme, VideoTheme.bichos);
+    expect(saved.minAgeBand, AgeBand.from5To8);
+    expect(saved.note, 'n');
+    final ended = await api.draftEnded('v1');
+    expect(ended.playedToEndAt, DateTime.utc(2026, 11, 20, 10, 5));
+    expect((await api.draft('v1'))!.beganAt, DateTime.utc(2026, 11, 20, 10));
+    expect(t.calls, [
+      'GET /v1/curation/videos/v1/draft',
+      'PUT /v1/curation/videos/v1/draft {}',
+      'PUT /v1/curation/videos/v1/draft {"checklist_version":"2026-10-21","answers":{"c04":"ok"},"theme":"bichos","min_age_band":"5-8","note":"n"}',
+      'POST /v1/curation/videos/v1/draft/ended',
+      'GET /v1/curation/videos/v1/draft',
+    ]);
+  });
 }

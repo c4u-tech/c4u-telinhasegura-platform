@@ -83,7 +83,8 @@ class _NumbersScreenState extends State<NumbersScreen> with RefetchOnReturn {
     ),
   );
 
-  /// The seven totals in their fixed order, then the suppression line;
+  /// The seven totals in their fixed order, then the four review measures,
+  /// then the suppression line;
   /// the placeholder while they load, the error note once they fail.
   List<Widget> _numbers(TextStyle? muted) {
     final m = _metrics;
@@ -97,8 +98,10 @@ class _NumbersScreenState extends State<NumbersScreen> with RefetchOnReturn {
         PrimaryButton(label: 'Tentar de novo', onPressed: _readMetrics),
       ];
     }
-    String figure(int? n) =>
-        AccountWords.figure(n, suppressedBelow: m.suppressedBelow);
+    final below = m.suppressedBelow;
+    String figure(int? n) => AccountWords.figure(n, suppressedBelow: below);
+    String minutes(int? s) => AccountWords.minutes(s, suppressedBelow: below);
+    String percent(int? p) => AccountWords.percent(p, suppressedBelow: below);
     return [
       Doors(
         children: [
@@ -112,6 +115,25 @@ class _NumbersScreenState extends State<NumbersScreen> with RefetchOnReturn {
             ('Denúncias nos últimos 7 dias', m.reports7d),
           ])
             FigureRow(label: label, figure: figure(n)),
+          for (final (label, measure) in [
+            (
+              'Tempo mediano de uma aprovação (30 dias)',
+              minutes(m.approvalMedianSeconds30d),
+            ),
+            (
+              'Revisões que viraram dúvida (30 dias)',
+              percent(m.doubtPercent30d),
+            ),
+            (
+              'Aprovações com idade maior que a das respostas (30 dias)',
+              percent(m.olderBandPercent30d),
+            ),
+            (
+              'Vídeos com aprovações de idades diferentes (30 dias)',
+              percent(m.splitBandPercent30d),
+            ),
+          ])
+            FigureRow(label: label, figure: measure),
         ],
       ),
       const SizedBox(height: Space.md),

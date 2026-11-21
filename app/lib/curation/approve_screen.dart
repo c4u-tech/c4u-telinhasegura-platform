@@ -498,7 +498,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
 
   List<Widget> _topic(ApprovalDraft d) {
     final text = Theme.of(context).textTheme;
-    final fast = d.youngestBarred;
+    final fast = d.answersBand != AgeBand.upTo4;
     final long = d.tooLongForYoungest;
     return [
       Semantics(header: true, child: Text('Tema', style: text.titleMedium)),
@@ -539,7 +539,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: d.band,
-        disabled: d.upTo4Barred ? const {AgeBand.upTo4} : const {},
+        disabled: d.barredBands,
         onChanged: _idle ? (b) => _update(() => d.band = b) : null,
       ),
       if (fast) ...[

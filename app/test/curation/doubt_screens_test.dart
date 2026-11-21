@@ -191,19 +191,22 @@ void main() {
     await doubtHeld(
       tester,
       initial: '/moderacao/retidos/v1/publicar',
-      held: heldOf(
-        queuedJson('v1', 'Baby Shark'),
-        reason: 'doubt',
-        doubts: [
-          {
-            ...doubtJson,
-            'answers': {
-              ...doubtJson['answers']! as Map<String, Object?>,
-              'c22': 'appears',
+      held: {
+        ...heldOf(
+          queuedJson('v1', 'Baby Shark'),
+          reason: 'doubt',
+          doubts: [
+            {
+              ...doubtJson,
+              'answers': {
+                ...doubtJson['answers']! as Map<String, Object?>,
+                'c22': 'appears',
+              },
             },
-          },
-        ],
-      ),
+          ],
+        ),
+        'computed_band': '5-8',
+      },
     );
 
     expect(tester.widget<SelectableRow>(row('2 a 4 anos')).onTap, isNull);

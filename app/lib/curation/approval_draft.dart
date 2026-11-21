@@ -38,6 +38,9 @@ class ApprovalDraft {
   VideoTheme? theme;
   AgeBand? band;
 
+  /// The note sent with a doubt; kept with the rest of the review.
+  String? note;
+
   int get page => _page;
   int get stepCount => checklist.groups.length - 1;
   int get topicPage => stepCount + 1;
@@ -51,12 +54,39 @@ class ApprovalDraft {
   /// Null until answered.
   ChecklistAnswer? answerOf(ChecklistItem item) => _answers[item.id];
 
-  /// Answers [item]. A fast pace, or a video too long for it, takes
-  /// back "2 a 4 anos" if it was chosen, so the band is asked again.
+  /// Answers [item]. A band the answers or the length now bar is taken
+  /// back if it was chosen, so the band is asked again.
   void answer(ChecklistItem item, ChecklistAnswer a) {
     _answers[item.id] = a;
-    if (upTo4Barred && band == AgeBand.upTo4) band = null;
+    _dropBarredBand();
   }
+
+  void _dropBarredBand() {
+    if (barredBands.contains(band)) band = null;
+  }
+
+  /// Picks up a review kept from before: the answers to this list's
+  /// questions only, the theme, the band unless the answers bar it, and
+  /// the note.
+  void restore(ReviewDraft d) {
+    for (final i in checklist.items) {
+      if (d.answers[i.id] case final a?) _answers[i.id] = a;
+    }
+    theme = d.theme;
+    band = d.minAgeBand;
+    note = d.note;
+    _dropBarredBand();
+  }
+
+  /// What a saved draft keeps: the answers in the list's order, the theme,
+  /// the band and the note.
+  ({
+    Map<String, ChecklistAnswer> answers,
+    VideoTheme? theme,
+    AgeBand? band,
+    String? note,
+  })
+  get snapshot => (answers: answers, theme: theme, band: band, note: note);
 
   /// "Nada disso acontece no vídeo": every question of [g] answered "Não",
   /// each still open to change.
@@ -81,15 +111,29 @@ class ApprovalDraft {
     for (final i in _yes(ChecklistRule.refuses)) i.id,
   ];
 
-  /// A fast pace: "2 a 4 anos" is not offered.
-  bool get youngestBarred => _yes(ChecklistRule.band).isNotEmpty;
+  /// The youngest band the answers allow: the oldest a Sim on a band
+  /// question allows, "2 a 4 anos" with none.
+  AgeBand get answersBand =>
+      _yes(ChecklistRule.band)
+          .map((i) => i.allowsFrom)
+          .fold(AgeBand.upTo4, _older);
+
+  static AgeBand _older(AgeBand a, AgeBand b) => b.index > a.index ? b : a;
 
   /// A video longer than the youngest band allows: "2 a 4 anos" is not
   /// offered.
   bool get tooLongForYoungest => length > checklist.youngestMax;
 
-  /// "2 a 4 anos" is not offered, for the pace or for the length.
-  bool get upTo4Barred => youngestBarred || tooLongForYoungest;
+  /// The youngest band the video may be approved for: the answers' band,
+  /// at least "5 a 8 anos" for a video too long for the youngest.
+  AgeBand get computedBand =>
+      tooLongForYoungest ? _older(answersBand, AgeBand.from5To8) : answersBand;
+
+  /// The bands not offered: every band younger than [computedBand].
+  Set<AgeBand> get barredBands => {
+    for (final b in AgeBand.values)
+      if (b != AgeBand.unknown && b.index < computedBand.index) b,
+  };
 
   /// The team decides: a "Não sei", or a Sim on a question that asks for
   /// it. A question only kept for the team decides nothing, whatever its

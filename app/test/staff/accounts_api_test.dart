@@ -76,6 +76,10 @@ http.Response contract(http.Request req) =>
         'published_videos': 300,
         'published_packs': null,
         'reports_7d': null,
+        'approval_median_seconds_30d': 360,
+        'doubt_percent_30d': 18,
+        'older_band_percent_30d': null,
+        'split_band_percent_30d': 0,
         'suppressed_below': 5,
       }),
       'POST /v1/admin/accounts/a2/suspend' => json(200, {
@@ -184,6 +188,20 @@ void main() {
     expect(m.publishedPacks, isNull);
     expect(m.reports7d, isNull);
     expect(m.suppressedBelow, 5);
+  });
+
+  test('the review measures parse, absent ones null', () async {
+    final m = await AccountsApi(build(ClientKind.mobile, contract).client)
+        .metrics();
+    expect(m.approvalMedianSeconds30d, 360);
+    expect(m.doubtPercent30d, 18);
+    expect(m.olderBandPercent30d, isNull);
+    expect(m.splitBandPercent30d, 0);
+    final old = Metrics.fromJson({'suppressed_below': 5});
+    expect(old.approvalMedianSeconds30d, isNull);
+    expect(old.doubtPercent30d, isNull);
+    expect(old.olderBandPercent30d, isNull);
+    expect(old.splitBandPercent30d, isNull);
   });
 
   test('every directory problem code surfaces as an ApiError', () async {

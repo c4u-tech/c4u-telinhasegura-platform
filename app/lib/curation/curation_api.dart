@@ -117,7 +117,8 @@ class CurationApi {
   /// holds the video instead, with [note]; it may leave [theme] and
   /// [minAgeBand] out for the team to choose.
   /// Refused with `checklist_outdated`, `checklist_refuses`,
-  /// `checklist_band` or `conflict_of_interest`.
+  /// `checklist_band`, `conflict_of_interest`, or `not_watched` for an
+  /// approval before the player's end was recorded.
   Future<VideoState> approve(
     String id, {
     VideoTheme? theme,
@@ -156,6 +157,46 @@ class CurationApi {
           body: body,
         ))['video_state'],
       );
+
+  static ReviewDraft _draft(Map<String, dynamic> j) =>
+      ReviewDraft.fromJson(j['draft'] as Map<String, dynamic>);
+
+  /// This curator's unfinished review of the video; null before one began.
+  Future<ReviewDraft?> draft(String id) async {
+    final j = await _json('GET', '/v1/curation/videos/${_id(id)}/draft');
+    return j['draft'] == null ? null : _draft(j);
+  }
+
+  /// Keeps the review so far, beginning it on the first save; the list
+  /// [version] goes only with answers. The player's end, once recorded,
+  /// stays.
+  Future<ReviewDraft> saveDraft(
+    String id, {
+    String? version,
+    Map<String, ChecklistAnswer> answers = const {},
+    VideoTheme? theme,
+    AgeBand? minAgeBand,
+    String? note,
+  }) async => _draft(
+    await _json(
+      'PUT',
+      '/v1/curation/videos/${_id(id)}/draft',
+      body: {
+        if (answers.isNotEmpty) ...{
+          'checklist_version': ?version,
+          'answers': {for (final e in answers.entries) e.key: e.value.wire},
+        },
+        'theme': ?theme?.wire,
+        'min_age_band': ?minAgeBand?.wire,
+        'note': ?note,
+      },
+    ),
+  );
+
+  /// Records that the player reached the video's end: an approval is
+  /// refused with `not_watched` until it is.
+  Future<ReviewDraft> draftEnded(String id) async =>
+      _draft(await _json('POST', '/v1/curation/videos/${_id(id)}/draft/ended'));
 
   static Map<String, Object> _composition(
     String title,

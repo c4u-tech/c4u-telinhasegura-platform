@@ -128,18 +128,37 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
         .map((d) => d.minAgeBand)
         .where((b) => b != null && b != AgeBand.unknown)
         .firstOrNull;
-    if (_upTo4Barred(held) && _band == AgeBand.upTo4) _band = null;
+    if (_barred(held).contains(_band)) _band = null;
   }
 
   static bool _tooLong(HeldVideo held) =>
       held.video.duration > defaultYoungestMax;
 
-  static bool _fast(HeldVideo held) => held.doubts.any(
-    (d) => d.answers?[fastPaceItem] == ChecklistAnswer.appears,
-  );
+  static AgeBand _older(AgeBand a, AgeBand b) => b.index > a.index ? b : a;
 
-  bool _upTo4Barred(HeldVideo held) =>
-      _youngestRefused || _tooLong(held) || _fast(held);
+  /// The youngest band the length alone allows.
+  static AgeBand _lengthBand(HeldVideo held) =>
+      _tooLong(held) ? AgeBand.from5To8 : AgeBand.upTo4;
+
+  /// The round's answers bar more than the length does.
+  static bool _fast(HeldVideo held) => switch (held.computedBand) {
+    final b? when b != AgeBand.unknown => b.index > _lengthBand(held).index,
+    _ => false,
+  };
+
+  /// The bands not offered: those younger than what the round's answers
+  /// and the length allow, and "2 a 4 anos" once the server refused it.
+  Set<AgeBand> _barred(HeldVideo held) {
+    var from = _lengthBand(held);
+    if (held.computedBand case final b? when b != AgeBand.unknown) {
+      from = _older(from, b);
+    }
+    if (_youngestRefused) from = _older(from, AgeBand.from5To8);
+    return {
+      for (final b in AgeBand.values)
+        if (b != AgeBand.unknown && b.index < from.index) b,
+    };
+  }
 
   bool _handle(ApiError e) {
     if (takeLostRole(context, e)) return true;
@@ -238,7 +257,7 @@ class _PublishDoubtScreenState extends State<PublishDoubtScreen> {
       const SizedBox(height: Space.md),
       AgeBandChoice(
         value: band,
-        disabled: _upTo4Barred(held) ? const {AgeBand.upTo4} : const {},
+        disabled: _barred(held),
         onChanged: idle ? (b) => setState(() => _band = b) : null,
       ),
       if (_fast(held)) ...[
