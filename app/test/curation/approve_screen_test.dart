@@ -668,6 +668,18 @@ void main() {
       expect(ends(), 2);
     });
 
+    testWidgets('an end is told once even when the window cannot show the '
+        'video again', (tester) async {
+      final h = await unwatched(tester);
+      final player = h.adultPlayer.opened.last..cueFails = true;
+
+      player.emit(const PlayerEnded());
+      await tester.pumpAndSettle();
+
+      expect(h.actions.where((a) => a.contains('/draft/ended')), hasLength(1));
+      expect(endLine(playedToEnd), findsOneWidget);
+    });
+
     testWidgets('the line is one label, announced as a live region', (
       tester,
     ) async {

@@ -44,7 +44,13 @@ Future<AdultPlayerOutcome> followAdultPlayer(
       await playback.close();
       return AdultPlayerOutcome.failed;
     case PlayerEnded():
-      await playback.cue();
+      // The end counts whether or not the window can show the video again
+      // (its web view may already be gone): an approval waits on it.
+      try {
+        await playback.cue();
+      } on Object {
+        // The poster stays unrestored; nothing else depends on it.
+      }
       return AdultPlayerOutcome.ended;
     case PlayerPlaying() || PlayerPaused():
       return AdultPlayerOutcome.playing;

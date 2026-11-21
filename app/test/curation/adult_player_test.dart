@@ -42,6 +42,16 @@ void main() {
       expect(playback.closed, isTrue);
     });
 
+    test(
+      'the end is reported even when cueing the video again fails',
+      () async {
+        playback.cueFails = true;
+
+        expect(await follow(const PlayerEnded()), AdultPlayerOutcome.ended);
+        expect(playback.calls, ['cue']);
+      },
+    );
+
     test('playing and pausing are YouTube\'s own business', () async {
       for (final event in const [PlayerPlaying(), PlayerPaused()]) {
         expect(await follow(event), AdultPlayerOutcome.playing);
