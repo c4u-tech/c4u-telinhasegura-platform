@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/c4u-tech/c4u-telinhasegura-platform/backend/internal/curation"
 )
 
 type reviewResp struct {
@@ -81,7 +83,7 @@ func TestReviewWithTheChecklistOverHTTP(t *testing.T) {
 
 	got := decodeReview(t, a.do(http.MethodPost, reviews, approval("bichos", "5-8"), bearer(c1)...))
 	if got.VideoState != "pending" || got.Review.Decision != "approve" || got.Review.ChecklistVersion == nil ||
-		*got.Review.ChecklistVersion != "2026-11-11" || len(got.Review.Answers) != 23 || got.Review.FailedItems != nil {
+		*got.Review.ChecklistVersion != curation.ChecklistVersion || len(got.Review.Answers) != 31 || got.Review.FailedItems != nil {
 		t.Fatalf("approval %+v", got)
 	}
 
@@ -124,8 +126,8 @@ func TestRejectionWithItemsOverHTTP(t *testing.T) {
 		t.Fatalf("rejection %+v", got)
 	}
 	other := a.suggest(gui, "bbbbbbbbbbb")
-	if r := a.do(http.MethodPost, "/v1/curation/videos/"+other.ID+"/reviews", rejection("", "c07"), bearer(c1)...); r.Code != http.StatusUnprocessableEntity ||
-		r.problemCode() != "validation" || strings.Contains(r.Body.String(), "c07") {
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+other.ID+"/reviews", rejection("", "c24"), bearer(c1)...); r.Code != http.StatusUnprocessableEntity ||
+		r.problemCode() != "validation" || strings.Contains(r.Body.String(), "c24") {
 		t.Fatalf("a rejection for a doubt question: %d %s", r.Code, r.Body)
 	}
 }

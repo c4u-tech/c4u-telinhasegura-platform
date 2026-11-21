@@ -25,12 +25,12 @@ func TestApprovalStoresEveryAnswer(t *testing.T) {
 	if err != nil || state != curation.Pending {
 		t.Fatalf("approval: %s %v", state, err)
 	}
-	if r.Decision != curation.Approve || r.ChecklistVersion != "2026-11-11" || !maps.Equal(r.Answers, clean()) ||
+	if r.Decision != curation.Approve || r.ChecklistVersion != curation.ChecklistVersion || !maps.Equal(r.Answers, clean()) ||
 		r.FailedItems != nil || r.Reason != "" {
 		t.Fatalf("review %+v", r)
 	}
-	if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND checklist_version = '2026-11-11'
-		AND (SELECT count(*) FROM jsonb_object_keys(checklist)) = 23 AND checklist->>'c25' = 'ok'`, v); n != 1 {
+	if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND checklist_version = $2
+		AND (SELECT count(*) FROM jsonb_object_keys(checklist)) = 31 AND checklist->>'c25' = 'ok'`, v, curation.ChecklistVersion); n != 1 {
 		t.Fatal("the answers were not stored")
 	}
 	d := f.detail(v)
@@ -75,6 +75,7 @@ func TestChecklistRefusalsStoreNothing(t *testing.T) {
 		"an answer that refuses":       {with(family.Age5To8, map[string]curation.Answer{"c15": appears}), curation.ErrChecklistRefuses},
 		"no clear story":               {with(family.Age5To8, map[string]curation.Answer{"c23": appears}), curation.ErrChecklistRefuses},
 		"a long compilation":           {with(family.Age5To8, map[string]curation.Answer{"c02": appears}), curation.ErrChecklistRefuses},
+		"a sad character":              {with(family.Age5To8, map[string]curation.Answer{"c07": appears}), curation.ErrChecklistRefuses},
 		"a fast pace for 2 to 4":       {with(family.AgeUpTo4, map[string]curation.Answer{"c22": appears}), curation.ErrChecklistBand},
 		"a tie to the channel":         {with(family.Age5To8, map[string]curation.Answer{"c25": appears}), curation.ErrConflictOfInterest},
 		"a tie and a refusal":          {with(family.Age5To8, map[string]curation.Answer{"c25": appears, "c04": appears}), curation.ErrConflictOfInterest},
@@ -98,7 +99,6 @@ func TestChecklistRefusalsStoreNothing(t *testing.T) {
 func TestADoubtHoldsTheVideoForAModerator(t *testing.T) {
 	for name, changed := range map[string]map[string]curation.Answer{
 		"a doubt":                       {"c13": curation.AnswerDoubt},
-		"a sad character":               {"c07": curation.AnswerAppears},
 		"a channel with other refusals": {"c24": curation.AnswerAppears},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -210,15 +210,15 @@ func TestADoubtMayLeaveTheThemeAndBandToTheModerator(t *testing.T) {
 	if n := f.count(`SELECT count(*) FROM video_reviews`); n != 0 {
 		t.Fatalf("refused reviews were stored: %d rows", n)
 	}
-	in := approveWith("", "", map[string]curation.Answer{"c07": curation.AnswerAppears})
-	in.Note = "A tristeza é o tema."
+	in := approveWith("", "", map[string]curation.Answer{"c24": curation.AnswerAppears})
+	in.Note = "O canal tem outros vídeos duvidosos."
 	f.now = f.now.Add(time.Minute)
 	r, state, err := f.svc.Review(ctx, c, v, in)
 	if err != nil || state != curation.Held || r.Decision != curation.Doubt || r.Theme != "" || r.MinAgeBand != "" {
 		t.Fatalf("doubt: %+v %s %v", r, state, err)
 	}
 	if n := f.count(`SELECT count(*) FROM video_reviews WHERE video_id = $1::uuid AND decision = 'doubt'
-		AND theme IS NULL AND min_age_band IS NULL AND reason = 'A tristeza é o tema.'`, v); n != 1 {
+		AND theme IS NULL AND min_age_band IS NULL AND reason = 'O canal tem outros vídeos duvidosos.'`, v); n != 1 {
 		t.Fatal("the doubt was not stored without a theme and a band")
 	}
 	list, err := f.svc.HeldVideos(ctx)
@@ -279,10 +279,10 @@ func TestALongVideoIsApprovedWithItsLongAnswers(t *testing.T) {
 		answers map[string]curation.Answer
 		stored  int
 	}{
-		"25 minutes for 5 to 8":         {25 * time.Minute, family.Age5To8, cleanLong(), 26},
-		"ads in the middle":             {25 * time.Minute, family.Age5To8, withAnswer(cleanLong(), "c28", curation.AnswerAppears), 26},
-		"exactly 60 minutes for 2 to 4": {60 * time.Minute, family.AgeUpTo4, cleanLong(), 26},
-		"exactly 20 minutes is short":   {20 * time.Minute, family.Age5To8, clean(), 23},
+		"25 minutes for 5 to 8":         {25 * time.Minute, family.Age5To8, cleanLong(), 34},
+		"ads in the middle":             {25 * time.Minute, family.Age5To8, withAnswer(cleanLong(), "c28", curation.AnswerAppears), 34},
+		"exactly 60 minutes for 2 to 4": {60 * time.Minute, family.AgeUpTo4, cleanLong(), 34},
+		"exactly 20 minutes is short":   {20 * time.Minute, family.Age5To8, clean(), 31},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)

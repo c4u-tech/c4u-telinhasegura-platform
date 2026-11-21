@@ -10,13 +10,14 @@ import (
 // ChecklistVersion names the list of questions curators answer. A review
 // sent against another version is refused, so every stored answer reads
 // against the exact questions that were asked.
-const ChecklistVersion = "2026-11-11"
+const ChecklistVersion = "2026-11-20"
 
 // Answer is a curator's answer to one question. Every question asks
 // whether something is in the video, so "ok" (no) is always the answer
 // that keeps it, "appears" is yes and "doubt" is "I don't know". Answers
-// stored under the former list keep their meaning: there, too, "appears"
-// on the pace and on the story meant a fast pace and a missing story.
+// stored under a former list keep their meaning: there, "appears" on the
+// pace and on the story meant a fast pace and a missing story, and on a sad
+// character it was a doubt, not a refusal.
 type Answer string
 
 const (
@@ -38,11 +39,14 @@ const (
 
 // ChecklistItem is one question. A LongOnly question is asked of a long
 // video only: a long video's review must answer it, a short one's must not.
+// MinBand is the youngest band a yes still allows; only a RuleBand question
+// sets it.
 type ChecklistItem struct {
 	ID       string
 	Text     string
 	Rule     Rule
 	LongOnly bool
+	MinBand  family.AgeBand
 }
 
 type ChecklistGroup struct {
@@ -60,10 +64,14 @@ var checklist = []ChecklistGroup{
 		{ID: "c04", Text: "Alguém bate, chuta, atira ou ataca de propósito, mesmo de brincadeira?", Rule: RuleRefuses},
 		{ID: "c05", Text: "Aparece arma em destaque, sangue, ferimento, morte, doença grave ou luto?", Rule: RuleRefuses},
 		{ID: "c06", Text: "Tem clima de medo ou suspense, susto, monstro ameaçador ou grito de pavor?", Rule: RuleRefuses},
-		{ID: "c07", Text: "Algum personagem fica triste como tema da história?", Rule: RuleDoubt},
+		{ID: "c07", Text: "Algum personagem fica triste de um jeito que a história para para mostrar?", Rule: RuleRefuses},
+		{ID: "c29", Text: "Alguém furta, picha, invade ou faz outra coisa contra a lei, mesmo sem violência?", Rule: RuleRefuses},
+		{ID: "c30", Text: "Mostra vômito, fezes ou secreções para causar nojo, briga feia de palavras, acidente ou destruição com peso emocional, cirurgia ou ossada?", Rule: RuleRefuses},
+		{ID: "c32", Text: "Aparece personagem de aparência estranha ou assustadora, ou que se transforma na tela, mesmo sendo bonzinho?", Rule: RuleBand, MinBand: family.Age5To8},
+		{ID: "c33", Text: "Alguém leva tombo, trombada ou torta na cara para fazer rir, sem se machucar?", Rule: RuleBand, MinBand: family.Age5To8},
 	}},
 	{ID: "linguagem", Title: "Linguagem e respeito", Items: []ChecklistItem{
-		{ID: "c08", Text: "Alguém xinga, chama outro de bobo, feio ou burro, ou faz gesto feio?", Rule: RuleRefuses},
+		{ID: "c08", Text: "Alguém xinga ou diminui outro (bobo, chato, feio, burro, medroso, mimado), na frente ou pelas costas, ou faz gesto feio?", Rule: RuleRefuses},
 		{ID: "c09", Text: "Alguém é zoado, humilhado, enganado ou tratado como inferior por quem é?", Rule: RuleRefuses},
 	}},
 	{ID: "consumo", Title: "Consumo e publicidade", Items: []ChecklistItem{
@@ -73,16 +81,20 @@ var checklist = []ChecklistGroup{
 		{ID: "c17", Text: "Pede para se inscrever, ativar o sininho, ver o próximo ou não sair?", Rule: RuleRefuses},
 	}},
 	{ID: "saude", Title: "Saúde e segurança", Items: []ChecklistItem{
-		{ID: "c10", Text: "Aparece bebida alcoólica, cigarro, vape, ou remédio usado como brincadeira?", Rule: RuleRefuses},
+		{ID: "c10", Text: "Aparece ou se fala de bebida alcoólica, cigarro, vape ou outra droga, ou remédio usado como brincadeira?", Rule: RuleRefuses},
 		{ID: "c11", Text: "Tem beijo romântico, namoro, roupa ou dança sensual, ou nudez?", Rule: RuleRefuses},
 		{ID: "c12", Text: "Alguém faz algo perigoso que uma criança poderia imitar, sem adulto e sem aviso?", Rule: RuleRefuses},
 		{ID: "c13", Text: "É um desafio de aguentar, ficar sem ar, comer algo estranho ou se arriscar?", Rule: RuleRefuses},
 		{ID: "c18", Text: "Mostra criança real chorando, castigada, envergonhada, adultizada, ou a rotina dela como show?", Rule: RuleRefuses},
 		{ID: "c19", Text: "Ensina remédio, dieta ou 'cura', ou diz algo de saúde ou segurança de que você não tem certeza?", Rule: RuleRefuses},
 		{ID: "c20", Text: "Pisca muito rápido ou tem luz estroboscópica?", Rule: RuleRefuses},
+		{ID: "c31", Text: "Explica partes íntimas, diferenças entre os corpos, de onde vêm os bebês ou como se proteger de abuso?", Rule: RuleRefuses},
 	}},
 	{ID: "ritmo", Title: "Ritmo e canal", Items: []ChecklistItem{
-		{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", Rule: RuleBand},
+		{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", Rule: RuleBand, MinBand: family.Age5To8},
+		{ID: "c34", Text: "Para acompanhar o vídeo é preciso ler o que está escrito na tela?", Rule: RuleBand, MinBand: family.Age5To8},
+		{ID: "c35", Text: "A história volta no tempo, troca de narrador ou depende de ironia para ser entendida?", Rule: RuleBand, MinBand: family.Age9To12},
+		{ID: "c36", Text: "Algum personagem se comporta mal durante boa parte do vídeo e só no fim aprende?", Rule: RuleBand, MinBand: family.Age9To12},
 		{ID: "c23", Text: "Falta começo, meio ou fim na história?", Rule: RuleRefuses},
 		{ID: "c02", Text: "É uma compilação longa ('1 hora de…') ou uma estreia?", Rule: RuleRefuses},
 		{ID: "c24", Text: "O canal tem outros vídeos que você recusaria?", Rule: RuleDoubt},

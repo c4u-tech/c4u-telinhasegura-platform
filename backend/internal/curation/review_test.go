@@ -305,7 +305,7 @@ func TestReviewValidation(t *testing.T) {
 		"approval without answers":             noAnswers,
 		"an unknown answer":                    approveWith("bichos", family.Age5To8, map[string]curation.Answer{"c04": "maybe"}),
 		"rejection without items":              items(),
-		"rejection for a non-refusing item":    items("c07"),
+		"rejection for a non-refusing item":    items("c24"),
 		"rejection for an unknown item":        items("c99"),
 		"rejection naming an item twice":       items("c04", "c04"),
 		"rejection with a theme":               themed,
