@@ -33,7 +33,7 @@ List<File> scannedSources() => [
   ...Directory('lib/account').listSync().whereType<File>(),
   // The curation screens.
   ...Directory('lib/curation').listSync().whereType<File>(),
-  // The staff screens (account directory screens).
+  // The staff screens: the account directory.
   ...Directory('lib/staff').listSync().whereType<File>(),
 ];
 

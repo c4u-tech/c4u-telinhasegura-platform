@@ -543,7 +543,6 @@ void main() {
 
   group('outside the shell', () {
     final states = <String, void Function(Harness)>{
-      'no family': (h) => h.family = null,
       'the email unverified': (h) => h
         ..family = null
         ..unverified = true,
@@ -564,15 +563,13 @@ void main() {
       }
     }
 
-    testWidgets('with no family, /conta keeps its back to the home', (
-      tester,
-    ) async {
-      final h = await shellAt(tester, '/conta', setUp: (h) => h.family = null);
+    testWidgets('with no family, /conta stands in the navigation, with no '
+        'back control', (tester) async {
+      await shellAt(tester, '/conta', setUp: (h) => h.family = null);
 
-      expect(find.byType(ShellBar), findsNothing);
-      await tester.tap(find.byTooltip('Voltar'));
-      await tester.pumpAndSettle();
-      expect(h.location(tester), '/');
+      expect(find.byType(ShellBar), findsOneWidget);
+      expect(selected(tester), Destination.conta);
+      expect(find.byTooltip('Voltar'), findsNothing);
     });
 
     testWidgets('terms pending show the terms screen without the shell', (

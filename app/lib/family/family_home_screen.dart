@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../access/check_email_screen.dart' show resentNotice;
-import '../access/copy.dart';
 import '../access/submission.dart';
 import '../access/widgets.dart';
 import '../design/address.dart';
@@ -14,25 +13,20 @@ import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../shell/routes.dart';
 import '../shell/services.dart';
-import '../staff/staff_root_screen.dart';
-import 'family.dart';
 import 'family_model.dart';
+import 'family_start.dart';
 import 'inicio.dart';
-import 'labels.dart';
-import 'profile_fields.dart' show SelectableRow;
 import 'widgets.dart';
 
-const _inviteHelp =
-    'O convite chega por e-\u2060mail, enviado por quem cuida da família. Abra o '
-    'link da mensagem: ele abre o app e mostra a família para você entrar.';
-
 /// `/`: Início once the family is ready (the greeting, then the children,
-/// each one tap from being handed the device), or what comes before it
-/// (no family yet, the email to confirm, the first read). Before the
-/// family, a role holder's "Equipe" door follows the first use, since
-/// staff need no family, then "Sua conta", since an account exists
-/// before a family does, and "Sair da conta" stays at the foot; once the
-/// family is ready the navigation holds those places.
+/// each one tap from being handed the device), or what comes before it.
+/// With no family yet it is Início still, inside the navigation: the
+/// greeting, then the start of a family in the module the children will
+/// take, or the invitations waiting; the navigation holds Equipe and the
+/// account. With the email to confirm, or on the first read, the screen
+/// stands alone: a role holder's "Equipe" door, then "Sua conta", since
+/// an account exists before a family does, and "Sair da conta" at the
+/// foot.
 class FamilyHomeScreen extends StatefulWidget {
   const FamilyHomeScreen({super.key});
 
@@ -45,22 +39,16 @@ class FamilyHomeScreen extends StatefulWidget {
 }
 
 class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
-  final _create = Submission();
-  final _accept = Submission();
   final _resend = Submission();
   final _signOut = Submission();
   late final FamilyModel _model;
   bool _started = false;
   bool _wink = false;
   bool _resent = false;
-  bool _inviteExplained = false;
 
   /// Opens the first run once the mascot has winked at a family just
   /// started.
   Timer? _toFirstRun;
-
-  /// The invitation chosen among several; with one, that one.
-  String? _chosen;
 
   /// Why the guardian was sent here, taken once from the model.
   String? _notice;
@@ -98,55 +86,44 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
   void dispose() {
     _toFirstRun?.cancel();
     _model.removeListener(_takeNotice);
-    _create.dispose();
-    _accept.dispose();
     _resend.dispose();
     _signOut.dispose();
     super.dispose();
   }
 
-  Future<void> _start() async {
-    final ok = await _create.run(
-      _model.create,
-      handle: (e) => e.code == 'email_unverified',
-    );
-    if (ok && mounted) {
-      setState(() {
-        _wink = true;
-        _notice = null;
-      });
-      // A family started here goes on to its first child, PIN and
-      // hand-over; one joined by invitation shares a family already set
-      // up, and stays on the home. Without motion there is no wink to wait
-      // for.
-      final still = MediaQuery.of(context).disableAnimations;
-      _toFirstRun = Timer(
-        still ? Duration.zero : FamilyHomeScreen.winkThenPath,
-        () {
-          // Only if the guardian is still here, not gone elsewhere.
-          if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
-            context.go(Routes.firstRun);
-          }
-        },
-      );
-    }
+  /// The start of a family, kept across the invitations' changes.
+  final _start = GlobalKey();
+
+  /// An invitation accepted: the mascot winks at the family joined.
+  void _joined() {
+    if (!mounted) return;
+    setState(() {
+      _wink = _model.takeWink();
+      _notice = null;
+    });
   }
 
-  /// Joins the family of invitation [id].
-  /// A refusal leaves its words; the model has already read the list
-  /// again, so a gone invitation leaves the rows.
-  Future<void> _join(String id) async {
-    final ok = await _accept.run(
-      () => _model.acceptById(id),
-      overrides: const {'limit_reached': Copy.invitationFamilyFull},
-      handle: (e) => e.code == 'email_unverified',
+  /// A family just started: the mascot winks, then its first run opens.
+  void _familyStarted() {
+    if (!mounted) return;
+    setState(() {
+      _wink = true;
+      _notice = null;
+    });
+    // A family started here goes on to its first child, PIN and
+    // hand-over; one joined by invitation shares a family already set
+    // up, and stays on the home. Without motion there is no wink to wait
+    // for.
+    final still = MediaQuery.of(context).disableAnimations;
+    _toFirstRun = Timer(
+      still ? Duration.zero : FamilyHomeScreen.winkThenPath,
+      () {
+        // Only if the guardian is still here, not gone elsewhere.
+        if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
+          context.go(Routes.firstRun);
+        }
+      },
     );
-    if (ok && mounted) {
-      setState(() {
-        _wink = _model.takeWink();
-        _notice = null;
-      });
-    }
   }
 
   Future<void> _resendLink(String email) async {
@@ -163,24 +140,18 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([_model, _create, _accept, _resend, _signOut]),
+    listenable: Listenable.merge([_model, _resend, _signOut]),
     builder: (context, _) {
       final state = _model.state;
       if (_model.suspended) return _suspended(state);
       if (state case FamilyReady(:final family)) {
         return LayoutBuilder(
           builder: (context, box) {
-            // Beside the rail, the children stand two to a line once two
-            // whole columns fit with the margins around them; until then
-            // the home keeps the one column every screen shares.
-            const pair = 2 * FieldSizes.columnMaxWidth + Space.xl;
-            final paired =
-                (ShellFrame.maybeOf(context)?.rail ?? false) &&
-                box.maxWidth >= pair + 2 * Space.xxxl;
+            final paired = _paired(context, box);
             return FieldLayout(
               title: greeting(clock.now()),
               wink: _wink,
-              columnWidth: paired ? pair : FieldSizes.columnMaxWidth,
+              columnWidth: paired ? _pair : FieldSizes.columnMaxWidth,
               children: [
                 if (_notice case final notice?) ...[
                   Notice(notice),
@@ -192,13 +163,65 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
           },
         );
       }
+      // Inside the navigation, which holds Equipe, the account and
+      // signing out.
+      // Still being read inside the navigation: Início's greeting over the
+      // placeholder rows, so the page only fills in once the read answers.
+      if (state is FamilyLoading && ShellFrame.maybeOf(context) != null) {
+        return FieldLayout(
+          title: greeting(clock.now()),
+          wink: _wink,
+          children: familyPending(_model),
+        );
+      }
+      // Inside the navigation, which holds Equipe, the account and
+      // signing out.
+      if (state case NoFamily(:final invitations)) {
+        return LayoutBuilder(
+          builder: (context, box) {
+            // Início's own arrangement: beside the rail the start stands
+            // where the first child's card will, in the first of the two
+            // columns. The invitations keep the one column.
+            final paired = invitations.isEmpty && _paired(context, box);
+            final start = FamilyStart(
+              // Kept as the invitations come and go, with its words.
+              key: _start,
+              invitations: invitations,
+              onStarted: _familyStarted,
+              onJoined: _joined,
+            );
+            return FieldLayout(
+              title: switch (invitations.length) {
+                0 => greeting(clock.now()),
+                1 => 'Você tem um\u00a0convite',
+                final n => 'Você tem $n\u00a0convites',
+              },
+              wink: _wink,
+              columnWidth: paired ? _pair : FieldSizes.columnMaxWidth,
+              children: [
+                if (_notice case final notice?) ...[
+                  Notice(notice),
+                  const SizedBox(height: Space.lg),
+                ],
+                if (paired)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: start),
+                      const SizedBox(width: Space.xl),
+                      const Spacer(),
+                    ],
+                  )
+                else
+                  start,
+              ],
+            );
+          },
+        );
+      }
       return FieldLayout(
         title: switch (state) {
           EmailUnverified() => 'Confirme seu e-\u2060mail',
-          NoFamily(:final invitations) when invitations.length == 1 =>
-            'Você tem um\u00a0convite',
-          NoFamily(:final invitations) when invitations.length > 1 =>
-            'Você tem ${invitations.length}\u00a0convites',
           _ => 'Sua família',
         },
         wink: _wink,
@@ -208,9 +231,7 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
             const SizedBox(height: Space.lg),
           ],
           ...switch (state) {
-            FamilyReady() => const [],
-            NoFamily(:final invitations) =>
-              invitations.isEmpty ? _firstUse() : _invited(invitations),
+            FamilyReady() || NoFamily() => const [],
             EmailUnverified(:final email) => _verify(email),
             FamilyLoading() || FamilyFailed() => familyPending(_model),
           },
@@ -224,6 +245,16 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
       );
     },
   );
+
+  /// Two columns of the task's width with a gap between them.
+  static const _pair = 2 * FieldSizes.columnMaxWidth + Space.xl;
+
+  /// Beside the rail, the children stand two to a line once two whole
+  /// columns fit with the margins around them; until then the home keeps
+  /// the one column every screen shares.
+  static bool _paired(BuildContext context, BoxConstraints box) =>
+      (ShellFrame.maybeOf(context)?.rail ?? false) &&
+      box.maxWidth >= _pair + 2 * Space.xxxl;
 
   /// The suspended account's home: what
   /// happened, what still works and how to contest, then the two doors
@@ -299,15 +330,11 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
     ),
   );
 
-  /// The doors under a state before the family: with no family, the
-  /// Equipe door, then "Sua conta". None while the first read runs.
+  /// The doors under a state the navigation does not frame: "Sua
+  /// conta". None while the first read runs.
   List<DoorRow> _stateDoors(FamilyState state) => switch (state) {
-    NoFamily() => [
-      ...staffDoors(context, _model.roles ?? const {}),
-      ?_accountDoor(),
-    ],
     EmailUnverified() || FamilyFailed() => [?_accountDoor()],
-    FamilyReady() || FamilyLoading() => const [],
+    FamilyReady() || FamilyLoading() || NoFamily() => const [],
   };
 
   /// The account's own door, named by its email once read.
@@ -324,130 +351,6 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
             ?.copyWith(color: context.palette.muted),
       ),
     );
-  }
-
-  List<Widget> _firstUse() => [
-    Text(
-      'Comece a sua família para cadastrar as crianças e chamar os outros '
-      'adultos que cuidam delas.',
-      style: Theme.of(context).textTheme.bodyLarge,
-    ),
-    const SizedBox(height: Space.lg),
-    const CapacityRow(
-      filled: 0,
-      total: kMaxMinors,
-      words: FamilyWords.childrenRoom,
-    ),
-    const SizedBox(height: Space.md),
-    const CapacityRow(
-      filled: 0,
-      total: kMaxAdults,
-      words: FamilyWords.adultsRoom,
-    ),
-    const SizedBox(height: Space.xl),
-    // A refused invitation's words stay when no invitation is left.
-    if (_create.message ?? _accept.message case final message?) ...[
-      ErrorNote(message),
-      const SizedBox(height: Space.lg),
-    ],
-    PrimaryButton(
-      label: 'Começar minha família',
-      busy: _create.busy,
-      onPressed: _create.blocked ? null : _start,
-    ),
-    const SizedBox(height: Space.md),
-    OutlinedButton(
-      onPressed: () => setState(() => _inviteExplained = true),
-      child: const Text('Tenho um convite'),
-    ),
-    if (_inviteExplained) ...[
-      const SizedBox(height: Space.lg),
-      const Notice(_inviteHelp),
-    ],
-  ];
-
-  /// The first use when invitations wait for the account: who invited
-  /// and until when, one "Entrar na família", and starting a family of
-  /// one's own as a quiet way out.
-  List<Widget> _invited(List<ReceivedInvitation> invitations) {
-    final text = Theme.of(context).textTheme;
-    final now = DateTime.now();
-    final single = invitations.length == 1;
-    // A chosen invitation that is gone is no longer chosen.
-    final chosen = single
-        ? invitations.single.id
-        : invitations.any((i) => i.id == _chosen)
-        ? _chosen
-        : null;
-    final busy = _accept.busy || _create.busy;
-    String who(ReceivedInvitation i) =>
-        i.inviterEmail.isEmpty ? 'Uma família' : i.inviterEmail;
-    String detail(ReceivedInvitation i) =>
-        'convidou você · ${FamilyWords.expiry(i.expiresAt, now)}';
-    return [
-      Text(
-        'Entre para cuidar das crianças junto com quem convidou você.',
-        style: text.bodyLarge,
-      ),
-      const SizedBox(height: Space.xl),
-      if (single)
-        Doors(
-          children: [
-            _InvitedRow(
-              who: who(invitations.single),
-              detail: detail(invitations.single),
-            ),
-          ],
-        )
-      else
-        for (final (n, invitation) in invitations.indexed) ...[
-          if (n > 0) const SizedBox(height: Space.sm),
-          SelectableRow(
-            label:
-                'Convite de ${invitation.inviterEmail.isEmpty ? 'uma família' : invitation.inviterEmail}, '
-                '${FamilyWords.expiry(invitation.expiresAt, now)}',
-            text: addressBreaks(who(invitation)),
-            detail: detail(invitation),
-            selected: invitation.id == chosen,
-            onTap: busy ? null : () => setState(() => _chosen = invitation.id),
-          ),
-        ],
-      const SizedBox(height: Space.xl),
-      if (_accept.message ?? _create.message case final message?) ...[
-        ErrorNote(message),
-        const SizedBox(height: Space.lg),
-      ],
-      PrimaryButton(
-        label: 'Entrar na família',
-        busy: _accept.busy,
-        onPressed: chosen == null || _accept.blocked || _create.busy
-            ? null
-            : () => _join(chosen),
-      ),
-      if (!single)
-        SubmitHint(
-          'Escolha um convite acima.',
-          visible: chosen == null,
-          reserve: true,
-        ),
-      const SizedBox(height: Space.xxl),
-      Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(
-            'Prefere começar a sua?',
-            style: text.bodyLarge?.copyWith(color: context.palette.muted),
-          ),
-          const SizedBox(width: Space.xs),
-          QuietAction(
-            label: 'Começar minha família',
-            busy: _create.busy,
-            inline: true,
-            onPressed: busy || _create.blocked ? null : _start,
-          ),
-        ],
-      ),
-    ];
   }
 
   List<Widget> _verify(String email) {
@@ -497,35 +400,5 @@ class _FamilyHomeScreenState extends State<FamilyHomeScreen> {
         onPressed: _signOut.busy ? null : _leave,
       ),
     ];
-  }
-}
-
-/// The one invitation waiting: who invited and until when, read as one
-/// line by assistive technology. "Entrar na família" acts on it.
-class _InvitedRow extends StatelessWidget {
-  const _InvitedRow({required this.who, required this.detail});
-
-  final String who;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return MergeSemantics(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Space.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AddressText(who, style: text.titleMedium),
-            const SizedBox(height: Space.xs),
-            Text(
-              detail,
-              style: text.bodyMedium?.copyWith(color: context.palette.muted),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

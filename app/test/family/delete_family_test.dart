@@ -110,7 +110,18 @@ void main() {
     await tapOn(tester, find.byType(DeclarationRow));
 
     expect(deleteOf(tester), isNotNull);
-    expect(find.text(declarationHint), findsNothing);
+    // Hidden, its place kept.
+    expect(
+      tester
+          .widget<SubmitHint>(
+            find.ancestor(
+              of: find.text(declarationHint),
+              matching: find.byType(SubmitHint),
+            ),
+          )
+          .visible,
+      isFalse,
+    );
   });
 
   testWidgets('confirming asks to confirm it is you, deletes the family, '

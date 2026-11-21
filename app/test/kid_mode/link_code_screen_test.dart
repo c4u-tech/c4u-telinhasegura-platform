@@ -67,7 +67,7 @@ Future<Harness> linkCode(
 }
 
 /// Matches a number left to break from the word after it at a line end:
-/// "10 minutos" must not wrap to "10 / minutos" (fix round, item 6).
+/// "10 minutos" must not wrap to "10 / minutos", which strands the number.
 final strandable = RegExp(
   r'\d (minutos?|min|aparelhos?|códigos?|caracteres|s)\b',
 );
@@ -106,7 +106,7 @@ void main() {
   });
 
   testWidgets('at 1440 × 900 choosing a child keeps the title where it '
-      'is (fix round, item 3)', (tester) async {
+      'is', (tester) async {
     await linkCode(tester, size: const Size(1440, 900));
     await tester.pumpAndSettle();
     await expectChoosingMovesNothing(tester, 'Vincular o aparelho da criança');

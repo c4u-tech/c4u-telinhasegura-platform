@@ -80,7 +80,7 @@ void main() {
     expect(KidLayout.markSize, 24);
     expect(rect.top, greaterThanOrEqualTo(_safe.top));
     expect(rect.top, lessThan(_safe.top + KidSizes.target));
-    // At the strip's start, quiet (fullscreen design).
+    // At the strip's start, quiet.
     expect(rect.left, _safe.left + KidLayout.edge(360));
     expect(find.byType(SvgPicture), findsNothing);
     expect(find.byType(Text), findsNothing);

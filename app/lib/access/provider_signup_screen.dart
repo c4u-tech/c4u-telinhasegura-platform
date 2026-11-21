@@ -94,7 +94,7 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
                   busy: _submission.busy,
                   onPressed: _adult && !_submission.blocked ? _submit : null,
                 ),
-                SubmitHint(declarationHint, visible: !_adult),
+                SubmitHint(declarationHint, visible: !_adult, reserve: true),
               ],
       ),
     );

@@ -46,7 +46,7 @@ class _AccountScreenState extends State<AccountScreen> {
   late final FamilyModel _model;
 
   /// The sessions count; never read for a suspended account, whose
-  /// session cannot list them (suspension screens): this index
+  /// session cannot list them: this index
   /// still builds beneath `/conta/dados` and `/conta/excluir`.
   Future<List<SessionSummary>>? _sessions;
 

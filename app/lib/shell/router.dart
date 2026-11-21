@@ -364,7 +364,12 @@ List<RouteBase> _guardianRoutes(AppServices services) => [
     builder: (_, state) => ListRoot(
       path: state.uri.path,
       root: Routes.staffHome,
-      first: (_) => staffFirstItem(services.familyModel.roles),
+      // The roles may still be read as the place opens: the first item
+      // follows them when they arrive.
+      first: (_) => ListenableBuilder(
+        listenable: services.familyModel,
+        builder: (_, _) => staffFirstItem(services.familyModel.roles),
+      ),
       child: const StaffRootScreen(),
     ),
   ),
@@ -828,7 +833,8 @@ String _hold(AppServices services, String? token) {
 }
 
 /// Without a family (or a confirmed email) the family screens send home,
-/// where the first use or the verify prompt waits. A
+/// where the first use or the verify prompt waits; Família's own root
+/// offers the first use as well. A
 /// guardian never sees the owner's screens.
 /// While suspended: home, the data and the erasure for anyone; the
 /// adults and the family's deletion for its owner, or while the family is
@@ -856,6 +862,8 @@ bool _ownerStep(FamilyState state) => switch (state) {
 };
 
 String? _familyRedirect(FamilyState state, String path) => switch (state) {
+  // Família's root is where a family can be started too.
+  NoFamily() when path == Routes.family => null,
   NoFamily() || EmailUnverified() => Routes.home,
   FamilyReady(:final family)
       when family.role != FamilyRole.owner && Routes.ownerOnly.contains(path) =>

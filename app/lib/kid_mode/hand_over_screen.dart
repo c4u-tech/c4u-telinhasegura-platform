@@ -126,7 +126,8 @@ class _HandOverScreenState extends State<HandOverScreen> {
             ? null
             : () => _handOver(chosen),
       ),
-      // Its place stays once a child is chosen: nothing moves (fix round).
+      // Its place stays once a child is chosen, so nothing above or below
+      // it moves under the adult's finger.
       SubmitHint(
         'Escolha uma criança acima.',
         visible: chosen == null,

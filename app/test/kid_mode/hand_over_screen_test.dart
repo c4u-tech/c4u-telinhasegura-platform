@@ -56,8 +56,7 @@ Future<Harness> handOver(
 }
 
 /// Choosing a child at 1440 × 900 moves nothing: the hint's place is
-/// kept while it is hidden, and out of the semantics tree (fix round,
-/// item 3).
+/// kept while it is hidden, and out of the semantics tree.
 Future<void> expectChoosingMovesNothing(
   WidgetTester tester,
   String title,
@@ -104,7 +103,7 @@ Finder get primary => find.byType(PrimaryButton);
 
 void main() {
   testWidgets('at 1440 × 900 choosing a child keeps the title where it '
-      'is (fix round, item 3)', (tester) async {
+      'is', (tester) async {
     await handOver(tester, size: const Size(1440, 900));
     await tester.pumpAndSettle();
     await expectChoosingMovesNothing(tester, 'Entregar este aparelho');

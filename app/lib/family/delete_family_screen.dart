@@ -132,7 +132,7 @@ class _DeleteFamilyScreenState extends State<DeleteFamilyScreen> {
         busy: _write.busy,
         onPressed: _declared && idle ? _delete : null,
       ),
-      SubmitHint(declarationHint, visible: !_declared),
+      SubmitHint(declarationHint, visible: !_declared, reserve: true),
     ];
   }
 }

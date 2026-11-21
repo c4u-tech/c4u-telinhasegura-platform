@@ -253,7 +253,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   Widget build(BuildContext context) {
     // A phone turned sideways shows the video alone, while the video is
-    // what stands in the window (fullscreen design).
+    // what stands in the window.
     final full =
         !_failed &&
         playerFullscreen(

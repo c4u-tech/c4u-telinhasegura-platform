@@ -355,7 +355,7 @@ class _PackPlayerScreenState extends State<PackPlayerScreen>
     if (start == null) return const SizedBox.shrink();
     final n = _pack.videos.length;
     // A phone turned sideways shows each video alone; the breath and the
-    // goodbye keep the strip and the rail (fullscreen design).
+    // goodbye keep the strip and the rail.
     final full =
         _phase == _Phase.playing &&
         playerFullscreen(

@@ -6,12 +6,13 @@ import 'package:flutter/services.dart';
 import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../shell/system_bars.dart';
 import 'press_sink.dart';
 
 /// The frame of every child screen, "dentro da telinha":
 /// the ink field is the whole ground, edge to edge, in either
-/// theme; the simplified mascot sits small at the top strip's start, quiet
-/// (fullscreen design), unless a [lead] takes its place; [exit] takes the
+/// theme; the simplified mascot sits small at the top strip's start, quiet,
+/// unless a [lead] takes its place; [exit] takes the
 /// top end corner; [child] is
 /// centred in a column that scrolls rather than overflow. Everything inside paints in the kid dialect. A [fullWidth]
 /// screen (the shelves) takes the whole width from the top instead, its
@@ -69,7 +70,7 @@ class KidLayout extends StatelessWidget {
   static const stripHeight = KidSizes.target + 2 * exitInset;
 
   /// False: no top strip, neither mark nor exit; [child] fills the safe
-  /// area (the player in fullscreen, fullscreen design).
+  /// area (the player in fullscreen).
   final bool strip;
 
   /// The simplified mascot, small and quiet: not a heading.
@@ -152,12 +153,14 @@ class KidLayout extends StatelessWidget {
   Widget build(BuildContext context) => Theme(
     data: buildTheme(Brightness.dark, Palette.kid),
     child: AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      // The bars' icons read on the ground edge to edge: light on the
+      // child's dark grounds, dark on a theme's light world.
+      value: barsOver(ThemeData.estimateBrightnessForColor(_ground)),
       child: Scaffold(
         backgroundColor: _ground,
         // Bare, the safe area's larger vertical inset stands on both sides,
         // so what fills it is centred on the screen, clear of a home
-        // indicator (fullscreen design).
+        // indicator.
         // Every mascot on the screen reads this ground for its colours.
         body: TeviGround(
           color: _ground,

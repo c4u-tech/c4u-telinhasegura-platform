@@ -25,6 +25,8 @@ final nina = minorJson('m9', 'Nina', avatar: 'owl', ageBand: '9-12');
 Future<Harness> newChild(
   WidgetTester tester, {
   FutureOr<http.Response> Function()? create,
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   late final Harness h;
   h = Harness(
@@ -39,7 +41,12 @@ Future<Harness> newChild(
     },
   )..family = ownerFamily;
   unawaited(h.services.familyModel.load());
-  await h.pump(tester, initial: '/familia/criancas/nova');
+  await h.pump(
+    tester,
+    initial: '/familia/criancas/nova',
+    size: size,
+    textScale: textScale,
+  );
   return h;
 }
 
@@ -130,7 +137,30 @@ void main() {
       await fillProfile(tester);
 
       expect(pressOf(tester, 'Continuar'), isNotNull);
-      expect(find.text(profileHint), findsNothing);
+      // Hidden, its place kept.
+      expect(
+        tester
+            .widget<SubmitHint>(
+              find.ancestor(
+                of: find.text(profileHint),
+                matching: find.byType(SubmitHint),
+              ),
+            )
+            .visible,
+        isFalse,
+      );
+    });
+
+    testWidgets('Continuar stays put as the profile completes', (tester) async {
+      await newChild(tester, size: const Size(360, 640), textScale: 2);
+      await fillProfile(tester, band: null);
+
+      await expectPrimaryStays(
+        tester,
+        find.widgetWithText(PrimaryButton, 'Continuar'),
+        () => tester.tap(find.text(AgeBand.from9To12.label)),
+      );
+      expect(pressOf(tester, 'Continuar'), isNotNull);
     });
 
     testWidgets('back returns to the children', (tester) async {
@@ -175,6 +205,24 @@ void main() {
       await tapOn(tester, declaration);
 
       expect(tester.widget<DeclarationRow>(declaration).value, isTrue);
+      expect(pressOf(tester, 'Cadastrar'), isNotNull);
+    });
+
+    testWidgets('Cadastrar stays put as the declaration is checked', (
+      tester,
+    ) async {
+      await newChild(tester, size: const Size(360, 640), textScale: 2);
+      await toConsent(tester);
+
+      await expectPrimaryStays(
+        tester,
+        find.widgetWithText(PrimaryButton, 'Cadastrar'),
+        // Checked without a tap: at the page's foot the row may be above
+        // the fold, and a tap would scroll to it.
+        () async => tester
+            .widget<DeclarationRow>(find.byType(DeclarationRow))
+            .onChanged!(true),
+      );
       expect(pressOf(tester, 'Cadastrar'), isNotNull);
     });
 

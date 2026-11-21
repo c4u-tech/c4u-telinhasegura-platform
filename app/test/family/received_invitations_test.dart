@@ -258,9 +258,10 @@ void main() {
 
       expect(find.text(Copy.invitationGone), findsOneWidget);
       expect(find.text('Tenho um convite'), findsOneWidget);
+      // Início's greeting again, as for any account with no family.
       expect(
         tester.widget<FieldLayout>(find.byType(FieldLayout)).title,
-        'Sua família',
+        greeting(DateTime.now()),
       );
     });
 

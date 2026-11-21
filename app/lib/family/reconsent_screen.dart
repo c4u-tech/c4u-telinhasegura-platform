@@ -144,6 +144,6 @@ class _ReconsentScreenState extends State<ReconsentScreen> {
       busy: _write.busy,
       onPressed: _agreed && !_write.blocked ? _authorize : null,
     ),
-    SubmitHint(declarationHint, visible: !_agreed),
+    SubmitHint(declarationHint, visible: !_agreed, reserve: true),
   ];
 }

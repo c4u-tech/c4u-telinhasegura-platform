@@ -7,9 +7,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../design/theme.dart';
+import '../parental/app_mode.dart';
 import 'router.dart';
 import 'services.dart';
 import 'splash.dart';
+import 'system_bars.dart';
 
 class TelinhaSeguraApp extends StatefulWidget {
   const TelinhaSeguraApp({
@@ -31,6 +33,10 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
     widget.services,
     initialLocation: widget.initialLocation,
   );
+
+  /// Whether a child holds the device, as last known: an unknown mode
+  /// between two known ones keeps it.
+  bool _childHolds = false;
 
   /// The mode's start-up read failed: the splash offers a retry.
   final _restoreFailed = ValueNotifier(false);
@@ -110,24 +116,32 @@ class _TelinhaSeguraAppState extends State<TelinhaSeguraApp>
       // the session restore comes first, so this also
       // covers an unknown status.
       //
-      // Status bar icons contrast with the guardian ground of the active
-      // theme; kid screens set their own (KidLayout), and leaving them
-      // must not keep it.
+      // The system bars are clear and their icons contrast with the
+      // guardian ground of the active theme; kid screens set their own
+      // (KidLayout), and leaving them must not keep it. While a child
+      // holds the device the bars are hidden.
       builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: Theme.of(context).brightness == Brightness.dark
-            ? SystemUiOverlayStyle.light
-            : SystemUiOverlayStyle.dark,
+        value: barsOver(Theme.of(context).brightness),
         child: ListenableBuilder(
           listenable: Listenable.merge([
             widget.services.appMode,
             _restoreFailed,
           ]),
-          builder: (context, _) => Opening(
-            ready: widget.services.appMode.mode != null,
-            failed: _restoreFailed.value,
-            onRetry: _restoreMode,
-            child: child!,
-          ),
+          builder: (context, _) {
+            final mode = widget.services.appMode.mode;
+            if (mode != null) {
+              _childHolds = mode is SharedKid || mode is LinkedDevice;
+            }
+            return ModeBars(
+              hidden: _childHolds,
+              child: Opening(
+                ready: mode != null,
+                failed: _restoreFailed.value,
+                onRetry: _restoreMode,
+                child: child!,
+              ),
+            );
+          },
         ),
       ),
     ),

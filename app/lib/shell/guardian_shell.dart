@@ -47,10 +47,10 @@ enum Destination {
 }
 
 /// Frames the guardian's screens with the navigation, once the family is
-/// ready: the ink rail beside every screen on a wide window, the bar under
-/// the four roots on a narrow one. Before that (no family yet, the email
-/// to confirm, the first read), while suspended, or with the terms
-/// pending, the screen stands alone as it always has. On a large window
+/// ready, known not to exist yet, or still being read: the ink rail beside
+/// every screen on a wide window, the bar under the four roots on a narrow
+/// one. With the email to confirm, a failed read, while suspended, or with
+/// the terms pending, the screen stands alone as it always has. On a large window
 /// a place of several items ([lists]) shows its list beside the item it
 /// opened, the screens of the path standing in the detail.
 class GuardianShell extends StatefulWidget {
@@ -120,8 +120,14 @@ class _GuardianShellState extends State<GuardianShell> {
 
   bool get _active {
     final model = _services.familyModel;
+    final state = model.state;
     return _services.appMode.mode is Guardian &&
-        model.state is FamilyReady &&
+        (state is FamilyReady ||
+            state is NoFamily ||
+            // Still being read, for an account not known to wait on its
+            // email: the navigation stands from the start rather than
+            // appear once the read answers.
+            (state is FamilyLoading && model.maybeVerified)) &&
         !model.suspended &&
         model.termsAccepted;
   }
@@ -144,7 +150,13 @@ class _GuardianShellState extends State<GuardianShell> {
       return LayoutBuilder(
         builder: (context, box) {
           if (box.maxWidth >= FieldSizes.wideBreakpoint) {
-            final list = widget.lists[current];
+            // Without a family, Família is the start of one, with no item
+            // to open beside it.
+            final list =
+                current == Destination.familia &&
+                    _services.familyModel.state is! FamilyReady
+                ? null
+                : widget.lists[current];
             final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
             final room =
                 box.maxWidth - ShellSizes.railInset - ShellSizes.railWidth;

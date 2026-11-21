@@ -121,10 +121,14 @@ class FieldLayout extends StatelessWidget {
     this.titleLine,
     this.size = FieldSize.band,
     this.onBack,
+    this.backLabel = backWord,
     this.wink = false,
     this.promise = promiseLine,
     this.columnWidth = FieldSizes.columnMaxWidth,
   });
+
+  /// What the back arrow says by default: one step back.
+  static const backWord = 'Voltar';
 
   /// The wide window's ink panel, absent when the rail stands for it.
   static const panelKey = Key('field-panel');
@@ -159,6 +163,10 @@ class FieldLayout extends StatelessWidget {
   final List<Widget> children;
   final FieldSize size;
   final VoidCallback? onBack;
+
+  /// What the back arrow says it does, as its tooltip and to assistive
+  /// technology; a screen whose arrow leaves more than one step says where.
+  final String backLabel;
 
   /// The mascot winks once: the confirmations.
   final bool wink;
@@ -216,6 +224,7 @@ class FieldLayout extends StatelessWidget {
         watch: watch,
         width: columnWidth,
         onBack: _atPaneRoot(context, frame) ? null : onBack,
+        backLabel: backLabel,
         wink: wink,
         winks: frame.winks,
         pane: frame.pane,
@@ -252,6 +261,7 @@ class FieldLayout extends StatelessWidget {
                         child: _FieldContent(
                           size: FieldSize.hero,
                           onBack: onBack,
+                          backLabel: backLabel,
                           large: true,
                           promise: largeText ? null : promise,
                         ),
@@ -296,6 +306,7 @@ class FieldLayout extends StatelessWidget {
                 watch: watch,
                 task: task,
                 onBack: onBack,
+                backLabel: backLabel,
                 wink: wink,
                 width: columnWidth,
               );
@@ -320,6 +331,7 @@ class FieldLayout extends StatelessWidget {
                       child: _FieldContent(
                         size: hero ? FieldSize.hero : FieldSize.band,
                         onBack: onBack,
+                        backLabel: backLabel,
                         promise: promise,
                       ),
                     ),
@@ -352,6 +364,7 @@ Widget _pinnedUnderBand(
   required Widget watch,
   required Widget task,
   required VoidCallback? onBack,
+  required String backLabel,
   required bool wink,
   required double width,
 }) {
@@ -368,7 +381,11 @@ Widget _pinnedUnderBand(
               corner: FieldSizes.bandCorner,
               tevi: FieldSizes.bandTevi,
               wink: wink,
-              child: _FieldContent(size: FieldSize.band, onBack: onBack),
+              child: _FieldContent(
+                size: FieldSize.band,
+                onBack: onBack,
+                backLabel: backLabel,
+              ),
             ),
           ),
         ),
@@ -414,6 +431,7 @@ class _RailFramed extends StatefulWidget {
     required this.watch,
     required this.width,
     required this.onBack,
+    required this.backLabel,
     required this.wink,
     required this.winks,
     required this.pane,
@@ -425,6 +443,7 @@ class _RailFramed extends StatefulWidget {
   /// The task column's cap.
   final double width;
   final VoidCallback? onBack;
+  final String backLabel;
   final bool wink;
   final ValueNotifier<int> winks;
   final Pane pane;
@@ -496,7 +515,7 @@ class _RailFramedState extends State<_RailFramed> {
         offset: const Offset(-Space.md, 0),
         child: IconButton(
           onPressed: onBack,
-          tooltip: 'Voltar',
+          tooltip: widget.backLabel,
           color: context.palette.text,
           icon: const Icon(Icons.arrow_back_rounded),
         ),
@@ -912,6 +931,7 @@ class _FieldContent extends StatelessWidget {
   const _FieldContent({
     required this.size,
     this.onBack,
+    this.backLabel = FieldLayout.backWord,
     this.large = false,
     this.promise = promiseLine,
   });
@@ -921,6 +941,7 @@ class _FieldContent extends StatelessWidget {
   /// The promise at the field's foot; null leaves the field to the wordmark.
   final String? promise;
   final VoidCallback? onBack;
+  final String backLabel;
   final bool large;
 
   @override
@@ -935,7 +956,7 @@ class _FieldContent extends StatelessWidget {
         ? null
         : IconButton(
             onPressed: onBack,
-            tooltip: 'Voltar',
+            tooltip: backLabel,
             color: p.onField,
             icon: const Icon(Icons.arrow_back_rounded),
           );

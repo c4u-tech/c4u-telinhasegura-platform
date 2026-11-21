@@ -176,7 +176,7 @@ void main() {
     const kid = Palette.kid;
 
     test('the error note sits on dark, tinted from ink, ember on it at '
-        'AA (fix round, item 2)', () {
+        'AA', () {
       expect(kid.errorGround, BrandColors.dark);
       expect(kid.error, Palette.dark.error);
       expect(contrast(kid.error, BrandColors.dark), greaterThanOrEqualTo(4.5));

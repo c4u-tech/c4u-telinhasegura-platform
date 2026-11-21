@@ -74,8 +74,8 @@ void main() {
     expect(b.calls, ['GET /v1/session', 'GET /v1/family']);
   });
 
-  test('load reads once; refresh reads the session and the family again '
-      '(suspension screens)', () async {
+  test('load reads once; refresh reads the session and the family again, so '
+      'a suspension or a reinstatement shows', () async {
     final b = build();
     await b.model.load();
     await b.model.load();

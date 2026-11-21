@@ -33,7 +33,7 @@ class PlayerStage extends StatelessWidget {
   final Widget? progress;
 
   /// Fullscreen: the window alone, centred, as large as the space allows
-  /// at 16:9; no keys, no progress (fullscreen design).
+  /// at 16:9; no keys, no progress.
   final bool bare;
 
   /// False: the mascot already stands in the window's place, so the wire
@@ -126,8 +126,7 @@ class PlayerStage extends StatelessWidget {
       }
       // Portrait: the window right under the top strip, the strip under
       // it: back at the start, play/pause on the window's centre line, the
-      // mascot at the end on the wire beneath them (no YouTube logo,
-      // fullscreen design).
+      // mascot at the end on the wire beneath them (no YouTube logo).
       return Align(
         alignment: Alignment.topCenter,
         child: SizedBox(

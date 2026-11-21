@@ -88,6 +88,8 @@ Future<Harness> deleteScreen(
   bool unverified = false,
   bool termsAccepted = true,
   ProviderSettings settings = noProviders,
+  Size size = const Size(390, 844),
+  double textScale = 1,
 }) async {
   var confirmed = !reauth;
   final h =
@@ -114,7 +116,12 @@ Future<Harness> deleteScreen(
         ..family = family
         ..unverified = unverified
         ..termsAccepted = termsAccepted;
-  await h.pump(tester, initial: '/conta/excluir');
+  await h.pump(
+    tester,
+    initial: '/conta/excluir',
+    size: size,
+    textScale: textScale,
+  );
   return h;
 }
 
@@ -249,6 +256,22 @@ void main() {
     expect(deleteFamilyDoor, findsNothing);
 
     await tapOn(tester, find.byType(DeclarationRow));
+    expect(deleteOf(tester), isNotNull);
+  });
+
+  testWidgets('Excluir minha conta stays put as the declaration is '
+      'checked', (tester) async {
+    await deleteScreen(tester, size: const Size(360, 640), textScale: 2);
+
+    await expectPrimaryStays(
+      tester,
+      deleteButton,
+      // Checked without a tap: at the page's foot the row may be above
+      // the fold, and a tap would scroll to it.
+      () async => tester
+          .widget<DeclarationRow>(find.byType(DeclarationRow))
+          .onChanged!(true),
+    );
     expect(deleteOf(tester), isNotNull);
   });
 
