@@ -920,7 +920,7 @@ void main() {
 
       expect(find.text('Etapa 5 de 5'), findsOneWidget);
       await noneOfThis(tester);
-      expect(primary(tester).label, chooseTopic);
+      expect(primary(tester).label, 'Ver a idade e escolher o tema');
       // Leading to the summary, not to another step.
       await answer(tester, 'Falta começo, meio ou fim?', 'Sim');
       expect(primary(tester).label, seeSummary);
@@ -973,6 +973,36 @@ void main() {
       expect(find.text(checkedByApp), findsOneWidget);
       expect(picked(tester, tie, 'Não'), isTrue);
       await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1');
+    });
+
+    testWidgets('the band\'s arrow leaves for the video in one step from any '
+        'page, the answers kept, and says where it goes', (tester) async {
+      final h = await approving(tester);
+      await start(tester);
+      await clearSteps(tester, to: 2);
+      expect(find.text('Etapa 3 de 5'), findsOneWidget);
+      final saved = draftSaves(h).length;
+
+      expect(find.byTooltip('Voltar'), findsNothing);
+      await tester.tap(find.byTooltip(leaveForVideo));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1');
+      expect(draftSaves(h).length, saved, reason: 'nothing is undone');
+      expect(draftSaves(h).last, contains('"c04":"ok"'));
+    });
+
+    testWidgets('on a large window the arrow above the window leaves for the '
+        'video in one step', (tester) async {
+      final h = await approving(tester, size: const Size(1280, 800));
+      await start(tester);
+      await clearSteps(tester, to: 1);
+      expect(find.text('Etapa 2 de 5'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(leaveForVideo));
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/curadoria/v1');
@@ -2259,7 +2289,7 @@ void main() {
     ) async {
       final h = await approving(tester);
 
-      await tester.tap(find.byTooltip('Voltar').last);
+      await tester.tap(find.byTooltip(leaveForVideo).last);
       await tester.pumpAndSettle();
 
       expect(h.location(tester), '/curadoria/v1');

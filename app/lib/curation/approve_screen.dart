@@ -40,7 +40,7 @@ const checkedByApp =
 /// when the video can be approved.
 const startQuestions = 'Começar as perguntas';
 const nextStep = 'Próxima etapa';
-const chooseTopic = 'Escolher tema e idade';
+const chooseTopic = 'Ver a idade e escolher o tema';
 
 /// The primary of a page that leads to the review: the theme and band, the
 /// last step when the answers do not approve, and a page changed from the
@@ -132,6 +132,10 @@ const curationRule = 'Todo vídeo precisa ser Livre.';
 /// The link to the criteria of each band, on the site.
 const curationCriteriaLink = 'Veja os critérios de cada idade';
 
+/// What the band's arrow says it does: leave the questions for the video's
+/// screen, the answers kept, from any page.
+const leaveForVideo = 'Voltar para o vídeo';
+
 /// "Etapa 2 de 5".
 String stepLabel(int step, int of) => 'Etapa $step de $of';
 
@@ -146,7 +150,8 @@ String stepLabel(int step, int of) => 'Etapa $step de $of';
 /// says what happens: "Aprovar", "Recusar" (the refusal, with the
 /// questions ticked) or "Enviar para a equipe" (an approval the server
 /// holds as a doubt). A tie to the channel ends on the first page. Back,
-/// on screen or from the system, goes one page back. Every change is kept
+/// from the foot or from the system, goes one page back; the band's arrow
+/// leaves for the video's screen from any page. Every change is kept
 /// by the server as the curator's draft, so leaving and coming back picks
 /// up the answers, theme, band and note where they were (the reason for an
 /// older band is asked again: the draft has no place for it). A band
@@ -427,6 +432,12 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     }
   }
 
+  /// The band's arrow: out of the questions to the video's screen in one
+  /// step, wherever they stand, the draft kept as it is; from the done
+  /// state, to the queue.
+  void _leave() =>
+      context.go(_done != null ? Routes.curation : Routes.review(widget.id));
+
   void _toRefusal(ApprovalDraft d) =>
       context.go(Routes.refuse(widget.id, items: d.refusing), extra: _video);
 
@@ -516,7 +527,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         title: null,
         // Decided, the player is gone and nothing is left to watch.
         watch: _done == null && _video != null ? _watch() : null,
-        onBack: _back,
+        onBack: _leave,
+        backLabel: _done != null ? 'Voltar para a fila' : leaveForVideo,
         children: switch (_done) {
           final done? => [
             Notice(done),
