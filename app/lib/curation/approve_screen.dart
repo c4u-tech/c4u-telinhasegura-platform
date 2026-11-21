@@ -12,7 +12,7 @@ import '../design/field_layout.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
 import '../family/family.dart';
-import '../family/profile_fields.dart' show AgeBandChoice, SelectableRow;
+import '../family/profile_fields.dart' show SelectableRow;
 import '../family/widgets.dart' show FamilyPlaceholder;
 import '../legal/legal_links.dart' show kCurationUrl;
 import '../shell/routes.dart';
@@ -49,7 +49,29 @@ const orOneByOne = 'ou responda uma a uma';
 
 /// Under a page's primary until it can go on.
 const stepHint = 'Responda todas as perguntas desta etapa.';
-const approveHint = 'Escolha um tema e uma idade acima.';
+
+/// The band page's hints, by what is missing: a theme, then, for an older
+/// band, the band and why.
+const themeHint = 'Escolha um tema acima.';
+const olderBandHint = 'Escolha a idade acima.';
+const olderReasonHint = 'Escreva por que é para mais velhos.';
+
+/// The band page's ways on: confirming the band the answers give, or
+/// saying the video is for older children, with why.
+String confirmBandLabel(AgeBand band) => 'Confirmar ${band.label}';
+const olderLabel = 'É para mais velhos';
+const olderReasonLabel = 'Por que é para mais velhos';
+const continueLabel = 'Continuar';
+
+/// Back from the older bands to confirming the answers' band.
+String stayWithLabel(AgeBand band) => 'Ficar com ${band.label}';
+
+/// The band page's statement of the band the answers give.
+String bandStatement(AgeBand from) =>
+    'Pelas respostas, este vídeo serve a partir de ${from.label}';
+
+/// The reason's counter shows from here, near its bound.
+const _reasonCountFrom = 160;
 
 /// Under "Aprovar" until the video has played to its end here.
 const watchHint = 'Para aprovar, deixe o vídeo tocar até o fim.';
@@ -70,11 +92,11 @@ const approveLabel = 'Aprovar';
 const refuseLabel = 'Recusar';
 const teamLabel = 'Enviar para a equipe';
 
-/// Under the bands when the answers rule out younger bands.
+/// The band the answers give, said as a line: the moderator's screen.
 String answersBandLine(AgeBand from) =>
     'Pelas respostas, este vídeo serve a partir de ${from.label}.';
 
-/// Under the bands when the video's length rules out the youngest.
+/// When the video's length, not an answer, rules out the youngest band.
 const tooLongForYoungestLine =
     'Vídeos com mais de 60 minutos não vão para a faixa de 2 a 4 anos.';
 
@@ -118,15 +140,19 @@ String stepLabel(int step, int of) => 'Etapa $step de $of';
 /// `/curadoria/:id/aprovar`: the checklist the server holds, one page at
 /// a time. "Antes de começar" (the list's first group, under what the app
 /// already checked), then one step per remaining group, each going on only
-/// once every question is answered; then the theme and band, only when
-/// the answers approve; then "Confira antes de enviar", whose final button
+/// once every question is answered; then the band page, only when the
+/// answers approve: the band the answers give stated, with the answers that
+/// moved it, and the theme to choose; the curator confirms that band or
+/// says the video is for older children, choosing an older band and saying
+/// why. Then "Confira antes de enviar", whose final button
 /// says what happens: "Aprovar", "Recusar" (the refusal, with the
 /// questions ticked) or "Enviar para a equipe" (an approval the server
 /// holds as a doubt). A tie to the channel ends on the first page. Back,
 /// on screen or from the system, goes one page back. Every change is kept
 /// by the server as the curator's draft, so leaving and coming back picks
-/// up the answers, theme, band and note where they were. The bands the
-/// answers rule out are not offered. The video's window stays in view on
+/// up the answers, theme, band and note where they were (the reason for an
+/// older band is asked again: the draft has no place for it). A band
+/// younger than the answers give is never offered. The video's window stays in view on
 /// every page, pinned above the questions on a phone and in a pane of its
 /// own on a large window, in one player for the whole flow, so going from
 /// page to page never reloads it; it goes when the flow does. A line under
@@ -147,6 +173,7 @@ class ApproveScreen extends StatefulWidget {
 class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   final _send = Submission();
   final _note = TextEditingController();
+  final _bandReason = TextEditingController();
   bool _started = false;
   Video? _video;
   Checklist? _list;
@@ -194,6 +221,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     _api = AppScope.of(context).curation;
     _ends = AppScope.of(context).unheardEnds;
     _note.addListener(_noteChanged);
+    _bandReason.addListener(_bandReasonChanged);
     // Opened directly, the session's roles are read so the guard decides.
     scheduleMicrotask(AppScope.of(context).familyModel.load);
     _video = widget.video;
@@ -249,6 +277,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
       _knowEnd(_kept);
       _draft = d;
       _note.text = d.note ?? '';
+      // A reason written before the list was read again still stands.
+      d.bandReason = _bandReason.text;
     }
   }
 
@@ -304,6 +334,14 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     _keep(d);
   }
 
+  /// The reason for an older band is not kept: it only lets the page go
+  /// on.
+  void _bandReasonChanged() {
+    final d = _draft;
+    if (d == null || d.bandReason == _bandReason.text) return;
+    _update(() => d.bandReason = _bandReason.text);
+  }
+
   /// Tries again what failed to read: the video, the list, or both.
   void _retry() {
     if (_video == null) unawaited(_readVideo());
@@ -349,6 +387,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
   void dispose() {
     _send.dispose();
     _note.dispose();
+    _bandReason.dispose();
     super.dispose();
   }
 
@@ -405,6 +444,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         version: d.checklist.version,
         answers: d.answers,
         note: team && note.isNotEmpty ? note : null,
+        bandReason: team ? null : d.reasonToSend,
       );
     }, handle: (e) => _handle(e, d));
     if (!ok || !mounted) return;
@@ -421,7 +461,7 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           _refused = true;
           d
             ..theme = null
-            ..band = null
+            ..keepComputed()
             ..change(d.topicPage);
         });
         _keep(d);
@@ -631,11 +671,44 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
     ];
   }
 
+  /// The band page: the band the answers give, stated, with each answer
+  /// that moved it (or the length, when only the length did); the rule and
+  /// its criteria; the theme; then the ways on.
   List<Widget> _topic(ApprovalDraft d) {
     final text = Theme.of(context).textTheme;
-    final from = d.answersBand;
-    final long = d.tooLongForYoungest;
+    final moved = d.bandAnswers;
     return [
+      Semantics(
+        header: true,
+        child: Text(bandStatement(d.computedBand), style: text.headlineSmall),
+      ),
+      const SizedBox(height: Space.xs),
+      for (final (item, a) in moved)
+        _BandAnswer(
+          question: item.text,
+          word: a.word,
+          onChange: _idle
+              ? () => _update(() => d.changeFromTopic(d.pageOf(item)))
+              : null,
+        ),
+      if (moved.isEmpty && d.computedBand != d.answersBand)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.sm),
+          child: Text(tooLongForYoungestLine, style: text.bodyLarge),
+        ),
+      const SizedBox(height: Space.xs),
+      Text(curationRule, style: text.bodyMedium),
+      Semantics(
+        link: true,
+        label: curationCriteriaLink,
+        excludeSemantics: true,
+        onTap: _openCriteria,
+        child: QuietAction(
+          label: curationCriteriaLink,
+          onPressed: _openCriteria,
+        ),
+      ),
+      const SizedBox(height: Space.xl),
       Semantics(header: true, child: Text('Tema', style: text.titleMedium)),
       if (_refused) ...[
         const SizedBox(height: Space.xs),
@@ -652,44 +725,103 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
         if (t != VideoTheme.unknown) ...[
           if (i > 0) const SizedBox(height: Space.sm),
           SelectableRow(
-            label: t.label,
+            // Read with its meaning, as it is shown.
+            label: '${t.label}, ${t.definition}',
+            text: t.label,
+            detail: t.definition,
             selected: t == d.theme,
             onTap: _idle ? () => _change(d, () => d.theme = t) : null,
           ),
         ],
+      if (d.olderOpen) ..._older(d) else ..._confirm(d),
+    ];
+  }
+
+  /// "Confirmar" the band the answers give, and, unless they give the
+  /// oldest, "É para mais velhos".
+  List<Widget> _confirm(ApprovalDraft d) => [
+    ..._foot(
+      label: confirmBandLabel(d.computedBand),
+      onPressed: d.canGoOn ? () => _change(d, d.confirmBand) : null,
+      hint: themeHint,
+      back: false,
+    ),
+    if (d.olderBands.isNotEmpty) ...[
+      const SizedBox(height: Space.sm),
+      OutlinedButton(
+        onPressed: _idle ? () => _change(d, d.askOlder) : null,
+        child: const Text(olderLabel, textAlign: TextAlign.center),
+      ),
+    ],
+    const SizedBox(height: Space.sm),
+    QuietAction(label: 'Voltar', onPressed: _back),
+  ];
+
+  /// The older bands only, why, "Continuar", and the way back to
+  /// confirming.
+  List<Widget> _older(ApprovalDraft d) {
+    final text = Theme.of(context).textTheme;
+    final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
+    return [
       const SizedBox(height: Space.xl),
-      Text('A partir de', style: text.titleMedium),
-      const SizedBox(height: Space.xs),
-      Text(curationRule, style: text.bodyMedium),
       Semantics(
-        link: true,
-        label: curationCriteriaLink,
-        excludeSemantics: true,
-        onTap: _openCriteria,
-        child: QuietAction(
-          label: curationCriteriaLink,
-          onPressed: _openCriteria,
-        ),
+        header: true,
+        child: Text('A partir de', style: text.titleMedium),
       ),
       const SizedBox(height: Space.md),
-      AgeBandChoice(
-        value: d.band,
-        disabled: d.barredBands,
-        onChanged: _idle ? (b) => _change(d, () => d.band = b) : null,
+      for (final (i, b) in d.olderBands.indexed) ...[
+        if (i > 0) const SizedBox(height: Space.sm),
+        SelectableRow(
+          label: b.label,
+          selected: b == d.band,
+          onTap: _idle ? () => _change(d, () => d.band = b) : null,
+        ),
+      ],
+      // At large text the label floats on two lines: room above for both.
+      SizedBox(height: large ? Space.xl : Space.lg),
+      TextField(
+        controller: _bandReason,
+        enabled: _idle,
+        keyboardType: TextInputType.multiline,
+        textCapitalization: TextCapitalization.sentences,
+        // At large text the label takes two lines, and the field room for
+        // them.
+        minLines: large ? 2 : 1,
+        maxLines: null,
+        maxLength: ApprovalDraft.bandReasonMax,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        buildCounter:
+            (_, {required currentLength, required isFocused, maxLength}) =>
+                currentLength < _reasonCountFrom
+                ? null
+                : Text(
+                    '$currentLength de ${ApprovalDraft.bandReasonMax}',
+                    style: text.bodySmall?.copyWith(
+                      color: context.palette.muted,
+                    ),
+                  ),
+        decoration: const InputDecoration(
+          // Wraps at large text rather than cut short.
+          label: Text(olderReasonLabel, maxLines: 2),
+          alignLabelWithHint: true,
+        ),
       ),
-      if (from != AgeBand.upTo4) ...[
-        const SizedBox(height: Space.sm),
-        Text(answersBandLine(from), style: text.bodyMedium),
-      ],
-      if (long) ...[
-        const SizedBox(height: Space.sm),
-        Text(tooLongForYoungestLine, style: text.bodyMedium),
-      ],
       ..._foot(
-        label: seeSummary,
+        label: continueLabel,
         onPressed: d.canGoOn ? _forward : null,
-        hint: approveHint,
+        hint: d.theme == null
+            ? themeHint
+            : d.band == null
+            ? olderBandHint
+            : olderReasonHint,
+        back: false,
       ),
+      const SizedBox(height: Space.sm),
+      QuietAction(
+        label: stayWithLabel(d.computedBand),
+        onPressed: _idle ? () => _change(d, d.keepComputed) : null,
+      ),
+      QuietAction(label: 'Voltar', onPressed: _back),
     ];
   }
 
@@ -722,6 +854,8 @@ class _ApproveScreenState extends State<ApproveScreen> with AdultWindow {
           title: topicTitle,
           lines: [
             CurationWords.joined([?d.theme?.label, ?d.band?.label]),
+            // Why the band is older than the answers give.
+            ?d.reasonToSend,
           ],
           onChange: changeTo(d.topicPage),
         ),
@@ -819,6 +953,68 @@ class _SummaryLine extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// An answer that moved the band: the question, then "— Sim" or "— Não
+/// sei" in weight, and "mudar", named by the question, back to its page.
+class _BandAnswer extends StatelessWidget {
+  const _BandAnswer({
+    required this.question,
+    required this.word,
+    required this.onChange,
+  });
+
+  final String question;
+  final String word;
+  final VoidCallback? onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final answer = Text.rich(
+      TextSpan(
+        text: '$question ',
+        children: [
+          TextSpan(
+            // Kept on one line with its dash.
+            text: '—\u00A0$word'.replaceAll(' ', '\u00A0'),
+            // The answer in the weight of an action's label.
+            style: TextStyle(
+              fontWeight: text.labelLarge?.fontWeight,
+              fontVariations: text.labelLarge?.fontVariations,
+            ),
+          ),
+        ],
+      ),
+      semanticsLabel: '$question — $word',
+      style: text.bodyLarge,
+    );
+    final change = QuietAction(
+      label: changeLabel,
+      semanticsLabel: '$changeLabel: $question',
+      inline: true,
+      onPressed: onChange,
+    );
+    // At large text a column beside the question would leave it a word or
+    // two a line: "mudar" goes under it.
+    final large = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: large
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [answer, change],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: answer),
+                const SizedBox(width: Space.sm),
+                change,
+              ],
+            ),
     );
   }
 }

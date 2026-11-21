@@ -33,7 +33,20 @@ import 'package:telinha_segura/privacy/export_delivery.dart';
 
 import '../account/account_screen_test.dart' show sessionJson, sessionsAnswer;
 import '../account/mfa_fixtures.dart';
-import '../curation/approve_screen_test.dart' show approve, start, toReview;
+import '../curation/approve_screen_test.dart' as approving show choose;
+import '../curation/approve_screen_test.dart'
+    show
+        answer,
+        approve,
+        clearSteps,
+        fast,
+        forOlder,
+        noneOfThis,
+        reasonField,
+        start,
+        tapPrimary,
+        toReview,
+        toTopic;
 import '../curation/compose_pack_screen_test.dart' as composing;
 import '../curation/curation_api_test.dart'
     show rejectionJson, reviewJson, videoJson;
@@ -1824,6 +1837,37 @@ final curatorScreens =
         (tester, h) async {
           await start(tester);
           h.adultPlayer.current!.emit(const PlayerEnded());
+          await tester.pumpAndSettle();
+        },
+      ),
+      'approve, band page': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) => toTopic(tester),
+      ),
+      'approve, band page with an answer that moved it': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) async {
+          await start(tester);
+          await clearSteps(tester, to: 4);
+          await noneOfThis(tester);
+          await answer(tester, fast, 'Sim');
+          await tapPrimary(tester);
+        },
+      ),
+      'approve, older bands with a reason near the bound': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) async {
+          await toTopic(tester);
+          await approving.choose(tester, 'Música');
+          await forOlder(tester);
+          await approving.choose(tester, '9 a 12 anos');
+          await tester.enterText(reasonField(), 'a' * 190);
+          await tester.pumpAndSettle();
+          // The older bands in full view, not half under the window.
+          await tester.ensureVisible(find.text('A partir de'));
           await tester.pumpAndSettle();
         },
       ),
