@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+
+import '../shell/system_bars.dart';
 
 /// A phone's screen is under this on its shortest side; a tablet's is not.
 const phoneShortestSide = 600.0;
@@ -26,9 +27,9 @@ bool playerFullscreen({
 /// Hides the system bars while [active] (immersive sticky: an edge swipe
 /// shows them for a moment) and brings them back when it is not, or when
 /// the screen goes, so no route is left without them (fullscreen design).
-/// They come back in Flutter's own default, every overlay shown,
-/// the mode the app boots in: never a mode the guardian's screens were
-/// not built in.
+/// They come back as the app shows them everywhere else. While the child's
+/// mode keeps the bars hidden on its own ([ModeBars]), this leaves them
+/// alone: turning upright must not bring them back.
 class SystemBarsHidden extends StatefulWidget {
   const SystemBarsHidden({
     super.key,
@@ -44,35 +45,41 @@ class SystemBarsHidden extends StatefulWidget {
 }
 
 class _SystemBarsHiddenState extends State<SystemBarsHidden> {
+  /// Whether this screen asked for the bars hidden, and has not yet
+  /// brought them back.
+  bool _hid = false;
+
+  /// Whether the mode keeps them hidden, as last read.
+  bool _byMode = false;
+
   @override
-  void initState() {
-    super.initState();
-    if (widget.active) _hide();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _byMode = ModeBars.hides(context);
+    _sync();
   }
 
   @override
   void didUpdateWidget(SystemBarsHidden old) {
     super.didUpdateWidget(old);
-    if (widget.active == old.active) return;
-    widget.active ? _hide() : _show();
+    _sync();
   }
 
   @override
   void dispose() {
-    if (widget.active) _show();
+    if (_hid && !_byMode) unawaited(showSystemBars());
     super.dispose();
   }
 
-  void _hide() => unawaited(
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
-  );
-
-  void _show() => unawaited(
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    ),
-  );
+  void _sync() {
+    if (_byMode) {
+      _hid = false;
+      return;
+    }
+    if (widget.active == _hid) return;
+    _hid = widget.active;
+    unawaited(_hid ? hideSystemBars() : showSystemBars());
+  }
 
   @override
   Widget build(BuildContext context) => widget.child;

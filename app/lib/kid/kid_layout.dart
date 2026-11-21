@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../design/tevi.dart';
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../shell/system_bars.dart';
 import 'press_sink.dart';
 
 /// The frame of every child screen, "dentro da telinha":
@@ -152,7 +153,9 @@ class KidLayout extends StatelessWidget {
   Widget build(BuildContext context) => Theme(
     data: buildTheme(Brightness.dark, Palette.kid),
     child: AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      // The bars' icons read on the ground edge to edge: light on the
+      // child's dark grounds, dark on a theme's light world.
+      value: barsOver(ThemeData.estimateBrightnessForColor(_ground)),
       child: Scaffold(
         backgroundColor: _ground,
         // Bare, the safe area's larger vertical inset stands on both sides,

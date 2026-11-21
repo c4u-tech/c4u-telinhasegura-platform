@@ -23,7 +23,12 @@ List<String> modesAsked(WidgetTester tester) {
     SystemChannels.platform,
     (call) async {
       if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        modes.add(call.arguments as String);
+        // Android's bars shown, the app drawn under them.
+        modes.add(
+          call.arguments == 'SystemUiMode.edgeToEdge'
+              ? barsShown
+              : call.arguments as String,
+        );
       }
       // The manual mode with every overlay: the bars as the app booted.
       if (call.method == 'SystemChrome.setEnabledSystemUIOverlays' &&
@@ -44,7 +49,12 @@ List<String> modesAsked(WidgetTester tester) {
 
 const immersive = 'SystemUiMode.immersiveSticky';
 
-/// Flutter's own default, the mode the app boots in on every Android.
+/// Where the child's mode leaves the system bars to the screens (iOS): on
+/// Android the mode keeps them hidden throughout, and the player leaves
+/// them alone.
+final screenOwnsBars = TargetPlatformVariant.only(TargetPlatform.iOS);
+
+/// The bars shown: edge to edge on Android, every overlay elsewhere.
 const barsShown = 'bars shown';
 
 Finder get mark => find.bySemanticsLabel('Telinha Segura');
@@ -129,7 +139,7 @@ void main() {
       expect(h.player.opened, hasLength(1));
       expect(current(h).closed, isFalse);
       expect(current(h).calls, isEmpty);
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('upright first, the bars are never touched; turned, they '
         'hide', (tester) async {
@@ -142,7 +152,7 @@ void main() {
 
       expect(modes, [immersive]);
       expectOnlyTheVideo(tester);
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('the video\'s end brings the shelves and the bars back', (
       tester,
@@ -155,7 +165,7 @@ void main() {
 
       expect(h.location(tester), '/crianca');
       expect(modes, [immersive, barsShown]);
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('a video that does not play leaves fullscreen: the note in '
         'the window\'s place, the strip and back beside it', (tester) async {
@@ -171,7 +181,7 @@ void main() {
       expect(find.byType(PlayerKey), findsOneWidget);
       expect(modes, [immersive, barsShown]);
       await tester.pumpAndSettle(const Duration(seconds: 5));
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('on iOS too', (tester) async {
       final modes = modesAsked(tester);
@@ -189,7 +199,7 @@ void main() {
       expect(find.byType(HoldToExit), findsOneWidget);
       expect(find.byType(PlayerKey), findsNWidgets(2));
       expect(modes, isEmpty);
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('a desktop platform keeps the rail at a phone\'s size', (
       tester,
@@ -210,7 +220,7 @@ void main() {
       expectOnlyTheVideo(tester);
       expect(pack.progress(1, 3), findsNothing);
       expect(modes, [immersive]);
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('the breath keeps the strip, the rail and the progress, the '
         'bars back; the next video is fullscreen again', (tester) async {
@@ -229,7 +239,7 @@ void main() {
 
       expectOnlyTheVideo(tester);
       expect(modes, [immersive, barsShown, immersive]);
-    });
+    }, variant: screenOwnsBars);
 
     testWidgets('the goodbye keeps the strip and back', (tester) async {
       final modes = modesAsked(tester);
@@ -247,6 +257,6 @@ void main() {
       expect(find.byType(PlayerKey), findsOneWidget);
       expect(modes.last, barsShown);
       await tester.pumpAndSettle(const Duration(seconds: 4));
-    });
+    }, variant: screenOwnsBars);
   });
 }

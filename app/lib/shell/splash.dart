@@ -7,6 +7,7 @@ import '../design/band_transition.dart';
 import '../design/theme.dart';
 import '../design/tevi.dart';
 import '../design/tokens.dart';
+import 'system_bars.dart';
 
 /// Shown while the app does not yet know who it is in front of:
 /// the plain ground, nothing to read
@@ -32,7 +33,7 @@ class Splash extends StatelessWidget {
         return Semantics(
           label: 'Carregando',
           child: AnnotatedRegion<SystemUiOverlayStyle>(
-            value: SystemUiOverlayStyle.light,
+            value: barsOver(Brightness.dark),
             child: mascot,
           ),
         );
