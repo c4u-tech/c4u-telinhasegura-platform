@@ -2,6 +2,7 @@ package curation_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -211,5 +212,45 @@ func TestHeldVideosCarryTheBandTheAnswersAllow(t *testing.T) {
 		if h.ComputedBand != want {
 			t.Errorf("%s: computed %q, want %q", h.Video.YouTubeID, h.ComputedBand, want)
 		}
+	}
+}
+
+// The moderator reads why the band is what it is: each band answer of the
+// round that bars a younger band, worded as the question, with the role of
+// who gave it, in the list's order.
+func TestHeldVideosCarryTheAnswersBehindTheBand(t *testing.T) {
+	f := newFixture(t)
+	first := f.curator("c1@example.com", curation.Pedagogo)
+	second := f.curator("c2@example.com", curation.MaePai)
+	v := f.video(ytID)
+	f.review(first, v, approveWith("bichos", family.Age9To12, map[string]curation.Answer{"c36": curation.AnswerAppears}))
+	f.review(second, v, approveWith("", "", map[string]curation.Answer{"c13": curation.AnswerDoubt, "c33": curation.AnswerDoubt}))
+	held, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(held) != 1 {
+		t.Fatalf("held %+v %v", held, err)
+	}
+	want := []curation.BandAnswer{
+		{Text: "Alguém leva tombo, trombada ou torta na cara para fazer rir, sem se machucar?", Answer: curation.AnswerDoubt, DisplayRole: curation.MaePai},
+		{Text: "Algum personagem se comporta mal durante boa parte do vídeo e só no fim aprende?", Answer: curation.AnswerAppears, DisplayRole: curation.Pedagogo},
+	}
+	if !slices.Equal(held[0].BandAnswers, want) {
+		t.Fatalf("band answers %+v", held[0].BandAnswers)
+	}
+}
+
+// A review stored under a former list is read with that list's band
+// questions: a yes to a question that was not one bars nothing.
+func TestHeldVideosReadTheAnswersBehindTheBandUnderTheirOwnList(t *testing.T) {
+	f := newFixture(t)
+	f.heldDoubt(ytID, "2026-11-11", map[string]string{"c22": "appears", "c35": "appears", "c33": "ok"})
+	held, err := f.svc.HeldVideos(ctx)
+	if err != nil || len(held) != 1 {
+		t.Fatalf("held %+v %v", held, err)
+	}
+	want := []curation.BandAnswer{
+		{Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", Answer: curation.AnswerAppears, DisplayRole: curation.Pedagogo},
+	}
+	if !slices.Equal(held[0].BandAnswers, want) {
+		t.Fatalf("band answers %+v", held[0].BandAnswers)
 	}
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:telinha_segura/access/copy.dart';
 import 'package:telinha_segura/access/widgets.dart';
+import 'package:telinha_segura/curation/answer_choice.dart';
+import 'package:telinha_segura/curation/approve_screen.dart' show conflictLine;
 import 'package:telinha_segura/curation/review_screen.dart';
+import 'package:telinha_segura/family/profile_fields.dart' show ChoiceTarget;
 import 'package:telinha_segura/design/theme.dart';
 import 'package:telinha_segura/family/widgets.dart';
 import 'package:telinha_segura/kid/kid_player.dart';
@@ -16,6 +20,7 @@ import '../family/fixtures.dart';
 import '../kid/fake_player.dart';
 import 'curation_api_test.dart' show rejectionJson, reviewJson;
 import 'fixtures.dart';
+import 'appoint_screen_test.dart' show tapOn;
 import 'queue_screen_test.dart' show goTo;
 
 final babyShark = queuedJson(
@@ -356,6 +361,167 @@ void main() {
 
     expect(h.actions, contains('GET /v1/curation/videos/v1/draft'));
     expect(h.actions.where((c) => c.startsWith('PUT ')), isEmpty);
+  });
+
+  group('coming back', () {
+    Future<Harness> withDraft(
+      WidgetTester tester,
+      Map<String, String> answers, {
+      int seconds = 300,
+    }) => review(
+      tester,
+      video: (_) => detailOf(
+        queuedJson(
+          'v1',
+          'Baby Shark',
+          channel: 'Canal Baby Shark',
+          seconds: seconds,
+        ),
+      ),
+      draft: () => json(200, {'draft': draftJson(answers: answers)}),
+    );
+
+    /// Every question of the fixture's list answered "Não", but the long
+    /// video's.
+    const allNos = {
+      'c25': 'ok',
+      'c03': 'ok',
+      'c04': 'ok',
+      'c07': 'ok',
+      'c08': 'ok',
+      'c15': 'ok',
+      'c12': 'ok',
+      'c22': 'ok',
+      'c35': 'ok',
+      'c23': 'ok',
+      'c24': 'ok',
+    };
+
+    testWidgets('a review in progress says where it stopped, reading the '
+        'draft once', (tester) async {
+      final h = await withDraft(tester, {
+        'c25': 'ok',
+        'c03': 'ok',
+        'c08': 'ok',
+      });
+
+      expect(find.widgetWithText(DoorRow, 'Continuar revisão'), findsOneWidget);
+      expect(find.text('Parou em Violência e medo'), findsOneWidget);
+      expect(find.text('Revisar vídeo'), findsNothing);
+      expect(
+        tester
+            .widget<DoorRow>(find.widgetWithText(DoorRow, 'Continuar revisão'))
+            .semanticsLabel,
+        'Continuar revisão, Parou em Violência e medo',
+      );
+      expect(
+        h.actions.where((c) => c == 'GET /v1/curation/videos/v1/draft'),
+        hasLength(1),
+      );
+
+      await tester.ensureVisible(find.text('Continuar revisão'));
+      await tester.tap(find.text('Continuar revisão'));
+      await tester.pumpAndSettle();
+      expect(h.location(tester), '/curadoria/v1/aprovar');
+    });
+
+    testWidgets('back from the questions, the door says where they stopped', (
+      tester,
+    ) async {
+      // The server keeps what was last saved.
+      Map<String, Object?>? saved;
+      final h = await review(
+        tester,
+        draft: () => json(200, {'draft': saved}),
+        saveDraft: (req) {
+          final sent = jsonDecode(req.body) as Map<String, dynamic>;
+          saved = draftJson(
+            answers: {
+              for (final e
+                  in ((sent['answers'] ?? const {}) as Map<String, dynamic>)
+                      .entries)
+                e.key: e.value as String,
+            },
+          );
+          return json(200, {'draft': saved});
+        },
+      );
+      expect(find.text('Revisar vídeo'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Revisar vídeo'));
+      await tester.tap(find.text('Revisar vídeo'));
+      await tester.pumpAndSettle();
+      await tapOn(
+        tester,
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) =>
+                w is AnswerChoice &&
+                w.question == 'Você tem vínculo com este canal?',
+          ),
+          matching: find.widgetWithText(ChoiceTarget, 'Não'),
+        ),
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1');
+      expect(find.text('Continuar revisão'), findsOneWidget);
+      expect(find.text('Parou em Antes de começar'), findsOneWidget);
+    });
+
+    testWidgets('with every question answered, the age is left to confirm', (
+      tester,
+    ) async {
+      await withDraft(tester, allNos);
+
+      expect(find.widgetWithText(DoorRow, 'Continuar revisão'), findsOneWidget);
+      expect(find.text('Falta confirmar a idade'), findsOneWidget);
+    });
+
+    testWidgets('a tie to the channel resumes on the first page, and the '
+        'door says so though a later group is open', (tester) async {
+      final h = await withDraft(tester, {'c25': 'appears', 'c03': 'ok'});
+
+      expect(find.text('Parou em Antes de começar'), findsOneWidget);
+      expect(find.text('Parou em Violência e medo'), findsNothing);
+      await tester.ensureVisible(find.text('Continuar revisão'));
+      await tester.tap(find.text('Continuar revisão'));
+      await tester.pumpAndSettle();
+
+      expect(h.location(tester), '/curadoria/v1/aprovar');
+      expect(find.text('Antes de começar'), findsOneWidget);
+      expect(find.text(conflictLine), findsOneWidget);
+    });
+
+    testWidgets('with every question answered and the answers refusing, '
+        'checking and sending is what is left', (tester) async {
+      await withDraft(tester, {...allNos, 'c04': 'appears'});
+
+      expect(find.text('Falta conferir e enviar'), findsOneWidget);
+    });
+
+    testWidgets('a long video still has its own questions open', (
+      tester,
+    ) async {
+      await withDraft(tester, allNos, seconds: 25 * 60);
+
+      expect(find.text('Parou em Vídeo longo'), findsOneWidget);
+    });
+
+    testWidgets('a draft with no answers, or none read, is a review not yet '
+        'begun', (tester) async {
+      await withDraft(tester, const {});
+      expect(find.widgetWithText(DoorRow, 'Revisar vídeo'), findsOneWidget);
+      expect(find.text('Responder às perguntas'), findsOneWidget);
+      expect(find.text('Continuar revisão'), findsNothing);
+    });
+
+    testWidgets('a draft that failed to read counts as none', (tester) async {
+      await review(tester, draft: () => problem(503, 'unavailable'));
+      expect(find.widgetWithText(DoorRow, 'Revisar vídeo'), findsOneWidget);
+      expect(find.text('Continuar revisão'), findsNothing);
+    });
   });
 
   testWidgets('the player\'s end is reported to the draft', (tester) async {

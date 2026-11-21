@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import '../access/harness.dart';
@@ -9,15 +12,47 @@ import '../staff/accounts_api_test.dart' show sheetJson;
 import 'curation_api_test.dart' show pendingJson;
 
 /// [line] as the curation screens print it: a non-breaking space before
-/// each dot and inside each duration, so neither breaks at 200 % text.
+/// each dot, inside each duration and inside each age band, so none
+/// breaks at 200 % text.
 String nb(String line) => line
     .replaceAll(' · ', '\u00A0· ')
     .replaceAllMapped(RegExp(r'(\d+) (h|min)\b'), (m) => '${m[1]}\u00A0${m[2]}')
-    .replaceAllMapped(RegExp(r'(\u00A0h) (\d)'), (m) => '${m[1]}\u00A0${m[2]}');
+    .replaceAllMapped(RegExp(r'(\u00A0h) (\d)'), (m) => '${m[1]}\u00A0${m[2]}')
+    .replaceAllMapped(
+      RegExp(r'(\d+) a (\d+) anos'),
+      (m) => '${m[1]}\u00A0a\u00A0${m[2]}\u00A0anos',
+    );
 
 /// [line] as a row's short meta line prints it: [nb], with each dot
 /// glued to the word after it too.
 String nbt(String line) => nb(line).replaceAll('\u00A0· ', '\u00A0·\u00A0');
+
+/// Expects the text [text] shows to wrap onto more than one line, and
+/// only at an ordinary space: never inside a word, a band or a length.
+void expectBreaksOnlyAtSpaces(WidgetTester tester, Finder text) {
+  final paragraph = tester.renderObject<RenderParagraph>(
+    find.descendant(of: text, matching: find.byType(RichText)).first,
+  );
+  final words = paragraph.text.toPlainText();
+  // The line each character is set on, by the top of its box.
+  double? top(int i) => paragraph
+      .getBoxesForSelection(TextSelection(baseOffset: i, extentOffset: i + 1))
+      .firstOrNull
+      ?.top;
+  var lines = 1;
+  for (var i = 0; i + 1 < words.length; i++) {
+    final (a, b) = (top(i), top(i + 1));
+    if (a == null || b == null || a == b) continue;
+    lines++;
+    expect(
+      words[i] == ' ' || words[i + 1] == ' ',
+      isTrue,
+      reason:
+          '"$words" breaks inside a word after "${words.substring(0, i + 1)}"',
+    );
+  }
+  expect(lines, greaterThan(1), reason: 'it wraps');
+}
 
 /// One of the guardian's suggestions as the wire carries it, suggested
 /// [daysAgo] calendar days before the test's clock.
@@ -344,7 +379,9 @@ const auditJson = <String, Object?>{
 
 /// One held video as the wire carries it: [video] with its [rejections],
 /// [reason], reports by reason with their [notes], and the band the
-/// round's answers allow from, [computedBand].
+/// round's answers allow from, [computedBand], with the answers behind it,
+/// [bandAnswers], and whether it played to its end for the reader,
+/// [playedToEnd].
 Map<String, Object?> heldOf(
   Map<String, Object?> video, {
   List<Map<String, Object?>> rejections = const [],
@@ -354,6 +391,8 @@ Map<String, Object?> heldOf(
   List<Map<String, Object?>> doubts = const [],
   Map<String, Object?>? audit,
   String? computedBand,
+  List<Map<String, Object?>>? bandAnswers,
+  bool? playedToEnd,
 }) => {
   'video': {...video, 'state': 'held'},
   'rejections': rejections,
@@ -362,6 +401,8 @@ Map<String, Object?> heldOf(
   'held_reason': ?reason,
   'reports': {'by_reason': reports, 'notes': notes},
   'computed_band': ?computedBand,
+  'band_answers': ?bandAnswers,
+  'played_to_end': ?playedToEnd,
 };
 
 /// The held videos' list.

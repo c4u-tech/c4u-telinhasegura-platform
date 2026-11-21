@@ -33,7 +33,21 @@ import 'package:telinha_segura/privacy/export_delivery.dart';
 
 import '../account/account_screen_test.dart' show sessionJson, sessionsAnswer;
 import '../account/mfa_fixtures.dart';
-import '../curation/approve_screen_test.dart' show approve, start, toReview;
+import '../curation/approve_screen_test.dart' as approving show choose;
+import '../curation/approve_screen_test.dart'
+    show
+        answer,
+        approve,
+        clearSteps,
+        fast,
+        forOlder,
+        hits,
+        noneOfThis,
+        reasonField,
+        start,
+        tapPrimary,
+        toReview,
+        toTopic;
 import '../curation/compose_pack_screen_test.dart' as composing;
 import '../curation/curation_api_test.dart'
     show rejectionJson, reviewJson, videoJson;
@@ -759,7 +773,7 @@ Future<void> toConsent(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField), 'Nina');
   await tester.pumpAndSettle();
   await tapOn(tester, find.byKey(const ValueKey(Avatar.owl)));
-  await tapOn(tester, find.text('9 a 12 anos'));
+  await tapOn(tester, find.text('9\u00A0a\u00A012\u00A0anos'));
   await tapOn(tester, find.text('Continuar'));
 }
 
@@ -1804,6 +1818,15 @@ final curatorScreens =
         null,
       ),
       'review, none yet': ('/curadoria/v1', curatorApi(), null),
+      'review, in progress': (
+        '/curadoria/v1',
+        curatorApi(
+          draft: () => json(200, {
+            'draft': draftJson(answers: {'c25': 'ok', 'c03': 'ok'}),
+          }),
+        ),
+        null,
+      ),
       'review, player failed': (
         '/curadoria/v1',
         curatorApi(),
@@ -1818,19 +1841,75 @@ final curatorScreens =
         curatorApi(),
         (tester, _) => start(tester),
       ),
-      'approve, review': (
+      'approve, a step partly answered': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) async {
+          await start(tester);
+          await answer(tester, hits, 'Não');
+        },
+      ),
+      'approve, a step, played to its end': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, h) async {
+          await start(tester);
+          h.adultPlayer.current!.emit(const PlayerEnded());
+          await tester.pumpAndSettle();
+        },
+      ),
+      'approve, band page': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) => toTopic(tester),
+      ),
+      'approve, band page with an answer that moved it': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) async {
+          await start(tester);
+          await clearSteps(tester, to: 4);
+          await noneOfThis(tester);
+          await answer(tester, fast, 'Sim');
+          await tapPrimary(tester);
+        },
+      ),
+      'approve, older bands with a reason near the bound': (
+        '/curadoria/v1/aprovar',
+        curatorApi(),
+        (tester, _) async {
+          await toTopic(tester);
+          await approving.choose(tester, 'Música');
+          await forOlder(tester);
+          await approving.choose(tester, '9\u00A0a\u00A012\u00A0anos');
+          await tester.enterText(reasonField(), 'a' * 190);
+          await tester.pumpAndSettle();
+          // The older bands in full view, not half under the window.
+          await tester.ensureVisible(find.text('A partir de'));
+          await tester.pumpAndSettle();
+        },
+      ),
+      'approve, review waiting for the end': (
         '/curadoria/v1/aprovar',
         curatorApi(),
         (tester, _) => toReview(tester),
       ),
+      'approve, review': (
+        '/curadoria/v1/aprovar',
+        curatorApi(draft: _playedToEnd),
+        (tester, _) => toReview(tester),
+      ),
       'approve, refused': (
         '/curadoria/v1/aprovar',
-        curatorApi(review: (_) => problem(422, 'validation')),
+        curatorApi(
+          review: (_) => problem(422, 'validation'),
+          draft: _playedToEnd,
+        ),
         (tester, _) => approve(tester),
       ),
       'approve, done': (
         '/curadoria/v1/aprovar',
-        curatorApi(),
+        curatorApi(draft: _playedToEnd),
         (tester, _) => approve(tester),
       ),
       'refuse': ('/curadoria/v1/recusar', curatorApi(), null),
@@ -1931,6 +2010,9 @@ final curatorScreens =
       'pack approve': ('/pacotinhos/p1/aprovar', packApi(), null),
       'pack refuse': ('/pacotinhos/p1/recusar', packApi(), null),
     };
+
+/// A curator's draft whose video already played to its end.
+http.Response _playedToEnd() => json(200, {'draft': draftJson(ended: true)});
 
 FutureOr<http.Response> _bichos(http.Request req) => composing.approvedOf(
   'bichos',
@@ -2204,10 +2286,7 @@ final adminScreens =
         (tester, h) async {
           await _searched(tester, h);
           await tapOn(tester, find.text('Desvincular').first);
-          await tester.enterText(
-            find.widgetWithText(TextField, 'Motivo'),
-            'Pedido da família.',
-          );
+          await tester.enterText(reasonOf(), 'Pedido da família.');
           await tester.pump();
           await tapOn(tester, find.widgetWithText(FilledButton, 'Desvincular'));
         },
@@ -2276,6 +2355,24 @@ final adminScreens =
         adminApi(held: () => heldList([longHeld])),
         null,
       ),
+      'held video, a doubt': (
+        '/moderacao/retidos/v1',
+        adminApi(held: () => heldList([_heldDoubt])),
+        null,
+      ),
+      'held video, a doubt played to its end': (
+        '/moderacao/retidos/v1',
+        adminApi(held: () => heldList([_heldDoubt])),
+        (tester, h) async {
+          h.adultPlayer.current!.emit(const PlayerEnded());
+          await tester.pumpAndSettle();
+        },
+      ),
+      'publish a doubt': (
+        '/moderacao/retidos/v1/publicar',
+        adminApi(held: () => heldList([_heldDoubt])),
+        null,
+      ),
       'held video, player failed': (
         '/moderacao/retidos/v1',
         adminApi(held: () => heldList([longHeld])),
@@ -2296,7 +2393,7 @@ final adminScreens =
         (tester, _) async {
           await tapOn(tester, find.text('Reabrir para revisão'));
           await tester.enterText(
-            find.widgetWithText(TextField, 'Motivo'),
+            reasonOf(),
             List.filled(40, 'canal').join(' ').substring(0, 190),
           );
           await tester.pumpAndSettle();
@@ -2339,10 +2436,7 @@ Future<void> _searched(WidgetTester tester, Harness _) async {
 /// Opens the sheet's [action], gives a reason, and confirms.
 Future<void> _confirmStaff(WidgetTester tester, String action) async {
   await tapOn(tester, find.text(action));
-  await tester.enterText(
-    find.widgetWithText(TextField, 'Motivo'),
-    'Pedido da família.',
-  );
+  await tester.enterText(reasonOf(), 'Pedido da família.');
   await tester.pump();
   await tapOn(tester, find.widgetWithText(FilledButton, action));
 }
@@ -2394,6 +2488,27 @@ final longSheet = <String, Object?>{
       },
   ],
 };
+
+/// A doubt whose round's answers bar the younger bands, with long
+/// questions; the video has not played to its end for the moderator.
+final _heldDoubt = heldOf(
+  queuedJson('v1', List.filled(10, 'Bichos').join(' ')),
+  reason: 'doubt',
+  doubts: [doubtJson],
+  computedBand: '9-12',
+  bandAnswers: [
+    {
+      'text': List.filled(20, 'personagem').join(' '),
+      'answer': 'doubt',
+      'display_role': 'psicologo',
+    },
+    {
+      'text': 'Tem ritmo agitado?',
+      'answer': 'appears',
+      'display_role': 'mae-pai',
+    },
+  ],
+);
 
 /// A held video at its bounds: a 100-character title, a 500-character
 /// refusal and note, every report reason.
@@ -3083,6 +3198,39 @@ void main() {
         }
       });
     }
+  }
+
+  // The reviewer's and the moderator's watched states in the dark theme:
+  // the line under the window before and after the end, the band page and
+  // its answers, and "Publicar" waiting with its hint.
+  const darkCurator = [
+    'approve',
+    'approve, a step, played to its end',
+    'approve, band page',
+    'approve, band page with an answer that moved it',
+    'approve, review waiting for the end',
+  ];
+  const darkAdmin = [
+    'held video, a doubt',
+    'held video, a doubt played to its end',
+    'publish a doubt',
+  ];
+  for (final name in [...darkCurator, ...darkAdmin]) {
+    testWidgets('$name, dark: text contrast', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      final semantics = tester.ensureSemantics();
+      await (darkCurator.contains(name)
+          ? openCurator(tester, name)
+          : openAdmin(tester, name));
+
+      expect(
+        Theme.of(tester.element(find.byType(FieldLayout).first)).brightness,
+        Brightness.dark,
+      );
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+      semantics.dispose();
+    });
   }
 
   for (final name in adminScreens.keys) {

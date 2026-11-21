@@ -22,6 +22,31 @@ Review review(
 );
 
 void main() {
+  test('each theme says in one line what belongs to it', () {
+    expect(
+      {for (final t in VideoTheme.values) t: t.definition},
+      {
+        VideoTheme.bichos:
+            'Animais de verdade ou desenhados: como são, onde vivem, o que '
+            'fazem.',
+        VideoTheme.musica:
+            'A canção está no centro: cantar, dançar, tocar. Clipe sobre bichos '
+            'fica aqui.',
+        VideoTheme.historias:
+            'Uma história contada, lida ou animada, com começo, meio e fim.',
+        VideoTheme.aprender:
+            'Ensina algo: letras, números, cores, palavras ou como uma coisa '
+            'funciona.',
+        VideoTheme.brincar:
+            'Uma brincadeira, um jogo ou algo para fazer com as mãos.',
+        VideoTheme.natureza:
+            'Plantas, água, céu, tempo e lugares do mundo, sem um bicho no '
+            'centro.',
+        VideoTheme.unknown: null,
+      },
+    );
+  });
+
   group('displayed roles, inclusive', () {
     test('each reads in PT-BR, never the wire value', () {
       expect(
@@ -57,7 +82,12 @@ void main() {
   test('bands read as the family screens read them', () {
     expect(
       [for (final b in AgeBand.values) b.label],
-      ['2 a 4 anos', '5 a 8 anos', '9 a 12 anos', 'Faixa não informada'],
+      [
+        '2\u00A0a\u00A04\u00A0anos',
+        '5\u00A0a\u00A08\u00A0anos',
+        '9\u00A0a\u00A012\u00A0anos',
+        'Faixa não informada',
+      ],
     );
   });
 
@@ -144,7 +174,8 @@ void main() {
     }
   });
 
-  test('a dot joins words and never opens a line', () {
+  test('a dot joins words and never opens a line, the line free to break '
+      'after it', () {
     expect(CurationWords.dot, '\u00A0· ');
     expect(
       CurationWords.joined(['Canal Bichos', '4\u00A0min']),
@@ -185,7 +216,7 @@ void main() {
             band: AgeBand.from5To8,
           ),
         ),
-        'Pedagogo(a) aprovou\u00A0· Bichos\u00A0· 5 a 8 anos',
+        'Pedagogo(a) aprovou\u00A0· Bichos\u00A0· 5\u00A0a\u00A08\u00A0anos',
       );
     });
 

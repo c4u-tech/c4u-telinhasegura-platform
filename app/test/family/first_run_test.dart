@@ -103,7 +103,7 @@ Future<void> tapQuiet(WidgetTester tester, String label) => tapOn(
 }
 
 String title(WidgetTester tester) =>
-    tester.widget<FieldLayout>(find.byType(FieldLayout).last).title;
+    tester.widget<FieldLayout>(find.byType(FieldLayout).last).title!;
 
 Future<void> registerLia(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField), 'Lia');

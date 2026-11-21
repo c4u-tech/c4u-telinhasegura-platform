@@ -380,6 +380,21 @@ void main() {
     ]);
   });
 
+  test('an older band is sent with its reason', () async {
+    final t = build(ClientKind.mobile, contract);
+    await CurationApi(t.client).approve(
+      'v1',
+      theme: VideoTheme.bichos,
+      minAgeBand: AgeBand.from9To12,
+      version: '2026-10-21',
+      answers: {'c07': ChecklistAnswer.ok},
+      bandReason: 'Usa ironia.',
+    );
+    expect(t.calls, [
+      'POST /v1/curation/videos/v1/reviews {"decision":"approve","theme":"bichos","min_age_band":"9-12","checklist_version":"2026-10-21","answers":{"c07":"ok"},"band_reason":"Usa ironia."}',
+    ]);
+  });
+
   test('the draft calls hit their contract paths', () async {
     const draftJson = {
       'checklist_version': '2026-10-21',

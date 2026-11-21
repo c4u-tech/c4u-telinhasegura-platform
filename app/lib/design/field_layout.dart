@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'display_title.dart';
+import 'pinned_header.dart';
 import 'tevi.dart';
 import 'theme.dart';
 import 'tokens.dart';
@@ -104,11 +105,17 @@ class ShellFrame extends InheritedWidget {
 /// with the mascot standing on its top edge; the task sits on the ground
 /// beside it (wide) or below it (narrow). No cards: the field's edge does
 /// the dividing.
+///
+/// A screen that is watched while it is worked on gives a [watch] (a
+/// player and its state): it stays in view above the task, pinned under
+/// the band or the back control while the task scrolls beneath it, or in
+/// a pane of its own beside the task on a large window.
 class FieldLayout extends StatelessWidget {
   const FieldLayout({
     super.key,
     required this.title,
     required this.children,
+    this.watch,
     this.titleSemanticsLabel,
     this.titleLeading,
     this.titleLine,
@@ -125,7 +132,11 @@ class FieldLayout extends StatelessWidget {
   /// The ink field itself, narrow or in the wide panel.
   static const fieldKey = Key('ink-field');
 
-  final String title;
+  /// The display title over the task; null for none.
+  final String? title;
+
+  /// What stays in view while the task is worked on; see the class.
+  final Widget? watch;
 
   /// The column's cap: the task's 400 px, wider only for a screen that
   /// is not one task (the home's two columns of children beside the rail).
@@ -202,6 +213,8 @@ class FieldLayout extends StatelessWidget {
     if (frame != null && frame.rail) {
       final framed = _RailFramed(
         task: task,
+        watch: watch,
+        width: columnWidth,
         onBack: _atPaneRoot(context, frame) ? null : onBack,
         wink: wink,
         winks: frame.winks,
@@ -252,7 +265,24 @@ class FieldLayout extends StatelessWidget {
                           horizontal: Space.xl,
                           vertical: Space.xxxl,
                         ),
-                        child: task,
+                        // Without a pane of its own here, what is watched
+                        // heads the task.
+                        child: switch (watch) {
+                          final watch? => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: columnWidth,
+                                ),
+                                child: watch,
+                              ),
+                              const SizedBox(height: Space.xl),
+                              task,
+                            ],
+                          ),
+                          null => task,
+                        },
                       ),
                     ),
                   ),
@@ -260,6 +290,16 @@ class FieldLayout extends StatelessWidget {
               );
             }
             final hero = size == FieldSize.hero && !compact;
+            if (watch case final watch?) {
+              return _pinnedUnderBand(
+                context,
+                watch: watch,
+                task: task,
+                onBack: onBack,
+                wink: wink,
+                width: columnWidth,
+              );
+            }
             return SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -303,6 +343,66 @@ class FieldLayout extends StatelessWidget {
   }
 }
 
+/// The narrow band and [watch] under it stay at the top while [task]
+/// scrolls beneath them, as long as the task keeps at least half the
+/// height: else the band scrolls away and [watch] alone stays, when that
+/// leaves the task half; else both scroll with it.
+Widget _pinnedUnderBand(
+  BuildContext context, {
+  required Widget watch,
+  required Widget task,
+  required VoidCallback? onBack,
+  required bool wink,
+  required double width,
+}) {
+  final p = context.palette;
+  return CustomScrollView(
+    slivers: [
+      PinnedHeader(
+        edge: p.outline.withValues(alpha: .5),
+        lead: ColoredBox(
+          color: p.ground,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.md, 0),
+            child: _Field(
+              corner: FieldSizes.bandCorner,
+              tevi: FieldSizes.bandTevi,
+              wink: wink,
+              child: _FieldContent(size: FieldSize.band, onBack: onBack),
+            ),
+          ),
+        ),
+        child: ColoredBox(
+          color: p.ground,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.xl,
+              Space.lg,
+              Space.xl,
+              Space.lg,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: width),
+                child: watch,
+              ),
+            ),
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          Space.xl,
+          Space.xl,
+          Space.xl,
+          Space.xxxl,
+        ),
+        sliver: SliverToBoxAdapter(child: Center(child: task)),
+      ),
+    ],
+  );
+}
+
 /// A screen beside the ink rail: the rail is its field. Every column
 /// stands at one place, at the top of the content area and centred in it
 /// (or at the start of its pane, beside a list), so the title stays put
@@ -311,6 +411,8 @@ class FieldLayout extends StatelessWidget {
 class _RailFramed extends StatefulWidget {
   const _RailFramed({
     required this.task,
+    required this.watch,
+    required this.width,
     required this.onBack,
     required this.wink,
     required this.winks,
@@ -318,10 +420,22 @@ class _RailFramed extends StatefulWidget {
   });
 
   final Widget task;
+  final Widget? watch;
+
+  /// The task column's cap.
+  final double width;
   final VoidCallback? onBack;
   final bool wink;
   final ValueNotifier<int> winks;
   final Pane pane;
+
+  /// From this width of the content area what is watched takes a pane of
+  /// its own: the room a large window leaves beside the rail, the same
+  /// at which a place shows its list beside its item.
+  static const watchPaneFrom =
+      ShellSizes.listDetailBreakpoint -
+      ShellSizes.railInset -
+      ShellSizes.railWidth;
 
   /// The space around the column in each place beside the rail.
   static EdgeInsetsDirectional padding(Pane pane) => switch (pane) {
@@ -372,44 +486,146 @@ class _RailFramedState extends State<_RailFramed> {
     WidgetsBinding.instance.addPostFrameCallback((_) => widget.winks.value++);
   }
 
+  /// The back control's slot over the column, kept empty at a root.
+  Widget _backSlot(BuildContext context) => SizedBox(
+    height: 48,
+    child: switch (widget.onBack) {
+      // The arrow's edge on the column's edge; the button's own inset
+      // stands outside it.
+      final onBack? => Transform.translate(
+        offset: const Offset(-Space.md, 0),
+        child: IconButton(
+          onPressed: onBack,
+          tooltip: 'Voltar',
+          color: context.palette.text,
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+      ),
+      null => null,
+    },
+  );
+
+  AlignmentGeometry get _align => widget.pane == Pane.single
+      ? Alignment.topCenter
+      : AlignmentDirectional.topStart;
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: SingleChildScrollView(
-        padding: _RailFramed.padding(widget.pane),
-        child: Align(
-          alignment: widget.pane == Pane.single
-              ? Alignment.topCenter
-              : AlignmentDirectional.topStart,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 48,
-                child: switch (widget.onBack) {
-                  // The arrow's edge on the column's edge; the button's own
-                  // inset stands outside it.
-                  final onBack? => Transform.translate(
-                    offset: const Offset(-Space.md, 0),
-                    child: IconButton(
-                      onPressed: onBack,
-                      tooltip: 'Voltar',
-                      color: context.palette.text,
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                  ),
-                  null => null,
-                },
-              ),
-              const SizedBox(height: Space.sm),
-              widget.task,
-            ],
+      child: switch (widget.watch) {
+        final watch? => LayoutBuilder(
+          builder: (context, box) => box.maxWidth >= _RailFramed.watchPaneFrom
+              ? _beside(context, watch)
+              : _pinned(context, watch),
+        ),
+        null => SingleChildScrollView(
+          padding: _RailFramed.padding(widget.pane),
+          child: Align(
+            alignment: _align,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _backSlot(context),
+                const SizedBox(height: Space.sm),
+                widget.task,
+              ],
+            ),
+          ),
+        ),
+      },
+    ),
+  );
+
+  /// What is watched in its own pane, under the back control; a hairline;
+  /// then the task in its column, which scrolls on its own, its top level
+  /// with the watched pane's.
+  Widget _beside(BuildContext context, Widget watch) => Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(
+        // Read first: what is watched, then the task.
+        child: FocusTraversalGroup(
+          child: SingleChildScrollView(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              Space.xxxl,
+              Space.xxl,
+              Space.xl,
+              Space.xxxl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _backSlot(context),
+                const SizedBox(height: Space.sm),
+                watch,
+              ],
+            ),
           ),
         ),
       ),
-    ),
+      VerticalDivider(
+        width: 1,
+        thickness: 1,
+        color: context.palette.outline.withValues(alpha: .5),
+      ),
+      SizedBox(
+        width: widget.width + Space.xxxl + Space.xl,
+        child: FocusTraversalGroup(
+          child: SingleChildScrollView(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              Space.xxxl,
+              Space.xxl + 48 + Space.sm,
+              Space.xl,
+              Space.xxxl,
+            ),
+            child: widget.task,
+          ),
+        ),
+      ),
+    ],
   );
+
+  /// The back control and what is watched stay at the top while the task
+  /// scrolls beneath them, as long as the task keeps at least half the
+  /// height: else the back control scrolls away and what is watched alone
+  /// stays, when that leaves the task half; else both scroll with it.
+  Widget _pinned(BuildContext context, Widget watch) {
+    final p = context.palette;
+    final sides = _RailFramed.padding(widget.pane);
+    Widget column(Widget child) => Align(
+      alignment: _align,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: widget.width),
+        child: child,
+      ),
+    );
+    return CustomScrollView(
+      slivers: [
+        PinnedHeader(
+          edge: p.outline.withValues(alpha: .5),
+          lead: ColoredBox(
+            color: p.ground,
+            child: Padding(
+              padding: sides.copyWith(bottom: Space.sm),
+              child: column(_backSlot(context)),
+            ),
+          ),
+          child: ColoredBox(
+            color: p.ground,
+            child: Padding(
+              padding: sides.copyWith(top: 0, bottom: Space.lg),
+              child: column(watch),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: sides.copyWith(top: Space.xl),
+          sliver: SliverToBoxAdapter(child: column(widget.task)),
+        ),
+      ],
+    );
+  }
 }
 
 class _TaskColumn extends StatelessWidget {
@@ -424,7 +640,7 @@ class _TaskColumn extends StatelessWidget {
   });
 
   final double width;
-  final String title;
+  final String? title;
   final String? titleSemanticsLabel;
   final Widget? leading;
   final String? line;
@@ -434,18 +650,18 @@ class _TaskColumn extends StatelessWidget {
   final String? lead;
 
   /// The title, with its muted line under it and its mark beside both.
-  Widget _heading(BuildContext context) {
-    final title = Semantics(
+  Widget _heading(BuildContext context, String title) {
+    final heading = Semantics(
       header: true,
-      child: DisplayTitle(this.title, semanticsLabel: titleSemanticsLabel),
+      child: DisplayTitle(title, semanticsLabel: titleSemanticsLabel),
     );
     final line = this.line;
     final leading = this.leading;
-    if (line == null && leading == null) return title;
+    if (line == null && leading == null) return heading;
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        title,
+        heading,
         if (line != null) ...[
           const SizedBox(height: Space.xs),
           Text(
@@ -473,12 +689,14 @@ class _TaskColumn extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _heading(context),
-        if (lead case final lead?) ...[
-          const SizedBox(height: Space.md),
-          Text(lead, style: Theme.of(context).textTheme.bodyLarge),
+        if (title case final title?) ...[
+          _heading(context, title),
+          if (lead case final lead?) ...[
+            const SizedBox(height: Space.md),
+            Text(lead, style: Theme.of(context).textTheme.bodyLarge),
+          ],
+          const SizedBox(height: Space.xl),
         ],
-        const SizedBox(height: Space.xl),
         ...children,
       ],
     ),

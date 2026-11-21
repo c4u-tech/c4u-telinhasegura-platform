@@ -130,15 +130,26 @@ func Checklist() []ChecklistGroup {
 	return out
 }
 
-// formerBandRules are the band questions of every former list, each with
-// the youngest band a yes still allowed, so a review keeps the meaning it
-// was stored with. A review written before any list bars no band; one
-// stored under a list missing here stops a moderator's decision, so when
-// the current list changes its band questions must be added here first.
-var formerBandRules = map[string]map[string]family.AgeBand{
-	"2026-10-20": {"c22": family.Age5To8},
-	"2026-10-21": {"c22": family.Age5To8},
-	"2026-11-11": {"c22": family.Age5To8},
+// bandQuestion is one band question of a former list: its ID, its words
+// as that list asked it, and the youngest band a yes still allowed.
+type bandQuestion struct {
+	ID      string
+	Text    string
+	MinBand family.AgeBand
+}
+
+// formerBandQuestions are the band questions of every former list, in the
+// order it asked them, so a review keeps the meaning it was stored with,
+// and a question the current list no longer asks can still be worded. A
+// review written before any list bars no band; one stored under a list
+// missing here stops a moderator's decision, so when the current list
+// changes its band questions must be added here first, with their words.
+var formerBandQuestions = map[string][]bandQuestion{
+	// Asked in the positive there: its stored "appears" was the "no" to a
+	// calm pace, a fast one, as on every later list.
+	"2026-10-20": {{ID: "c22", Text: "Ritmo calmo, uma coisa por vez, frases curtas, sem gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
+	"2026-10-21": {{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
+	"2026-11-11": {{ID: "c22", Text: "Tem ritmo agitado, gritaria ou cortes rápidos?", MinBand: family.Age5To8}},
 }
 
 // currentBandRules are the current list's band questions and their bands.
@@ -158,13 +169,21 @@ func bandRules(version string) map[string]family.AgeBand {
 	if version == ChecklistVersion {
 		return currentBandRules
 	}
-	return formerBandRules[version]
+	qs, ok := formerBandQuestions[version]
+	if !ok {
+		return nil
+	}
+	out := make(map[string]family.AgeBand, len(qs))
+	for _, q := range qs {
+		out[q.ID] = q.MinBand
+	}
+	return out
 }
 
 // knownList reports whether a review stored under version can be read for
 // its band: the current list, a former one, or none at all.
 func knownList(version string) bool {
-	_, former := formerBandRules[version]
+	_, former := formerBandQuestions[version]
 	return version == "" || version == ChecklistVersion || former
 }
 

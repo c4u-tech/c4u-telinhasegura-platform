@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telinha_segura/access/widgets.dart' show ReasonField;
 import 'package:telinha_segura/kid/tap_guard.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -337,3 +338,10 @@ class FixedDeviceLabel implements DeviceLabelSource {
   @override
   Future<String> read() async => label;
 }
+
+/// The reason field labelled [label], wherever its label stands: inside
+/// the field, or over it at large text.
+Finder reasonOf([String label = 'Motivo']) => find.descendant(
+  of: find.byWidgetPredicate((w) => w is ReasonField && w.label == label),
+  matching: find.byType(TextField),
+);

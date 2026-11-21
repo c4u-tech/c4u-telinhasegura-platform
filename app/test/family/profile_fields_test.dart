@@ -277,11 +277,11 @@ void main() {
       );
       expect(find.text(underTwoAdvice), findsNothing);
 
-      await tester.tap(find.text('2 a 4 anos'));
+      await tester.tap(find.text('2\u00A0a\u00A04\u00A0anos'));
       await tester.pump();
       expect(find.text(underTwoAdvice), findsOneWidget);
 
-      await tester.tap(find.text('5 a 8 anos'));
+      await tester.tap(find.text('5\u00A0a\u00A08\u00A0anos'));
       await tester.pump();
       expect(find.text(underTwoAdvice), findsNothing);
     });
@@ -307,9 +307,9 @@ void main() {
           .isLiveRegion;
       expect(live(), isFalse);
 
-      await tester.tap(find.text('5 a 8 anos'));
+      await tester.tap(find.text('5\u00A0a\u00A08\u00A0anos'));
       await tester.pump();
-      await tester.tap(find.text('2 a 4 anos'));
+      await tester.tap(find.text('2\u00A0a\u00A04\u00A0anos'));
       await tester.pump();
       expect(live(), isTrue);
       semantics.dispose();

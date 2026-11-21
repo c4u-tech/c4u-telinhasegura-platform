@@ -115,7 +115,9 @@ class CurationApi {
   /// Approves with every answer of the checklist [version]; the video's
   /// state after the review. A doubt, or an answer that asks for the team,
   /// holds the video instead, with [note]; it may leave [theme] and
-  /// [minAgeBand] out for the team to choose.
+  /// [minAgeBand] out for the team to choose. A band older than the answers
+  /// give goes with [bandReason], 1 to 200 characters, or is refused with
+  /// `validation`.
   /// Refused with `checklist_outdated`, `checklist_refuses`,
   /// `checklist_band`, `conflict_of_interest`, or `not_watched` for an
   /// approval before the player's end was recorded.
@@ -126,6 +128,7 @@ class CurationApi {
     required String version,
     required Map<String, ChecklistAnswer> answers,
     String? note,
+    String? bandReason,
   }) => _review(id, {
     'decision': 'approve',
     'theme': ?theme?.wire,
@@ -133,6 +136,7 @@ class CurationApi {
     'checklist_version': version,
     'answers': {for (final e in answers.entries) e.key: e.value.wire},
     'note': ?note,
+    'band_reason': ?bandReason,
   });
 
   /// Rejects for [failedItems], each a question that refuses, with an

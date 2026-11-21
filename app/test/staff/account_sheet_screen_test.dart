@@ -746,7 +746,7 @@ void main() {
       await sheetOf(tester, support: (_) => answer.future);
 
       await tapOn(tester, quiet('Desvincular'));
-      await tester.enterText(find.widgetWithText(TextField, 'Motivo'), why);
+      await tester.enterText(reasonOf(), why);
       await tester.pump();
       // The progress turns until the answer: no settling before it.
       await tester.tap(confirming('Desvincular'));

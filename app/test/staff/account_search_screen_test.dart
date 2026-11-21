@@ -18,7 +18,7 @@ const biaId = '0b6f3c4e-9a1d-4c2b-8e7f-1a2b3c4d5e6f';
 
 Finder get field =>
     find.widgetWithText(TextField, 'E-\u2060mail ou código da conta');
-Finder get reason => find.widgetWithText(TextField, 'Motivo');
+Finder get reason => reasonOf();
 Finder get search => find.widgetWithText(FilledButton, 'Buscar');
 
 bool waits(WidgetTester tester) =>

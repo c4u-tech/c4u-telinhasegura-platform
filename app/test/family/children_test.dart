@@ -38,8 +38,8 @@ void main() {
     expect(find.text('Crianças'), findsOneWidget);
     expect(find.widgetWithText(DoorRow, 'Lia'), findsOneWidget);
     expect(find.widgetWithText(DoorRow, 'Téo'), findsOneWidget);
-    expect(find.text('5 a 8 anos'), findsOneWidget);
-    expect(find.text('2 a 4 anos'), findsOneWidget);
+    expect(find.text('5\u00A0a\u00A08\u00A0anos'), findsOneWidget);
+    expect(find.text('2\u00A0a\u00A04\u00A0anos'), findsOneWidget);
     final discs = tester.widgetList<AvatarDisc>(find.byType(AvatarDisc));
     expect(discs.map((d) => (d.avatar, d.size)), [
       (Avatar.fox, 56.0),
@@ -52,7 +52,10 @@ void main() {
     final semantics = tester.ensureSemantics();
     await children(tester);
 
-    expect(find.bySemanticsLabel('Lia, 5 a 8 anos'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Lia, 5\u00A0a\u00A08\u00A0anos'),
+      findsOneWidget,
+    );
     semantics.dispose();
   });
 
@@ -140,10 +143,13 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.bySemanticsLabel('Lia, 5 a 8 anos, $needsConsent'),
+      find.bySemanticsLabel('Lia, 5\u00A0a\u00A08\u00A0anos, $needsConsent'),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('Téo, 5 a 8 anos'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Téo, 5\u00A0a\u00A08\u00A0anos'),
+      findsOneWidget,
+    );
     semantics.dispose();
   });
 

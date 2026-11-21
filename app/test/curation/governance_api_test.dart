@@ -111,6 +111,33 @@ void main() {
     );
   });
 
+  test('a held video carries the answers behind its band, by displayed '
+      'role', () {
+    final held = HeldVideo.fromJson({
+      ...heldOf(pendingJson, reason: 'doubt'),
+      'band_answers': [
+        {
+          'text': 'Tem ritmo agitado?',
+          'answer': 'doubt',
+          'display_role': 'mae-pai',
+        },
+        {'text': 'Namoro?', 'answer': 'appears', 'display_role': 'pedagogo'},
+      ],
+    });
+    expect(
+      [for (final b in held.bandAnswers) (b.text, b.answer, b.displayRole)],
+      [
+        ('Tem ritmo agitado?', ChecklistAnswer.doubt, DisplayRole.maePai),
+        ('Namoro?', ChecklistAnswer.appears, DisplayRole.pedagogo),
+      ],
+    );
+    expect(
+      HeldVideo.fromJson(heldOf(pendingJson)).bandAnswers,
+      isEmpty,
+      reason: 'an older server sends none',
+    );
+  });
+
   test('a list without its limits reads 20 and 60 minutes', () {
     final list = Checklist.fromJson({'version': 'v', 'groups': <Object>[]});
     expect(list.longFrom, const Duration(minutes: 20));
@@ -173,7 +200,7 @@ void main() {
     expect(CurationWords.marked(Review.fromJson(rejectionJson), list), isEmpty);
     expect(
       CurationWords.review(doubt),
-      'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5 a 8 anos',
+      'Mãe ou pai teve dúvida\u00A0· Bichos\u00A0· 5\u00A0a\u00A08\u00A0anos',
       reason: 'a doubt names the theme and band its curator chose',
     );
   });

@@ -40,7 +40,7 @@ func decodeReview(t *testing.T, r resp) reviewResp {
 func approvalWith(theme, band string, changed map[string]string) map[string]any {
 	body := approval(theme, band)
 	maps.Copy(body["answers"].(map[string]string), changed)
-	return body
+	return withReason(body)
 }
 
 func TestReviewWithTheChecklistOverHTTP(t *testing.T) {
@@ -189,6 +189,16 @@ func TestReviewCarriesTheComputedBandOverHTTP(t *testing.T) {
 		t.Fatalf("approval %+v", got.Review)
 	}
 	older := approval("bichos", "9-12")
+	delete(older, "band_reason")
+	for _, reason := range []any{nil, "  "} {
+		if reason != nil {
+			older["band_reason"] = reason
+		}
+		if r := a.do(http.MethodPost, reviews(other.ID), older, bearer(c1)...); r.Code != http.StatusUnprocessableEntity ||
+			r.problemCode() != "validation" {
+			t.Fatalf("an older band, reason %v: %d %q", reason, r.Code, r.problemCode())
+		}
+	}
 	older["band_reason"] = "Mais velho."
 	got = decodeReview(t, a.approve(c1, other.ID, older))
 	if got.Review.ComputedBand == nil || *got.Review.ComputedBand != "ate-4" || got.Review.BandReason == nil ||
@@ -214,6 +224,35 @@ func TestHeldDoubtServesItsComputedBandOverHTTP(t *testing.T) {
 	}
 	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
 	if len(held.Videos) != 1 || held.Videos[0].ComputedBand != "5-8" {
+		t.Fatalf("held %+v", held)
+	}
+}
+
+// The held doubt says which answers of the round bar a younger band,
+// worded as the list asks them and by the role of who gave them.
+func TestHeldDoubtServesTheAnswersBehindItsBandOverHTTP(t *testing.T) {
+	a := newAPI(t)
+	admin := a.admin("ana@example.com")
+	c1 := a.curator(admin, "c1@example.com", "mae-pai")
+	mod := a.moderator(admin, "mia@example.com")
+	v := a.suggest(a.familyOwner("gui@example.com"), ytID)
+	doubt := approvalWith("", "", map[string]string{"c13": "doubt", "c34": "appears"})
+	if r := a.do(http.MethodPost, "/v1/curation/videos/"+v.ID+"/reviews", doubt, bearer(c1)...); r.Code != http.StatusCreated {
+		t.Fatalf("doubt: %d %s", r.Code, r.Body)
+	}
+	type bandAnswer struct {
+		Text        string `json:"text"`
+		Answer      string `json:"answer"`
+		DisplayRole string `json:"display_role"`
+	}
+	var held struct {
+		Videos []struct {
+			BandAnswers []bandAnswer `json:"band_answers"`
+		} `json:"videos"`
+	}
+	getJSON(t, a.do(http.MethodGet, "/v1/moderation/videos?state=held", nil, bearer(mod)...), &held)
+	want := bandAnswer{"Para acompanhar o vídeo é preciso ler o que está escrito na tela?", "appears", "mae-pai"}
+	if len(held.Videos) != 1 || len(held.Videos[0].BandAnswers) != 1 || held.Videos[0].BandAnswers[0] != want {
 		t.Fatalf("held %+v", held)
 	}
 }

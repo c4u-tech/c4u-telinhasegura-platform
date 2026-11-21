@@ -532,3 +532,102 @@ class BulletItem extends StatelessWidget {
     );
   }
 }
+
+/// The length of a reason as the server counts it: one per character code
+/// (a rune), so an emoji made of two codes counts two.
+int reasonLength(String text) => text.runes.length;
+
+/// A reason with a bound ("Motivo", "Por que é para mais velhos"): it grows
+/// with its words from [minLines], takes no more than [maxLength] counted
+/// as [reasonLength] counts, and shows "170 de 200" only near its bound.
+/// At a text scale of 1.5 or more its [label], which would float on two
+/// lines across the field's edge, stands as plain body-large text on its
+/// own line 8 px above the field, merged with it so it is read once as
+/// the field's.
+class ReasonField extends StatelessWidget {
+  const ReasonField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.maxLength,
+    this.minLines = 1,
+    this.enabled,
+    this.errorText,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLength;
+  final int minLines;
+  final bool? enabled;
+  final String? errorText;
+
+  /// The count shows from here, near the bound.
+  static const countFrom = 160;
+
+  @override
+  Widget build(BuildContext context) {
+    final over = MediaQuery.textScalerOf(context).scale(16) / 16 >= 1.5;
+    final field = TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: TextInputType.multiline,
+      textCapitalization: TextCapitalization.sentences,
+      minLines: minLines,
+      maxLines: null,
+      // The bound in runes, not in the field's own symbols: what the field
+      // holds, the server takes.
+      inputFormatters: [_RuneLimit(maxLength)],
+      buildCounter:
+          (_, {required currentLength, required isFocused, maxLength}) {
+            final n = reasonLength(controller.text);
+            return n < countFrom
+                ? null
+                : Text(
+                    '$n de ${this.maxLength}',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: context.palette.muted),
+                  );
+          },
+      decoration: InputDecoration(
+        labelText: over ? null : label,
+        alignLabelWithHint: true,
+        errorText: errorText,
+        errorMaxLines: 3,
+      ),
+    );
+    if (!over) return field;
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyLarge),
+          const SizedBox(height: Space.sm),
+          field,
+        ],
+      ),
+    );
+  }
+}
+
+/// Cuts what is typed or pasted to [max] runes.
+class _RuneLimit extends TextInputFormatter {
+  _RuneLimit(this.max);
+
+  final int max;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (reasonLength(newValue.text) <= max) return newValue;
+    final text = String.fromCharCodes(newValue.text.runes.take(max));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: newValue.selection.end.clamp(0, text.length),
+      ),
+    );
+  }
+}

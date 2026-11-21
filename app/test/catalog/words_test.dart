@@ -199,7 +199,7 @@ void main() {
         now,
       );
       expect(s, contains('2 mães'));
-      expect(s, contains('pais · '));
+      expect(s, contains('pais\u00A0· '));
       expect(plain(s), endsWith('última revisão ontem'));
     });
 

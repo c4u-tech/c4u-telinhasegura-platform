@@ -192,7 +192,12 @@ class _AccountSearchScreenState extends State<AccountSearchScreen> {
             ),
           ),
           const SizedBox(height: Space.lg),
-          ReasonField(controller: _reason),
+          ReasonField(
+            controller: _reason,
+            label: 'Motivo',
+            maxLength: staffReasonMax,
+            minLines: 3,
+          ),
           const SizedBox(height: Space.xl),
           PrimaryButton(
             label: 'Buscar',

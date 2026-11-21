@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -163,35 +164,106 @@ var errUnknownList = errors.New("curation: review stored under an unknown list")
 // error: reading it as barring nothing would let a band through that its
 // answers ruled out.
 func (s *Service) roundBand(ctx context.Context, q querier, videoID string, round, seconds int) (family.AgeBand, error) {
+	reviews, err := roundAnswers(ctx, q, videoID, round)
+	if err != nil {
+		return "", err
+	}
+	return s.bandOf(reviews, seconds), nil
+}
+
+// bandOf is the youngest band the answers of reviews allow for a video of
+// that many seconds.
+func (s *Service) bandOf(reviews []storedAnswers, seconds int) family.AgeBand {
 	over := time.Duration(seconds)*time.Second > s.d.FamilyYoungestMaxDuration
-	rows, err := q.Query(ctx, `SELECT coalesce(checklist_version, ''), checklist FROM video_reviews
-		WHERE video_id = $1::uuid AND round = $2 AND jsonb_typeof(checklist) = 'object'`, videoID, round)
-	if err != nil {
-		return "", err
-	}
-	bands, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (family.AgeBand, error) {
-		var version string
-		var list []byte
-		if err := r.Scan(&version, &list); err != nil {
-			return "", err
-		}
-		var answers map[string]Answer
-		if err := json.Unmarshal(list, &answers); err != nil {
-			return "", err
-		}
-		if !knownList(version) {
-			return "", fmt.Errorf("%w: video %s, list %q", errUnknownList, videoID, version)
-		}
-		return bandFrom(version, answers, over), nil
-	})
-	if err != nil {
-		return "", err
-	}
 	band := bandFrom("", nil, over)
-	for _, b := range bands {
-		if bandRank(b) > bandRank(band) {
+	for _, r := range reviews {
+		if b := bandFrom(r.version, r.answers, over); bandRank(b) > bandRank(band) {
 			band = b
 		}
 	}
-	return band, nil
+	return band
+}
+
+// storedAnswers is one review's answers with the list they were given to
+// and the role of who gave them.
+type storedAnswers struct {
+	role    DisplayRole
+	version string
+	answers map[string]Answer
+}
+
+// roundAnswers reads the answers of every review of a round that stored
+// them as answers, in the order they were given; a review under a list the
+// code does not know is errUnknownList.
+func roundAnswers(ctx context.Context, q querier, videoID string, round int) ([]storedAnswers, error) {
+	rows, err := q.Query(ctx, `SELECT display_role, coalesce(checklist_version, ''), checklist FROM video_reviews
+		WHERE video_id = $1::uuid AND round = $2 AND jsonb_typeof(checklist) = 'object' ORDER BY reviewed_at, id`, videoID, round)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (storedAnswers, error) {
+		var x storedAnswers
+		var role string
+		var list []byte
+		if err := r.Scan(&role, &x.version, &list); err != nil {
+			return x, err
+		}
+		x.role = DisplayRole(role)
+		if err := json.Unmarshal(list, &x.answers); err != nil {
+			return x, err
+		}
+		if !knownList(x.version) {
+			return x, fmt.Errorf("%w: video %s, list %q", errUnknownList, videoID, x.version)
+		}
+		return x, nil
+	})
+}
+
+// BandAnswer is an answer that bars a younger band: the question as the
+// list words it, the answer (yes or "I don't know") and the role of who
+// gave it, never who.
+type BandAnswer struct {
+	Text        string
+	Answer      Answer
+	DisplayRole DisplayRole
+}
+
+// bandAnswers are the answers of reviews that bar a younger band, each
+// read under the list it was given to, in the current list's order and,
+// for one question, in the order they were given. A former list's band
+// question is worded as the current list words it; one the current list
+// no longer asks follows, worded as its own list asked it, since it still
+// raises the band.
+func bandAnswers(reviews []storedAnswers) []BandAnswer {
+	var out []BandAnswer
+	raises := func(a Answer) bool { return a == AnswerAppears || a == AnswerDoubt }
+	for _, id := range checklistOrder {
+		for _, r := range reviews {
+			if _, band := bandRules(r.version)[id]; !band {
+				continue
+			}
+			if a := r.answers[id]; raises(a) {
+				out = append(out, BandAnswer{Text: checklistItem[id].Text, Answer: a, DisplayRole: r.role})
+			}
+		}
+	}
+	// The questions no longer asked, in the order the reviews first met them.
+	var gone []string
+	for _, r := range reviews {
+		for _, q := range formerBandQuestions[r.version] {
+			if _, asked := checklistItem[q.ID]; !asked && !slices.Contains(gone, q.ID) {
+				gone = append(gone, q.ID)
+			}
+		}
+	}
+	for _, id := range gone {
+		for _, r := range reviews {
+			for _, q := range formerBandQuestions[r.version] {
+				if q.ID == id && raises(r.answers[id]) {
+					out = append(out, BandAnswer{Text: q.Text, Answer: r.answers[id], DisplayRole: r.role})
+				}
+			}
+		}
+	}
+	return out
 }

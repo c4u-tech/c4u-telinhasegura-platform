@@ -128,6 +128,92 @@ void main() {
     expect(d.refusing, ['c04']);
   });
 
+  test('the shortcut answers Não only to the questions still open and '
+      'never changes an answer given', () {
+    final d = ApprovalDraft(list, length: short)
+      ..answer(item('c22'), ChecklistAnswer.appears);
+    expect(d.openIn(group(2)), 2);
+    d.noneOf(group(2));
+    expect(d.answerOf(item('c22')), ChecklistAnswer.appears);
+    expect(d.answerOf(item('c35')), ChecklistAnswer.ok);
+    expect(d.answerOf(item('c23')), ChecklistAnswer.ok);
+    expect(d.openIn(group(2)), 0);
+    expect(d.answerOf(item('c04')), isNull, reason: 'another group');
+  });
+
+  test('coming back opens on the first page with an open question, the '
+      'theme and band once all are answered, the review when they do not '
+      'approve', () {
+    ReviewDraft kept(Map<String, ChecklistAnswer> answers) => ReviewDraft(
+      version: '2026-10-21',
+      answers: answers,
+      beganAt: DateTime.utc(2026, 11, 20, 10),
+    );
+    const no = ChecklistAnswer.ok;
+    final none = ApprovalDraft(list, length: short)..resume();
+    expect(none.page, 0);
+    expect(none.stoppedAt, group(0));
+
+    final partway = ApprovalDraft(list, length: short)
+      ..restore(kept({'c25': no, 'c03': no, 'c04': no, 'c07': no, 'c22': no}))
+      ..resume();
+    expect(partway.page, 2);
+    expect(partway.stoppedAt, group(2));
+
+    final gap = ApprovalDraft(list, length: short)
+      ..restore(kept({'c25': no, 'c22': no, 'c35': no, 'c23': no}))
+      ..resume();
+    expect(gap.page, 0, reason: 'the first open question, in the order');
+
+    final all = {
+      'c25': no,
+      'c03': no,
+      'c04': no,
+      'c07': no,
+      'c22': no,
+      'c35': no,
+      'c23': no,
+    };
+    final done = ApprovalDraft(list, length: short)
+      ..restore(kept(all))
+      ..resume();
+    expect(done.stoppedAt, isNull);
+    expect(done.page, done.topicPage);
+
+    final refused = ApprovalDraft(list, length: short)
+      ..restore(kept({...all, 'c04': ChecklistAnswer.appears}))
+      ..resume();
+    expect(refused.page, refused.reviewPage);
+
+    // The long-only questions are open only on a long video.
+    final long = ApprovalDraft(list, length: const Duration(minutes: 25))
+      ..restore(kept(all))
+      ..resume();
+    expect(long.stoppedAt?.title, 'Vídeo longo');
+    expect(long.page, 3);
+  });
+
+  test('where a review resumes is one answer for every reader: the first '
+      'page with a tie to the channel, though a later group is open', () {
+    ReviewDraft kept(Map<String, ChecklistAnswer> answers) => ReviewDraft(
+      version: '2026-10-21',
+      answers: answers,
+      beganAt: DateTime.utc(2026, 11, 20, 10),
+    );
+    final tie = ApprovalDraft(list, length: short)
+      ..restore(
+        kept({'c25': ChecklistAnswer.appears, 'c03': ChecklistAnswer.ok}),
+      );
+    expect(tie.stoppedAt, group(1));
+    expect(tie.resumePage, 0);
+    tie.resume();
+    expect(tie.page, tie.resumePage);
+
+    final partway = ApprovalDraft(list, length: short)
+      ..restore(kept({'c25': ChecklistAnswer.ok, 'c03': ChecklistAnswer.ok}));
+    expect(partway.resumePage, 1);
+  });
+
   test('the outcome: a Sim that refuses wins, then a Não sei or a Sim the '
       'team decides, else an approval', () {
     final d = ApprovalDraft(list, length: short);
@@ -165,11 +251,10 @@ void main() {
     expect(approving.page, approving.topicPage);
     expect(approving.group, isNull);
     expect(approving.canGoOn, isFalse);
-    approving
-      ..theme = VideoTheme.musica
-      ..band = AgeBand.from5To8;
+    approving.theme = VideoTheme.musica;
     expect(approving.canGoOn, isTrue);
-    approving.forward();
+    approving.confirmBand();
+    expect(approving.band, AgeBand.upTo4);
     expect(approving.page, approving.reviewPage);
 
     final team = atLastStep()..answer(item('c22'), ChecklistAnswer.doubt);
@@ -183,8 +268,7 @@ void main() {
     final d = atLastStep()
       ..forward()
       ..theme = VideoTheme.musica
-      ..band = AgeBand.from5To8
-      ..forward();
+      ..confirmBand();
     expect(d.back(), isTrue);
     expect(d.page, d.topicPage);
     expect(d.back(), isTrue);
@@ -259,8 +343,7 @@ void main() {
     expect(d.page, d.topicPage);
     d
       ..theme = VideoTheme.bichos
-      ..band = AgeBand.from9To12
-      ..forward();
+      ..confirmBand();
     expect(d.page, d.reviewPage);
   });
 
@@ -505,4 +588,178 @@ void main() {
     final d = ApprovalDraft(strict, length: const Duration(minutes: 3));
     expect(d.tooLongForYoungest, isTrue);
   });
+
+  // Stating the band: the one the answers give, or an older one.
+  {
+    /// On the theme and band with every answer "Não" but [changed].
+    ApprovalDraft atTopic([Map<String, ChecklistAnswer> changed = const {}]) {
+      final d = atLastStep();
+      for (final MapEntry(:key, :value) in changed.entries) {
+        d.answer(item(key), value);
+      }
+      return d..forward();
+    }
+
+    test('lists the band questions answered Sim or Não sei, in the list\'s '
+        'order, and nothing else', () {
+      expect(atTopic().bandAnswers, isEmpty);
+      final d = atTopic({
+        'c35': ChecklistAnswer.doubt,
+        'c22': ChecklistAnswer.appears,
+        'c28': ChecklistAnswer.appears,
+      });
+      expect(d.bandAnswers, [
+        (item('c22'), ChecklistAnswer.appears),
+        (item('c35'), ChecklistAnswer.doubt),
+      ]);
+    });
+
+    test('offers only the bands older than the answers give', () {
+      expect(atTopic().olderBands, [AgeBand.from5To8, AgeBand.from9To12]);
+      expect(atTopic({'c22': ChecklistAnswer.appears}).olderBands, [
+        AgeBand.from9To12,
+      ]);
+      expect(atTopic({'c35': ChecklistAnswer.appears}).olderBands, isEmpty);
+      final long = ApprovalDraft(list, length: const Duration(minutes: 61));
+      expect(long.olderBands, [AgeBand.from9To12]);
+    });
+
+    test('confirming waits for a theme only, states the band the answers '
+        'give and goes on to the review', () {
+      final d = atTopic({'c22': ChecklistAnswer.appears});
+      expect(d.olderOpen, isFalse);
+      expect(d.canGoOn, isFalse);
+      d.theme = VideoTheme.musica;
+      expect(d.canGoOn, isTrue);
+      d.confirmBand();
+      expect(d.band, AgeBand.from5To8);
+      expect(d.statesOlder, isFalse);
+      expect(d.page, d.reviewPage);
+    });
+
+    test('"É para mais velhos" chooses the one older band there is, or none '
+        'of two; going on waits for the theme, the band and a reason of 1 '
+        'to 200 characters', () {
+      final one = atTopic({'c22': ChecklistAnswer.appears})..askOlder();
+      expect(one.olderOpen, isTrue);
+      expect(one.band, AgeBand.from9To12);
+
+      final d = atTopic()
+        ..theme = VideoTheme.bichos
+        ..askOlder();
+      expect(d.band, isNull);
+      expect(d.canGoOn, isFalse);
+      d.band = AgeBand.from5To8;
+      expect(d.statesOlder, isTrue);
+      expect(d.canGoOn, isFalse, reason: 'no reason yet');
+      d.bandReason = '   ';
+      expect(d.canGoOn, isFalse, reason: 'blanks are no reason');
+      d.bandReason = 'x' * 201;
+      expect(d.canGoOn, isFalse);
+      d.bandReason = ' Fala rápida. ';
+      expect(d.canGoOn, isTrue);
+      expect(d.reasonToSend, 'Fala rápida.');
+      d.forward();
+      expect(d.page, d.reviewPage);
+    });
+
+    test('the reason is counted in characters, as the field and the server '
+        'count it: 200 with an emoji is taken', () {
+      final d = atTopic()
+        ..theme = VideoTheme.bichos
+        ..askOlder()
+        ..band = AgeBand.from5To8;
+      final reason = '${'x' * 199}😀';
+      expect(reason.length, 201, reason: 'the emoji is two code units');
+      d.bandReason = reason;
+      expect(d.canGoOn, isTrue);
+      expect(d.reasonToSend, reason);
+      d.bandReason = '${'x' * 200}😀';
+      expect(d.canGoOn, isFalse);
+    });
+
+    test('"Ficar com" goes back to confirming, the older band let go', () {
+      final d = atTopic()
+        ..askOlder()
+        ..band = AgeBand.from9To12
+        ..keepComputed();
+      expect(d.olderOpen, isFalse);
+      expect(d.band, isNull);
+      expect(d.reasonToSend, isNull);
+    });
+
+    test('a reason travels only with an older band', () {
+      final d = atTopic()
+        ..theme = VideoTheme.bichos
+        ..bandReason = 'Mais velho.'
+        ..confirmBand();
+      expect(d.reasonToSend, isNull);
+    });
+
+    test('a band confirmed that the answers no longer give is asked again; '
+        'an older band stays, needing its reason', () {
+      final d = atTopic({'c22': ChecklistAnswer.appears})
+        ..theme = VideoTheme.musica
+        ..confirmBand();
+      d.answer(item('c22'), ChecklistAnswer.ok);
+      expect(d.band, isNull);
+
+      final older = atTopic()
+        ..theme = VideoTheme.musica
+        ..askOlder()
+        ..band = AgeBand.from9To12
+        ..bandReason = 'Ironia.';
+      older.answer(item('c22'), ChecklistAnswer.appears);
+      expect(older.band, AgeBand.from9To12);
+      expect(older.canGoOn, isTrue);
+    });
+
+    test('a page changed from the review whose answer now gives a younger '
+        'band than the one stated goes back to the band, not to the '
+        'review', () {
+      final d = atTopic({'c22': ChecklistAnswer.appears})
+        ..theme = VideoTheme.musica
+        ..confirmBand()
+        ..change(2)
+        ..answer(item('c22'), ChecklistAnswer.ok);
+      expect(d.nextIsTopic, isTrue);
+    });
+
+    test('"mudar" from the band page returns to the band page', () {
+      final d = atTopic({'c22': ChecklistAnswer.appears})
+        ..theme = VideoTheme.musica
+        ..changeFromTopic(2);
+      expect(d.page, 2);
+      expect(d.nextIsTopic, isTrue);
+      d.answer(item('c35'), ChecklistAnswer.appears);
+      d.forward();
+      expect(d.page, d.topicPage);
+      expect(d.olderBands, isEmpty);
+
+      final team = atTopic({'c22': ChecklistAnswer.appears})
+        ..changeFromTopic(2)
+        ..answer(item('c22'), ChecklistAnswer.doubt);
+      team.answer(item('c07'), ChecklistAnswer.doubt);
+      expect(team.nextIsReview, isTrue, reason: 'a doubt has no band');
+    });
+
+    test('a kept older band comes back open, asking its reason again: the '
+        'reason is not kept', () {
+      final d = ApprovalDraft(list, length: short)
+        ..restore(
+          ReviewDraft(
+            version: '2026-10-21',
+            answers: const {},
+            theme: VideoTheme.bichos,
+            minAgeBand: AgeBand.from9To12,
+            beganAt: DateTime.utc(2026, 11, 20, 10),
+          ),
+        );
+      expect(d.band, AgeBand.from9To12);
+      expect(d.olderOpen, isTrue);
+      d.bandReason = 'Ironia.';
+      expect(d.snapshot.band, AgeBand.from9To12);
+      expect(d.snapshot.toString(), isNot(contains('Ironia')));
+    });
+  }
 }

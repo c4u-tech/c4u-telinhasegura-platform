@@ -72,9 +72,41 @@ func cleanAnswers() map[string]string {
 	return out
 }
 
+// olderReason is the reason approval gives a band older than its answers
+// allow, as an approval stating one must.
+const olderReason = "Para crianças mais velhas."
+
+// withReason sets body's band reason to olderReason when its answers make a
+// plain approval and its band is older than the youngest they allow (a band
+// question's yes or "I don't know" allows from its own band up), and drops
+// it otherwise: a doubt gives none.
+func withReason(body map[string]any) map[string]any {
+	rank := map[string]int{"ate-4": 1, "5-8": 2, "9-12": 3}
+	answers := body["answers"].(map[string]string)
+	allowed, doubt := "ate-4", false
+	for _, g := range curation.Checklist() {
+		for _, it := range g.Items {
+			a := answers[it.ID]
+			if it.Rule != curation.RuleNotes && a == "doubt" || it.Rule == curation.RuleDoubt && a == "appears" {
+				doubt = true
+			}
+			if it.Rule == curation.RuleBand && (a == "appears" || a == "doubt") && rank[string(it.MinBand)] > rank[allowed] {
+				allowed = string(it.MinBand)
+			}
+		}
+	}
+	delete(body, "band_reason")
+	if band, _ := body["min_age_band"].(string); !doubt && rank[band] > rank[allowed] {
+		body["band_reason"] = olderReason
+	}
+	return body
+}
+
+// approval approves with clean answers, giving olderReason when band is
+// older than they allow.
 func approval(theme, band string) map[string]any {
-	return map[string]any{"decision": "approve", "theme": theme, "min_age_band": band,
-		"checklist_version": curation.ChecklistVersion, "answers": cleanAnswers()}
+	return withReason(map[string]any{"decision": "approve", "theme": theme, "min_age_band": band,
+		"checklist_version": curation.ChecklistVersion, "answers": cleanAnswers()})
 }
 
 // watched records, as the player does, that tok's reviewer reached the

@@ -17,7 +17,9 @@ import '../staff/challenge.dart';
 import 'adult_window.dart';
 import 'audit_video_screen.dart' show marksFailed;
 import 'curation.dart';
+import 'end_line.dart';
 import 'role_gate.dart';
+import 'unheard_ends.dart';
 import 'video_heading.dart';
 import 'words.dart';
 
@@ -26,6 +28,9 @@ import 'words.dart';
 const heldPlayerFailed =
     'Esse vídeo não abriu aqui. Se ele não passa mais, você pode removê\u2011lo '
     'de vez.';
+
+/// Under a doubt's "Publicar" until the video has played to its end here.
+const heldPublishHint = 'Para publicar, deixe o vídeo tocar até o fim.';
 
 /// Back on the list when the video is no longer held (`state_conflict`, `not_found`).
 const heldGone = 'Esse vídeo não está mais retido.';
@@ -64,9 +69,11 @@ String reportLine(ReportReason reason, int n) => CurationWords.joined([
 /// `/moderacao/retidos/:id`: the held video's title and why it is held;
 /// each refusal by displayed role with its reason; the reports by reason
 /// with their counts, then, under their own heading, the families' notes
-/// quoted, never who; the player, as on the review; then the primary
+/// quoted, never who; the player, as on the review, and, for a doubt, the
+/// line that says whether it played to its end, which a doubt's
+/// "Publicar" waits for with its hint; then the primary
 /// "Reabrir para revisão" and, quiet in clay at the foot, "Remover de
-/// vez". Both confirm full screen with
+/// vez", which never waits. Both confirm full screen with
 /// "Motivo", sent with the write; only the removal goes through
 /// [ReauthWrite]. There is no read of one held
 /// video: the list is read and it found.
@@ -90,6 +97,11 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
   /// The write running is the removal, whose action shows the progress.
   bool _removing = false;
 
+  /// Whether the video played to its end for this moderator: as the
+  /// server recorded it, or seen here this session, heard by the server or
+  /// not. Publishing a doubt waits on it. Once true it stays.
+  bool _playedToEnd = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -103,8 +115,19 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
 
   @override
   void dispose() {
+    _ends?.removeListener(_forgotten);
     _write.dispose();
     super.dispose();
+  }
+
+  UnheardEnds? _ends;
+
+  /// The server refused a publication for want of the end in this round:
+  /// the line and "Publicar" say so again.
+  void _forgotten() {
+    final v = _held?.video;
+    if (v == null || _ends?.forgotten != (v.id, v.round)) return;
+    if (mounted) setState(() => _playedToEnd = false);
   }
 
   Future<void> _read() async {
@@ -116,12 +139,22 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
       if (!mounted) return;
       final held = all.where((h) => h.video.id == widget.id).firstOrNull;
       if (held == null) return _leave(heldGone);
-      setState(() => _held = held);
-      // Publishing a doubt needs the video's end, so the player reports it.
       final ends = scope.moderatorEnds;
+      _ends ??= ends..addListener(_forgotten);
+      setState(() {
+        _held = held;
+        _playedToEnd =
+            _playedToEnd ||
+            held.playedToEnd ||
+            ends.seen(held.video.id, held.video.round);
+      });
+      // Publishing a doubt needs the video's end, so the player reports it.
       openPlayer(
         held.video.youtubeId,
-        onEnded: () => unawaited(ends.report(held.video.id)),
+        onEnded: () {
+          if (mounted) setState(() => _playedToEnd = true);
+          unawaited(ends.report(held.video.id, held.video.round));
+        },
       );
       if (held.heldReason == HeldReason.doubt) unawaited(_readMarks());
     } on Object catch (e) {
@@ -301,18 +334,26 @@ class _HeldVideoScreenState extends State<HeldVideoScreen> with AdultWindow {
         ..._section(notesHeading, [for (final n in notes) '“$n”']),
       const SizedBox(height: Space.xl),
       playerWindow(failed: heldPlayerFailed),
+      // Only a doubt's publication waits on the video's end.
+      if (held.heldReason == HeldReason.doubt) ...[
+        const SizedBox(height: Space.md),
+        EndLine(ended: _playedToEnd),
+      ],
       const SizedBox(height: Space.xl),
       if (_write.message case final message?) ...[
         ErrorNote(message),
         const SizedBox(height: Space.lg),
       ],
       if (held.heldReason == HeldReason.doubt) ...[
+        // The server takes no publication of a video not played to its
+        // end; removing never waits.
         PrimaryButton(
           label: 'Publicar',
-          onPressed: idle
+          onPressed: idle && _playedToEnd
               ? () => context.go(Routes.publishDoubt(v.id), extra: held)
               : null,
         ),
+        SubmitHint(heldPublishHint, visible: !_playedToEnd, reserve: true),
         const SizedBox(height: Space.xxl),
         QuietAction(
           label: 'Remover de vez',

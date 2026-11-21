@@ -22,6 +22,11 @@ enum ApprovalOutcome {
 /// keeps a copy, which [restore] picks up on coming back to the video.
 /// The list is the one a video of [length] is asked: a
 /// short video has no long-video step and sends none of its answers.
+///
+/// The band is stated, not chosen: the curator confirms the one the
+/// answers give ([computedBand]), or says the video is for older children
+/// and picks one of the [olderBands] with a reason. A younger band is never
+/// offered.
 class ApprovalDraft {
   ApprovalDraft(Checklist list, {required this.length})
     : checklist = list.askedOf(length);
@@ -33,14 +38,25 @@ class ApprovalDraft {
   final _answers = <String, ChecklistAnswer>{};
   int _page = 0;
 
-  /// Sent back to a page by the review: going on returns to the review.
-  bool _returning = false;
+  /// Where going on returns to from a page "mudar" opened: the review, or
+  /// the theme and band; null on the way through.
+  int? _returnTo;
+
+  /// Whether the curator said the video is for older children.
+  bool _olderAsked = false;
 
   VideoTheme? theme;
   AgeBand? band;
 
   /// The note sent with a doubt; kept with the rest of the review.
   String? note;
+
+  /// Why the video is for older children than the answers say. It lives
+  /// only as long as the screen: the kept draft has no place for it.
+  String? bandReason;
+
+  /// The longest [bandReason] the server takes.
+  static const bandReasonMax = 200;
 
   int get page => _page;
   int get stepCount => checklist.groups.length - 1;
@@ -52,13 +68,20 @@ class ApprovalDraft {
   ChecklistGroup? get group =>
       _page <= stepCount ? checklist.groups[_page] : null;
 
+  /// The page that asks [item].
+  int pageOf(ChecklistItem item) =>
+      checklist.groups.indexWhere((g) => g.items.any((i) => i.id == item.id));
+
   /// Null until answered.
   ChecklistAnswer? answerOf(ChecklistItem item) => _answers[item.id];
 
   /// Answers [item]. A band the answers or the length now bar is taken
-  /// back if it was chosen, so the band is asked again.
+  /// back, and so is a band confirmed that the answers no longer give, so
+  /// the band is asked again; an older band stated stays.
   void answer(ChecklistItem item, ChecklistAnswer a) {
+    final confirmed = band != null && band == computedBand;
     _answers[item.id] = a;
+    if (confirmed && band != computedBand) band = null;
     _dropBarredBand();
   }
 
@@ -104,12 +127,45 @@ class ApprovalDraft {
   })
   get snapshot => (answers: answers, theme: theme, band: band, note: note);
 
-  /// "Nada disso acontece no vídeo": every question of [g] answered "Não",
-  /// each still open to change.
+  /// The shortcut at the foot of a group: "Não" to every question of [g]
+  /// still open, never changing an answer given; each stays open to
+  /// change.
   void noneOf(ChecklistGroup g) {
     for (final i in g.items) {
-      _answers[i.id] = ChecklistAnswer.ok;
+      _answers.putIfAbsent(i.id, () => ChecklistAnswer.ok);
     }
+  }
+
+  /// How many questions of [g] are still open.
+  int openIn(ChecklistGroup g) =>
+      g.items.where((i) => !_answers.containsKey(i.id)).length;
+
+  /// The first group, in the list's order, with a question still open:
+  /// where a review in progress stopped. Null once every question is
+  /// answered.
+  ChecklistGroup? get stoppedAt =>
+      checklist.groups.where((g) => openIn(g) > 0).firstOrNull;
+
+  /// Where a review in progress picks up: the first page with an open
+  /// question; once every one is answered, the theme and band when the
+  /// answers approve, else the review. A tie to the channel stays on the
+  /// first page, which says so. The one answer both for the page that
+  /// opens and for the words that say where the review stopped.
+  int get resumePage {
+    final stopped = stoppedAt;
+    return conflict
+        ? 0
+        : stopped != null
+        ? checklist.groups.indexOf(stopped)
+        : outcome == ApprovalOutcome.approve
+        ? topicPage
+        : reviewPage;
+  }
+
+  /// Coming back to a review in progress: opens [resumePage].
+  void resume() {
+    _returnTo = null;
+    _page = resumePage;
   }
 
   bool answered(ChecklistGroup g) =>
@@ -157,6 +213,67 @@ class ApprovalDraft {
       if (b != AgeBand.unknown && b.index < computedBand.index) b,
   };
 
+  /// The bands older than [computedBand], youngest first: what "É para
+  /// mais velhos" offers; none when the answers give the oldest.
+  List<AgeBand> get olderBands => [
+    for (final b in AgeBand.values)
+      if (b != AgeBand.unknown && b.index > computedBand.index) b,
+  ];
+
+  /// The band questions answered Sim or "Não sei", in the list's order:
+  /// the answers that moved the band.
+  List<(ChecklistItem, ChecklistAnswer)> get bandAnswers => [
+    for (final i in checklist.items)
+      if (i.rule == ChecklistRule.band)
+        if (_answers[i.id] case final a?
+            when a == ChecklistAnswer.appears || a == ChecklistAnswer.doubt)
+          (i, a),
+  ];
+
+  /// Whether the band stated is older than the answers give.
+  bool get statesOlder => band != null && band!.index > computedBand.index;
+
+  /// Whether the older bands and the reason are open: asked for, or an
+  /// older band already stated (a kept draft).
+  bool get olderOpen => _olderAsked || statesOlder;
+
+  /// Counted in characters, as the field and the server count them, not
+  /// in code units: an emoji is one.
+  String? get _reason {
+    final r = bandReason?.trim();
+    return r == null || r.isEmpty || r.runes.length > bandReasonMax ? null : r;
+  }
+
+  /// The reason the approval carries: only with an older band.
+  String? get reasonToSend => statesOlder ? _reason : null;
+
+  /// "É para mais velhos": the older bands open, the only one chosen.
+  void askOlder() {
+    _olderAsked = true;
+    if (!statesOlder) {
+      final older = olderBands;
+      band = older.length == 1 ? older.single : null;
+    }
+  }
+
+  /// "Ficar com": back to confirming the band the answers give.
+  void keepComputed() {
+    _olderAsked = false;
+    band = null;
+  }
+
+  /// "Confirmar": states the band the answers give and goes on.
+  void confirmBand() {
+    _olderAsked = false;
+    band = computedBand;
+    forward();
+  }
+
+  /// Whether the theme and band are stated as the server takes them: a
+  /// theme and a band, an older one with its reason.
+  bool get topicReady =>
+      theme != null && band != null && (!statesOlder || _reason != null);
+
   /// The team decides: a "Não sei", or a Sim on a question that asks for
   /// it. A question only kept for the team decides nothing, whatever its
   /// answer.
@@ -187,21 +304,24 @@ class ApprovalDraft {
   ];
 
   /// Whether the page's primary may go on: a group once every question is
-  /// answered (and no tie), the theme and band once both are chosen.
+  /// answered (and no tie); the theme and band, confirming, once a theme
+  /// is chosen, and stating an older band, once [topicReady].
   bool get canGoOn {
     final g = group;
     if (g != null) return answered(g) && !conflict;
-    if (_page == topicPage) return theme != null && band != null;
+    if (_page == topicPage) return olderOpen ? topicReady : theme != null;
     return true;
   }
 
   /// Where going on leads. An approval passes through the theme and band
   /// before the review, also after a change from the review made it one.
   int get _next {
-    final needsTopic =
-        outcome == ApprovalOutcome.approve && (theme == null || band == null);
-    if (_returning) {
-      return needsTopic && _page != topicPage ? topicPage : reviewPage;
+    final approve = outcome == ApprovalOutcome.approve;
+    if (_returnTo == topicPage) return approve ? topicPage : reviewPage;
+    if (_returnTo != null) {
+      return approve && !topicReady && _page != topicPage
+          ? topicPage
+          : reviewPage;
     }
     if (_page < stepCount) return _page + 1;
     if (_page == stepCount) {
@@ -218,7 +338,7 @@ class ApprovalDraft {
 
   void forward() {
     _page = _next;
-    _returning = false;
+    _returnTo = null;
   }
 
   /// One page back: the review goes back to the theme and band when it
@@ -227,12 +347,14 @@ class ApprovalDraft {
   /// on (a tie to the channel just marked cannot). Otherwise false on the
   /// first page, which the screen leaves.
   bool back() {
-    if (_returning) {
-      if (canGoOn) {
+    if (_returnTo != null) {
+      // Back never states a band: the theme and band go back only once
+      // stated as the server takes them.
+      if (_page == topicPage ? topicReady : canGoOn) {
         forward();
         return true;
       }
-      _returning = false;
+      _returnTo = null;
     }
     if (_page == 0) return false;
     if (_page == reviewPage) {
@@ -246,6 +368,14 @@ class ApprovalDraft {
   /// "mudar" on the review: [page] again, then back to the review.
   void change(int page) {
     _page = page;
-    _returning = true;
+    _returnTo = reviewPage;
+  }
+
+  /// "mudar" beside an answer on the theme and band: [page] again, then
+  /// back to the theme and band (or to the review, when the answers no
+  /// longer approve).
+  void changeFromTopic(int page) {
+    _page = page;
+    _returnTo = topicPage;
   }
 }

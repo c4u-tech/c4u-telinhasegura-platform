@@ -32,8 +32,9 @@ const (
 // list, or a rejection with the questions it failed. An approval whose
 // answers make it a doubt may leave both the theme and the band out: the
 // moderator who decides it chooses them. Note is the curator's own words:
-// a rejection's, or a doubt's. BandReason, optional, is why a plain
-// approval states a band older than its answers call for.
+// a rejection's, or a doubt's. BandReason is why a plain
+// approval states a band older than its answers call for, which such an
+// approval must give.
 type ReviewInput struct {
 	Decision         Decision
 	Theme            string
@@ -360,8 +361,8 @@ type entry struct {
 // cite them, and the answers to them an app built before them still sends
 // are dropped unjudged, as if never sent. A stated band may not be younger
 // than the one the answers and the length allow: a band question's yes or
-// "I don't know" allows from its own band up. An older one may say why, and only an
-// older one in a plain approval may.
+// "I don't know" allows from its own band up. An older one in a plain
+// approval must say why, and only such a one may.
 func prepare(in ReviewInput, long, overYoungest bool) (entry, error) {
 	if in.Decision != Approve && in.Decision != Reject {
 		return entry{}, ErrValidation
@@ -420,8 +421,11 @@ func prepare(in ReviewInput, long, overYoungest bool) (entry, error) {
 		return entry{}, err
 	}
 	// A note travels only with a doubt, and a plain approval names its
-	// theme and its band. A band reason explains only an older band.
-	if !doubt && (in.Note != "" || !named) || bandReason != "" && (doubt || bandRank(in.MinAgeBand) <= bandRank(computed)) {
+	// theme and its band. A band reason explains only an older band, and a
+	// plain approval that states an older band must give one.
+	older := bandRank(in.MinAgeBand) > bandRank(computed)
+	if !doubt && (in.Note != "" || !named || older && bandReason == "") ||
+		bandReason != "" && (doubt || !older) {
 		return entry{}, ErrValidation
 	}
 	list, err := json.Marshal(answers)
