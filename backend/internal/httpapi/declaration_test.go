@@ -37,7 +37,7 @@ func TestCuratorRoutesWaitForTheCuratorTerms(t *testing.T) {
 		Accepted bool   `json:"accepted"`
 	}
 	getJSON(t, a.do(http.MethodGet, "/v1/curation/declaration", nil, bearer(bia)...), &d)
-	if d.Version != "2026-10-20" || d.Text != curation.CuratorTermsText || d.Accepted {
+	if d.Version != "2026-11-24" || d.Text != curation.CuratorTermsText || d.Accepted {
 		t.Fatalf("declaration %+v", d)
 	}
 	if r := a.do(http.MethodPost, "/v1/curation/declaration", map[string]string{"version": "2026-01-01"}, bearer(bia)...); r.Code != http.StatusConflict || r.problemCode() != "declaration_outdated" {
@@ -47,7 +47,7 @@ func TestCuratorRoutesWaitForTheCuratorTerms(t *testing.T) {
 	if !d.Accepted {
 		t.Fatalf("accept %+v", d)
 	}
-	if n := a.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-10-20'
+	if n := a.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-11-24'
 		AND accepted_at = $2`, a.accountID(bia), a.now); n != 1 {
 		t.Fatal("the acceptance was not stored")
 	}
