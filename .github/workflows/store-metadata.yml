@@ -5,7 +5,10 @@ name: store-metadata
 # when the images box is ticked (they replace the ones the stores show). No
 # build, no review submission. On Google Play the texts go live at once; on
 # the App Store they belong to the version being prepared (the app version in
-# pubspec.yaml) and reach users when that version is released.
+# pubspec.yaml, or the one named in the version box) and reach users when that
+# version is released. The App Store freezes a version's screenshots once it is
+# submitted for review, so the images of the next version are sent with the
+# version box filled, before its release is cut.
 
 on:
   workflow_dispatch:
@@ -14,6 +17,10 @@ on:
         description: Send the screenshots and the feature graphic too
         type: boolean
         default: false
+      version:
+        description: App Store version to prepare, such as 1.2.3 (empty for the current one)
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -47,7 +54,8 @@ jobs:
         working-directory: app
         env:
           IMAGES: ${{ inputs.images }}
+          VERSION: ${{ inputs.version }}
           ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: bundle exec fastlane metadata "images:$IMAGES"
+        run: bundle exec fastlane metadata "images:$IMAGES" "version:$VERSION"

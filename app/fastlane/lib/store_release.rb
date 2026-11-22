@@ -36,6 +36,17 @@ module StoreRelease
     match[1]
   end
 
+  # The App Store version the listing texts and images attach to: the
+  # pubspec's, unless another is asked for. A release freezes its version's
+  # screenshots once it is submitted for review, so the images of the next
+  # version have to be sent while the pubspec still names the one in the store.
+  def listing_version(asked, pubspec_text)
+    asked = asked.to_s.strip
+    return version_name(pubspec_text) if asked.empty?
+    raise ArgumentError, "not an app version (expected 1.2.3): #{asked}" unless asked.match?(/\A\d+\.\d+\.\d+\z/)
+    asked
+  end
+
   # Without a new binary, supply only touches a track when it is given a
   # rollout fraction: 1 completes the release, and halting must restate
   # the fraction the release is at. Each call builds a fresh hash so a

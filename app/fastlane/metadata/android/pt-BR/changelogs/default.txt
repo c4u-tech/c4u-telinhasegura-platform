@@ -1,2 +1,5 @@
 Novidades desta versão:
-• "Sugestões de vídeos", no início, agora abre suas sugestões: você vê como cada uma está na curadoria e sugere um vídeo novo dali. Voltar leva sempre ao lugar de onde você veio.
+• Cara nova: o Tevi, nosso mascote, chega ao app, com cores e telas redesenhadas.
+• A tela da criança agora é um mosaico de temas, com figuras grandes para quem ainda não lê.
+• Revisão de vídeos: o vídeo fica à vista enquanto você responde, a faixa de idade sai das suas respostas e a revisão continua de onde parou.
+• Sem conexão ao abrir? O app avisa e deixa tentar de novo.
