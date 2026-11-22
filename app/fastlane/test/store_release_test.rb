@@ -34,6 +34,23 @@ class StoreReleaseTest < Minitest::Test
     assert_raises(ArgumentError) { StoreRelease.version_name("name: app\n") }
   end
 
+  def test_listing_version_defaults_to_the_pubspec
+    assert_equal "0.2.0", StoreRelease.listing_version(nil, "version: 0.2.0+3\n")
+    assert_equal "0.2.0", StoreRelease.listing_version("", "version: 0.2.0+3\n")
+    assert_equal "0.2.0", StoreRelease.listing_version("  ", "version: 0.2.0+3\n")
+  end
+
+  def test_listing_version_takes_the_version_asked_for
+    assert_equal "0.3.0", StoreRelease.listing_version("0.3.0", "version: 0.2.0+3\n")
+    assert_equal "0.3.0", StoreRelease.listing_version(" 0.3.0 ", "version: 0.2.0+3\n")
+  end
+
+  def test_listing_version_refuses_anything_but_a_version_name
+    ["v0.3.0", "0.3", "0.3.0+4", "app-v0.3.0", "0.3.0\n1.0.0"].each do |asked|
+      assert_raises(ArgumentError, asked) { StoreRelease.listing_version(asked, "version: 0.2.0+3\n") }
+    end
+  end
+
   def test_rollout_change
     assert_equal({ rollout: "0.5" }, StoreRelease.rollout_change("50"))
     # A fraction of 1 is what makes supply complete the release.

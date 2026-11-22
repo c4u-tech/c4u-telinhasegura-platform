@@ -1,2 +1,5 @@
 What's new in this version:
-• "Sugestões de vídeos" on the home screen now opens your suggestions: see where each one stands with the curators and suggest a new video from there. Going back always returns you to where you came from.
+• A new look: Tevi, our mascot, arrives in the app, with redesigned colours and screens.
+• The child's screen is now a mosaic of themes, with large pictures for those who cannot read yet.
+• Reviewing videos: the video stays in view while you answer, the age band comes from your answers and a review picks up where you left off.
+• No connection when the app opens? It says so and lets you try again.

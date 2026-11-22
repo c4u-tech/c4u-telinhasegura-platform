@@ -206,6 +206,14 @@ end
 
 desc "Send the store texts, and the images with images:true (no binary, no review submission)"
 lane :metadata do |options|
+  # The App Store side goes to the pubspec version unless another is asked
+  # for (fastlane metadata version:1.2.3). Settle it before anything is sent,
+  # so a mistyped version stops the run before Google Play changes.
+  begin
+    version = StoreRelease.listing_version(options[:version], File.read(File.join(APP_DIR, "pubspec.yaml")))
+  rescue ArgumentError => e
+    UI.user_error!(e.message)
+  end
   # Images are heavy and replace what the stores show, so they go only when
   # asked: fastlane metadata images:true
   images = options[:images].to_s == "true"
@@ -229,12 +237,11 @@ lane :metadata do |options|
     skip_upload_screenshots: !images,
     skip_upload_changelogs: true
   )
-  # The texts attach to the pubspec version, which is created if it does not
-  # exist yet.
+  # The version is created if it does not exist yet.
   upload_to_app_store(
     api_key: asc_api_key,
     app_identifier: APP_ID,
-    app_version: StoreRelease.version_name(File.read(File.join(APP_DIR, "pubspec.yaml"))),
+    app_version: version,
     metadata_path: File.join(APP_DIR, "fastlane/metadata/ios"),
     skip_binary_upload: true,
     skip_screenshots: !images,
