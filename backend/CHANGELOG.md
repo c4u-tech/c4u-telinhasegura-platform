@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.3.1...backend-v0.4.0) (2026-11-22)
+
+
+### Features
+
+* **curation:** compute the age band from the answers and keep a review's progress ([#137](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/137)) ([04024cc](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/04024cc5a9d10a2b926001bdec46a987bdaf5d15))
+* **curation:** keep the video and the facts together through a review ([#139](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/139)) ([059953c](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/059953c4c83bbf2598979f828f5160afd6447bb1))
+* **curation:** let an unsure answer bar the band and hold a moderator's publication to the video's end ([#138](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/138)) ([26dc0fa](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/26dc0fa21bd33edc946e7f71b3417ea25d7e6efd))
+
 ## [0.3.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/backend-v0.3.0...backend-v0.3.1) (2026-11-15)
 
 
