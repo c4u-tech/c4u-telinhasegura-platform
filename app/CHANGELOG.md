@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.7.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.6.1...app-v0.7.0) (2026-11-22)
+
+
+### Features
+
+* **app:** bring the new mascot into the app ([#129](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/129)) ([4505cf3](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/4505cf37085c44615fdfa9c1a7ed687a062bec3e))
+* **app:** give the app one motion scale, an assembled opening and motion that answers events ([#131](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/131)) ([316e252](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/316e252770f581793e046039acb74949bed978c5))
+* **app:** rebuild the child's screens as a mosaic of themes ([#130](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/130)) ([10c7835](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/10c7835e32c91923a711e620bd917c1570d99cc6))
+* **app:** show who saw a video before as birds on a wire, and tidy the guardian home ([#132](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/132)) ([6e38ac4](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/6e38ac468fc4dd7d44068dba42144eff1f2770d0))
+* **brand:** draw the new mascot identity in the brand generator ([#128](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/128)) ([3c45ab9](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/3c45ab972189b2846ae3046959e6b911844adfa9))
+* **curation:** compute the age band from the answers and keep a review's progress ([#137](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/137)) ([04024cc](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/04024cc5a9d10a2b926001bdec46a987bdaf5d15))
+* **curation:** keep the video and the facts together through a review ([#139](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/139)) ([059953c](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/059953c4c83bbf2598979f828f5160afd6447bb1))
+* **curation:** let an unsure answer bar the band and hold a moderator's publication to the video's end ([#138](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/138)) ([26dc0fa](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/26dc0fa21bd33edc946e7f71b3417ea25d7e6efd))
+
+
+### Bug Fixes
+
+* **app:** clear the system bars, give a new account the navigation and smooth the review's exits ([#140](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/140)) ([4b25d20](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/4b25d20719fff896e55672b21b40778ca4c05cc7))
+* **app:** give the app's start without a connection its own screen ([#141](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/141)) ([f5d707d](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/f5d707db39304b34f093189f4d738264056af70d))
+* **app:** stop calling the child's home shelves in the app's texts ([#136](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/136)) ([42de63f](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/42de63f12a07d5d5b55aeca3ff45522f96ed30eb))
+
 ## [0.6.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.6.0...app-v0.6.1) (2026-11-13)
 
 
