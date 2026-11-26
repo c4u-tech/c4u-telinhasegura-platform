@@ -8,13 +8,13 @@ import (
 
 // CuratorTermsVersion names the curator terms in force. A curator who has
 // not accepted this version reviews nothing.
-const CuratorTermsVersion = "2026-10-20"
+const CuratorTermsVersion = "2026-11-24"
 
 // CuratorTermsText is what a curator promises, shown with its version.
 const CuratorTermsText = "Ao fazer parte da curadoria, você se compromete a: aplicar os critérios publicados em " +
 	"Como escolhemos os vídeos e responder à lista de perguntas a cada vídeo; não revisar " +
 	"vídeos do seu próprio canal, de parentes, nem de empresas ou marcas com que você tenha " +
-	"vínculo ou que te paguem; marcar 'tenho dúvida' sempre que não tiver certeza; avisar a " +
+	"vínculo ou que te paguem; responder 'Não sei' sempre que não tiver certeza; avisar a " +
 	"equipe e deixar a curadoria se surgir um conflito. A Coding4u pode rever suas decisões e " +
 	"retirar você da curadoria."
 

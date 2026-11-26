@@ -140,7 +140,7 @@ func serve(log *slog.Logger) error {
 		IDTokens:   idTokens,
 		Now:        now,
 		AppBaseURL: cfg.AppBaseURL,
-		GraceUntil: cfg.LegalGraceUntil,
+		GraceUntil: cfg.TermsGraceUntil,
 	})
 	fam := family.NewService(family.Deps{
 		Pool:          pool,
