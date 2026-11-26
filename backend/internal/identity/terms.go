@@ -10,13 +10,13 @@ import (
 // TermsVersion is the date of the terms of use and the privacy policy
 // published on the site. A change that matters to users bumps it, and every
 // account accepts the new version once.
-const TermsVersion = "2026-11-11"
+const TermsVersion = "2026-11-24"
 
 // PreviousTermsVersion is the version before TermsVersion. It still
 // counts until the grace end the service is given, because the server
 // changes before the app that shows the new terms reaches the stores: a
 // family on the previous app has no update to install yet.
-const PreviousTermsVersion = "2026-10-21"
+const PreviousTermsVersion = "2026-11-11"
 
 // ErrTermsOutdated means the version the client showed is not the current one.
 var ErrTermsOutdated = errors.New("identity: terms version outdated")

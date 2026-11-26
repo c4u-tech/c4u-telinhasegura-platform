@@ -11,7 +11,7 @@ import (
 const curatorTerms = "Ao fazer parte da curadoria, você se compromete a: aplicar os critérios publicados em " +
 	"Como escolhemos os vídeos e responder à lista de perguntas a cada vídeo; não revisar " +
 	"vídeos do seu próprio canal, de parentes, nem de empresas ou marcas com que você tenha " +
-	"vínculo ou que te paguem; marcar 'tenho dúvida' sempre que não tiver certeza; avisar a " +
+	"vínculo ou que te paguem; responder 'Não sei' sempre que não tiver certeza; avisar a " +
 	"equipe e deixar a curadoria se surgir um conflito. A Coding4u pode rever suas decisões e " +
 	"retirar você da curadoria."
 
@@ -19,7 +19,7 @@ func TestCuratorDeclaration(t *testing.T) {
 	f := newFixture(t)
 	c := f.curator("bia@example.com", curation.MaePai)
 	d, err := f.svc.Declaration(ctx, c)
-	if err != nil || d.Version != "2026-10-20" || d.Text != curatorTerms || d.Accepted {
+	if err != nil || d.Version != "2026-11-24" || d.Text != curatorTerms || d.Accepted {
 		t.Fatalf("declaration %+v %v", d, err)
 	}
 	// An older version accepted earlier does not count.
@@ -35,7 +35,7 @@ func TestCuratorDeclaration(t *testing.T) {
 			t.Fatalf("accept: %+v %v", d, err)
 		}
 	}
-	if n := f.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-10-20'
+	if n := f.count(`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-11-24'
 		AND accepted_at = $2`, c, f.now); n != 1 {
 		t.Fatalf("acceptances stored: %d", n)
 	}
@@ -66,7 +66,7 @@ func TestSweepDeclarations(t *testing.T) {
 		t.Fatal(err)
 	}
 	for q, want := range map[string]int{
-		`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-10-20'`: 1,
+		`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2026-11-24'`: 1,
 		`SELECT count(*) FROM curator_declarations WHERE account_id = $1::uuid AND version = '2020-01-01'`: 0,
 	} {
 		if n := f.count(q, bia); n != want {

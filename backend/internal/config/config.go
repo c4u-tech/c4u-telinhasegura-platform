@@ -48,9 +48,12 @@ type Config struct {
 	StaffMFARequired                  bool           // admin and moderator routes need an elevation
 	StaffMFAKey                       []byte         // seals TOTP secrets; nil: the MFA routes answer 503
 	TrustedProxies                    []netip.Prefix // peers whose X-Forwarded-For is believed
-	// LegalGraceUntil is when the previous terms and consent text stop
-	// counting as accepted; zero means they do not count at all.
+	// LegalGraceUntil is when the previous consent text stops counting as
+	// accepted; zero means it does not count at all.
 	LegalGraceUntil time.Time
+	// TermsGraceUntil is the same for the previous terms of use. The two
+	// texts change on their own dates, so each has its own last day.
+	TermsGraceUntil time.Time
 
 	SMTPHost         string // empty: mail goes to .eml files under MAIL_DIR
 	SMTPPort         int    // 465 means implicit TLS
@@ -66,9 +69,13 @@ type Config struct {
 	AppleKey    *ecdsa.PrivateKey
 }
 
-// legalGraceDefault is the last day the previous terms and consent text
-// count, giving the app that shows the new ones time to reach the stores.
-const legalGraceDefault = "2026-11-25"
+// legalGraceDefault is the last day the previous consent text counts,
+// and termsGraceDefault the last day the previous terms of use do, giving
+// the app that shows the new ones time to reach the stores.
+const (
+	legalGraceDefault = "2026-11-25"
+	termsGraceDefault = "2026-12-08"
+)
 
 // Load reads the settings through getenv, where an empty value is unset.
 func Load(getenv func(string) string) (Config, error) {
@@ -79,8 +86,8 @@ func Load(getenv func(string) string) (Config, error) {
 }
 
 // LoadLookup reads the settings through lookup, as os.LookupEnv answers:
-// a setting may be present but empty, which LEGAL_GRACE_UNTIL tells apart
-// from an unset one.
+// a setting may be present but empty, which LEGAL_GRACE_UNTIL and
+// TERMS_GRACE_UNTIL tell apart from an unset one.
 func LoadLookup(lookup func(string) (string, bool)) (Config, error) {
 	getenv := func(k string) string {
 		v, _ := lookup(k)
@@ -123,6 +130,9 @@ func LoadLookup(lookup func(string) (string, bool)) (Config, error) {
 		}
 	}
 	if c.LegalGraceUntil, err = graceSetting(lookup, "LEGAL_GRACE_UNTIL", legalGraceDefault); err != nil {
+		return Config{}, err
+	}
+	if c.TermsGraceUntil, err = graceSetting(lookup, "TERMS_GRACE_UNTIL", termsGraceDefault); err != nil {
 		return Config{}, err
 	}
 	if c.TrustedProxies, err = clientip.ParseList(getenv("TRUSTED_PROXIES")); err != nil {

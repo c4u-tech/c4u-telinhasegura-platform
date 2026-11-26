@@ -68,6 +68,7 @@ func TestLoadAppliesDefaultsAndSplitsOrigins(t *testing.T) {
 		MailAllowed:                       noMailAllowlist(t),
 		MailPollInterval:                  5 * time.Second,
 		LegalGraceUntil:                   time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC),
+		TermsGraceUntil:                   time.Date(2026, 12, 9, 3, 0, 0, 0, time.UTC),
 	}
 	if !reflect.DeepEqual(c, want) {
 		t.Fatalf("got %+v, want %+v", c, want)
@@ -499,6 +500,50 @@ func TestLegalGraceDefaultsToTheEndOf25NovemberInSaoPaulo(t *testing.T) {
 	c, err = config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y"}))
 	if err != nil || !c.LegalGraceUntil.Equal(want) {
 		t.Fatalf("LoadLookup default: %s %v", c.LegalGraceUntil, err)
+	}
+}
+
+// The terms of use changed after the consent text did, so each previous
+// text has its own last day.
+func TestTermsGraceDefaultsToTheEndOf8DecemberInSaoPaulo(t *testing.T) {
+	want := time.Date(2026, 12, 9, 3, 0, 0, 0, time.UTC) // midnight in São Paulo, UTC-3
+	c, err := config.Load(env(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y"}))
+	if err != nil || !c.TermsGraceUntil.Equal(want) {
+		t.Fatalf("Load default: %s %v", c.TermsGraceUntil, err)
+	}
+}
+
+func TestTermsGraceIsSetApartFromTheConsentGrace(t *testing.T) {
+	c, err := config.LoadLookup(lookup(map[string]string{
+		"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": "2026-12-01", "TERMS_GRACE_UNTIL": " 2026-12-20 ",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 12, 2, 3, 0, 0, 0, time.UTC); !c.LegalGraceUntil.Equal(want) {
+		t.Errorf("consent grace %s, want %s", c.LegalGraceUntil, want)
+	}
+	if want := time.Date(2026, 12, 21, 3, 0, 0, 0, time.UTC); !c.TermsGraceUntil.Equal(want) {
+		t.Errorf("terms grace %s, want %s", c.TermsGraceUntil, want)
+	}
+	// Setting one leaves the other at its default.
+	c, err = config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "LEGAL_GRACE_UNTIL": "2026-12-01"}))
+	if want := time.Date(2026, 12, 9, 3, 0, 0, 0, time.UTC); err != nil || !c.TermsGraceUntil.Equal(want) {
+		t.Errorf("terms grace %s %v, want the default %s", c.TermsGraceUntil, err, want)
+	}
+}
+
+func TestTermsGraceSetButEmptyMeansNoGrace(t *testing.T) {
+	c, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "TERMS_GRACE_UNTIL": ""}))
+	if err != nil || !c.TermsGraceUntil.IsZero() {
+		t.Fatalf("%s %v", c.TermsGraceUntil, err)
+	}
+}
+
+func TestTermsGraceRefusesAnInvalidDate(t *testing.T) {
+	_, err := config.LoadLookup(lookup(map[string]string{"DATABASE_URL": "x", "APP_BASE_URL": "y", "TERMS_GRACE_UNTIL": "08/12/2026"}))
+	if err == nil || !strings.Contains(err.Error(), "TERMS_GRACE_UNTIL") {
+		t.Fatalf("got %v", err)
 	}
 }
 
