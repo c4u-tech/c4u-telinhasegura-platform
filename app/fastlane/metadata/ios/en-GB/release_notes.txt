@@ -1,5 +1,2 @@
 What's new in this version:
-• A new look: Tevi, our mascot, arrives in the app, with redesigned colours and screens.
-• The child's screen is now a mosaic of themes, with large pictures for those who cannot read yet.
-• Reviewing videos: the video stays in view while you answer, the age band comes from your answers and a review picks up where you left off.
-• No connection when the app opens? It says so and lets you try again.
+• We have updated the Terms of Use and the Privacy Policy. When you open the app, you will see the new version to read and accept.
