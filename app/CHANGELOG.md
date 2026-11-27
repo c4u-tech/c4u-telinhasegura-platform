@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.7.0...app-v0.7.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **legal:** date the terms and the privacy policy as they read now and ask curators to accept their term again ([#151](https://github.com/c4u-tech/c4u-telinhasegura-platform/issues/151)) ([c5bf22c](https://github.com/c4u-tech/c4u-telinhasegura-platform/commit/c5bf22c51a6721c642c287b9fb6463e3d2b763b2))
+
 ## [0.7.0](https://github.com/c4u-tech/c4u-telinhasegura-platform/compare/app-v0.6.1...app-v0.7.0) (2026-11-22)
 
 
